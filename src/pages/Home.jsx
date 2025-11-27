@@ -62,7 +62,7 @@ const MODULES = [
     id: 'impairments',
     title: 'Impairment Library',
     description: 'Visual reference for scope & OTDR defects',
-    icon: Image,
+    icon: ImageIcon,
     color: 'from-violet-500 to-purple-600',
     page: 'Impairments',
     badge: 'Reference'
