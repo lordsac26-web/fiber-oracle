@@ -6,7 +6,7 @@ import {
   Calculator, 
   Stethoscope, 
   Sparkles, 
-  Image, 
+  ImageIcon, 
   BookOpen, 
   Activity,
   Zap,
