@@ -311,7 +311,7 @@ export default function ImpairmentLibrary() {
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white">
-            <Image className="h-6 w-6" />
+            <ImageIcon className="h-6 w-6" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Impairment Library</h2>
