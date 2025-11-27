@@ -4,6 +4,7 @@ import OLTSTest from './pages/OLTSTest';
 import FiberDoctor from './pages/FiberDoctor';
 import Cleaning from './pages/Cleaning';
 import Impairments from './pages/Impairments';
+import ReferenceTables from './pages/ReferenceTables';
 
 
 export const PAGES = {
@@ -13,6 +14,7 @@ export const PAGES = {
     "FiberDoctor": FiberDoctor,
     "Cleaning": Cleaning,
     "Impairments": Impairments,
+    "ReferenceTables": ReferenceTables,
 }
 
 export const pagesConfig = {
