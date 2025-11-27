@@ -6,6 +6,7 @@ import Cleaning from './pages/Cleaning';
 import Impairments from './pages/Impairments';
 import ReferenceTables from './pages/ReferenceTables';
 import Settings from './pages/Settings';
+import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
@@ -22,4 +23,5 @@ export const PAGES = {
 export const pagesConfig = {
     mainPage: "Home",
     Pages: PAGES,
+    Layout: __Layout,
 };
