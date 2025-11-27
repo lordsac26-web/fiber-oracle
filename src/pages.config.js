@@ -5,6 +5,7 @@ import FiberDoctor from './pages/FiberDoctor';
 import Cleaning from './pages/Cleaning';
 import Impairments from './pages/Impairments';
 import ReferenceTables from './pages/ReferenceTables';
+import Settings from './pages/Settings';
 
 
 export const PAGES = {
@@ -15,6 +16,7 @@ export const PAGES = {
     "Cleaning": Cleaning,
     "Impairments": Impairments,
     "ReferenceTables": ReferenceTables,
+    "Settings": Settings,
 }
 
 export const pagesConfig = {
