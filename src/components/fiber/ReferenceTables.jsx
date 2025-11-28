@@ -188,47 +188,6 @@ const CONNECTOR_TYPES = [
     notes: 'Rarely encountered. LC is preferred alternative.'
   }
 ];
-  testEquipment: [
-    { name: 'VIAVI Solutions', url: 'https://www.viavisolutions.com', description: 'OTDR, OLTS, fiber test equipment' },
-    { name: 'EXFO', url: 'https://www.exfo.com', description: 'Test & measurement, network monitoring' },
-    { name: 'Fluke Networks', url: 'https://www.flukenetworks.com', description: 'Certifiers, OTDRs, cable testers' },
-    { name: 'AFL', url: 'https://www.aflglobal.com', description: 'Test equipment, fusion splicers, accessories' },
-    { name: 'Kingfisher', url: 'https://www.kingfisherfiber.com', description: 'Power meters, light sources, test kits' },
-  ],
-  fusionSplicers: [
-    { name: 'Fujikura', url: 'https://www.fujikura.com', description: 'Premium fusion splicers and cleavers' },
-    { name: 'Sumitomo Electric', url: 'https://www.sumitomoelectric.com', description: 'Fusion splicers, fiber products' },
-    { name: 'FITEL / Furukawa', url: 'https://www.fitel.com', description: 'Splicers, fiber products' },
-    { name: 'INNO Instrument', url: 'https://www.innoinstrument.com', description: 'Affordable fusion splicers' },
-  ],
-  fiberManufacturers: [
-    { name: 'Corning', url: 'https://www.corning.com/optical-communications', description: 'Fiber, cable, connectivity solutions' },
-    { name: 'Prysmian Group', url: 'https://www.prysmiangroup.com', description: 'Cables and fiber products' },
-    { name: 'CommScope', url: 'https://www.commscope.com', description: 'Infrastructure, connectivity' },
-    { name: 'OFS (Furukawa)', url: 'https://www.ofsoptics.com', description: 'Specialty and standard fibers' },
-    { name: 'Sterlite Technologies', url: 'https://www.stl.tech', description: 'Fiber and cable manufacturing' },
-  ],
-  connectorsAccessories: [
-    { name: 'Senko', url: 'https://www.senko.com', description: 'Connectors, adapters, cleaning products' },
-    { name: 'US Conec (MTP)', url: 'https://www.usconec.com', description: 'MPO/MTP connectors and accessories' },
-    { name: 'Diamond SA', url: 'https://www.diamond-fo.com', description: 'E2000 and specialty connectors' },
-    { name: 'Amphenol', url: 'https://www.amphenol.com', description: 'Connectors and interconnects' },
-    { name: 'Sticklers / MicroCare', url: 'https://www.sticklers.com', description: 'Fiber cleaning products' },
-  ],
-  standardsOrganizations: [
-    { name: 'TIA (Telecommunications Industry Association)', url: 'https://www.tiaonline.org', description: 'TIA-568, TIA-526 standards' },
-    { name: 'IEEE', url: 'https://www.ieee.org', description: 'IEEE 802.3 Ethernet standards' },
-    { name: 'IEC', url: 'https://www.iec.ch', description: 'IEC 61300 connector standards' },
-    { name: 'ITU-T', url: 'https://www.itu.int', description: 'G.652, G.657 fiber standards' },
-    { name: 'Fiber Optic Association (FOA)', url: 'https://www.foa.org', description: 'Training, certification, resources' },
-  ],
-  training: [
-    { name: 'FOA (Fiber Optic Association)', url: 'https://www.foa.org', description: 'CFOT, CFOS certifications' },
-    { name: 'Light Brigade', url: 'https://www.lightbrigade.com', description: 'Hands-on fiber training' },
-    { name: 'BICSI', url: 'https://www.bicsi.org', description: 'ICT installer certifications' },
-    { name: 'The Fiber School', url: 'https://www.thefiberschool.com', description: 'Online and in-person training' },
-  ]
-};
 
 export default function ReferenceTables() {
   const [searchTerm, setSearchTerm] = useState('');
