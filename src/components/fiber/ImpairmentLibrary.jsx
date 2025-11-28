@@ -466,7 +466,7 @@ export default function ImpairmentLibrary() {
                 onClick={() => setSelectedImpairment(item)}
               >
                 <CardContent className="p-4">
-                  {/* Visual representation placeholder */}
+                  {/* Visual representation */}
                   <div className={`aspect-square rounded-xl mb-4 flex items-center justify-center bg-gradient-to-br ${
                     item.colorScheme === 'emerald' ? 'from-emerald-100 to-emerald-200' :
                     item.colorScheme === 'amber' ? 'from-amber-100 to-amber-200' :
@@ -474,39 +474,46 @@ export default function ImpairmentLibrary() {
                     item.colorScheme === 'red' ? 'from-red-100 to-red-200' :
                     'from-gray-100 to-gray-200'
                   }`}>
-                    <div className="relative">
-                      {/* Simplified fiber end-face visualization */}
-                      <div className="w-24 h-24 rounded-full border-4 border-gray-400 bg-gray-200 flex items-center justify-center relative overflow-hidden">
-                        {/* Core */}
-                        <div className={`w-3 h-3 rounded-full ${
-                          item.zones.core.includes('FAIL') || item.zones.core.includes('Scratch') || item.zones.core.includes('Pit') 
-                            ? 'bg-red-500' 
-                            : item.zones.core === 'Clear' ? 'bg-blue-500' 
-                            : 'bg-amber-400'
-                        }`} />
-                        {/* Impairment indicators */}
-                        {item.category === 'contamination' && (
-                          <>
-                            <div className="absolute top-4 left-6 w-1.5 h-1.5 rounded-full bg-gray-600" />
-                            <div className="absolute top-8 right-5 w-1 h-1 rounded-full bg-gray-600" />
-                            <div className="absolute bottom-6 left-8 w-2 h-2 rounded-full bg-gray-500" />
-                          </>
-                        )}
-                        {item.id === 'scratches_core' && (
-                          <div className="absolute w-full h-0.5 bg-red-500 rotate-45" />
-                        )}
-                        {item.id === 'scratches_cladding' && (
-                          <div className="absolute w-6 h-0.5 bg-orange-500 rotate-12 top-3 right-2" />
-                        )}
-                        {item.id === 'pitting' && (
-                          <>
-                            <div className="absolute top-3 left-4 w-2 h-2 rounded-full bg-black" />
-                            <div className="absolute bottom-4 right-5 w-1.5 h-1.5 rounded-full bg-black" />
-                          </>
-                        )}
+                    {item.isCustom && item.imageUrl ? (
+                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      <div className="relative">
+                        {/* Simplified fiber end-face visualization */}
+                        <div className="w-24 h-24 rounded-full border-4 border-gray-400 bg-gray-200 flex items-center justify-center relative overflow-hidden">
+                          {/* Core */}
+                          <div className={`w-3 h-3 rounded-full ${
+                            item.zones.core.includes('FAIL') || item.zones.core.includes('Scratch') || item.zones.core.includes('Pit') 
+                              ? 'bg-red-500' 
+                              : item.zones.core === 'Clear' ? 'bg-blue-500' 
+                              : 'bg-amber-400'
+                          }`} />
+                          {/* Impairment indicators */}
+                          {item.category === 'contamination' && (
+                            <>
+                              <div className="absolute top-4 left-6 w-1.5 h-1.5 rounded-full bg-gray-600" />
+                              <div className="absolute top-8 right-5 w-1 h-1 rounded-full bg-gray-600" />
+                              <div className="absolute bottom-6 left-8 w-2 h-2 rounded-full bg-gray-500" />
+                            </>
+                          )}
+                          {item.id === 'scratches_core' && (
+                            <div className="absolute w-full h-0.5 bg-red-500 rotate-45" />
+                          )}
+                          {item.id === 'scratches_cladding' && (
+                            <div className="absolute w-6 h-0.5 bg-orange-500 rotate-12 top-3 right-2" />
+                          )}
+                          {item.id === 'pitting' && (
+                            <>
+                              <div className="absolute top-3 left-4 w-2 h-2 rounded-full bg-black" />
+                              <div className="absolute bottom-4 right-5 w-1.5 h-1.5 rounded-full bg-black" />
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
+                  {item.isCustom && (
+                    <Badge className="absolute top-2 right-2 bg-violet-600">Custom</Badge>
+                  )}
                   
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-semibold text-sm">{item.name}</h3>
