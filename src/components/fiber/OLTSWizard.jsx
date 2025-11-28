@@ -578,15 +578,222 @@ export default function OLTSWizard({ onSaveReport }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-          <Activity className="h-6 w-6" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+            <Activity className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">OLTS Tier-1 Test Wizard</h2>
+            <p className="text-sm text-gray-500">Method B - Bidirectional with reference timer</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">OLTS Tier-1 Test Wizard</h2>
-          <p className="text-sm text-gray-500">Method B - Bidirectional with reference timer</p>
-        </div>
+        <Button 
+          variant={showGuide ? "default" : "outline"} 
+          onClick={() => setShowGuide(!showGuide)}
+          className={showGuide ? "bg-indigo-600 hover:bg-indigo-700" : ""}
+        >
+          <BookOpen className="h-4 w-4 mr-2" />
+          OLTS + OTDR Guide
+          {showGuide ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
+        </Button>
       </div>
+
+      {/* OLTS & OTDR Guide Panel */}
+      <AnimatePresence>
+        {showGuide && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <Card className="border-0 shadow-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-indigo-600" />
+                    {OLTS_OTDR_GUIDE.overview.title}
+                  </CardTitle>
+                  <a 
+                    href={OLTS_OTDR_GUIDE.pdfUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View Full PDF
+                  </a>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{OLTS_OTDR_GUIDE.overview.source}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Section Tabs */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: 'overview', label: 'Overview' },
+                    { id: 'olts', label: 'OLTS' },
+                    { id: 'otdr', label: 'OTDR' },
+                    { id: 'together', label: 'Working Together' },
+                    { id: 'reflectance', label: 'Reflectance' },
+                    { id: 'cleaning', label: 'Cleaning' }
+                  ].map(tab => (
+                    <Button
+                      key={tab.id}
+                      variant={guideSection === tab.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setGuideSection(tab.id)}
+                      className={guideSection === tab.id ? "bg-indigo-600" : ""}
+                    >
+                      {tab.label}
+                    </Button>
+                  ))}
+                </div>
+
+                {/* Section Content */}
+                <div className="p-4 bg-white dark:bg-gray-800 rounded-xl">
+                  {guideSection === 'overview' && (
+                    <div className="space-y-4">
+                      <p className="text-gray-700 dark:text-gray-300">{OLTS_OTDR_GUIDE.overview.summary}</p>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                          <h4 className="font-medium text-emerald-800 dark:text-emerald-200 mb-2">Tier 1 (OLTS Only)</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Measures total insertion loss. Required by standards for certification.</p>
+                        </div>
+                        <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                          <h4 className="font-medium text-purple-800 dark:text-purple-200 mb-2">Tier 2 (OLTS + OTDR)</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Complete characterization with event analysis. Recommended for all installations.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {guideSection === 'olts' && (
+                    <div className="space-y-4">
+                      <p className="text-gray-700 dark:text-gray-300">{OLTS_OTDR_GUIDE.olts.description}</p>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="font-medium mb-2">Key Points</h4>
+                          <ul className="space-y-1 text-sm">
+                            {OLTS_OTDR_GUIDE.olts.keyPoints.map((point, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                                <span>{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="font-medium mb-2">Advantages</h4>
+                          <ul className="space-y-1 text-sm">
+                            {OLTS_OTDR_GUIDE.olts.advantages.map((adv, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <Zap className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                                <span>{adv}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {guideSection === 'otdr' && (
+                    <div className="space-y-4">
+                      <p className="text-gray-700 dark:text-gray-300">{OLTS_OTDR_GUIDE.otdr.description}</p>
+                      <div>
+                        <h4 className="font-medium mb-2">Key Points</h4>
+                        <ul className="space-y-1 text-sm mb-4">
+                          {OLTS_OTDR_GUIDE.otdr.keyPoints.map((point, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" />
+                              <span>{point}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="font-medium mb-2">Reading an OTDR Trace</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {OLTS_OTDR_GUIDE.otdr.traceEvents.map((item, i) => (
+                            <div key={i} className="p-2 bg-gray-50 dark:bg-gray-700 rounded text-xs">
+                              <div className="font-medium">{item.event}</div>
+                              <div className="text-gray-500">{item.description}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {guideSection === 'together' && (
+                    <div className="space-y-4">
+                      <p className="text-gray-700 dark:text-gray-300">{OLTS_OTDR_GUIDE.workingTogether.description}</p>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                          <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Recommended Workflow</h4>
+                          <ol className="space-y-1 text-sm">
+                            {OLTS_OTDR_GUIDE.workingTogether.workflow.map((step, i) => (
+                              <li key={i}>{step}</li>
+                            ))}
+                          </ol>
+                        </div>
+                        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                          <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-2">Why Use Both?</h4>
+                          <ul className="space-y-1 text-sm">
+                            {OLTS_OTDR_GUIDE.workingTogether.whyBoth.map((reason, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-amber-500">•</span>
+                                <span>{reason}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {guideSection === 'reflectance' && (
+                    <div className="space-y-4">
+                      <p className="text-gray-700 dark:text-gray-300">{OLTS_OTDR_GUIDE.reflectance.description}</p>
+                      <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                          <div>
+                            <h4 className="font-medium text-red-800 dark:text-red-200">Warning</h4>
+                            <p className="text-sm text-red-700 dark:text-red-300">{OLTS_OTDR_GUIDE.reflectance.warning}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <h4 className="font-medium mb-1">Example: 100GBASE-DR4</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{OLTS_OTDR_GUIDE.reflectance.example}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {guideSection === 'cleaning' && (
+                    <div className="space-y-4">
+                      <p className="text-gray-700 dark:text-gray-300">{OLTS_OTDR_GUIDE.cleaning.description}</p>
+                      <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                        <h4 className="font-medium text-emerald-800 dark:text-emerald-200 mb-2">Cleaning Rules</h4>
+                        <ul className="space-y-1 text-sm">
+                          {OLTS_OTDR_GUIDE.cleaning.rules.map((rule, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                              <span>{rule}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Progress Steps */}
       <div className="flex items-center justify-between overflow-x-auto pb-2">
