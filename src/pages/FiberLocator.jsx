@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Cable, Palette, Hash, ArrowRight } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Cable, Palette, Hash, ArrowRight, Layers, Settings2, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
@@ -24,12 +26,42 @@ const TIA_COLORS = [
   { position: 12, color: 'Aqua', hex: '#00CCCC' },
 ];
 
+// Common cable structures
+const CABLE_STRUCTURES = [
+  { id: '144', label: '144-fiber', tubes: 12, fibersPerTube: 12, totalFibers: 144, levels: 2 },
+  { id: '288', label: '288-fiber', tubes: 24, fibersPerTube: 12, totalFibers: 288, levels: 3, unitsOf: 144 },
+  { id: '432', label: '432-fiber', tubes: 36, fibersPerTube: 12, totalFibers: 432, levels: 3, unitsOf: 144 },
+  { id: '576', label: '576-fiber', tubes: 48, fibersPerTube: 12, totalFibers: 576, levels: 3, unitsOf: 144 },
+  { id: '864', label: '864-fiber', tubes: 72, fibersPerTube: 12, totalFibers: 864, levels: 3, unitsOf: 144 },
+  { id: '1728', label: '1728-fiber', tubes: 144, fibersPerTube: 12, totalFibers: 1728, levels: 4, unitsOf: 144 },
+  { id: '3456', label: '3456-fiber', tubes: 288, fibersPerTube: 12, totalFibers: 3456, levels: 4, unitsOf: 144 },
+  { id: 'ribbon144', label: '144-fiber Ribbon', ribbons: 12, fibersPerRibbon: 12, totalFibers: 144, levels: 2, type: 'ribbon' },
+  { id: 'ribbon288', label: '288-fiber Ribbon', ribbons: 24, fibersPerRibbon: 12, totalFibers: 288, levels: 3, type: 'ribbon', unitsOf: 144 },
+  { id: 'ribbon576', label: '576-fiber Ribbon', ribbons: 48, fibersPerRibbon: 12, totalFibers: 576, levels: 3, type: 'ribbon', unitsOf: 144 },
+  { id: 'ribbon864', label: '864-fiber Ribbon', ribbons: 72, fibersPerRibbon: 12, totalFibers: 864, levels: 3, type: 'ribbon', unitsOf: 144 },
+  { id: 'ribbon1728', label: '1728-fiber Ribbon', ribbons: 144, fibersPerRibbon: 12, totalFibers: 1728, levels: 4, type: 'ribbon', unitsOf: 144 },
+  { id: 'ribbon3456', label: '3456-fiber Ribbon', ribbons: 288, fibersPerRibbon: 12, totalFibers: 3456, levels: 4, type: 'ribbon', unitsOf: 144 },
+];
+
 export default function FiberLocator() {
+  const [mode, setMode] = useState('standard'); // 'standard' or 'highcount'
+  const [cableStructure, setCableStructure] = useState('144');
+  
+  // Standard mode state
   const [binderColor, setBinderColor] = useState('');
   const [fiberColor, setFiberColor] = useState('');
   const [fiberNumber, setFiberNumber] = useState(null);
+  
+  // High-count mode state
+  const [unitNumber, setUnitNumber] = useState('');
+  const [tubeColor, setTubeColor] = useState('');
+  const [hcFiberColor, setHcFiberColor] = useState('');
+  const [hcFiberNumber, setHcFiberNumber] = useState(null);
+  const [hcResult, setHcResult] = useState(null);
 
-  // Calculate fiber number from colors
+  const selectedStructure = CABLE_STRUCTURES.find(s => s.id === cableStructure);
+
+  // Standard mode: Calculate fiber number from colors
   const calculateFiberNumber = (binder, fiber) => {
     if (!binder || !fiber) return null;
     const binderPos = TIA_COLORS.find(c => c.color === binder)?.position || 0;
@@ -37,7 +69,7 @@ export default function FiberLocator() {
     return (binderPos - 1) * 12 + fiberPos;
   };
 
-  // Calculate colors from fiber number
+  // Standard mode: Calculate colors from fiber number
   const calculateColors = (num) => {
     if (!num || num < 1 || num > 144) return { binder: null, fiber: null };
     const binderPos = Math.ceil(num / 12);
@@ -45,6 +77,54 @@ export default function FiberLocator() {
     return {
       binder: TIA_COLORS.find(c => c.position === binderPos),
       fiber: TIA_COLORS.find(c => c.position === fiberPos)
+    };
+  };
+
+  // High-count mode: Calculate fiber number from unit/tube/fiber colors
+  const calculateHighCountFiber = (unit, tube, fiber) => {
+    if (!tube || !fiber) return null;
+    
+    const tubePos = TIA_COLORS.find(c => c.color === tube)?.position || 0;
+    const fiberPos = TIA_COLORS.find(c => c.color === fiber)?.position || 0;
+    const unitNum = parseInt(unit) || 1;
+    
+    if (selectedStructure?.unitsOf) {
+      // Multi-unit cable (288+)
+      const fibersPerUnit = selectedStructure.unitsOf;
+      return ((unitNum - 1) * fibersPerUnit) + ((tubePos - 1) * 12) + fiberPos;
+    } else {
+      // Single unit cable (144)
+      return ((tubePos - 1) * 12) + fiberPos;
+    }
+  };
+
+  // High-count mode: Calculate colors from fiber number
+  const calculateHighCountColors = (num) => {
+    if (!num || num < 1) return null;
+    
+    const structure = selectedStructure;
+    if (!structure || num > structure.totalFibers) return null;
+    
+    let unitNum = 1;
+    let tubePos, fiberPos;
+    
+    if (structure.unitsOf) {
+      // Multi-unit cable
+      unitNum = Math.ceil(num / structure.unitsOf);
+      const fiberInUnit = ((num - 1) % structure.unitsOf) + 1;
+      tubePos = Math.ceil(fiberInUnit / 12);
+      fiberPos = ((fiberInUnit - 1) % 12) + 1;
+    } else {
+      // Single unit cable (144)
+      tubePos = Math.ceil(num / 12);
+      fiberPos = ((num - 1) % 12) + 1;
+    }
+    
+    return {
+      unit: unitNum,
+      tube: TIA_COLORS.find(c => c.position === tubePos),
+      fiber: TIA_COLORS.find(c => c.position === fiberPos),
+      fiberNumber: num
     };
   };
 
@@ -74,6 +154,46 @@ export default function FiberLocator() {
     }
   };
 
+  const handleHcColorChange = (type, value) => {
+    if (type === 'unit') {
+      setUnitNumber(value);
+    } else if (type === 'tube') {
+      setTubeColor(value);
+    } else {
+      setHcFiberColor(value);
+    }
+    
+    // Recalculate with new values
+    const newUnit = type === 'unit' ? value : unitNumber;
+    const newTube = type === 'tube' ? value : tubeColor;
+    const newFiber = type === 'fiber' ? value : hcFiberColor;
+    
+    const result = calculateHighCountFiber(newUnit, newTube, newFiber);
+    if (result) {
+      setHcFiberNumber(result);
+      setHcResult(calculateHighCountColors(result));
+    }
+  };
+
+  const handleHcFiberNumberChange = (num) => {
+    const parsedNum = parseInt(num);
+    const maxFiber = selectedStructure?.totalFibers || 144;
+    
+    if (parsedNum >= 1 && parsedNum <= maxFiber) {
+      setHcFiberNumber(parsedNum);
+      const result = calculateHighCountColors(parsedNum);
+      setHcResult(result);
+      if (result) {
+        setUnitNumber(result.unit.toString());
+        setTubeColor(result.tube?.color || '');
+        setHcFiberColor(result.fiber?.color || '');
+      }
+    } else {
+      setHcFiberNumber(null);
+      setHcResult(null);
+    }
+  };
+
   const getColorData = (colorName) => TIA_COLORS.find(c => c.color === colorName);
 
   const reset = () => {
@@ -81,6 +201,53 @@ export default function FiberLocator() {
     setFiberColor('');
     setFiberNumber(null);
   };
+
+  const resetHighCount = () => {
+    setUnitNumber('');
+    setTubeColor('');
+    setHcFiberColor('');
+    setHcFiberNumber(null);
+    setHcResult(null);
+  };
+
+  const getUnitsCount = () => {
+    if (!selectedStructure?.unitsOf) return 1;
+    return Math.ceil(selectedStructure.totalFibers / selectedStructure.unitsOf);
+  };
+
+  const ColorSelector = ({ label, value, onChange, placeholder }) => (
+    <div className="space-y-2">
+      <Label className="text-sm font-medium">{label}</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-12">
+          <SelectValue placeholder={placeholder}>
+            {value && (
+              <div className="flex items-center gap-2">
+                <div 
+                  className="w-5 h-5 rounded-full border border-gray-300"
+                  style={{ backgroundColor: getColorData(value)?.hex }}
+                />
+                <span>{value}</span>
+              </div>
+            )}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {TIA_COLORS.map((c) => (
+            <SelectItem key={c.position} value={c.color}>
+              <div className="flex items-center gap-2">
+                <div 
+                  className={`w-5 h-5 rounded-full ${c.border ? 'border-2 border-gray-400' : 'border border-gray-300'}`}
+                  style={{ backgroundColor: c.hex }}
+                />
+                <span>{c.position}. {c.color}</span>
+              </div>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
