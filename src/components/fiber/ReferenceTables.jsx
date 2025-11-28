@@ -821,193 +821,63 @@ export default function ReferenceTables() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Industry Links */}
-        <TabsContent value="links">
-          <Alert className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-900/20">
-            <Wifi className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-amber-800 dark:text-amber-200">
-              <strong>Internet connection required.</strong> These links will navigate to external websites. 
-              Make sure you have an active internet connection before clicking.
-            </AlertDescription>
-          </Alert>
-
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Test Equipment */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                    <Zap className="h-4 w-4 text-blue-600" />
-                  </div>
-                  Test Equipment
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {INDUSTRY_LINKS.testEquipment.map(link => (
-                  <a 
-                    key={link.name}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group"
-                  >
-                    <div>
-                      <div className="font-medium text-sm group-hover:text-blue-600">{link.name}</div>
-                      <div className="text-xs text-gray-500">{link.description}</div>
+          {/* Connector Image Dialog */}
+          <Dialog open={!!selectedConnector} onOpenChange={() => setSelectedConnector(null)}>
+            <DialogContent className="max-w-2xl">
+              {selectedConnector && (
+                <>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Badge className={`${selectedConnector.commonalityColor} text-white`}>
+                        {selectedConnector.type}
+                      </Badge>
+                      {selectedConnector.fullName}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    {selectedConnector.fullImage && (
+                      <div className="rounded-lg overflow-hidden border border-gray-200">
+                        <img 
+                          src={selectedConnector.fullImage} 
+                          alt={selectedConnector.fullName}
+                          className="w-full h-auto max-h-80 object-contain bg-white"
+                        />
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-500">Ferrule Size:</span>
+                        <span className="ml-2 font-medium">{selectedConnector.ferrule}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Coupling:</span>
+                        <span className="ml-2 font-medium">{selectedConnector.coupling}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Polish Types:</span>
+                        <span className="ml-2">{selectedConnector.polishes.join(', ')}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">2025 Usage:</span>
+                        <Badge className={`ml-2 ${selectedConnector.commonalityColor} text-white`}>
+                          {selectedConnector.commonality}
+                        </Badge>
+                      </div>
                     </div>
-                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600" />
-                  </a>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Fusion Splicers */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-                    <Scissors className="h-4 w-4 text-purple-600" />
-                  </div>
-                  Fusion Splicers
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {INDUSTRY_LINKS.fusionSplicers.map(link => (
-                  <a 
-                    key={link.name}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors group"
-                  >
                     <div>
-                      <div className="font-medium text-sm group-hover:text-purple-600">{link.name}</div>
-                      <div className="text-xs text-gray-500">{link.description}</div>
+                      <span className="text-gray-500 text-sm">Applications:</span>
+                      <p className="mt-1">{selectedConnector.applications}</p>
                     </div>
-                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-purple-600" />
-                  </a>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Fiber Manufacturers */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-                    <Cable className="h-4 w-4 text-emerald-600" />
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <span className="text-sm font-medium">Note:</span>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{selectedConnector.notes}</p>
+                    </div>
                   </div>
-                  Fiber Manufacturers
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {INDUSTRY_LINKS.fiberManufacturers.map(link => (
-                  <a 
-                    key={link.name}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors group"
-                  >
-                    <div>
-                      <div className="font-medium text-sm group-hover:text-emerald-600">{link.name}</div>
-                      <div className="text-xs text-gray-500">{link.description}</div>
-                    </div>
-                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-emerald-600" />
-                  </a>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Connectors & Accessories */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-                    <Plug className="h-4 w-4 text-indigo-600" />
-                  </div>
-                  Connectors & Accessories
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {INDUSTRY_LINKS.connectorsAccessories.map(link => (
-                  <a 
-                    key={link.name}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors group"
-                  >
-                    <div>
-                      <div className="font-medium text-sm group-hover:text-indigo-600">{link.name}</div>
-                      <div className="text-xs text-gray-500">{link.description}</div>
-                    </div>
-                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-indigo-600" />
-                  </a>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Standards Organizations */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
-                    <BookOpen className="h-4 w-4 text-orange-600" />
-                  </div>
-                  Standards Organizations
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {INDUSTRY_LINKS.standardsOrganizations.map(link => (
-                  <a 
-                    key={link.name}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors group"
-                  >
-                    <div>
-                      <div className="font-medium text-sm group-hover:text-orange-600">{link.name}</div>
-                      <div className="text-xs text-gray-500">{link.description}</div>
-                    </div>
-                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-orange-600" />
-                  </a>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Training & Certification */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900/30">
-                    <Radio className="h-4 w-4 text-teal-600" />
-                  </div>
-                  Training & Certification
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {INDUSTRY_LINKS.training.map(link => (
-                  <a 
-                    key={link.name}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors group"
-                  >
-                    <div>
-                      <div className="font-medium text-sm group-hover:text-teal-600">{link.name}</div>
-                      <div className="text-xs text-gray-500">{link.description}</div>
-                    </div>
-                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-teal-600" />
-                  </a>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>
