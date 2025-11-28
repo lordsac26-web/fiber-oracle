@@ -17,7 +17,10 @@ import {
   Edit2, 
   Save,
   X,
-  Cable
+  Cable,
+  Upload,
+  FileText,
+  Download
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -27,6 +30,9 @@ export default function LCPInfo() {
   const [lcpEntries, setLcpEntries] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importPreview, setImportPreview] = useState([]);
+  const [importError, setImportError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     lcpNumber: '',
@@ -107,6 +113,93 @@ export default function LCPInfo() {
     toast.success('LCP entry deleted');
   };
 
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImportError('');
+    setImportPreview([]);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target.result;
+      try {
+        const lines = text.split('\n').filter(line => line.trim());
+        if (lines.length < 2) {
+          setImportError('File must have a header row and at least one data row');
+          return;
+        }
+
+        // Parse header
+        const delimiter = lines[0].includes('\t') ? '\t' : ',';
+        const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+        
+        // Map common header variations
+        const headerMap = {
+          'lcp': 'lcpNumber', 'lcp_number': 'lcpNumber', 'lcpnumber': 'lcpNumber', 'lcp number': 'lcpNumber', 'clcp': 'lcpNumber',
+          'splitter': 'splitterNumber', 'splitter_number': 'splitterNumber', 'splitternumber': 'splitterNumber', 'splitter number': 'splitterNumber',
+          'location': 'physicalLocation', 'physical_location': 'physicalLocation', 'address': 'physicalLocation',
+          'olt': 'oltName', 'olt_name': 'oltName', 'oltname': 'oltName',
+          'shelf': 'oltShelf', 'olt_shelf': 'oltShelf',
+          'slot': 'oltSlot', 'olt_slot': 'oltSlot',
+          'port': 'oltPort', 'olt_port': 'oltPort', 'ports': 'oltPort',
+          'optic_make': 'opticMake', 'opticmake': 'opticMake', 'make': 'opticMake',
+          'optic_model': 'opticModel', 'opticmodel': 'opticModel', 'model': 'opticModel',
+          'optic_serial': 'opticSerial', 'opticserial': 'opticSerial', 'serial': 'opticSerial',
+          'notes': 'notes', 'note': 'notes', 'comments': 'notes'
+        };
+
+        const mappedHeaders = headers.map(h => headerMap[h] || h);
+
+        // Parse data rows
+        const entries = [];
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(delimiter).map(v => v.trim().replace(/^["']|["']$/g, ''));
+          if (values.length < 2) continue;
+
+          const entry = { id: Date.now() + i };
+          mappedHeaders.forEach((header, idx) => {
+            if (values[idx]) entry[header] = values[idx];
+          });
+
+          if (entry.lcpNumber || entry.splitterNumber) {
+            entries.push(entry);
+          }
+        }
+
+        if (entries.length === 0) {
+          setImportError('No valid entries found. Ensure file has LCP and Splitter columns.');
+          return;
+        }
+
+        setImportPreview(entries);
+      } catch (err) {
+        setImportError('Failed to parse file. Please check the format.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const confirmImport = () => {
+    const updated = [...lcpEntries, ...importPreview];
+    saveEntries(updated);
+    toast.success(`Imported ${importPreview.length} entries`);
+    setShowImportDialog(false);
+    setImportPreview([]);
+    setImportError('');
+  };
+
+  const downloadTemplate = () => {
+    const template = 'LCP,Splitter,Location,OLT,Shelf,Slot,Port,Optic_Make,Optic_Model,Optic_Serial,Notes\nLCP-001,SPL-001,"123 Main St",OLT-01,0,1,1-4,Finisar,FTLX1475D3BCL,ABC123,Sample entry';
+    const blob = new Blob([template], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lcp_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const filteredEntries = lcpEntries.filter(entry => {
     const term = searchTerm.toLowerCase();
     return (
@@ -133,13 +226,18 @@ export default function LCPInfo() {
                 <p className="text-xs text-gray-500">Cabinet & Splitter Reference</p>
               </div>
             </div>
-            <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) resetForm(); }}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add LCP
-                </Button>
-              </DialogTrigger>
+            <div className="flex gap-2">
+                              <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Import
+                              </Button>
+                              <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) resetForm(); }}>
+                                <DialogTrigger asChild>
+                                  <Button>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add LCP
+                                  </Button>
+                                </DialogTrigger>
               <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingId ? 'Edit LCP Entry' : 'Add New LCP Entry'}</DialogTitle>
