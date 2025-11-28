@@ -160,14 +160,32 @@ const QUICK_REFS = [
   { label: 'APC Reflectance', value: '<-60 dB' },
 ];
 
-const STANDARDS_LINKS = {
-  'TIA-568-D': 'https://tiaonline.org/what-we-do/standards/',
-  'TIA-526-14-C': 'https://tiaonline.org/what-we-do/standards/',
-  'IEC 61300': 'https://webstore.iec.ch/publication/5191',
-  'IEEE 802.3': 'https://standards.ieee.org/ieee/802.3/10422/',
-  'ITU-T G.652/G.657': 'https://www.itu.int/rec/T-REC-G.652',
-  'Telcordia GR-326': 'https://telecom-info.njdepot.ericsson.net/site-cgi/ido/docs.cgi?ID=SEARCH&DOCUMENT=GR-326'
-};
+const STANDARDS_LINKS = [
+  // TIA Standards
+  { name: 'TIA-568-D', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Generic Telecommunications Cabling for Customer Premises' },
+  { name: 'TIA-526-7', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Optical Power Loss - Single-Mode Fiber' },
+  { name: 'TIA-526-14-C', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Optical Power Loss - Multimode Fiber' },
+  { name: 'TIA-598-D', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Optical Fiber Cable Color Coding' },
+  { name: 'TIA-455 (FOTP)', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Fiber Optic Test Procedures' },
+  { name: 'TIA-758-B', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Customer-Owned Outside Plant' },
+  { name: 'TIA/EIA-568', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Ethernet Wiring Standards (T568A/T568B)' },
+  // IEC Standards
+  { name: 'IEC 61300-3-35', url: 'https://webstore.iec.ch/publication/5191', category: 'IEC', description: 'Connector End Face Visual Inspection' },
+  { name: 'IEC 61280', url: 'https://webstore.iec.ch/publication/5160', category: 'IEC', description: 'Fiber Optic Communication Test Procedures' },
+  { name: 'IEC 61073', url: 'https://webstore.iec.ch/publication/4420', category: 'IEC', description: 'Mechanical Splices and Fusion Splice Protectors' },
+  // IEEE Standards
+  { name: 'IEEE 802.3', url: 'https://standards.ieee.org/ieee/802.3/10422/', category: 'IEEE', description: 'Ethernet Standard (10M to 400G)' },
+  { name: 'IEEE 802.11', url: 'https://standards.ieee.org/ieee/802.11/7028/', category: 'IEEE', description: 'Wireless LAN (Wi-Fi) Standards' },
+  // ITU-T Standards
+  { name: 'ITU-T G.652', url: 'https://www.itu.int/rec/T-REC-G.652', category: 'ITU-T', description: 'Single-Mode Optical Fiber Characteristics' },
+  { name: 'ITU-T G.657', url: 'https://www.itu.int/rec/T-REC-G.657', category: 'ITU-T', description: 'Bend-Insensitive Single-Mode Fiber' },
+  { name: 'ITU-T G.984', url: 'https://www.itu.int/rec/T-REC-G.984.1', category: 'ITU-T', description: 'GPON (Gigabit PON) Standard' },
+  { name: 'ITU-T G.9807', url: 'https://www.itu.int/rec/T-REC-G.9807.1', category: 'ITU-T', description: 'XGS-PON (10G Symmetric PON)' },
+  { name: 'ITU-T G.9804', url: 'https://www.itu.int/rec/T-REC-G.9804.1', category: 'ITU-T', description: '25G/50G Higher Speed PON' },
+  // Telcordia Standards
+  { name: 'Telcordia GR-326', url: 'https://telecom-info.njdepot.ericsson.net/site-cgi/ido/docs.cgi?ID=SEARCH&DOCUMENT=GR-326', category: 'Telcordia', description: 'Single-Mode Optical Connectors & Jumpers' },
+  { name: 'Telcordia GR-20', url: 'https://telecom-info.njdepot.ericsson.net/site-cgi/ido/docs.cgi?ID=SEARCH&DOCUMENT=GR-20', category: 'Telcordia', description: 'Generic Requirements for Optical Fiber' },
+];
 
 export default function Home() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -296,18 +314,35 @@ export default function Home() {
 
         {/* Standards Footer */}
         <div className="mt-8 p-6 rounded-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur border border-gray-200/50 dark:border-gray-700/50">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Reference Standards</h3>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(STANDARDS_LINKS).map(([std, url]) => (
-              <a key={std} href={url} target="_blank" rel="noopener noreferrer">
-                <Badge variant="outline" className="bg-white dark:bg-gray-700 hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-colors">
-                  {std}
-                </Badge>
-              </a>
-            ))}
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-            Click standards to view official documentation. All values based on 2024-2025 industry standards.
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Reference Standards</h3>
+          
+          {/* Group by category */}
+          {['TIA', 'IEC', 'IEEE', 'ITU-T', 'Telcordia'].map(category => (
+            <div key={category} className="mb-4">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{category}</p>
+              <div className="flex flex-wrap gap-2">
+                {STANDARDS_LINKS.filter(s => s.category === category).map((std) => (
+                  <a 
+                    key={std.name} 
+                    href={std.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    title={std.description}
+                  >
+                    <Badge 
+                      variant="outline" 
+                      className="bg-white dark:bg-gray-700 hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-900/30 cursor-pointer transition-colors"
+                    >
+                      {std.name}
+                    </Badge>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+          
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
+            Click any standard to view official documentation. Hover for description. All values based on 2024-2025 industry standards.
           </p>
         </div>
 
