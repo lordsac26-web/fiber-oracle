@@ -25,13 +25,31 @@ import { motion } from 'framer-motion';
 
 const MODULES = [
   {
-    id: 'jobcheck',
-    title: 'Job Check',
-    description: 'Guided diagnostic workflow with reports',
-    icon: ClipboardCheck,
+    id: 'powercalc',
+    title: 'Power Level Calculator',
+    description: 'GPON & XGS-PON ONT Rx estimator',
+    icon: Zap,
     color: 'from-emerald-500 to-teal-600',
-    page: 'JobCheck',
-    badge: 'Core'
+    page: 'PowerLevelCalc',
+    badge: 'Quick Access'
+  },
+  {
+    id: 'splitterloss',
+    title: 'Splitter Loss Reference',
+    description: 'Tap any ratio for instant loss values',
+    icon: Activity,
+    color: 'from-purple-500 to-pink-600',
+    page: 'SplitterLoss',
+    badge: 'Quick Access'
+  },
+  {
+    id: 'bendradius',
+    title: 'Macrobend Radius Guide',
+    description: 'Min bend radius by cable type',
+    icon: Cable,
+    color: 'from-amber-500 to-orange-600',
+    page: 'BendRadius',
+    badge: 'Quick Access'
   },
   {
     id: 'calculator',
