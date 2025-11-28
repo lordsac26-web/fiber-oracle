@@ -4,11 +4,59 @@ import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import LossBudgetCalculator from '@/components/fiber/LossBudgetCalculator';
+import { toast } from 'sonner';
 
 export default function LossBudget() {
   const handleSaveReport = (reportData) => {
-    console.log('Saving report:', reportData);
-    // TODO: Implement report saving
+    // Generate report content
+    const report = reportData.data;
+    const calc = report.calculations;
+    const timestamp = new Date().toLocaleString();
+    
+    const reportText = `LOSS BUDGET REPORT
+Generated: ${timestamp}
+================================
+
+LINK CONFIGURATION
+------------------
+Standard: ${report.selectedStandard}
+Fiber Type: ${report.fiberType}
+Wavelength: ${report.wavelength}
+Distance: ${report.distance} km
+Connectors: ${report.connectors} (${report.connectorGrade})
+Splices: ${report.splices} (${report.spliceType})
+Safety Margin: ${report.safetyMargin} dB
+
+LOSS BREAKDOWN
+--------------
+Fiber Loss: ${calc.fiberLoss} dB
+Connector Loss: ${calc.totalConnectorLoss} dB
+Splice Loss: ${calc.totalSpliceLoss} dB
+Safety Margin: ${report.safetyMargin} dB
+--------------------------------
+TOTAL LOSS: ${calc.totalWithMargin} dB
+
+RESULT
+------
+Budget: ${calc.budget} dB
+Status: ${calc.status.toUpperCase()}
+Margin: ${calc.remaining} dB
+Utilization: ${calc.utilizationPercent}%
+
+================================
+Values per TIA-568-D / IEEE 802.3
+`;
+
+    // Create and download file
+    const blob = new Blob([reportText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `loss_budget_report_${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    toast.success('Report downloaded');
   };
 
   return (
