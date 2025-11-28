@@ -4,7 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette } from 'lucide-react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette, Link2, ExternalLink, Wifi, Plug } from 'lucide-react';
 import { 
   FIBER_ATTENUATION, 
   CONNECTOR_LOSS, 
@@ -15,6 +16,210 @@ import {
   FIBER_COLORS,
   WAVELENGTH_INFO
 } from './FiberConstants';
+
+// Connector Types Data
+const CONNECTOR_TYPES = [
+  {
+    type: 'LC',
+    fullName: 'Lucent Connector / Little Connector',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: '1.25mm',
+    coupling: 'Push-pull latch',
+    polishes: ['UPC', 'APC'],
+    fiberTypes: ['SMF', 'MMF'],
+    commonality: 'Very High',
+    commonalityColor: 'bg-emerald-500',
+    applications: 'Data centers, enterprise networks, high-density applications',
+    notes: 'Industry standard for SFP/SFP+ transceivers. Most common in 2025.'
+  },
+  {
+    type: 'SC',
+    fullName: 'Subscriber Connector / Square Connector',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: '2.5mm',
+    coupling: 'Push-pull snap-in',
+    polishes: ['UPC', 'APC'],
+    fiberTypes: ['SMF', 'MMF'],
+    commonality: 'High',
+    commonalityColor: 'bg-emerald-400',
+    applications: 'FTTH, PON, telecommunications, CATV',
+    notes: 'Standard for GPON/XGS-PON. Very reliable push-pull design.'
+  },
+  {
+    type: 'MPO/MTP',
+    fullName: 'Multi-fiber Push On / Multi-fiber Termination Push-on',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: 'Rectangular (12/24 fibers)',
+    coupling: 'Push-pull with guide pins',
+    polishes: ['UPC', 'APC'],
+    fiberTypes: ['SMF', 'MMF'],
+    commonality: 'Very High',
+    commonalityColor: 'bg-emerald-500',
+    applications: '40G/100G/400G data centers, parallel optics, trunk cables',
+    notes: 'MTP is brand name (US Conec) of MPO. Critical for high-speed interconnects.'
+  },
+  {
+    type: 'FC',
+    fullName: 'Ferrule Connector / Fixed Connector',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: '2.5mm',
+    coupling: 'Threaded screw-on',
+    polishes: ['UPC', 'APC'],
+    fiberTypes: ['SMF'],
+    commonality: 'Low',
+    commonalityColor: 'bg-amber-500',
+    applications: 'Test equipment, legacy telecom, precision instruments',
+    notes: 'Being phased out. Still found on OTDRs and test equipment.'
+  },
+  {
+    type: 'ST',
+    fullName: 'Straight Tip',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: '2.5mm',
+    coupling: 'Bayonet twist-lock',
+    polishes: ['UPC'],
+    fiberTypes: ['MMF', 'SMF'],
+    commonality: 'Low',
+    commonalityColor: 'bg-amber-500',
+    applications: 'Legacy LANs, industrial, military',
+    notes: 'Legacy connector. Rarely used in new installations.'
+  },
+  {
+    type: 'E2000',
+    fullName: 'E2000 / LSH',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: '2.5mm',
+    coupling: 'Push-pull with spring-loaded dust cap',
+    polishes: ['UPC', 'APC'],
+    fiberTypes: ['SMF'],
+    commonality: 'Medium',
+    commonalityColor: 'bg-blue-500',
+    applications: 'European telecom, high-reliability networks',
+    notes: 'Built-in dust protection. Popular in European markets.'
+  },
+  {
+    type: 'MU',
+    fullName: 'Miniature Unit',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: '1.25mm',
+    coupling: 'Push-pull',
+    polishes: ['UPC', 'APC'],
+    fiberTypes: ['SMF', 'MMF'],
+    commonality: 'Low',
+    commonalityColor: 'bg-amber-500',
+    applications: 'Japanese telecom, high-density panels',
+    notes: 'Similar to LC but different form factor. Rare outside Japan.'
+  },
+  {
+    type: 'MTRJ',
+    fullName: 'Mechanical Transfer Registered Jack',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: 'Rectangular (duplex)',
+    coupling: 'RJ-style latch',
+    polishes: ['UPC'],
+    fiberTypes: ['MMF'],
+    commonality: 'Very Low',
+    commonalityColor: 'bg-red-400',
+    applications: 'Legacy enterprise, desktop connections',
+    notes: 'Obsolete. Not recommended for new installations.'
+  },
+  {
+    type: 'SMA',
+    fullName: 'Sub-Miniature version A',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: '3.175mm (stainless steel)',
+    coupling: 'Threaded screw-on',
+    polishes: ['Flat'],
+    fiberTypes: ['MMF', 'Large core'],
+    commonality: 'Very Low',
+    commonalityColor: 'bg-red-400',
+    applications: 'Industrial lasers, medical devices, military',
+    notes: 'Specialty applications only. Large core/high power.'
+  },
+  {
+    type: 'D4',
+    fullName: 'D4 Connector',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: '2.0mm',
+    coupling: 'Threaded with keying',
+    polishes: ['PC'],
+    fiberTypes: ['SMF'],
+    commonality: 'Very Low',
+    commonalityColor: 'bg-red-400',
+    applications: 'Legacy Japanese telecom',
+    notes: 'Obsolete. Found only in very old installations.'
+  },
+  {
+    type: 'Biconic',
+    fullName: 'Biconic Connector',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: 'Tapered cone',
+    coupling: 'Threaded alignment',
+    polishes: ['PC'],
+    fiberTypes: ['SMF', 'MMF'],
+    commonality: 'Obsolete',
+    commonalityColor: 'bg-gray-500',
+    applications: 'Historical/museum only',
+    notes: 'First generation connector. No longer manufactured.'
+  },
+  {
+    type: 'SMC',
+    fullName: 'Small Media Connector',
+    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    ferrule: '1.25mm',
+    coupling: 'Push-pull',
+    polishes: ['UPC'],
+    fiberTypes: ['SMF', 'MMF'],
+    commonality: 'Very Low',
+    commonalityColor: 'bg-red-400',
+    applications: 'Specialty/niche applications',
+    notes: 'Rarely encountered. LC is preferred alternative.'
+  }
+];
+
+// Industry Links Data
+const INDUSTRY_LINKS = {
+  testEquipment: [
+    { name: 'VIAVI Solutions', url: 'https://www.viavisolutions.com', description: 'OTDR, OLTS, fiber test equipment' },
+    { name: 'EXFO', url: 'https://www.exfo.com', description: 'Test & measurement, network monitoring' },
+    { name: 'Fluke Networks', url: 'https://www.flukenetworks.com', description: 'Certifiers, OTDRs, cable testers' },
+    { name: 'AFL', url: 'https://www.aflglobal.com', description: 'Test equipment, fusion splicers, accessories' },
+    { name: 'Kingfisher', url: 'https://www.kingfisherfiber.com', description: 'Power meters, light sources, test kits' },
+  ],
+  fusionSplicers: [
+    { name: 'Fujikura', url: 'https://www.fujikura.com', description: 'Premium fusion splicers and cleavers' },
+    { name: 'Sumitomo Electric', url: 'https://www.sumitomoelectric.com', description: 'Fusion splicers, fiber products' },
+    { name: 'FITEL / Furukawa', url: 'https://www.fitel.com', description: 'Splicers, fiber products' },
+    { name: 'INNO Instrument', url: 'https://www.innoinstrument.com', description: 'Affordable fusion splicers' },
+  ],
+  fiberManufacturers: [
+    { name: 'Corning', url: 'https://www.corning.com/optical-communications', description: 'Fiber, cable, connectivity solutions' },
+    { name: 'Prysmian Group', url: 'https://www.prysmiangroup.com', description: 'Cables and fiber products' },
+    { name: 'CommScope', url: 'https://www.commscope.com', description: 'Infrastructure, connectivity' },
+    { name: 'OFS (Furukawa)', url: 'https://www.ofsoptics.com', description: 'Specialty and standard fibers' },
+    { name: 'Sterlite Technologies', url: 'https://www.stl.tech', description: 'Fiber and cable manufacturing' },
+  ],
+  connectorsAccessories: [
+    { name: 'Senko', url: 'https://www.senko.com', description: 'Connectors, adapters, cleaning products' },
+    { name: 'US Conec (MTP)', url: 'https://www.usconec.com', description: 'MPO/MTP connectors and accessories' },
+    { name: 'Diamond SA', url: 'https://www.diamond-fo.com', description: 'E2000 and specialty connectors' },
+    { name: 'Amphenol', url: 'https://www.amphenol.com', description: 'Connectors and interconnects' },
+    { name: 'Sticklers / MicroCare', url: 'https://www.sticklers.com', description: 'Fiber cleaning products' },
+  ],
+  standardsOrganizations: [
+    { name: 'TIA (Telecommunications Industry Association)', url: 'https://www.tiaonline.org', description: 'TIA-568, TIA-526 standards' },
+    { name: 'IEEE', url: 'https://www.ieee.org', description: 'IEEE 802.3 Ethernet standards' },
+    { name: 'IEC', url: 'https://www.iec.ch', description: 'IEC 61300 connector standards' },
+    { name: 'ITU-T', url: 'https://www.itu.int', description: 'G.652, G.657 fiber standards' },
+    { name: 'Fiber Optic Association (FOA)', url: 'https://www.foa.org', description: 'Training, certification, resources' },
+  ],
+  training: [
+    { name: 'FOA (Fiber Optic Association)', url: 'https://www.foa.org', description: 'CFOT, CFOS certifications' },
+    { name: 'Light Brigade', url: 'https://www.lightbrigade.com', description: 'Hands-on fiber training' },
+    { name: 'BICSI', url: 'https://www.bicsi.org', description: 'ICT installer certifications' },
+    { name: 'The Fiber School', url: 'https://www.thefiberschool.com', description: 'Online and in-person training' },
+  ]
+};
 
 export default function ReferenceTables() {
   const [searchTerm, setSearchTerm] = useState('');
