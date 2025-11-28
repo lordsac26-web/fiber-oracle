@@ -86,6 +86,15 @@ const MODULES = [
     badge: 'Reference'
   },
   {
+    id: 'pon',
+    title: 'PON Power Levels',
+    description: 'GPON & XGS-PON acceptable levels',
+    icon: Activity,
+    color: 'from-cyan-500 to-blue-600',
+    page: 'PONLevels',
+    badge: 'Reference'
+  },
+  {
     id: 'links',
     title: 'Industry Links',
     description: 'Vendors, manufacturers, training resources',
@@ -104,6 +113,15 @@ const QUICK_REFS = [
   { label: 'UPC Reflectance', value: '<-50 dB' },
   { label: 'APC Reflectance', value: '<-60 dB' },
 ];
+
+const STANDARDS_LINKS = {
+  'TIA-568-D': 'https://tiaonline.org/what-we-do/standards/',
+  'TIA-526-14-C': 'https://tiaonline.org/what-we-do/standards/',
+  'IEC 61300': 'https://webstore.iec.ch/publication/5191',
+  'IEEE 802.3': 'https://standards.ieee.org/ieee/802.3/10422/',
+  'ITU-T G.652/G.657': 'https://www.itu.int/rec/T-REC-G.652',
+  'Telcordia GR-326': 'https://telecom-info.njdepot.ericsson.net/site-cgi/ido/docs.cgi?ID=SEARCH&DOCUMENT=GR-326'
+};
 
 export default function Home() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -234,15 +252,16 @@ export default function Home() {
         <div className="mt-8 p-6 rounded-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur border border-gray-200/50 dark:border-gray-700/50">
           <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Reference Standards</h3>
           <div className="flex flex-wrap gap-2">
-            {['TIA-568-D', 'TIA-526-14-C', 'IEC 61300', 'IEEE 802.3', 'ITU-T G.652/G.657', 'Telcordia GR-326'].map(std => (
-              <Badge key={std} variant="outline" className="bg-white dark:bg-gray-700">
-                {std}
-              </Badge>
+            {Object.entries(STANDARDS_LINKS).map(([std, url]) => (
+              <a key={std} href={url} target="_blank" rel="noopener noreferrer">
+                <Badge variant="outline" className="bg-white dark:bg-gray-700 hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-colors">
+                  {std}
+                </Badge>
+              </a>
             ))}
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-            All values and procedures based on official 2024-2025 industry standards. 
-            For latest updates, consult original standard documents.
+            Click standards to view official documentation. All values based on 2024-2025 industry standards.
           </p>
         </div>
 
