@@ -21,6 +21,123 @@ import {
 // Connector reference image
 const CONNECTOR_REFERENCE_IMAGE = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/b61e02c48_connectortypes.png';
 
+// Comprehensive Fiber Glossary
+const FIBER_GLOSSARY = {
+  basic: {
+    title: "Basic Terms",
+    audience: "All Personnel",
+    terms: [
+      { term: "Fiber Optic Cable", definition: "A cable containing one or more optical fibers that transmit data as pulses of light.", example: "A 12-strand fiber cable running between buildings." },
+      { term: "Single-Mode Fiber (SMF)", definition: "Fiber with a small core (8-10μm) that allows only one mode of light to propagate. Used for long distances.", example: "Yellow-jacketed OS2 cable for a 10km backbone link." },
+      { term: "Multi-Mode Fiber (MMF)", definition: "Fiber with a larger core (50μm or 62.5μm) allowing multiple light modes. Used for shorter distances.", example: "Aqua OM4 cable for a 100m data center run." },
+      { term: "Core", definition: "The central part of the fiber where light travels. Measured in microns (μm).", example: "SMF has a 9μm core; OM4 MMF has a 50μm core." },
+      { term: "Cladding", definition: "The outer layer surrounding the core (125μm diameter) that keeps light confined in the core.", example: "The cladding reflects light back into the core via total internal reflection." },
+      { term: "Connector", definition: "A mechanical device that attaches to the fiber end for connecting to equipment or other fibers.", example: "LC, SC, and MPO connectors are common types." },
+      { term: "Patch Cord", definition: "A fiber cable with connectors on both ends used for making connections.", example: "A 2m LC-LC duplex patch cord." },
+      { term: "dB (Decibel)", definition: "Unit of measurement for optical power levels and loss. A logarithmic ratio.", example: "A connector with 0.25 dB loss; signal at -15 dBm." },
+      { term: "dBm", definition: "Absolute power level in decibels referenced to 1 milliwatt.", example: "Transmitter output: +5 dBm; Receiver sensitivity: -28 dBm." },
+      { term: "Wavelength", definition: "The 'color' of light used, measured in nanometers (nm). Different wavelengths have different properties.", example: "1310nm and 1550nm for SMF; 850nm for MMF." },
+      { term: "Duplex", definition: "A pair of fibers or connectors—one for transmit, one for receive.", example: "A duplex LC patch cord has two fibers side by side." },
+      { term: "Simplex", definition: "A single fiber or connector for one-way communication.", example: "A simplex SC connector for a single fiber strand." },
+    ]
+  },
+  intermediate: {
+    title: "Technical Terms",
+    audience: "Network Engineers & Technicians",
+    terms: [
+      { term: "Attenuation", definition: "Loss of optical power as light travels through fiber, measured in dB or dB/km.", example: "SMF at 1310nm: max 0.35 dB/km; OM4 at 850nm: max 3.0 dB/km." },
+      { term: "Insertion Loss", definition: "The total loss caused when a component (connector, splice) is inserted into a link.", example: "An LC connector pair typically has 0.15 dB insertion loss." },
+      { term: "Return Loss", definition: "The ratio of power reflected back versus power transmitted, expressed in positive dB.", example: "A UPC connector should have >50 dB return loss." },
+      { term: "Reflectance", definition: "Same as return loss but expressed as a negative number. Closer to 0 is worse.", example: "APC connectors: <-60 dB reflectance; UPC: <-50 dB." },
+      { term: "OLTS (Optical Loss Test Set)", definition: "Equipment with a light source and power meter to measure end-to-end insertion loss.", example: "Using OLTS to certify a link passes the 2.0 dB loss budget." },
+      { term: "OTDR (Optical Time Domain Reflectometer)", definition: "Instrument that sends pulses and analyzes reflections to characterize events along a fiber.", example: "OTDR trace shows a splice at 1,234m with 0.08 dB loss." },
+      { term: "Power Budget", definition: "The maximum allowable loss between transmitter and receiver for a given application.", example: "10GBASE-LR has a 6.2 dB power budget for 10km." },
+      { term: "Link Loss", definition: "Total loss from all components: fiber attenuation, connectors, splices, and splitters.", example: "Total link loss = 2.5km × 0.35 dB + 4 connectors × 0.15 dB = 1.475 dB." },
+      { term: "Encircled Flux (EF)", definition: "A standard for controlling light launch conditions in multimode testing for repeatable results.", example: "Using an EF-compliant launch cord for OM4 certification." },
+      { term: "Mode Field Diameter (MFD)", definition: "The effective diameter of the light-carrying region in single-mode fiber.", example: "G.652 SMF has ~9.2μm MFD at 1310nm." },
+      { term: "Numerical Aperture (NA)", definition: "The cone angle of light that a fiber can accept, affecting coupling efficiency.", example: "OM3 has NA of 0.200; higher NA captures more light but limits bandwidth." },
+      { term: "Bandwidth-Length Product", definition: "The data-carrying capacity of MMF, measured in MHz·km.", example: "OM4 has 4700 MHz·km at 850nm—supports 100G to 150m." },
+      { term: "UPC (Ultra Physical Contact)", definition: "Connector polish with a slightly curved end face for good return loss. Blue colored.", example: "Standard UPC connectors for data network applications." },
+      { term: "APC (Angled Physical Contact)", definition: "Connector polish with an 8° angle to reduce back-reflection. Green colored.", example: "APC connectors required for PON and analog video systems." },
+      { term: "GPON/XGS-PON", definition: "Passive Optical Network standards for fiber-to-the-home (FTTH) deployments.", example: "GPON: 2.5G down/1.25G up; XGS-PON: 10G symmetric." },
+      { term: "Splitter", definition: "Passive device that divides optical signal into multiple outputs (e.g., 1:8, 1:32).", example: "A 1:32 splitter in a PON introduces ~17.5 dB loss." },
+    ]
+  },
+  advanced: {
+    title: "Installation & Splicing Terms",
+    audience: "Field Technicians & Splicers",
+    terms: [
+      { term: "Fusion Splice", definition: "Permanent joining of two fibers by melting (fusing) the glass with an electric arc.", example: "A good fusion splice has <0.05 dB loss and no reflectance." },
+      { term: "Mechanical Splice", definition: "Temporary/semi-permanent fiber join using index-matching gel and alignment mechanism.", example: "Used for emergency restoration; expect 0.1-0.3 dB loss." },
+      { term: "Cleave", definition: "A controlled break of the fiber to create a flat, perpendicular end face for splicing.", example: "Cleave angle must be <1° for quality fusion splice." },
+      { term: "Cleave Angle", definition: "The angle of the cleaved fiber end relative to perpendicular. Lower is better.", example: "Modern cleavers achieve 0.3-0.5° cleave angles consistently." },
+      { term: "Buffer Tube", definition: "Protective tube containing one or more fibers, often color-coded.", example: "A 144-fiber cable has 12 buffer tubes with 12 fibers each." },
+      { term: "Loose Tube Cable", definition: "Cable design where fibers float in gel-filled tubes, ideal for outdoor/aerial use.", example: "Outdoor OSP cable using loose tube construction for protection." },
+      { term: "Tight Buffer Cable", definition: "Cable where coating is applied directly to fiber, easier to terminate.", example: "Indoor distribution cable with tight-buffered 900μm fibers." },
+      { term: "Ribbon Fiber", definition: "Multiple fibers bonded side-by-side in a flat ribbon for mass fusion splicing.", example: "12-fiber ribbon spliced in seconds with ribbon splicer." },
+      { term: "Pigtail", definition: "A short fiber with connector on one end, spliced to cable fiber on the other.", example: "Fusion splice a factory-terminated LC pigtail to each strand." },
+      { term: "Splice Tray", definition: "Organizer for storing and protecting fusion splices inside an enclosure.", example: "12-fiber splice tray holds 12 fusion splices with bend radius protection." },
+      { term: "Splice Enclosure", definition: "Weatherproof housing for splice trays, used at cable midpoints or endpoints.", example: "Aerial dome closure with capacity for 288 splices." },
+      { term: "OTDR Dead Zone", definition: "Distance after a reflective event where the OTDR cannot detect other events.", example: "Event dead zone of 0.8m means events within 0.8m can't be distinguished." },
+      { term: "Launch/Receive Fiber", definition: "Reference fibers attached before/after link under test to measure first/last connectors.", example: "150m launch fiber lets OTDR characterize the first connector." },
+      { term: "Macrobend", definition: "Large-radius bend causing light to escape the core. Visible loss on OTDR.", example: "Cable bent too tightly around a conduit corner—1.5 dB macrobend loss." },
+      { term: "Microbend", definition: "Tiny deformations in fiber from crushing or cable stress, causing distributed loss.", example: "Over-tightened cable tie causing microbend losses along the run." },
+      { term: "Index-Matching Gel", definition: "Optical gel used in mechanical splices to reduce reflection at fiber interface.", example: "Fresh gel is critical for low-loss mechanical splices." },
+      { term: "Core Alignment Splicer", definition: "Fusion splicer that actively aligns fiber cores for lowest-loss splices.", example: "Core-alignment splicers achieve <0.02 dB average splice loss." },
+      { term: "V-Groove Splicer", definition: "Lower-cost fusion splicer that aligns fibers by cladding, not core.", example: "V-groove splicer: 0.05-0.10 dB typical, acceptable for MMF." },
+      { term: "Arc Current", definition: "The electrical current used to create the fusion arc. Must match fiber type.", example: "Reduce arc current when splicing G.657 bend-insensitive fiber." },
+      { term: "Pre-fuse/Main Fuse", definition: "Two-stage fusion process: pre-fuse cleans fiber ends, main fuse creates splice.", example: "Adjust pre-fuse time if seeing bubbles in splice." },
+    ]
+  },
+  testing: {
+    title: "Testing & Certification Terms",
+    audience: "All Testing Personnel",
+    terms: [
+      { term: "Tier 1 Testing", definition: "Basic certification using OLTS to verify total insertion loss and length meet standards.", example: "Tier 1 test: Link passed with 1.85 dB loss (limit: 2.0 dB)." },
+      { term: "Tier 2 Testing", definition: "Extended certification including OTDR trace to characterize all events on the link.", example: "Tier 2 adds OTDR to verify each splice is under 0.1 dB." },
+      { term: "Bidirectional Testing", definition: "Testing fiber in both directions and averaging results for accurate loss measurement.", example: "A→B: 1.8 dB, B→A: 1.9 dB, Average: 1.85 dB." },
+      { term: "Reference Setting", definition: "Zeroing the test equipment before measurement to exclude test cord losses.", example: "1-jumper reference method: set reference with launch cord attached to both." },
+      { term: "1-Jumper Reference", definition: "Reference method that measures loss of both end connectors under test. Recommended.", example: "TIA recommends 1-jumper for most accurate results." },
+      { term: "Backscatter", definition: "Small amount of light scattered backward by fiber impurities. Basis of OTDR operation.", example: "OTDR measures backscatter level changes to detect events." },
+      { term: "Fresnel Reflection", definition: "Reflection caused by refractive index change at glass-air interfaces (connectors, breaks).", example: "End of fiber shows strong Fresnel reflection on OTDR trace." },
+      { term: "Gainer", definition: "OTDR event where signal appears to increase—indicates fiber type mismatch, not actual gain.", example: "Gainer at 500m: OM3 spliced to OM4 with different backscatter." },
+      { term: "Ghost Event", definition: "False events on OTDR trace caused by multiple reflections. Appear after end of fiber.", example: "Ignore spikes after the end reflection—they're ghosts." },
+      { term: "Dynamic Range", definition: "OTDR's measurement range from noise floor to maximum input. Determines testable length.", example: "40 dB dynamic range can test ~160km of SMF at 1550nm." },
+      { term: "Pulse Width", definition: "Duration of OTDR light pulse. Longer pulses = more range but less resolution.", example: "Use 10ns pulse for short links, 1μs pulse for long-haul." },
+      { term: "Visual Fault Locator (VFL)", definition: "Red laser device to visually locate breaks, bends, or bad connectors.", example: "VFL shows red glow at the macrobend location in the fiber." },
+      { term: "Fiber Scope", definition: "Microscope for inspecting connector end faces for contamination or damage.", example: "Scope reveals scratches in Zone A—connector needs replacement." },
+      { term: "IEC 61300-3-35", definition: "Standard defining pass/fail criteria for connector end face inspection.", example: "Zone A (core): zero defects allowed per IEC 61300-3-35." },
+    ]
+  },
+  pon: {
+    title: "PON & Access Terms",
+    audience: "FTTx Technicians",
+    terms: [
+      { term: "OLT (Optical Line Terminal)", definition: "Central office equipment that connects PON to the backbone network.", example: "OLT at the CO serves 256 subscribers via multiple PON ports." },
+      { term: "ONT/ONU", definition: "Optical Network Terminal/Unit at customer premises converting fiber to Ethernet/voice.", example: "Install ONT in basement, run Cat6 to router location." },
+      { term: "ODN (Optical Distribution Network)", definition: "The passive fiber infrastructure between OLT and ONTs including splitters.", example: "ODN design: 1:32 split at cabinet, 1:4 at each pedestal." },
+      { term: "Split Ratio", definition: "Number of output ports on a splitter (1:8, 1:16, 1:32, 1:64).", example: "1:32 split allows one OLT port to serve 32 subscribers." },
+      { term: "Splitter Loss", definition: "Inherent loss when dividing optical signal. Approximately 3.5 dB per doubling.", example: "1:32 splitter = ~17.5 dB loss (theoretical minimum ~15 dB)." },
+      { term: "Class B+/C+", definition: "GPON power budget classes. B+: 28 dB max; C+: 32 dB max.", example: "Class C+ optics needed for 20km reach with 1:32 split." },
+      { term: "N1/N2 Class", definition: "XGS-PON power budget classes. N1: 29 dB; N2: 31 dB.", example: "Upgrade to N2 optics to extend reach to rural subscribers." },
+      { term: "FDH (Fiber Distribution Hub)", definition: "Cabinet containing splitters that distributes fiber to local area.", example: "FDH serves 288 homes with 1:8 splitters to distribution cables." },
+      { term: "NAP (Network Access Point)", definition: "Small enclosure where drop cables connect to distribution cable.", example: "NAP at each pole serves 4-8 homes with pre-connectorized drops." },
+      { term: "Drop Cable", definition: "Final fiber run from distribution point to customer premises.", example: "Flat drop cable with SC/APC connector for quick ONT connection." },
+      { term: "Tx Power", definition: "Optical transmit power from OLT or ONT, measured in dBm.", example: "OLT Tx: +5 dBm; ONT Tx: +0.5 to +5 dBm depending on class." },
+      { term: "Rx Sensitivity", definition: "Minimum optical power a receiver can detect while maintaining error rate.", example: "GPON OLT Rx sensitivity: -28 dBm for Class B+." },
+      { term: "Optical Power Margin", definition: "Difference between received power and receiver sensitivity. Should be >3 dB.", example: "Rx power: -18 dBm, sensitivity: -28 dBm = 10 dB margin (good)." },
+    ]
+  }
+};
+
+const AUDIENCE_COLORS = {
+  "All Personnel": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+  "Network Engineers & Technicians": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  "Field Technicians & Splicers": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  "All Testing Personnel": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  "FTTx Technicians": "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
+};
+
 // Connector Types Data
 const CONNECTOR_TYPES = [
   {
