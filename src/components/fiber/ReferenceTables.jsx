@@ -871,6 +871,37 @@ export default function ReferenceTables() {
               <p className="text-sm text-gray-500">Comprehensive terms for all skill levels—from beginners to experienced splicers</p>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Quick Reference Key */}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                  <h4 className="font-semibold text-emerald-800 dark:text-emerald-200 mb-2 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+                    Beginner Focus
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Start with Basic Terms and Testing & Certification. These cover day-to-day vocabulary.
+                  </p>
+                </div>
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                    Engineer Focus
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Technical Terms covers power budgets, loss calculations, and network design concepts.
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <h4 className="font-semibold text-purple-800 dark:text-purple-200 mb-2 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-purple-500"></span>
+                    Field Tech Focus
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Installation & Splicing Terms covers hands-on terminology for construction and splicing work.
+                  </p>
+                </div>
+              </div>
+
               {/* Search within glossary */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
