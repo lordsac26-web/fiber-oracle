@@ -859,6 +859,125 @@ export default function ReferenceTables() {
           </Card>
 
         </TabsContent>
+
+        {/* Glossary */}
+        <TabsContent value="glossary">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GraduationCap className="h-5 w-5 text-violet-600" />
+                Fiber Optic Glossary & Definitions
+              </CardTitle>
+              <p className="text-sm text-gray-500">Comprehensive terms for all skill levels—from beginners to experienced splicers</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Search within glossary */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input 
+                  placeholder="Search terms..." 
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              {/* Glossary Sections */}
+              <div className="space-y-4">
+                {Object.entries(FIBER_GLOSSARY).map(([key, section]) => {
+                  const filteredTerms = section.terms.filter(t => 
+                    searchTerm === '' || 
+                    t.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    t.definition.toLowerCase().includes(searchTerm.toLowerCase())
+                  );
+                  
+                  if (filteredTerms.length === 0) return null;
+                  
+                  return (
+                    <Collapsible key={key} defaultOpen={key === 'basic' || searchTerm !== ''}>
+                      <Card className="border border-gray-200 dark:border-gray-700">
+                        <CollapsibleTrigger className="w-full">
+                          <CardHeader className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <CardTitle className="text-lg">{section.title}</CardTitle>
+                                <Badge className={AUDIENCE_COLORS[section.audience]}>
+                                  {section.audience}
+                                </Badge>
+                                <Badge variant="outline">{filteredTerms.length} terms</Badge>
+                              </div>
+                              <ChevronDown className="h-5 w-5 text-gray-400" />
+                            </div>
+                          </CardHeader>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <CardContent className="pt-0">
+                            <div className="space-y-3">
+                              {filteredTerms.map((item, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-4 border-violet-500"
+                                >
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1">
+                                      <h4 className="font-semibold text-gray-900 dark:text-white">
+                                        {item.term}
+                                      </h4>
+                                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                        {item.definition}
+                                      </p>
+                                      {item.example && (
+                                        <div className="mt-2 p-2 bg-violet-50 dark:bg-violet-900/20 rounded text-sm">
+                                          <span className="font-medium text-violet-700 dark:text-violet-300">Example: </span>
+                                          <span className="text-gray-600 dark:text-gray-400">{item.example}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
+                  );
+                })}
+              </div>
+
+              {/* Quick Reference Cards */}
+              <div className="mt-6 grid md:grid-cols-3 gap-4">
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                  <h4 className="font-semibold text-emerald-800 dark:text-emerald-200 mb-2 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
+                    Beginner Focus
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Start with Basic Terms and Testing & Certification. These cover day-to-day vocabulary.
+                  </p>
+                </div>
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-2 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                    Engineer Focus
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Technical Terms covers power budgets, loss calculations, and network design concepts.
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <h4 className="font-semibold text-purple-800 dark:text-purple-200 mb-2 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-purple-500"></span>
+                    Field Tech Focus
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Installation & Splicing Terms covers hands-on terminology for construction and splicing work.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
