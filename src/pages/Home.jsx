@@ -15,7 +15,8 @@ import {
   Wifi,
   WifiOff,
   Moon,
-  Sun
+  Sun,
+  Cable
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -93,6 +94,15 @@ const MODULES = [
     color: 'from-cyan-500 to-blue-600',
     page: 'PONLevels',
     badge: 'Reference'
+  },
+  {
+    id: 'lcp',
+    title: 'LCP / CLCP Info',
+    description: 'Cabinet & splitter reference lookup',
+    icon: Cable,
+    color: 'from-slate-500 to-gray-600',
+    page: 'LCPInfo',
+    badge: 'Tools'
   },
   {
     id: 'links',

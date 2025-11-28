@@ -9,6 +9,7 @@ import Settings from './pages/Settings';
 import IndustryLinks from './pages/IndustryLinks';
 import FiberLocator from './pages/FiberLocator';
 import PONLevels from './pages/PONLevels';
+import LCPInfo from './pages/LCPInfo';
 import __Layout from './Layout.jsx';
 
 
@@ -24,6 +25,7 @@ export const PAGES = {
     "IndustryLinks": IndustryLinks,
     "FiberLocator": FiberLocator,
     "PONLevels": PONLevels,
+    "LCPInfo": LCPInfo,
 }
 
 export const pagesConfig = {
