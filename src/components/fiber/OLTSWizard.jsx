@@ -20,7 +20,11 @@ import {
   RotateCcw,
   Download,
   Clock,
-  Lightbulb
+  Lightbulb,
+  BookOpen,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { STANDARD_BUDGETS, CONNECTOR_LOSS } from './FiberConstants';
