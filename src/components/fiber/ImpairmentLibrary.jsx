@@ -279,6 +279,84 @@ export default function ImpairmentLibrary() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedImpairment, setSelectedImpairment] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [customImpairments, setCustomImpairments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [newImpairment, setNewImpairment] = useState({
+    name: '',
+    category: 'contamination',
+    severity: 'warning',
+    description: '',
+    action: '',
+    imageUrl: '',
+    type: 'scope'
+  });
+
+  // Load custom impairments from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('customImpairments');
+    if (saved) {
+      setCustomImpairments(JSON.parse(saved));
+    }
+  }, []);
+
+  // Save custom impairments to localStorage
+  const saveCustomImpairments = (items) => {
+    localStorage.setItem('customImpairments', JSON.stringify(items));
+    setCustomImpairments(items);
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setNewImpairment(prev => ({ ...prev, imageUrl: file_url }));
+      toast.success('Image uploaded');
+    } catch (error) {
+      toast.error('Failed to upload image');
+    }
+    setUploading(false);
+  };
+
+  const handleAddImpairment = () => {
+    if (!newImpairment.name || !newImpairment.description) {
+      toast.error('Please fill in name and description');
+      return;
+    }
+    
+    const item = {
+      ...newImpairment,
+      id: `custom_${Date.now()}`,
+      isCustom: true,
+      colorScheme: newImpairment.severity === 'pass' ? 'emerald' : 
+                   newImpairment.severity === 'fail' ? 'red' : 'amber',
+      zones: { core: 'Custom', cladding: 'Custom', adhesive: 'N/A', contact: 'N/A' }
+    };
+    
+    const updated = [...customImpairments, item];
+    saveCustomImpairments(updated);
+    setShowAddDialog(false);
+    setNewImpairment({
+      name: '',
+      category: 'contamination',
+      severity: 'warning',
+      description: '',
+      action: '',
+      imageUrl: '',
+      type: 'scope'
+    });
+    toast.success('Custom impairment saved');
+  };
+
+  const handleDeleteCustom = (id) => {
+    const updated = customImpairments.filter(item => item.id !== id);
+    saveCustomImpairments(updated);
+    setSelectedImpairment(null);
+    toast.success('Impairment deleted');
+  };
 
   const filteredScope = SCOPE_IMPAIRMENTS.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
