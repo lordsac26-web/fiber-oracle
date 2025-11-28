@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette, Plug, X, GraduationCap, ChevronDown, ChevronUp } from 'lucide-react';
+import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette, Plug, X, GraduationCap, ChevronDown, ChevronUp, Network, ArrowRightLeft, RotateCcw, Minus } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   FIBER_ATTENUATION, 
@@ -15,7 +15,9 @@ import {
   OTDR_EVENTS,
   REFLECTANCE_LIMITS,
   FIBER_COLORS,
-  WAVELENGTH_INFO
+  WAVELENGTH_INFO,
+  ETHERNET_CABLES,
+  ETHERNET_WIRING
 } from './FiberConstants';
 
 // Connector reference image
@@ -288,6 +290,7 @@ const CONNECTOR_TYPES = [
 
 export default function ReferenceTables() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedWiring, setSelectedWiring] = useState(null);
 
   return (
     <div className="space-y-6">
@@ -346,7 +349,11 @@ export default function ReferenceTables() {
             <GraduationCap className="h-4 w-4 mr-2" />
             Glossary
           </TabsTrigger>
-        </TabsList>
+          <TabsTrigger value="ethernet" className="rounded-lg data-[state=active]:bg-teal-100 data-[state=active]:text-teal-700">
+            <Network className="h-4 w-4 mr-2" />
+            Ethernet
+          </TabsTrigger>
+          </TabsList>
 
         {/* Attenuation Table */}
         <TabsContent value="attenuation">
@@ -858,6 +865,293 @@ export default function ReferenceTables() {
             </CardContent>
           </Card>
 
+        </TabsContent>
+
+        {/* Ethernet */}
+        <TabsContent value="ethernet">
+          <div className="space-y-6">
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Network className="h-5 w-5 text-teal-600" />
+                  Ethernet Cable Categories
+                </CardTitle>
+                <p className="text-sm text-gray-500">Twisted pair copper cabling standards (TIA/EIA-568)</p>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50 dark:bg-gray-800">
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-center">Max Speed</TableHead>
+                        <TableHead className="text-center">Max Distance</TableHead>
+                        <TableHead className="text-center">Frequency</TableHead>
+                        <TableHead>Typical Use Case</TableHead>
+                        <TableHead>Shielding</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ETHERNET_CABLES.filter(cable => 
+                        searchTerm === '' || 
+                        cable.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        cable.useCase.toLowerCase().includes(searchTerm.toLowerCase())
+                      ).map((cable) => (
+                        <TableRow key={cable.category}>
+                          <TableCell className="font-bold text-lg">
+                            <Badge className="bg-teal-100 text-teal-800">{cable.category}</Badge>
+                          </TableCell>
+                          <TableCell className="text-center font-mono">{cable.maxSpeed}</TableCell>
+                          <TableCell className="text-center font-mono">{cable.maxDistance}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline">{cable.frequency}</Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-gray-600 dark:text-gray-400 max-w-xs">
+                            {cable.useCase}
+                          </TableCell>
+                          <TableCell className="text-sm">{cable.shielding}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Wiring Diagrams */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle>Ethernet Wiring Diagrams</CardTitle>
+                <p className="text-sm text-gray-500">Click to expand pinout details for each cable type</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-4">
+                  {/* Straight-Through */}
+                  <div 
+                    className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border-2 border-emerald-200 dark:border-emerald-800 cursor-pointer hover:shadow-lg transition-all"
+                    onClick={() => setSelectedWiring('straightThrough')}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-emerald-500 rounded-lg">
+                        <Minus className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-emerald-800 dark:text-emerald-200">Straight-Through</h4>
+                        <p className="text-xs text-gray-500">Patch Cable</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      Connect different device types
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="outline" className="text-xs">PC → Switch</Badge>
+                      <Badge variant="outline" className="text-xs">Router → Switch</Badge>
+                    </div>
+                  </div>
+
+                  {/* Crossover */}
+                  <div 
+                    className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border-2 border-blue-200 dark:border-blue-800 cursor-pointer hover:shadow-lg transition-all"
+                    onClick={() => setSelectedWiring('crossover')}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-blue-500 rounded-lg">
+                        <ArrowRightLeft className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-blue-800 dark:text-blue-200">Crossover</h4>
+                        <p className="text-xs text-gray-500">TX/RX Crossed</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      Connect similar device types
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="outline" className="text-xs">PC → PC</Badge>
+                      <Badge variant="outline" className="text-xs">Switch → Switch</Badge>
+                    </div>
+                  </div>
+
+                  {/* Rollover */}
+                  <div 
+                    className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border-2 border-purple-200 dark:border-purple-800 cursor-pointer hover:shadow-lg transition-all"
+                    onClick={() => setSelectedWiring('rollover')}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="p-2 bg-purple-500 rounded-lg">
+                        <RotateCcw className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-purple-800 dark:text-purple-200">Rollover</h4>
+                        <p className="text-xs text-gray-500">Console Cable</p>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                      Console/management access
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge variant="outline" className="text-xs">PC → Console</Badge>
+                      <Badge variant="outline" className="text-xs">Terminal Server</Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Reference */}
+                <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <h4 className="font-medium mb-3">T568A vs T568B Standard</h4>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">T568B (Most Common)</p>
+                      <div className="flex gap-1">
+                        <div className="w-6 h-6 rounded" style={{background: 'linear-gradient(90deg, white 50%, orange 50%)'}} title="1: Orange/White"></div>
+                        <div className="w-6 h-6 rounded bg-orange-500" title="2: Orange"></div>
+                        <div className="w-6 h-6 rounded" style={{background: 'linear-gradient(90deg, white 50%, green 50%)'}} title="3: Green/White"></div>
+                        <div className="w-6 h-6 rounded bg-blue-500" title="4: Blue"></div>
+                        <div className="w-6 h-6 rounded" style={{background: 'linear-gradient(90deg, white 50%, blue 50%)'}} title="5: Blue/White"></div>
+                        <div className="w-6 h-6 rounded bg-green-500" title="6: Green"></div>
+                        <div className="w-6 h-6 rounded" style={{background: 'linear-gradient(90deg, white 50%, #8B4513 50%)'}} title="7: Brown/White"></div>
+                        <div className="w-6 h-6 rounded bg-amber-800" title="8: Brown"></div>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">T568A</p>
+                      <div className="flex gap-1">
+                        <div className="w-6 h-6 rounded" style={{background: 'linear-gradient(90deg, white 50%, green 50%)'}} title="1: Green/White"></div>
+                        <div className="w-6 h-6 rounded bg-green-500" title="2: Green"></div>
+                        <div className="w-6 h-6 rounded" style={{background: 'linear-gradient(90deg, white 50%, orange 50%)'}} title="3: Orange/White"></div>
+                        <div className="w-6 h-6 rounded bg-blue-500" title="4: Blue"></div>
+                        <div className="w-6 h-6 rounded" style={{background: 'linear-gradient(90deg, white 50%, blue 50%)'}} title="5: Blue/White"></div>
+                        <div className="w-6 h-6 rounded bg-orange-500" title="6: Orange"></div>
+                        <div className="w-6 h-6 rounded" style={{background: 'linear-gradient(90deg, white 50%, #8B4513 50%)'}} title="7: Brown/White"></div>
+                        <div className="w-6 h-6 rounded bg-amber-800" title="8: Brown"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Wiring Detail Dialog */}
+          <Dialog open={selectedWiring !== null} onOpenChange={() => setSelectedWiring(null)}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  {selectedWiring === 'straightThrough' && <Minus className="h-5 w-5 text-emerald-600" />}
+                  {selectedWiring === 'crossover' && <ArrowRightLeft className="h-5 w-5 text-blue-600" />}
+                  {selectedWiring === 'rollover' && <RotateCcw className="h-5 w-5 text-purple-600" />}
+                  {selectedWiring && ETHERNET_WIRING[selectedWiring]?.name}
+                </DialogTitle>
+              </DialogHeader>
+              
+              {selectedWiring && ETHERNET_WIRING[selectedWiring] && (
+                <div className="space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {ETHERNET_WIRING[selectedWiring].description}
+                  </p>
+                  
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <p className="text-sm"><strong>Standard:</strong> {ETHERNET_WIRING[selectedWiring].standard}</p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-2">Common Uses:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {ETHERNET_WIRING[selectedWiring].uses.map((use, i) => (
+                        <Badge key={i} variant="outline">{use}</Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pinout Tables */}
+                  {selectedWiring === 'straightThrough' && (
+                    <div>
+                      <h4 className="font-medium mb-2">Pinout (T568B - Both Ends)</h4>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50 dark:bg-gray-800">
+                            <TableHead className="text-center">Pin</TableHead>
+                            <TableHead>Color</TableHead>
+                            <TableHead>Signal</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {ETHERNET_WIRING.straightThrough.pinout.map((p) => (
+                            <TableRow key={p.pin}>
+                              <TableCell className="text-center font-bold">{p.pin}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className={`w-4 h-4 rounded ${
+                                    p.color === 'Orange/White' ? 'bg-gradient-to-r from-white to-orange-500' :
+                                    p.color === 'Orange' ? 'bg-orange-500' :
+                                    p.color === 'Green/White' ? 'bg-gradient-to-r from-white to-green-500' :
+                                    p.color === 'Green' ? 'bg-green-500' :
+                                    p.color === 'Blue' ? 'bg-blue-500' :
+                                    p.color === 'Blue/White' ? 'bg-gradient-to-r from-white to-blue-500' :
+                                    p.color === 'Brown/White' ? 'bg-gradient-to-r from-white to-amber-800' :
+                                    'bg-amber-800'
+                                  }`}></div>
+                                  {p.color}
+                                </div>
+                              </TableCell>
+                              <TableCell>{p.signal}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+
+                  {(selectedWiring === 'crossover' || selectedWiring === 'rollover') && (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="font-medium mb-2">End A</h4>
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-gray-50 dark:bg-gray-800">
+                              <TableHead className="text-center">Pin</TableHead>
+                              <TableHead>Color</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {ETHERNET_WIRING[selectedWiring].pinoutA.map((p) => (
+                              <TableRow key={p.pin}>
+                                <TableCell className="text-center font-bold">{p.pin}</TableCell>
+                                <TableCell className="text-sm">{p.color}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div>
+                        <h4 className="font-medium mb-2">End B</h4>
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-gray-50 dark:bg-gray-800">
+                              <TableHead className="text-center">Pin</TableHead>
+                              <TableHead>Color</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {ETHERNET_WIRING[selectedWiring].pinoutB.map((p) => (
+                              <TableRow key={p.pin}>
+                                <TableCell className="text-center font-bold">{p.pin}</TableCell>
+                                <TableCell className="text-sm">{p.color}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm">
+                    <strong>Note:</strong> Most modern switches support Auto-MDI/MDIX, which automatically detects cable type and adjusts accordingly. Crossover cables are rarely needed with newer equipment.
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Glossary */}

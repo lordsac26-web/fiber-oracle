@@ -322,6 +322,128 @@ export const FIBER_COLORS = {
   }
 };
 
+export const ETHERNET_CABLES = [
+  {
+    category: 'Cat5e',
+    maxSpeed: '1 Gbps',
+    maxDistance: '100m',
+    frequency: '100 MHz',
+    useCase: 'Home networks, VoIP, basic office LANs',
+    shielding: 'UTP (Unshielded)',
+  },
+  {
+    category: 'Cat6',
+    maxSpeed: '1 Gbps (10 Gbps up to 55m)',
+    maxDistance: '100m',
+    frequency: '250 MHz',
+    useCase: 'Modern LANs, PoE+, Gigabit networks',
+    shielding: 'UTP or STP',
+  },
+  {
+    category: 'Cat6a',
+    maxSpeed: '10 Gbps',
+    maxDistance: '100m',
+    frequency: '500 MHz',
+    useCase: 'Data centers, 10GBASE-T, high-bandwidth applications',
+    shielding: 'STP (Shielded)',
+  },
+  {
+    category: 'Cat7',
+    maxSpeed: '10 Gbps',
+    maxDistance: '100m',
+    frequency: '600 MHz',
+    useCase: 'High-performance data centers, future-proofing',
+    shielding: 'S/FTP (Individually shielded pairs)',
+  },
+  {
+    category: 'Cat7a',
+    maxSpeed: '10 Gbps (40 Gbps short runs)',
+    maxDistance: '100m',
+    frequency: '1000 MHz',
+    useCase: 'Enterprise data centers, broadband video',
+    shielding: 'S/FTP',
+  },
+  {
+    category: 'Cat8',
+    maxSpeed: '25/40 Gbps',
+    maxDistance: '30m',
+    frequency: '2000 MHz',
+    useCase: 'Short data center links, server-to-switch connections',
+    shielding: 'S/FTP',
+  },
+];
+
+export const ETHERNET_WIRING = {
+  straightThrough: {
+    name: 'Straight-Through (Patch) Cable',
+    description: 'Used to connect different types of devices (PC to switch, router to switch). Both ends use the same pin configuration.',
+    standard: 'T568B on both ends (most common) or T568A on both ends',
+    uses: ['PC to Switch/Hub', 'Router to Switch/Hub', 'Server to Switch'],
+    pinout: [
+      { pin: 1, color: 'Orange/White', signal: 'TX+' },
+      { pin: 2, color: 'Orange', signal: 'TX-' },
+      { pin: 3, color: 'Green/White', signal: 'RX+' },
+      { pin: 4, color: 'Blue', signal: 'Unused' },
+      { pin: 5, color: 'Blue/White', signal: 'Unused' },
+      { pin: 6, color: 'Green', signal: 'RX-' },
+      { pin: 7, color: 'Brown/White', signal: 'Unused' },
+      { pin: 8, color: 'Brown', signal: 'Unused' },
+    ]
+  },
+  crossover: {
+    name: 'Crossover Cable',
+    description: 'Used to connect similar devices directly (PC to PC, switch to switch). TX and RX pairs are crossed between ends.',
+    standard: 'T568A on one end, T568B on the other end',
+    uses: ['PC to PC', 'Switch to Switch', 'Router to Router', 'Hub to Hub'],
+    pinoutA: [
+      { pin: 1, color: 'Green/White', signal: 'TX+' },
+      { pin: 2, color: 'Green', signal: 'TX-' },
+      { pin: 3, color: 'Orange/White', signal: 'RX+' },
+      { pin: 4, color: 'Blue', signal: 'Unused' },
+      { pin: 5, color: 'Blue/White', signal: 'Unused' },
+      { pin: 6, color: 'Orange', signal: 'RX-' },
+      { pin: 7, color: 'Brown/White', signal: 'Unused' },
+      { pin: 8, color: 'Brown', signal: 'Unused' },
+    ],
+    pinoutB: [
+      { pin: 1, color: 'Orange/White', signal: 'RX+' },
+      { pin: 2, color: 'Orange', signal: 'RX-' },
+      { pin: 3, color: 'Green/White', signal: 'TX+' },
+      { pin: 4, color: 'Blue', signal: 'Unused' },
+      { pin: 5, color: 'Blue/White', signal: 'Unused' },
+      { pin: 6, color: 'Green', signal: 'TX-' },
+      { pin: 7, color: 'Brown/White', signal: 'Unused' },
+      { pin: 8, color: 'Brown', signal: 'Unused' },
+    ]
+  },
+  rollover: {
+    name: 'Rollover (Console) Cable',
+    description: 'Used for console access to network devices like routers and switches. Pin 1 connects to Pin 8, Pin 2 to Pin 7, etc.',
+    standard: 'Pins are reversed end-to-end (1↔8, 2↔7, 3↔6, 4↔5)',
+    uses: ['PC to Router Console Port', 'PC to Switch Console Port', 'Terminal Server connections'],
+    pinoutA: [
+      { pin: 1, color: 'Blue', signal: 'RTS' },
+      { pin: 2, color: 'Orange', signal: 'DTR' },
+      { pin: 3, color: 'Black', signal: 'TXD' },
+      { pin: 4, color: 'Red', signal: 'GND' },
+      { pin: 5, color: 'Green', signal: 'GND' },
+      { pin: 6, color: 'Yellow', signal: 'RXD' },
+      { pin: 7, color: 'Brown', signal: 'DSR' },
+      { pin: 8, color: 'White', signal: 'CTS' },
+    ],
+    pinoutB: [
+      { pin: 1, color: 'White', signal: 'CTS' },
+      { pin: 2, color: 'Brown', signal: 'DSR' },
+      { pin: 3, color: 'Yellow', signal: 'RXD' },
+      { pin: 4, color: 'Green', signal: 'GND' },
+      { pin: 5, color: 'Red', signal: 'GND' },
+      { pin: 6, color: 'Black', signal: 'TXD' },
+      { pin: 7, color: 'Orange', signal: 'DTR' },
+      { pin: 8, color: 'Blue', signal: 'RTS' },
+    ]
+  }
+};
+
 export const WAVELENGTH_INFO = {
   "850nm": { type: "Multimode", application: "Short-reach datacenter", window: "First" },
   "1300nm": { type: "Multimode", application: "Extended multimode", window: "Second" },
