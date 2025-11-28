@@ -214,6 +214,7 @@ FiberTech Pro - Job Report
   <meta charset="UTF-8">
   <title>Job Report - ${jobInfo.jobNumber}</title>
   <style>
+    @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
     h1 { color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 10px; }
     h2 { color: #374151; margin-top: 24px; }
@@ -275,16 +276,18 @@ FiberTech Pro - Job Report
 
   const downloadReport = () => {
     const html = generateHTMLReport();
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Job_${jobInfo.jobNumber}_${new Date().toISOString().split('T')[0]}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success('Job report downloaded');
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(html);
+    printWindow.document.close();
+    
+    // Wait for images to load then trigger print dialog
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    };
+    
+    toast.success('Print dialog opened - select "Save as PDF" to download');
   };
 
   const sendReportEmail = async () => {
@@ -612,7 +615,7 @@ FiberTech Pro - Job Report
               </Button>
               <Button onClick={downloadReport} disabled={!resolution} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
                 <FileDown className="h-4 w-4 mr-2" />
-                Download Report
+                Save as PDF
               </Button>
               <Button onClick={() => setShowEmailDialog(true)} disabled={!resolution} variant="outline" className="flex-1">
                 <Mail className="h-4 w-4 mr-2" />
