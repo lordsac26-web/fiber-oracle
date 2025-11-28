@@ -342,6 +342,10 @@ export default function ReferenceTables() {
             <Plug className="h-4 w-4 mr-2" />
             Connector Types
           </TabsTrigger>
+          <TabsTrigger value="glossary" className="rounded-lg data-[state=active]:bg-violet-100 data-[state=active]:text-violet-700">
+            <GraduationCap className="h-4 w-4 mr-2" />
+            Glossary
+          </TabsTrigger>
         </TabsList>
 
         {/* Attenuation Table */}
