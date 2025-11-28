@@ -76,6 +76,15 @@ const MODULES = [
     page: 'ReferenceTables',
     badge: 'Reference'
   },
+  {
+    id: 'links',
+    title: 'Industry Links',
+    description: 'Vendors, manufacturers, training resources',
+    icon: Zap,
+    color: 'from-teal-500 to-cyan-600',
+    page: 'IndustryLinks',
+    badge: 'Resources'
+  },
 ];
 
 const QUICK_REFS = [

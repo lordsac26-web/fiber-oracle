@@ -6,6 +6,7 @@ import Cleaning from './pages/Cleaning';
 import Impairments from './pages/Impairments';
 import ReferenceTables from './pages/ReferenceTables';
 import Settings from './pages/Settings';
+import IndustryLinks from './pages/IndustryLinks';
 import __Layout from './Layout.jsx';
 
 
@@ -18,6 +19,7 @@ export const PAGES = {
     "Impairments": Impairments,
     "ReferenceTables": ReferenceTables,
     "Settings": Settings,
+    "IndustryLinks": IndustryLinks,
 }
 
 export const pagesConfig = {

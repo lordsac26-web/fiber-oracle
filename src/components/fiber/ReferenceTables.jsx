@@ -4,8 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette, Link2, ExternalLink, Wifi, Plug } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette, Plug, X } from 'lucide-react';
 import { 
   FIBER_ATTENUATION, 
   CONNECTOR_LOSS, 
@@ -17,12 +17,13 @@ import {
   WAVELENGTH_INFO
 } from './FiberConstants';
 
-// Connector Types Data
+// Connector Types Data with real images
 const CONNECTOR_TYPES = [
   {
     type: 'LC',
     fullName: 'Lucent Connector / Little Connector',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Lc-cable.jpg/220px-Lc-cable.jpg',
+    fullImage: 'https://upload.wikimedia.org/wikipedia/commons/5/54/Lc-cable.jpg',
     ferrule: '1.25mm',
     coupling: 'Push-pull latch',
     polishes: ['UPC', 'APC'],
@@ -35,7 +36,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'SC',
     fullName: 'Subscriber Connector / Square Connector',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Fiber_optic_SC_connector.jpg/220px-Fiber_optic_SC_connector.jpg',
+    fullImage: 'https://upload.wikimedia.org/wikipedia/commons/f/f6/Fiber_optic_SC_connector.jpg',
     ferrule: '2.5mm',
     coupling: 'Push-pull snap-in',
     polishes: ['UPC', 'APC'],
@@ -48,7 +50,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'MPO/MTP',
     fullName: 'Multi-fiber Push On / Multi-fiber Termination Push-on',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/MTP_connector.jpg/220px-MTP_connector.jpg',
+    fullImage: 'https://upload.wikimedia.org/wikipedia/commons/8/8d/MTP_connector.jpg',
     ferrule: 'Rectangular (12/24 fibers)',
     coupling: 'Push-pull with guide pins',
     polishes: ['UPC', 'APC'],
@@ -61,7 +64,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'FC',
     fullName: 'Ferrule Connector / Fixed Connector',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Fc_connector.jpg/220px-Fc_connector.jpg',
+    fullImage: 'https://upload.wikimedia.org/wikipedia/commons/a/a1/Fc_connector.jpg',
     ferrule: '2.5mm',
     coupling: 'Threaded screw-on',
     polishes: ['UPC', 'APC'],
@@ -74,7 +78,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'ST',
     fullName: 'Straight Tip',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e3/St_connector.jpg/220px-St_connector.jpg',
+    fullImage: 'https://upload.wikimedia.org/wikipedia/commons/e/e3/St_connector.jpg',
     ferrule: '2.5mm',
     coupling: 'Bayonet twist-lock',
     polishes: ['UPC'],
@@ -87,7 +92,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'E2000',
     fullName: 'E2000 / LSH',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/E2000_Stecker.jpg/220px-E2000_Stecker.jpg',
+    fullImage: 'https://upload.wikimedia.org/wikipedia/commons/9/9a/E2000_Stecker.jpg',
     ferrule: '2.5mm',
     coupling: 'Push-pull with spring-loaded dust cap',
     polishes: ['UPC', 'APC'],
@@ -100,7 +106,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'MU',
     fullName: 'Miniature Unit',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/MU_fiber_optic_connector.jpg/220px-MU_fiber_optic_connector.jpg',
+    fullImage: 'https://upload.wikimedia.org/wikipedia/commons/c/cc/MU_fiber_optic_connector.jpg',
     ferrule: '1.25mm',
     coupling: 'Push-pull',
     polishes: ['UPC', 'APC'],
@@ -113,7 +120,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'MTRJ',
     fullName: 'Mechanical Transfer Registered Jack',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/MTRJ_fiber_optic_connector.jpg/220px-MTRJ_fiber_optic_connector.jpg',
+    fullImage: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/MTRJ_fiber_optic_connector.jpg',
     ferrule: 'Rectangular (duplex)',
     coupling: 'RJ-style latch',
     polishes: ['UPC'],
@@ -126,7 +134,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'SMA',
     fullName: 'Sub-Miniature version A',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/SMA_fiber_connector.jpg/220px-SMA_fiber_connector.jpg',
+    fullImage: 'https://upload.wikimedia.org/wikipedia/commons/9/96/SMA_fiber_connector.jpg',
     ferrule: '3.175mm (stainless steel)',
     coupling: 'Threaded screw-on',
     polishes: ['Flat'],
@@ -139,7 +148,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'D4',
     fullName: 'D4 Connector',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: null,
+    fullImage: null,
     ferrule: '2.0mm',
     coupling: 'Threaded with keying',
     polishes: ['PC'],
@@ -152,7 +162,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'Biconic',
     fullName: 'Biconic Connector',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: null,
+    fullImage: null,
     ferrule: 'Tapered cone',
     coupling: 'Threaded alignment',
     polishes: ['PC'],
@@ -165,7 +176,8 @@ const CONNECTOR_TYPES = [
   {
     type: 'SMC',
     fullName: 'Small Media Connector',
-    image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
+    thumbnail: null,
+    fullImage: null,
     ferrule: '1.25mm',
     coupling: 'Push-pull',
     polishes: ['UPC'],
@@ -176,9 +188,6 @@ const CONNECTOR_TYPES = [
     notes: 'Rarely encountered. LC is preferred alternative.'
   }
 ];
-
-// Industry Links Data
-const INDUSTRY_LINKS = {
   testEquipment: [
     { name: 'VIAVI Solutions', url: 'https://www.viavisolutions.com', description: 'OTDR, OLTS, fiber test equipment' },
     { name: 'EXFO', url: 'https://www.exfo.com', description: 'Test & measurement, network monitoring' },
