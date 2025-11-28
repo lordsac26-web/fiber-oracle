@@ -78,6 +78,15 @@ const MODULES = [
     badge: 'Core'
   },
   {
+    id: 'otdr',
+    title: 'OTDR Tier-2 Wizard',
+    description: 'Bidirectional trace characterization',
+    icon: Activity,
+    color: 'from-indigo-500 to-purple-600',
+    page: 'OTDRTest',
+    badge: 'Core'
+  },
+  {
     id: 'doctor',
     title: 'Fiber Doctor',
     description: 'Symptom-based troubleshooting flowchart',
