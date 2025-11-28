@@ -358,17 +358,22 @@ export default function ImpairmentLibrary() {
     toast.success('Impairment deleted');
   };
 
-  const filteredScope = SCOPE_IMPAIRMENTS.filter(item => {
+  const customScopeItems = customImpairments.filter(i => i.type === 'scope');
+  const customOTDRItems = customImpairments.filter(i => i.type === 'otdr');
+
+  const filteredScope = [...SCOPE_IMPAIRMENTS, ...customScopeItems].filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
+    const matchesCategory = activeCategory === 'all' || item.category === activeCategory || 
+                           (activeCategory === 'custom' && item.isCustom);
     return matchesSearch && matchesCategory;
   });
 
-  const filteredOTDR = OTDR_IMPAIRMENTS.filter(item => {
+  const filteredOTDR = [...OTDR_IMPAIRMENTS, ...customOTDRItems].filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (item.description || item.trace_desc).toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
+    const matchesCategory = activeCategory === 'all' || item.category === activeCategory ||
+                           (activeCategory === 'custom' && item.isCustom);
     return matchesSearch && matchesCategory;
   });
 
