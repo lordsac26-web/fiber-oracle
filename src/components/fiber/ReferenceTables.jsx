@@ -273,6 +273,14 @@ export default function ReferenceTables() {
             <Palette className="h-4 w-4 mr-2" />
             Colors
           </TabsTrigger>
+          <TabsTrigger value="connector-types" className="rounded-lg data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
+            <Plug className="h-4 w-4 mr-2" />
+            Connector Types
+          </TabsTrigger>
+          <TabsTrigger value="links" className="rounded-lg data-[state=active]:bg-teal-100 data-[state=active]:text-teal-700">
+            <Link2 className="h-4 w-4 mr-2" />
+            Industry Links
+          </TabsTrigger>
         </TabsList>
 
         {/* Attenuation Table */}
