@@ -684,9 +684,168 @@ export default function ImpairmentLibrary() {
                     <p className="text-sm">{selectedImpairment.criteria}</p>
                   </div>
                 )}
+                
+                {selectedImpairment.isCustom && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="mt-4"
+                    onClick={() => handleDeleteCustom(selectedImpairment.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Custom Impairment
+                  </Button>
+                )}
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Custom Impairment Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Camera className="h-5 w-5" />
+              Add Custom Impairment
+            </DialogTitle>
+            <DialogDescription>
+              Save your own scope or OTDR findings for future reference
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            {/* Image Upload */}
+            <div>
+              <Label>Photo (optional)</Label>
+              <div className="mt-2">
+                {newImpairment.imageUrl ? (
+                  <div className="relative">
+                    <img 
+                      src={newImpairment.imageUrl} 
+                      alt="Preview" 
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="destructive" 
+                      className="absolute top-2 right-2"
+                      onClick={() => setNewImpairment(prev => ({ ...prev, imageUrl: '' }))}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-500">
+                      {uploading ? 'Uploading...' : 'Click to upload image'}
+                    </span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleImageUpload}
+                      disabled={uploading}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Type</Label>
+                <Select 
+                  value={newImpairment.type} 
+                  onValueChange={(v) => setNewImpairment(prev => ({ ...prev, type: v }))}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scope">Scope (400x)</SelectItem>
+                    <SelectItem value="otdr">OTDR Trace</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Severity</Label>
+                <Select 
+                  value={newImpairment.severity} 
+                  onValueChange={(v) => setNewImpairment(prev => ({ ...prev, severity: v }))}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pass">Pass</SelectItem>
+                    <SelectItem value="warning">Warning</SelectItem>
+                    <SelectItem value="marginal">Marginal</SelectItem>
+                    <SelectItem value="fail">Fail</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <Label>Category</Label>
+              <Select 
+                value={newImpairment.category} 
+                onValueChange={(v) => setNewImpairment(prev => ({ ...prev, category: v }))}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="contamination">Contamination</SelectItem>
+                  <SelectItem value="damage">Damage</SelectItem>
+                  <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                  <SelectItem value="good">Good/Reference</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Name *</Label>
+              <Input 
+                className="mt-1"
+                placeholder="e.g., Unusual debris pattern"
+                value={newImpairment.name}
+                onChange={(e) => setNewImpairment(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Description *</Label>
+              <Textarea 
+                className="mt-1"
+                placeholder="Describe what you observed..."
+                value={newImpairment.description}
+                onChange={(e) => setNewImpairment(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Recommended Action</Label>
+              <Textarea 
+                className="mt-1"
+                placeholder="What action should be taken?"
+                value={newImpairment.action}
+                onChange={(e) => setNewImpairment(prev => ({ ...prev, action: e.target.value }))}
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowAddDialog(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleAddImpairment} className="flex-1 bg-violet-600 hover:bg-violet-700">
+                Save Impairment
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
