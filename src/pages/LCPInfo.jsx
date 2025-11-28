@@ -227,18 +227,18 @@ export default function LCPInfo() {
               </div>
             </div>
             <div className="flex gap-2">
-                              <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-                                <Upload className="h-4 w-4 mr-2" />
-                                Import
-                              </Button>
-                              <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) resetForm(); }}>
-                                <DialogTrigger asChild>
-                                  <Button>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add LCP
-                                  </Button>
-                                </DialogTrigger>
-              <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import
+              </Button>
+              <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) resetForm(); }}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add LCP
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{editingId ? 'Edit LCP Entry' : 'Add New LCP Entry'}</DialogTitle>
                 </DialogHeader>
