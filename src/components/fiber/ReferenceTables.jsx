@@ -712,7 +712,7 @@ export default function ReferenceTables() {
                 <Plug className="h-5 w-5 text-indigo-600" />
                 Fiber Optic Connector Types
               </CardTitle>
-              <p className="text-sm text-gray-500">Visual reference with specifications and 2025 market prevalence</p>
+              <p className="text-sm text-gray-500">Visual reference with specifications and 2025 market prevalence. Click thumbnails to enlarge.</p>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -720,7 +720,7 @@ export default function ReferenceTables() {
                   <TableHeader>
                     <TableRow className="bg-gray-50 dark:bg-gray-800">
                       <TableHead className="w-20">Type</TableHead>
-                      <TableHead>Visual</TableHead>
+                      <TableHead>Image</TableHead>
                       <TableHead>Full Name</TableHead>
                       <TableHead className="text-center">Ferrule</TableHead>
                       <TableHead className="text-center">Coupling</TableHead>
@@ -738,20 +738,36 @@ export default function ReferenceTables() {
                       <TableRow key={conn.type}>
                         <TableCell className="font-bold text-lg">{conn.type}</TableCell>
                         <TableCell>
-                          <div className={`w-16 h-12 rounded-lg flex items-center justify-center text-white text-xs font-bold ${
-                            conn.type === 'LC' ? 'bg-blue-600' :
-                            conn.type === 'SC' ? 'bg-emerald-600' :
-                            conn.type === 'MPO/MTP' ? 'bg-purple-600' :
-                            conn.type === 'FC' ? 'bg-gray-600' :
-                            conn.type === 'ST' ? 'bg-orange-600' :
-                            conn.type === 'E2000' ? 'bg-cyan-600' :
-                            'bg-gray-500'
-                          }`}>
-                            <div className="text-center">
-                              <div>{conn.type}</div>
-                              <div className="text-[8px] opacity-75">{conn.ferrule}</div>
+                          {conn.thumbnail ? (
+                            <button 
+                              onClick={() => setSelectedConnector(conn)}
+                              className="block w-16 h-12 rounded-lg overflow-hidden border-2 border-gray-200 hover:border-indigo-400 transition-colors cursor-pointer"
+                            >
+                              <img 
+                                src={conn.thumbnail} 
+                                alt={conn.type}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.parentElement.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500 text-xs">${conn.type}</div>`;
+                                }}
+                              />
+                            </button>
+                          ) : (
+                            <div className={`w-16 h-12 rounded-lg flex items-center justify-center text-white text-xs font-bold ${
+                              conn.type === 'LC' ? 'bg-blue-600' :
+                              conn.type === 'SC' ? 'bg-emerald-600' :
+                              conn.type === 'MPO/MTP' ? 'bg-purple-600' :
+                              conn.type === 'FC' ? 'bg-gray-600' :
+                              conn.type === 'ST' ? 'bg-orange-600' :
+                              conn.type === 'E2000' ? 'bg-cyan-600' :
+                              'bg-gray-500'
+                            }`}>
+                              <div className="text-center">
+                                <div>{conn.type}</div>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-sm">{conn.fullName}</TableCell>
                         <TableCell className="text-center font-mono text-sm">{conn.ferrule}</TableCell>
