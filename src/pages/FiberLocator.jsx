@@ -253,180 +253,359 @@ export default function FiberLocator() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Link to={createPageUrl('Home')}>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Fiber Locator</h1>
-              <p className="text-xs text-gray-500">TIA-598 Color Code Calculator</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link to={createPageUrl('Home')}>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Fiber Locator</h1>
+                <p className="text-xs text-gray-500">TIA-598 Color Code Calculator</p>
+              </div>
             </div>
+            <Badge variant="outline" className="hidden sm:flex items-center gap-1">
+              <Layers className="h-3 w-3" />
+              Up to 3456 fibers
+            </Badge>
           </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Color Selection */}
-        <Card className="border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5 text-indigo-600" />
-              Find Fiber by Color
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Binder/Tube Color */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Binder / Tube Color</Label>
-                <Select value={binderColor} onValueChange={(v) => handleColorChange('binder', v)}>
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select binder color">
-                      {binderColor && (
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-5 h-5 rounded-full border border-gray-300"
-                            style={{ backgroundColor: getColorData(binderColor)?.hex }}
-                          />
-                          <span>{binderColor}</span>
-                        </div>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIA_COLORS.map((c) => (
-                      <SelectItem key={c.position} value={c.color}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className={`w-5 h-5 rounded-full ${c.border ? 'border-2 border-gray-400' : 'border border-gray-300'}`}
-                            style={{ backgroundColor: c.hex }}
-                          />
-                          <span>{c.position}. {c.color}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+        {/* Mode Selector */}
+        <Tabs value={mode} onValueChange={setMode} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 h-12">
+            <TabsTrigger value="standard" className="text-sm">
+              <Cable className="h-4 w-4 mr-2" />
+              Standard (1-144)
+            </TabsTrigger>
+            <TabsTrigger value="highcount" className="text-sm">
+              <Layers className="h-4 w-4 mr-2" />
+              High-Count (144+)
+            </TabsTrigger>
+          </TabsList>
 
-              {/* Fiber Color */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Fiber / Ribbon Color</Label>
-                <Select value={fiberColor} onValueChange={(v) => handleColorChange('fiber', v)}>
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Select fiber color">
-                      {fiberColor && (
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-5 h-5 rounded-full border border-gray-300"
-                            style={{ backgroundColor: getColorData(fiberColor)?.hex }}
-                          />
-                          <span>{fiberColor}</span>
-                        </div>
-                      )}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIA_COLORS.map((c) => (
-                      <SelectItem key={c.position} value={c.color}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className={`w-5 h-5 rounded-full ${c.border ? 'border-2 border-gray-400' : 'border border-gray-300'}`}
-                            style={{ backgroundColor: c.hex }}
-                          />
-                          <span>{c.position}. {c.color}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          {/* Standard Mode */}
+          <TabsContent value="standard" className="space-y-6 mt-6">
+            {/* Color Selection */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5 text-indigo-600" />
+                  Find Fiber by Color
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  <ColorSelector 
+                    label="Binder / Tube Color" 
+                    value={binderColor} 
+                    onChange={(v) => handleColorChange('binder', v)}
+                    placeholder="Select binder color"
+                  />
+                  <ColorSelector 
+                    label="Fiber / Ribbon Color" 
+                    value={fiberColor} 
+                    onChange={(v) => handleColorChange('fiber', v)}
+                    placeholder="Select fiber color"
+                  />
+                </div>
 
-            {/* Result from Colors */}
-            {fiberNumber && binderColor && fiberColor && (
-              <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl">
-                <div className="flex items-center justify-center gap-4">
-                  <div className="text-center">
-                    <div 
-                      className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
-                      style={{ backgroundColor: getColorData(binderColor)?.hex }}
-                    />
-                    <span className="text-xs text-gray-500">Binder</span>
+                {/* Result from Colors */}
+                {fiberNumber && binderColor && fiberColor && (
+                  <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl">
+                    <div className="flex items-center justify-center gap-4 flex-wrap">
+                      <div className="text-center">
+                        <div 
+                          className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
+                          style={{ backgroundColor: getColorData(binderColor)?.hex }}
+                        />
+                        <span className="text-xs text-gray-500">Binder</span>
+                      </div>
+                      <ArrowRight className="h-5 w-5 text-gray-400" />
+                      <div className="text-center">
+                        <div 
+                          className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
+                          style={{ backgroundColor: getColorData(fiberColor)?.hex }}
+                        />
+                        <span className="text-xs text-gray-500">Fiber</span>
+                      </div>
+                      <ArrowRight className="h-5 w-5 text-gray-400" />
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-indigo-600">#{fiberNumber}</div>
+                        <span className="text-xs text-gray-500">Fiber Number</span>
+                      </div>
+                    </div>
                   </div>
-                  <ArrowRight className="h-5 w-5 text-gray-400" />
-                  <div className="text-center">
-                    <div 
-                      className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
-                      style={{ backgroundColor: getColorData(fiberColor)?.hex }}
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Fiber Number Lookup */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Hash className="h-5 w-5 text-emerald-600" />
+                  Find Colors by Fiber Number
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Enter Fiber Number (1-144)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="144"
+                      placeholder="Enter fiber number..."
+                      className="flex-1 h-12"
+                      onChange={(e) => handleFiberNumberChange(e.target.value)}
                     />
-                    <span className="text-xs text-gray-500">Fiber</span>
-                  </div>
-                  <ArrowRight className="h-5 w-5 text-gray-400" />
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-indigo-600">#{fiberNumber}</div>
-                    <span className="text-xs text-gray-500">Fiber Number</span>
+                    <Button variant="outline" onClick={reset}>Reset</Button>
                   </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Fiber Number Lookup */}
-        <Card className="border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Hash className="h-5 w-5 text-emerald-600" />
-              Find Colors by Fiber Number
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Enter Fiber Number (1-144)</Label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  max="144"
-                  placeholder="Enter fiber number..."
-                  className="flex-1 h-12 px-4 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  onChange={(e) => handleFiberNumberChange(e.target.value)}
-                />
-                <Button variant="outline" onClick={reset}>Reset</Button>
-              </div>
-            </div>
+                {fiberNumber && (
+                  <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl">
+                    <div className="flex items-center justify-center gap-4 flex-wrap">
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-emerald-600">#{fiberNumber}</div>
+                        <span className="text-xs text-gray-500">Fiber Number</span>
+                      </div>
+                      <ArrowRight className="h-5 w-5 text-gray-400" />
+                      <div className="text-center">
+                        <div 
+                          className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
+                          style={{ backgroundColor: getColorData(binderColor)?.hex }}
+                        />
+                        <span className="text-xs text-gray-500">{binderColor || 'Binder'}</span>
+                      </div>
+                      <span className="text-gray-400">+</span>
+                      <div className="text-center">
+                        <div 
+                          className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
+                          style={{ backgroundColor: getColorData(fiberColor)?.hex }}
+                        />
+                        <span className="text-xs text-gray-500">{fiberColor || 'Fiber'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-            {fiberNumber && (
-              <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl">
-                <div className="flex items-center justify-center gap-4">
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-emerald-600">#{fiberNumber}</div>
-                    <span className="text-xs text-gray-500">Fiber Number</span>
+          {/* High-Count Mode */}
+          <TabsContent value="highcount" className="space-y-6 mt-6">
+            {/* Cable Structure Selection */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings2 className="h-5 w-5 text-purple-600" />
+                  Cable Structure
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Select Cable Type</Label>
+                    <Select value={cableStructure} onValueChange={(v) => { setCableStructure(v); resetHighCount(); }}>
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="header-loose" disabled className="font-semibold text-gray-500">
+                          Loose Tube Cables
+                        </SelectItem>
+                        {CABLE_STRUCTURES.filter(s => !s.type).map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.label} ({s.tubes} tubes × {s.fibersPerTube} fibers)
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="header-ribbon" disabled className="font-semibold text-gray-500 mt-2">
+                          Ribbon Cables
+                        </SelectItem>
+                        {CABLE_STRUCTURES.filter(s => s.type === 'ribbon').map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.label} ({s.ribbons} ribbons × {s.fibersPerRibbon} fibers)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <ArrowRight className="h-5 w-5 text-gray-400" />
-                  <div className="text-center">
-                    <div 
-                      className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
-                      style={{ backgroundColor: getColorData(binderColor)?.hex }}
-                    />
-                    <span className="text-xs text-gray-500">{binderColor || 'Binder'}</span>
+                  
+                  {selectedStructure && (
+                    <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-sm">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Info className="h-4 w-4 text-purple-600" />
+                        <span className="font-medium">Cable Structure</span>
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-400">
+                        {selectedStructure.totalFibers} total fibers • 
+                        {selectedStructure.unitsOf 
+                          ? ` ${getUnitsCount()} units of ${selectedStructure.unitsOf} fibers each`
+                          : ` ${selectedStructure.tubes || selectedStructure.ribbons} ${selectedStructure.type === 'ribbon' ? 'ribbons' : 'tubes'} × 12 fibers`
+                        }
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* High-Count Color Selection */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5 text-indigo-600" />
+                  Find Fiber by Color
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid md:grid-cols-3 gap-4">
+                  {/* Unit/Binder (for 288+ cables) */}
+                  {selectedStructure?.unitsOf && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Unit / Binder #</Label>
+                      <Select value={unitNumber} onValueChange={(v) => handleHcColorChange('unit', v)}>
+                        <SelectTrigger className="h-12">
+                          <SelectValue placeholder="Select unit">
+                            {unitNumber && `Unit ${unitNumber}`}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: getUnitsCount() }, (_, i) => (
+                            <SelectItem key={i + 1} value={(i + 1).toString()}>
+                              Unit {i + 1} (Fibers {i * selectedStructure.unitsOf + 1}-{(i + 1) * selectedStructure.unitsOf})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  <ColorSelector 
+                    label={selectedStructure?.type === 'ribbon' ? 'Ribbon Color' : 'Tube Color'}
+                    value={tubeColor} 
+                    onChange={(v) => handleHcColorChange('tube', v)}
+                    placeholder={`Select ${selectedStructure?.type === 'ribbon' ? 'ribbon' : 'tube'} color`}
+                  />
+                  <ColorSelector 
+                    label="Fiber Color" 
+                    value={hcFiberColor} 
+                    onChange={(v) => handleHcColorChange('fiber', v)}
+                    placeholder="Select fiber color"
+                  />
+                </div>
+
+                {/* Result */}
+                {hcResult && (
+                  <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl">
+                    <div className="flex items-center justify-center gap-3 flex-wrap">
+                      {selectedStructure?.unitsOf && (
+                        <>
+                          <div className="text-center">
+                            <div className="w-12 h-12 rounded-lg mx-auto mb-1 border-2 border-purple-300 bg-purple-100 flex items-center justify-center">
+                              <span className="font-bold text-purple-700">{hcResult.unit}</span>
+                            </div>
+                            <span className="text-xs text-gray-500">Unit</span>
+                          </div>
+                          <ArrowRight className="h-5 w-5 text-gray-400" />
+                        </>
+                      )}
+                      <div className="text-center">
+                        <div 
+                          className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
+                          style={{ backgroundColor: hcResult.tube?.hex }}
+                        />
+                        <span className="text-xs text-gray-500">{selectedStructure?.type === 'ribbon' ? 'Ribbon' : 'Tube'}</span>
+                      </div>
+                      <ArrowRight className="h-5 w-5 text-gray-400" />
+                      <div className="text-center">
+                        <div 
+                          className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
+                          style={{ backgroundColor: hcResult.fiber?.hex }}
+                        />
+                        <span className="text-xs text-gray-500">Fiber</span>
+                      </div>
+                      <ArrowRight className="h-5 w-5 text-gray-400" />
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-indigo-600">#{hcResult.fiberNumber}</div>
+                        <span className="text-xs text-gray-500">Fiber Number</span>
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-gray-400">+</span>
-                  <div className="text-center">
-                    <div 
-                      className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
-                      style={{ backgroundColor: getColorData(fiberColor)?.hex }}
+                )}
+              </CardContent>
+            </Card>
+
+            {/* High-Count Fiber Number Lookup */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Hash className="h-5 w-5 text-emerald-600" />
+                  Find Colors by Fiber Number
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    Enter Fiber Number (1-{selectedStructure?.totalFibers || 144})
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      max={selectedStructure?.totalFibers || 144}
+                      placeholder="Enter fiber number..."
+                      className="flex-1 h-12"
+                      value={hcFiberNumber || ''}
+                      onChange={(e) => handleHcFiberNumberChange(e.target.value)}
                     />
-                    <span className="text-xs text-gray-500">{fiberColor || 'Fiber'}</span>
+                    <Button variant="outline" onClick={resetHighCount}>Reset</Button>
                   </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+
+                {hcResult && (
+                  <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl">
+                    <div className="flex items-center justify-center gap-3 flex-wrap">
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-emerald-600">#{hcResult.fiberNumber}</div>
+                        <span className="text-xs text-gray-500">Fiber Number</span>
+                      </div>
+                      <ArrowRight className="h-5 w-5 text-gray-400" />
+                      {selectedStructure?.unitsOf && (
+                        <div className="text-center">
+                          <div className="w-12 h-12 rounded-lg mx-auto mb-1 border-2 border-purple-300 bg-purple-100 flex items-center justify-center">
+                            <span className="font-bold text-purple-700">{hcResult.unit}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">Unit</span>
+                        </div>
+                      )}
+                      <div className="text-center">
+                        <div 
+                          className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
+                          style={{ backgroundColor: hcResult.tube?.hex }}
+                        />
+                        <span className="text-xs text-gray-500">{hcResult.tube?.color}</span>
+                      </div>
+                      <span className="text-gray-400">+</span>
+                      <div className="text-center">
+                        <div 
+                          className="w-12 h-12 rounded-full mx-auto mb-1 border-2 border-gray-300"
+                          style={{ backgroundColor: hcResult.fiber?.hex }}
+                        />
+                        <span className="text-xs text-gray-500">{hcResult.fiber?.color}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* Quick Reference */}
         <Card className="border-0 shadow-lg">
@@ -449,8 +628,13 @@ export default function FiberLocator() {
                 </div>
               ))}
             </div>
-            <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm">
-              <strong>Formula:</strong> Fiber # = (Binder Position - 1) × 12 + Fiber Position
+            <div className="mt-4 space-y-2">
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm">
+                <strong>144-Fiber Formula:</strong> Fiber # = (Tube Position - 1) × 12 + Fiber Position
+              </div>
+              <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-sm">
+                <strong>High-Count Formula:</strong> Fiber # = (Unit - 1) × 144 + (Tube Position - 1) × 12 + Fiber Position
+              </div>
             </div>
           </CardContent>
         </Card>
