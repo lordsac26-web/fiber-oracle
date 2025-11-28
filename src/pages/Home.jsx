@@ -16,13 +16,23 @@ import {
   WifiOff,
   Moon,
   Sun,
-  Cable
+  Cable,
+  ClipboardCheck
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { motion } from 'framer-motion';
 
 const MODULES = [
+  {
+    id: 'jobcheck',
+    title: 'Job Check',
+    description: 'Guided diagnostic workflow with reports',
+    icon: ClipboardCheck,
+    color: 'from-emerald-500 to-teal-600',
+    page: 'JobCheck',
+    badge: 'Core'
+  },
   {
     id: 'calculator',
     title: 'Loss Budget Calculator',
