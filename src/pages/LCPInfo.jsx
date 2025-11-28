@@ -20,7 +20,9 @@ import {
   Cable,
   Upload,
   FileText,
-  Download
+  Download,
+  Map,
+  Navigation
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -38,6 +40,8 @@ export default function LCPInfo() {
     lcpNumber: '',
     splitterNumber: '',
     physicalLocation: '',
+    latitude: '',
+    longitude: '',
     oltName: '',
     oltShelf: '',
     oltSlot: '',
@@ -67,6 +71,8 @@ export default function LCPInfo() {
       lcpNumber: '',
       splitterNumber: '',
       physicalLocation: '',
+      latitude: '',
+      longitude: '',
       oltName: '',
       oltShelf: '',
       oltSlot: '',
@@ -78,6 +84,28 @@ export default function LCPInfo() {
     });
     setEditingId(null);
   };
+
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setFormData({
+            ...formData,
+            latitude: position.coords.latitude.toFixed(6),
+            longitude: position.coords.longitude.toFixed(6)
+          });
+          toast.success('Location captured!');
+        },
+        (error) => {
+          toast.error('Unable to get location. Please enter manually.');
+        }
+      );
+    } else {
+      toast.error('Geolocation not supported by this browser.');
+    }
+  };
+
+  const entriesWithCoords = lcpEntries.filter(e => e.latitude && e.longitude);
 
   const handleSubmit = () => {
     if (!formData.lcpNumber || !formData.splitterNumber) {
@@ -139,6 +167,8 @@ export default function LCPInfo() {
           'lcp': 'lcpNumber', 'lcp_number': 'lcpNumber', 'lcpnumber': 'lcpNumber', 'lcp number': 'lcpNumber', 'clcp': 'lcpNumber',
           'splitter': 'splitterNumber', 'splitter_number': 'splitterNumber', 'splitternumber': 'splitterNumber', 'splitter number': 'splitterNumber',
           'location': 'physicalLocation', 'physical_location': 'physicalLocation', 'address': 'physicalLocation',
+          'latitude': 'latitude', 'lat': 'latitude', 'gps_lat': 'latitude',
+          'longitude': 'longitude', 'lon': 'longitude', 'lng': 'longitude', 'gps_lon': 'longitude', 'gps_lng': 'longitude',
           'olt': 'oltName', 'olt_name': 'oltName', 'oltname': 'oltName',
           'shelf': 'oltShelf', 'olt_shelf': 'oltShelf',
           'slot': 'oltSlot', 'olt_slot': 'oltSlot',
@@ -190,7 +220,7 @@ export default function LCPInfo() {
   };
 
   const downloadTemplate = () => {
-    const template = 'LCP,Splitter,Location,OLT,Shelf,Slot,Port,Optic_Make,Optic_Model,Optic_Serial,Notes\nLCP-001,SPL-001,"123 Main St",OLT-01,0,1,1-4,Finisar,FTLX1475D3BCL,ABC123,Sample entry';
+    const template = 'LCP,Splitter,Location,Latitude,Longitude,OLT,Shelf,Slot,Port,Optic_Make,Optic_Model,Optic_Serial,Notes\nLCP-001,SPL-001,"123 Main St",40.7128,-74.0060,OLT-01,0,1,1-4,Finisar,FTLX1475D3BCL,ABC123,Sample entry';
     const blob = new Blob([template], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -227,6 +257,14 @@ export default function LCPInfo() {
               </div>
             </div>
             <div className="flex gap-2">
+              {entriesWithCoords.length > 0 && (
+                <Link to={createPageUrl('LCPMap')}>
+                  <Button variant="outline">
+                    <Map className="h-4 w-4 mr-2" />
+                    Map View
+                  </Button>
+                </Link>
+              )}
               <Button variant="outline" onClick={() => setShowImportDialog(true)}>
                 <Upload className="h-4 w-4 mr-2" />
                 Import
@@ -269,6 +307,34 @@ export default function LCPInfo() {
                       value={formData.physicalLocation}
                       onChange={(e) => setFormData({ ...formData, physicalLocation: e.target.value })}
                     />
+                  </div>
+
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">GPS Coordinates (Optional)</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={getCurrentLocation}>
+                        <Navigation className="h-3 w-3 mr-1" />
+                        Get Current
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-gray-500">Latitude</Label>
+                        <Input
+                          placeholder="e.g., 40.7128"
+                          value={formData.latitude}
+                          onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-gray-500">Longitude</Label>
+                        <Input
+                          placeholder="e.g., -74.0060"
+                          value={formData.longitude}
+                          onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-3">
@@ -500,6 +566,11 @@ export default function LCPInfo() {
                             <div>
                               <div className="text-xs text-gray-500">Physical Location</div>
                               <div className="text-sm">{entry.physicalLocation}</div>
+                              {entry.latitude && entry.longitude && (
+                                <div className="text-xs text-blue-600 font-mono mt-0.5">
+                                  📍 {entry.latitude}, {entry.longitude}
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
