@@ -360,6 +360,95 @@ export default function LCPInfo() {
                 </div>
               </DialogContent>
             </Dialog>
+
+                {/* Import Dialog */}
+                <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) { setImportPreview([]); setImportError(''); } }}>
+                  <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Import LCP Entries</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="flex items-start gap-2 text-sm text-blue-800 dark:text-blue-200">
+                          <FileText className="h-4 w-4 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="font-medium">Supported formats: CSV or TXT (tab/comma separated)</p>
+                            <p className="mt-1">Required columns: LCP, Splitter</p>
+                            <p>Optional: Location, OLT, Shelf, Slot, Port, Optic_Make, Optic_Model, Optic_Serial, Notes</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download Template
+                        </Button>
+                      </div>
+
+                      <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                        <input
+                          type="file"
+                          accept=".csv,.txt"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                          id="file-upload"
+                        />
+                        <label htmlFor="file-upload" className="cursor-pointer">
+                          <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Click to upload CSV or TXT file</p>
+                        </label>
+                      </div>
+
+                      {importError && (
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-700 dark:text-red-300">
+                          {importError}
+                        </div>
+                      )}
+
+                      {importPreview.length > 0 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">Preview ({importPreview.length} entries)</span>
+                          </div>
+                          <div className="max-h-48 overflow-y-auto border rounded-lg">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>LCP</TableHead>
+                                  <TableHead>Splitter</TableHead>
+                                  <TableHead>Location</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {importPreview.slice(0, 10).map((entry, i) => (
+                                  <TableRow key={i}>
+                                    <TableCell className="font-mono text-sm">{entry.lcpNumber || '-'}</TableCell>
+                                    <TableCell className="font-mono text-sm">{entry.splitterNumber || '-'}</TableCell>
+                                    <TableCell className="text-sm truncate max-w-[150px]">{entry.physicalLocation || '-'}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                            {importPreview.length > 10 && (
+                              <div className="text-center py-2 text-sm text-gray-500">
+                                ... and {importPreview.length - 10} more
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="outline" onClick={() => { setImportPreview([]); setImportError(''); }} className="flex-1">
+                              Cancel
+                            </Button>
+                            <Button onClick={confirmImport} className="flex-1">
+                              Import {importPreview.length} Entries
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
           </div>
         </div>
       </header>
