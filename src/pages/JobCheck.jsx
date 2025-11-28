@@ -107,6 +107,7 @@ export default function JobCheck() {
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [finalLightLevel, setFinalLightLevel] = useState('');
 
   const startJob = () => {
     if (!jobInfo.techNumber || !jobInfo.jobNumber || !jobInfo.issueType) {
@@ -185,6 +186,10 @@ ${currentSteps.map(step => {
   return `${completed} ${step.title}${step.required ? ' (Required)' : ''}${note}`;
 }).join('\n')}
 
+LIGHT LEVEL AT COMPLETION
+-------------------------
+${finalLightLevel ? finalLightLevel + ' dBm' : 'Not recorded'}
+
 RESOLUTION
 ----------
 ${resolution || 'Not specified'}
@@ -242,6 +247,7 @@ FiberTech Pro - Job Report
     <div class="info-item"><div class="info-label">Issue Type</div><div class="info-value">${issueLabel}</div></div>
     <div class="info-item"><div class="info-label">Start Time</div><div class="info-value">${jobInfo.startTime.toLocaleString()}</div></div>
     <div class="info-item"><div class="info-label">Duration</div><div class="info-value">${duration} minutes</div></div>
+    <div class="info-item"><div class="info-label">Light Level</div><div class="info-value">${finalLightLevel ? finalLightLevel + ' dBm' : 'N/A'}</div></div>
   </div>
   
   ${jobInfo.issueDescription ? `<p><strong>Description:</strong> ${jobInfo.issueDescription}</p>` : ''}
@@ -322,6 +328,7 @@ FiberTech Pro - Job Report
     setResolution('');
     setFsanNumber('');
     setPhotos([]);
+    setFinalLightLevel('');
   };
 
   return (
@@ -543,14 +550,27 @@ FiberTech Pro - Job Report
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>ONT FSAN</Label>
-                  <Input
-                    placeholder="e.g., ALCL12345678"
-                    value={fsanNumber}
-                    onChange={(e) => setFsanNumber(e.target.value)}
-                    className="font-mono"
-                  />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>ONT FSAN</Label>
+                    <Input
+                      placeholder="e.g., ALCL12345678"
+                      value={fsanNumber}
+                      onChange={(e) => setFsanNumber(e.target.value)}
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Light Level at Completion (dBm)</Label>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      placeholder="e.g., -18.5"
+                      value={finalLightLevel}
+                      onChange={(e) => setFinalLightLevel(e.target.value)}
+                      className="font-mono"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
