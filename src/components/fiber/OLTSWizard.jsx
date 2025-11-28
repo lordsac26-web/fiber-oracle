@@ -39,6 +39,87 @@ const STEPS = [
 
 const REFERENCE_WARMUP_TIME = 5 * 60; // 5 minutes in seconds
 
+const OLTS_OTDR_GUIDE = {
+  overview: {
+    title: "OLTS & OTDR: A Complete Testing Strategy",
+    source: "Fluke Networks White Paper",
+    summary: "OLTS and OTDR are complementary tools that together provide a complete fiber testing strategy. Testing with both is referred to as 'Tier 2' testing (TIA) or 'Extended' testing (ISO)."
+  },
+  olts: {
+    title: "What Is an OLTS?",
+    description: "An Optical Loss Test Set provides the most accurate insertion loss measurement on a link by using a light source on one end and a power meter on the other. It is REQUIRED for fiber testing per industry standards (Tier 1 testing).",
+    keyPoints: [
+      "Uses continuous wave light source + power meter",
+      "Measures total light lost end-to-end",
+      "Required by TIA 568-3.D and ISO/IEC 14763-3",
+      "Provides clear PASS/FAIL against application limits",
+      "Tests at specific wavelengths (850/1300/1310/1550nm)"
+    ],
+    advantages: [
+      "Most accurate total loss measurement",
+      "Fast testing (duplex link in <3 seconds)",
+      "Required for certification and compliance",
+      "Measures both loss and length"
+    ]
+  },
+  otdr: {
+    title: "What Is an OTDR?",
+    description: "An Optical Time Domain Reflectometer measures light reflected back to the source by transmitting high-power light pulses and analyzing the backscatter. It characterizes individual events (connectors, splices, bends) along the fiber.",
+    keyPoints: [
+      "Transmits pulses and measures reflection/backscatter",
+      "Locates and measures individual events",
+      "Shows distance to faults, splices, connectors",
+      "Measures reflectance (critical for short-reach SMF)",
+      "Detects problems invisible to OLTS"
+    ],
+    traceEvents: [
+      { event: "Initial pulse", description: "Fresnel reflection at OTDR connection" },
+      { event: "Downward slope", description: "Normal fiber attenuation (backscatter)" },
+      { event: "Upward spike", description: "Reflective event (connector, break, end)" },
+      { event: "Downward shift", description: "Non-reflective loss (splice, bend, APC)" },
+      { event: "Gainer", description: "Signal appears stronger - fiber type mismatch" },
+      { event: "End spike", description: "Large reflection at fiber end" },
+      { event: "Ghost", description: "False events after end (ignore these)" }
+    ]
+  },
+  workingTogether: {
+    title: "How OLTS and OTDR Work Together",
+    description: "These tools complement each other - OLTS for accurate total loss certification, OTDR for characterizing individual events and troubleshooting.",
+    workflow: [
+      "1. Clean and inspect all end faces first",
+      "2. OTDR characterization to identify and fix problems during installation",
+      "3. Final OLTS insertion loss test for certification",
+      "4. Compare both results for complete documentation"
+    ],
+    whyBoth: [
+      "OLTS gives accurate total loss (required for certification)",
+      "OTDR reveals individual connector/splice performance",
+      "OTDR measures reflectance (critical for short-reach SMF)",
+      "OTDR locates faults for troubleshooting",
+      "A link can PASS OLTS but have hidden bad connectors",
+      "Combined documentation protects the technician"
+    ]
+  },
+  reflectance: {
+    title: "Why Reflectance Matters",
+    description: "For emerging short-reach single-mode applications (100GBASE-DR, 400GBASE-DR4), insertion loss limits depend on the number and reflectance of connections.",
+    warning: "Multimode transceivers tolerate reflection, but single-mode transceivers do not. Too much reflection can destroy high-power SM transceivers.",
+    example: "100GBASE-DR4: 4 connectors with -45 to -55 dB reflectance = 3.0 dB max loss. Same 4 connectors with -35 to -45 dB reflectance = only 2.7 dB max loss."
+  },
+  cleaning: {
+    title: "Cleaning & Inspection",
+    description: "Contaminated connections are the #1 cause of fiber problems and test failures. A single particle on the core can cause loss and reflections.",
+    rules: [
+      "Inspect ALL end faces before mating (even new connectors)",
+      "Clean with proper fiber optic cleaning tools",
+      "Use specialized solvents (not IPA) for stubborn contamination",
+      "Inspect test reference cords and adapters regularly",
+      "Dust covers can be a source of contamination"
+    ]
+  },
+  pdfUrl: "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/51ed541f3_OLTS_OTDR_A_Complete_Testing_Strategy-70034540.pdf"
+};
+
 export default function OLTSWizard({ onSaveReport }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [testData, setTestData] = useState({
