@@ -142,6 +142,8 @@ export default function OLTSWizard({ onSaveReport }) {
     adapters_clean: false,
     reference_zeroed: false
   });
+  const [showGuide, setShowGuide] = useState(false);
+  const [guideSection, setGuideSection] = useState('overview');
 
   // Warmup timer
   useEffect(() => {
