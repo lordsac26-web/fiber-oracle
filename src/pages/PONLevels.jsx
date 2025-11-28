@@ -109,6 +109,11 @@ const PON_ERRORS = {
   bip: {
     name: 'BIP Errors (Bit Interleaved Parity)',
     description: 'BIP is a parity-based error detection mechanism used in PON systems. The OLT/ONU calculates a parity value over a block of data and includes it in the transmission. The receiver recalculates and compares to detect bit errors.',
+    thresholds: {
+      pass: { max: 0, label: '0 errors', desc: 'No errors - link is healthy' },
+      marginal: { max: 10, label: '1-10/day', desc: 'Occasional errors - monitor closely' },
+      fail: { min: 11, label: '>10/day or sustained', desc: 'Consistent errors - action required' }
+    },
     acceptable: 'Zero BIP errors is ideal. Occasional isolated errors (<10/day) may occur. Consistent or increasing errors indicate a problem.',
     expected: 'A healthy PON link should show 0 BIP errors under normal operation. Any sustained BIP errors indicate physical layer issues.',
     symptoms: [
@@ -128,36 +133,88 @@ const PON_ERRORS = {
       'Faulty ONU/ONT transceiver',
       'Electrical interference (rare)'
     ],
+    actions: [
+      'Clean all connectors in path',
+      'Check ONU Rx power level',
+      'Inspect connectors with scope',
+      'Check for macrobends in cable routing'
+    ],
     severity: 'warning'
   },
-  fec: {
-    name: 'FEC Errors (Forward Error Correction)',
-    description: 'FEC adds redundant data to transmissions allowing the receiver to detect and correct errors without retransmission. FEC corrected errors are fixed automatically; uncorrectable errors indicate severe signal degradation.',
-    acceptable: 'FEC corrected errors are acceptable in small quantities - the system is working as designed. FEC uncorrectable errors should be zero.',
-    expected: 'Low levels of FEC corrected errors (<1000/hour) are normal on long links. High corrected counts suggest marginal signal. Any uncorrectable errors = problem.',
+  fec_corrected: {
+    name: 'FEC Corrected Errors',
+    description: 'FEC (Forward Error Correction) adds redundant data allowing the receiver to detect AND fix errors automatically. Corrected errors mean the system caught and fixed bit errors - service continues normally.',
+    thresholds: {
+      pass: { max: 100, label: '<100/min', desc: 'Normal operation' },
+      marginal: { max: 1000, label: '100-1000/min', desc: 'Elevated - signal degrading' },
+      fail: { min: 1001, label: '>1000/min', desc: 'High rate - investigate now' }
+    },
+    acceptable: 'Low counts (<100/min) are normal, especially on long links. FEC is doing its job. High sustained rates indicate marginal signal.',
+    expected: 'Some FEC corrections are expected on any PON link. The concern is when rates increase significantly or trend upward over time.',
     symptoms: [
-      'FEC Corrected: Usually transparent to user, logged in OLT',
-      'FEC Uncorrectable: Dropped frames, timeouts, disconnections',
-      'High corrected rate: Warning of degrading link',
-      'Customer complaints of intermittent issues',
-      'Failed speed tests despite link being "up"'
+      'Usually transparent to end user',
+      'Logged in OLT statistics',
+      'May precede service issues if trending up',
+      'High rates = early warning of problems'
     ],
     causes: [
-      'Signal approaching receiver sensitivity limit',
-      'Dirty connectors (most common)',
-      'Excessive splitter loss',
-      'Fiber degradation or damage',
-      'Connector reflectance issues (use APC)',
-      'Dispersion on very long links',
-      'Temperature extremes affecting components'
+      'Signal near receiver sensitivity limit',
+      'Dirty or contaminated connectors',
+      'Aging or degraded fiber',
+      'Long distance PON links',
+      'Temperature extremes'
+    ],
+    actions: [
+      'Note: Some FEC corrections are normal',
+      'Monitor trend over time',
+      'Clean connectors if rate increasing',
+      'Check Rx power is mid-range, not marginal'
     ],
     severity: 'marginal'
   },
+  fec_uncorrectable: {
+    name: 'FEC Uncorrectable Errors',
+    description: 'FEC uncorrectable errors occur when the error rate exceeds FEC\'s correction capability. These errors CANNOT be fixed and result in lost data. This is a serious condition requiring immediate attention.',
+    thresholds: {
+      pass: { max: 0, label: '0 errors', desc: 'No uncorrectable errors' },
+      marginal: { max: 0, label: 'N/A', desc: 'Any count is a problem' },
+      fail: { min: 1, label: 'Any (>0)', desc: 'Immediate action required' }
+    },
+    acceptable: 'Zero. Any FEC uncorrectable errors indicate severe signal degradation. Service quality is impacted.',
+    expected: 'A healthy link should have ZERO uncorrectable errors. Even one indicates the link is operating beyond acceptable limits.',
+    symptoms: [
+      'Dropped packets and timeouts',
+      'Service disconnections',
+      'Failed speed tests',
+      'Video buffering, VoIP drops',
+      'Customer complaints of intermittent service'
+    ],
+    causes: [
+      'Rx power below sensitivity threshold',
+      'Severely contaminated connectors',
+      'Damaged or broken fiber',
+      'Failed splitter or splice',
+      'Faulty ONU transceiver',
+      'Rx power too high (saturation)'
+    ],
+    actions: [
+      'Check Rx power immediately',
+      'Clean and inspect all connectors',
+      'OTDR test the path',
+      'Replace ONU if fiber tests good'
+    ],
+    severity: 'critical'
+  },
   gem: {
-    name: 'GEM Errors (GPON Encapsulation Method)',
-    description: 'GEM is the data encapsulation protocol for GPON. GEM errors indicate issues with the framing or encapsulation layer, often caused by synchronization problems or physical layer issues affecting frame integrity.',
-    acceptable: 'Zero GEM errors is expected. Any GEM errors indicate a significant problem requiring investigation.',
-    expected: 'A properly functioning PON link should have no GEM errors. Even small numbers indicate encapsulation/framing issues.',
+    name: 'GEM/XGEM Errors (Encapsulation)',
+    description: 'GEM (GPON) and XGEM (XGS-PON) are the data encapsulation protocols. These errors indicate frame-level problems - the data structure itself is corrupted, not just individual bits.',
+    thresholds: {
+      pass: { max: 0, label: '0 errors', desc: 'No encapsulation errors' },
+      marginal: { max: 0, label: 'N/A', desc: 'Any count is a problem' },
+      fail: { min: 1, label: 'Any (>0)', desc: 'Critical - investigate immediately' }
+    },
+    acceptable: 'Zero GEM/XGEM errors is expected. Any errors indicate a significant problem affecting data framing and integrity.',
+    expected: 'A properly functioning PON link should have no GEM errors. Even small numbers indicate serious encapsulation/framing issues.',
     symptoms: [
       'Complete service outages or flapping',
       'ONU unable to register or authenticate',
@@ -168,11 +225,48 @@ const PON_ERRORS = {
     causes: [
       'Severe optical signal issues',
       'ONU/ONT hardware failure',
-      'Firmware bugs or incompatibility',
+      'Firmware bugs or version mismatch',
       'Timing/synchronization problems',
       'Rogue ONU on PON port',
       'Splitter failure',
       'Physical layer completely degraded'
+    ],
+    actions: [
+      'Check for rogue ONU on PON',
+      'Verify ONU firmware version',
+      'Check all Rx power levels',
+      'Replace ONU as likely hardware fault',
+      'Escalate if multiple ONUs affected'
+    ],
+    severity: 'critical'
+  },
+  hec: {
+    name: 'HEC Errors (Header Error Check)',
+    description: 'HEC protects the GEM frame header. HEC errors mean the header is corrupted, so the entire frame is discarded. This is separate from payload errors and indicates severe signal issues.',
+    thresholds: {
+      pass: { max: 0, label: '0 errors', desc: 'Headers intact' },
+      marginal: { max: 5, label: '1-5/hour', desc: 'Some header corruption' },
+      fail: { min: 6, label: '>5/hour', desc: 'Serious - frame loss occurring' }
+    },
+    acceptable: 'Zero HEC errors expected. Low isolated counts may occur but sustained errors indicate problems.',
+    expected: 'HEC errors should be zero. Any consistent HEC errors indicate the signal is too degraded to reliably read frame headers.',
+    symptoms: [
+      'Frames being discarded entirely',
+      'Similar to FEC uncorrectable symptoms',
+      'Service degradation or drops',
+      'High retransmission rates'
+    ],
+    causes: [
+      'Very low optical power',
+      'High noise on the link',
+      'Damaged fiber or connectors',
+      'ONU transmitter issues'
+    ],
+    actions: [
+      'Check Rx power levels first',
+      'Clean and inspect connectors',
+      'OTDR to find fault location',
+      'Replace ONU if fiber is good'
     ],
     severity: 'critical'
   }
@@ -363,8 +457,63 @@ export default function PONLevels() {
             <div className="space-y-6">
               <div className="mb-4">
                 <h2 className="text-xl font-semibold">PON Error Types</h2>
-                <p className="text-sm text-gray-500">Understanding BIP, FEC, and GEM errors for troubleshooting</p>
+                <p className="text-sm text-gray-500">Understanding BIP, FEC, GEM, and HEC errors with pass/fail thresholds</p>
               </div>
+
+              {/* Quick Pass/Fail Reference Card */}
+              <Card className="border-0 shadow-lg bg-gradient-to-br from-slate-800 to-slate-900 text-white">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Activity className="h-5 w-5" />
+                    Quick Pass/Fail Reference
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-600">
+                          <th className="text-left py-2 font-medium">Error Type</th>
+                          <th className="text-center py-2 px-2">
+                            <span className="inline-flex items-center gap-1 text-emerald-400">
+                              <CheckCircle2 className="h-3 w-3" /> PASS
+                            </span>
+                          </th>
+                          <th className="text-center py-2 px-2">
+                            <span className="inline-flex items-center gap-1 text-amber-400">
+                              <AlertTriangle className="h-3 w-3" /> MARGINAL
+                            </span>
+                          </th>
+                          <th className="text-center py-2 px-2">
+                            <span className="inline-flex items-center gap-1 text-red-400">
+                              <XCircle className="h-3 w-3" /> FAIL
+                            </span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(PON_ERRORS).map(([key, error]) => (
+                          <tr key={key} className="border-b border-slate-700">
+                            <td className="py-2 font-medium">{error.name.split('(')[0].trim()}</td>
+                            <td className="text-center py-2 px-2">
+                              <span className="text-emerald-400 font-mono text-xs">{error.thresholds.pass.label}</span>
+                            </td>
+                            <td className="text-center py-2 px-2">
+                              <span className="text-amber-400 font-mono text-xs">{error.thresholds.marginal.label}</span>
+                            </td>
+                            <td className="text-center py-2 px-2">
+                              <span className="text-red-400 font-mono text-xs">{error.thresholds.fail.label}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-slate-600 text-xs text-slate-400">
+                    <strong>Key Rule:</strong> FEC Corrected errors are normal in low quantities. All other error types should be zero for a healthy link.
+                  </div>
+                </CardContent>
+              </Card>
 
               {Object.entries(PON_ERRORS).map(([key, error]) => (
                 <Card key={key} className={`border-0 shadow-lg ${
@@ -394,26 +543,37 @@ export default function PONLevels() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                        <h4 className="font-medium text-emerald-800 dark:text-emerald-200 mb-2 flex items-center gap-2">
-                          <CheckCircle2 className="h-4 w-4" />
-                          Acceptable Levels
-                        </h4>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{error.acceptable}</p>
+                    {/* Threshold Badges */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg text-center">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">PASS</span>
+                        </div>
+                        <div className="font-mono font-bold text-emerald-700 dark:text-emerald-300">{error.thresholds.pass.label}</div>
+                        <div className="text-xs text-gray-500 mt-1">{error.thresholds.pass.desc}</div>
                       </div>
-                      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2 flex items-center gap-2">
-                          <Info className="h-4 w-4" />
-                          What to Expect
-                        </h4>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">{error.expected}</p>
+                      <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-center">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <AlertTriangle className="h-4 w-4 text-amber-600" />
+                          <span className="text-xs font-medium text-amber-700 dark:text-amber-300">MARGINAL</span>
+                        </div>
+                        <div className="font-mono font-bold text-amber-700 dark:text-amber-300">{error.thresholds.marginal.label}</div>
+                        <div className="text-xs text-gray-500 mt-1">{error.thresholds.marginal.desc}</div>
+                      </div>
+                      <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-center">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <XCircle className="h-4 w-4 text-red-600" />
+                          <span className="text-xs font-medium text-red-700 dark:text-red-300">FAIL</span>
+                        </div>
+                        <div className="font-mono font-bold text-red-700 dark:text-red-300">{error.thresholds.fail.label}</div>
+                        <div className="text-xs text-gray-500 mt-1">{error.thresholds.fail.desc}</div>
                       </div>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                        <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2">How It Presents</h4>
+                        <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2">Symptoms</h4>
                         <ul className="text-sm space-y-1">
                           {error.symptoms.map((symptom, i) => (
                             <li key={i} className="flex items-start gap-2">
@@ -435,6 +595,18 @@ export default function PONLevels() {
                         </ul>
                       </div>
                     </div>
+
+                    {/* Recommended Actions */}
+                    <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                      <h4 className="font-medium text-indigo-800 dark:text-indigo-200 mb-2">Recommended Actions</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {error.actions.map((action, i) => (
+                          <Badge key={i} variant="outline" className="bg-white dark:bg-gray-800">
+                            {i + 1}. {action}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -442,7 +614,7 @@ export default function PONLevels() {
               {/* Error Troubleshooting Flow */}
               <Card className="border-0 shadow-lg bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
                 <CardHeader>
-                  <CardTitle className="text-base">Quick Troubleshooting Flow</CardTitle>
+                  <CardTitle className="text-base">General Troubleshooting Flow</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 text-sm">
