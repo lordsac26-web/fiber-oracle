@@ -32,6 +32,15 @@ const MODULES = [
     badge: 'Core'
   },
   {
+    id: 'fiberlocator',
+    title: 'Fiber Locator',
+    description: 'TIA-598 color code fiber identifier',
+    icon: Zap,
+    color: 'from-purple-500 to-pink-600',
+    page: 'FiberLocator',
+    badge: 'Core'
+  },
+  {
     id: 'olts',
     title: 'OLTS Tier-1 Wizard',
     description: 'Method B bidirectional testing',
