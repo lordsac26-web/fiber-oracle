@@ -232,6 +232,7 @@ const CONNECTOR_TYPES = [
 
 export default function ReferenceTables() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedConnector, setSelectedConnector] = useState(null);
 
   return (
     <div className="space-y-6">
@@ -285,10 +286,6 @@ export default function ReferenceTables() {
           <TabsTrigger value="connector-types" className="rounded-lg data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
             <Plug className="h-4 w-4 mr-2" />
             Connector Types
-          </TabsTrigger>
-          <TabsTrigger value="links" className="rounded-lg data-[state=active]:bg-teal-100 data-[state=active]:text-teal-700">
-            <Link2 className="h-4 w-4 mr-2" />
-            Industry Links
           </TabsTrigger>
         </TabsList>
 
