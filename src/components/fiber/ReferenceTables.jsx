@@ -697,6 +697,296 @@ export default function ReferenceTables() {
             </Card>
           </div>
         </TabsContent>
+
+        {/* Connector Types */}
+        <TabsContent value="connector-types">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plug className="h-5 w-5 text-indigo-600" />
+                Fiber Optic Connector Types
+              </CardTitle>
+              <p className="text-sm text-gray-500">Visual reference with specifications and 2025 market prevalence</p>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50 dark:bg-gray-800">
+                      <TableHead className="w-20">Type</TableHead>
+                      <TableHead>Visual</TableHead>
+                      <TableHead>Full Name</TableHead>
+                      <TableHead className="text-center">Ferrule</TableHead>
+                      <TableHead className="text-center">Coupling</TableHead>
+                      <TableHead className="text-center">Polish</TableHead>
+                      <TableHead className="text-center">2025 Usage</TableHead>
+                      <TableHead>Applications</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {CONNECTOR_TYPES.filter(conn => 
+                      searchTerm === '' || 
+                      conn.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      conn.fullName.toLowerCase().includes(searchTerm.toLowerCase())
+                    ).map((conn) => (
+                      <TableRow key={conn.type}>
+                        <TableCell className="font-bold text-lg">{conn.type}</TableCell>
+                        <TableCell>
+                          <div className={`w-16 h-12 rounded-lg flex items-center justify-center text-white text-xs font-bold ${
+                            conn.type === 'LC' ? 'bg-blue-600' :
+                            conn.type === 'SC' ? 'bg-emerald-600' :
+                            conn.type === 'MPO/MTP' ? 'bg-purple-600' :
+                            conn.type === 'FC' ? 'bg-gray-600' :
+                            conn.type === 'ST' ? 'bg-orange-600' :
+                            conn.type === 'E2000' ? 'bg-cyan-600' :
+                            'bg-gray-500'
+                          }`}>
+                            <div className="text-center">
+                              <div>{conn.type}</div>
+                              <div className="text-[8px] opacity-75">{conn.ferrule}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{conn.fullName}</TableCell>
+                        <TableCell className="text-center font-mono text-sm">{conn.ferrule}</TableCell>
+                        <TableCell className="text-center text-sm">{conn.coupling}</TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex flex-wrap gap-1 justify-center">
+                            {conn.polishes.map(p => (
+                              <Badge key={p} variant="outline" className="text-xs">{p}</Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge className={`${conn.commonalityColor} text-white`}>
+                            {conn.commonality}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-gray-600 dark:text-gray-400 max-w-xs">
+                          {conn.applications}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="mt-6 grid md:grid-cols-3 gap-4">
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                  <h4 className="font-semibold text-emerald-800 dark:text-emerald-200 mb-2">Most Common (2025)</h4>
+                  <ul className="text-sm space-y-1">
+                    <li>• <strong>LC</strong> - Data centers, enterprise</li>
+                    <li>• <strong>SC</strong> - FTTH, PON networks</li>
+                    <li>• <strong>MPO/MTP</strong> - High-speed trunk cables</li>
+                  </ul>
+                </div>
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                  <h4 className="font-semibold text-amber-800 dark:text-amber-200 mb-2">Declining Use</h4>
+                  <ul className="text-sm space-y-1">
+                    <li>• <strong>FC</strong> - Being replaced by LC</li>
+                    <li>• <strong>ST</strong> - Legacy installations only</li>
+                    <li>• <strong>MU</strong> - Limited to Japan</li>
+                  </ul>
+                </div>
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                  <h4 className="font-semibold text-red-800 dark:text-red-200 mb-2">Obsolete</h4>
+                  <ul className="text-sm space-y-1">
+                    <li>• <strong>D4</strong> - No longer used</li>
+                    <li>• <strong>Biconic</strong> - Historical only</li>
+                    <li>• <strong>MTRJ</strong> - Not recommended</li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Industry Links */}
+        <TabsContent value="links">
+          <Alert className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+            <Wifi className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              <strong>Internet connection required.</strong> These links will navigate to external websites. 
+              Make sure you have an active internet connection before clicking.
+            </AlertDescription>
+          </Alert>
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {/* Test Equipment */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                    <Zap className="h-4 w-4 text-blue-600" />
+                  </div>
+                  Test Equipment
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {INDUSTRY_LINKS.testEquipment.map(link => (
+                  <a 
+                    key={link.name}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors group"
+                  >
+                    <div>
+                      <div className="font-medium text-sm group-hover:text-blue-600">{link.name}</div>
+                      <div className="text-xs text-gray-500">{link.description}</div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600" />
+                  </a>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Fusion Splicers */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                    <Scissors className="h-4 w-4 text-purple-600" />
+                  </div>
+                  Fusion Splicers
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {INDUSTRY_LINKS.fusionSplicers.map(link => (
+                  <a 
+                    key={link.name}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors group"
+                  >
+                    <div>
+                      <div className="font-medium text-sm group-hover:text-purple-600">{link.name}</div>
+                      <div className="text-xs text-gray-500">{link.description}</div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-purple-600" />
+                  </a>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Fiber Manufacturers */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+                    <Cable className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  Fiber Manufacturers
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {INDUSTRY_LINKS.fiberManufacturers.map(link => (
+                  <a 
+                    key={link.name}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors group"
+                  >
+                    <div>
+                      <div className="font-medium text-sm group-hover:text-emerald-600">{link.name}</div>
+                      <div className="text-xs text-gray-500">{link.description}</div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-emerald-600" />
+                  </a>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Connectors & Accessories */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                    <Plug className="h-4 w-4 text-indigo-600" />
+                  </div>
+                  Connectors & Accessories
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {INDUSTRY_LINKS.connectorsAccessories.map(link => (
+                  <a 
+                    key={link.name}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors group"
+                  >
+                    <div>
+                      <div className="font-medium text-sm group-hover:text-indigo-600">{link.name}</div>
+                      <div className="text-xs text-gray-500">{link.description}</div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-indigo-600" />
+                  </a>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Standards Organizations */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
+                    <BookOpen className="h-4 w-4 text-orange-600" />
+                  </div>
+                  Standards Organizations
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {INDUSTRY_LINKS.standardsOrganizations.map(link => (
+                  <a 
+                    key={link.name}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors group"
+                  >
+                    <div>
+                      <div className="font-medium text-sm group-hover:text-orange-600">{link.name}</div>
+                      <div className="text-xs text-gray-500">{link.description}</div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-orange-600" />
+                  </a>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Training & Certification */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-teal-100 dark:bg-teal-900/30">
+                    <Radio className="h-4 w-4 text-teal-600" />
+                  </div>
+                  Training & Certification
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {INDUSTRY_LINKS.training.map(link => (
+                  <a 
+                    key={link.name}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors group"
+                  >
+                    <div>
+                      <div className="font-medium text-sm group-hover:text-teal-600">{link.name}</div>
+                      <div className="text-xs text-gray-500">{link.description}</div>
+                    </div>
+                    <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-teal-600" />
+                  </a>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
