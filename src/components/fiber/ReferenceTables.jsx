@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette, Plug, X } from 'lucide-react';
+import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette, Plug, X, GraduationCap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   FIBER_ATTENUATION, 
   CONNECTOR_LOSS, 
