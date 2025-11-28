@@ -15,9 +15,23 @@ import {
   Cable,
   Wrench,
   RefreshCw,
-  XCircle
+  XCircle,
+  Image,
+  Info,
+  ExternalLink
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from 'framer-motion';
+
+// Reference images for diagnostics
+const DIAGNOSTIC_IMAGES = {
+  dirty_connector: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/dirty_connector_scope.png',
+  clean_connector: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/clean_connector_scope.png',
+  scratched_connector: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/scratched_connector.png',
+  macrobend_trace: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/macrobend_otdr.png',
+  good_splice_trace: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/good_splice_otdr.png',
+  fiber_break_trace: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/fiber_break_otdr.png',
+};
 
 const DIAGNOSTIC_TREE = {
   start: {
@@ -29,6 +43,7 @@ const DIAGNOSTIC_TREE = {
       { label: "Intermittent connection", next: "intermittent", icon: RefreshCw, severity: "warning" },
       { label: "High bit error rate", next: "ber", icon: Radio, severity: "moderate" },
       { label: "OTDR shows anomaly", next: "otdr_anomaly", icon: Zap, severity: "info" },
+      { label: "PON / FTTH Issue", next: "pon_issue", icon: Radio, severity: "warning" },
     ]
   },
   no_light: {
@@ -82,7 +97,12 @@ const DIAGNOSTIC_TREE = {
       "Replace patch cord if damaged",
       "Check bulkhead adapter for debris",
     ],
-    tools: ["400x Fiber scope", "IPA cleaning supplies", "VFL"]
+    tools: ["400x Fiber scope", "IPA cleaning supplies", "VFL"],
+    images: [
+      { url: DIAGNOSTIC_IMAGES.dirty_connector, caption: "Dirty connector - requires cleaning", type: "bad" },
+      { url: DIAGNOSTIC_IMAGES.clean_connector, caption: "Clean connector - pass", type: "good" },
+      { url: DIAGNOSTIC_IMAGES.scratched_connector, caption: "Scratched ferrule - replace connector", type: "bad" }
+    ]
   },
   mid_span_break: {
     diagnosis: true,
@@ -104,7 +124,10 @@ const DIAGNOSTIC_TREE = {
       "Check for recent construction activity",
       "Prepare fusion splicer for repair",
     ],
-    tools: ["OTDR", "Fusion splicer", "Cable locator", "VFL"]
+    tools: ["OTDR", "Fusion splicer", "Cable locator", "VFL"],
+    images: [
+      { url: DIAGNOSTIC_IMAGES.fiber_break_trace, caption: "OTDR trace showing fiber break - high reflectance spike then no signal", type: "bad" }
+    ]
   },
   far_end: {
     diagnosis: true,
@@ -224,7 +247,10 @@ const DIAGNOSTIC_TREE = {
       "Verify minimum bend radius maintained",
       "Consider G.657 bend-insensitive fiber for future",
     ],
-    tools: ["OTDR (dual wavelength)", "VFL", "Cable inspection"]
+    tools: ["OTDR (dual wavelength)", "VFL", "Cable inspection"],
+    images: [
+      { url: DIAGNOSTIC_IMAGES.macrobend_trace, caption: "OTDR showing macrobend - localized loss, higher at 1550nm than 1310nm", type: "bad" }
+    ]
   },
   degrading_loss: {
     diagnosis: true,
@@ -442,6 +468,186 @@ const DIAGNOSTIC_TREE = {
     ],
     tools: ["OTDR", "400x scope", "Cleaning supplies"]
   },
+  // PON / FTTH specific diagnostics
+  pon_issue: {
+    question: "What PON issue are you experiencing?",
+    icon: Radio,
+    options: [
+      { label: "ONT not registering / offline", next: "ont_offline", severity: "critical" },
+      { label: "Low ONT Rx power", next: "low_ont_rx", severity: "high" },
+      { label: "High OLT Rx power (weak upstream)", next: "high_olt_rx", severity: "high" },
+      { label: "ONT rebooting / unstable", next: "ont_unstable", severity: "warning" },
+      { label: "Slow speeds / packet loss", next: "pon_performance", severity: "moderate" },
+      { label: "Multiple ONTs affected", next: "multi_ont", severity: "critical" },
+    ]
+  },
+  ont_offline: {
+    diagnosis: true,
+    title: "ONT Not Registering",
+    severity: "critical",
+    icon: XCircle,
+    causes: [
+      "No optical signal reaching ONT",
+      "ONT not provisioned in OLT",
+      "Wrong PON port assignment",
+      "ONT hardware failure",
+      "Fiber path issue (break, dirty connector)",
+      "Splitter port issue",
+    ],
+    actions: [
+      "Check ONT optical power LED (should be solid)",
+      "Verify ONT serial number is provisioned on OLT",
+      "Check OLT port for ONT registration attempts",
+      "Measure optical power at ONT input (-8 to -28 dBm typical)",
+      "If no light, trace back: ONT port → drop → NAP → splitter → FDH",
+      "Clean all connectors in path",
+      "Try known-good ONT to isolate issue",
+      "Check splitter output with power meter",
+    ],
+    tools: ["Power meter", "VFL", "400x scope", "OLT CLI/NMS access"],
+    ponSpecs: {
+      gpom: { rxMin: -28, rxMax: -8, standard: "ITU-T G.984" },
+      xgspon: { rxMin: -28, rxMax: -8, standard: "ITU-T G.9807" }
+    }
+  },
+  low_ont_rx: {
+    diagnosis: true,
+    title: "Low ONT Receive Power",
+    severity: "high",
+    icon: AlertTriangle,
+    causes: [
+      "Dirty connectors in path",
+      "Excessive splitter cascade loss",
+      "Fiber attenuation higher than expected",
+      "Macrobend in drop cable",
+      "Damaged connector at ONT or NAP",
+      "OLT transmit power degraded",
+    ],
+    actions: [
+      "Measure actual ONT Rx power (target: -8 to -25 dBm)",
+      "Calculate expected loss: fiber + connectors + splitters",
+      "Compare measured vs calculated - identify excess loss",
+      "Clean connectors starting at ONT, work back to OLT",
+      "Check drop cable routing for tight bends",
+      "Verify splitter ratio matches design",
+      "Check OLT Tx power in DOM readings",
+      "Run OTDR from FDH to locate loss points",
+    ],
+    tools: ["Power meter", "OTDR", "400x scope", "Cleaning kit"],
+    ponSpecs: {
+      acceptable: { min: -25, max: -8, unit: "dBm" },
+      marginal: { min: -27, max: -25, unit: "dBm" },
+      fail: { below: -28, unit: "dBm" }
+    }
+  },
+  high_olt_rx: {
+    diagnosis: true,
+    title: "Weak Upstream (High OLT Rx Loss)",
+    severity: "high",
+    icon: AlertTriangle,
+    causes: [
+      "ONT transmitter degraded",
+      "Dirty connector at ONT output",
+      "Upstream wavelength (1310nm) more sensitive to bends",
+      "APC connector contamination",
+      "ONT Tx power out of spec",
+    ],
+    actions: [
+      "Check OLT Rx power for this ONT (-8 to -28 dBm acceptable)",
+      "Compare ONT Tx power (should be +0.5 to +5 dBm)",
+      "Clean ONT SC/APC connector carefully",
+      "1310nm upstream is more affected by macrobends than 1490nm downstream",
+      "Check for tight bends in drop cable",
+      "If ONT Tx low, replace ONT",
+      "Verify return loss at connectors (<-60 dB for APC)",
+    ],
+    tools: ["Power meter @ 1310nm", "400x scope", "OLT NMS/CLI"],
+    ponSpecs: {
+      ontTx: { min: 0.5, max: 5, unit: "dBm" },
+      oltRx: { min: -28, max: -8, unit: "dBm" }
+    }
+  },
+  ont_unstable: {
+    diagnosis: true,
+    title: "ONT Rebooting / Unstable",
+    severity: "warning",
+    icon: RefreshCw,
+    causes: [
+      "Marginal optical power (near sensitivity limit)",
+      "Power supply issue at ONT",
+      "Optical power fluctuating",
+      "OLT port issue",
+      "Firmware bug on ONT",
+      "Overheating ONT",
+    ],
+    actions: [
+      "Check ONT Rx power - if near -27 to -28 dBm, link is marginal",
+      "Monitor power over time for fluctuations",
+      "Verify ONT power supply voltage",
+      "Check for physical damage or overheating",
+      "Try different OLT port if available",
+      "Update ONT firmware to latest version",
+      "Check for pattern (time of day, temperature)",
+      "Ensure adequate ONT ventilation",
+    ],
+    tools: ["Power meter", "Multimeter", "Temperature monitor", "OLT logs"]
+  },
+  pon_performance: {
+    diagnosis: true,
+    title: "Slow Speeds / Packet Loss",
+    severity: "moderate",
+    icon: Radio,
+    causes: [
+      "High BER due to marginal optical power",
+      "OLT port oversubscription",
+      "QoS misconfiguration",
+      "Ethernet issue (not fiber)",
+      "ONT Ethernet port issue",
+      "RF interference (if RF overlay)",
+    ],
+    actions: [
+      "Verify optical power is in acceptable range",
+      "Check OLT for FEC corrected/uncorrected errors",
+      "Look for GEM/HEC errors on OLT",
+      "Check bandwidth allocation on OLT (DBA settings)",
+      "Test with direct Ethernet connection to ONT",
+      "Try different ONT Ethernet port",
+      "Check for packet loss at each hop",
+      "Verify customer speed tier configuration",
+    ],
+    tools: ["OLT CLI/NMS", "Speed test", "Packet capture"],
+    ponSpecs: {
+      fecCorrected: "Some is normal",
+      fecUncorrected: "Should be zero",
+      gemErrors: "Should be zero"
+    }
+  },
+  multi_ont: {
+    diagnosis: true,
+    title: "Multiple ONTs Affected",
+    severity: "critical",
+    icon: AlertTriangle,
+    causes: [
+      "OLT port/card failure",
+      "Upstream fiber issue (before splitter)",
+      "Splitter failure",
+      "FDH/cabinet issue",
+      "OLT software/config issue",
+      "Power outage in area",
+    ],
+    actions: [
+      "Identify common point: same OLT port? Same splitter? Same FDH?",
+      "Check OLT port status and alarms",
+      "Measure power at splitter input",
+      "If splitter input OK but outputs not, splitter failed",
+      "Check for fiber cut between OLT and splitter",
+      "Verify OLT port didn't get disabled",
+      "Check for area power outage affecting ONTs",
+      "Run OTDR from OLT to splitter",
+    ],
+    tools: ["OLT NMS/CLI", "Power meter", "OTDR", "VFL"],
+    diagram: "OLT → Feeder fiber → Splitter → Distribution → NAPs → Drops → ONTs"
+  },
 };
 
 export default function FiberDoctor() {
@@ -601,6 +807,118 @@ export default function FiberDoctor() {
                     ))}
                   </div>
                 </div>
+
+                {/* PON Specifications */}
+                {node.ponSpecs && (
+                  <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <Info className="h-4 w-4 text-indigo-500" />
+                      PON Reference Values
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      {node.ponSpecs.acceptable && (
+                        <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded">
+                          <div className="font-medium text-emerald-700 dark:text-emerald-300">Acceptable</div>
+                          <div className="font-mono">{node.ponSpecs.acceptable.min} to {node.ponSpecs.acceptable.max} {node.ponSpecs.acceptable.unit}</div>
+                        </div>
+                      )}
+                      {node.ponSpecs.marginal && (
+                        <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded">
+                          <div className="font-medium text-amber-700 dark:text-amber-300">Marginal</div>
+                          <div className="font-mono">{node.ponSpecs.marginal.min} to {node.ponSpecs.marginal.max} {node.ponSpecs.marginal.unit}</div>
+                        </div>
+                      )}
+                      {node.ponSpecs.ontTx && (
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
+                          <div className="font-medium text-blue-700 dark:text-blue-300">ONT Tx Power</div>
+                          <div className="font-mono">+{node.ponSpecs.ontTx.min} to +{node.ponSpecs.ontTx.max} {node.ponSpecs.ontTx.unit}</div>
+                        </div>
+                      )}
+                      {node.ponSpecs.oltRx && (
+                        <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded">
+                          <div className="font-medium text-purple-700 dark:text-purple-300">OLT Rx Range</div>
+                          <div className="font-mono">{node.ponSpecs.oltRx.min} to {node.ponSpecs.oltRx.max} {node.ponSpecs.oltRx.unit}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Network Diagram */}
+                {node.diagram && (
+                  <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <Cable className="h-4 w-4 text-gray-500" />
+                      Network Path
+                    </h4>
+                    <div className="text-sm font-mono text-gray-600 dark:text-gray-400 overflow-x-auto">
+                      {node.diagram}
+                    </div>
+                  </div>
+                )}
+
+                {/* Reference Images */}
+                {node.images && node.images.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <Image className="h-4 w-4 text-purple-500" />
+                      Reference Images
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {node.images.map((img, i) => (
+                        <Dialog key={i}>
+                          <DialogTrigger asChild>
+                            <div 
+                              className={`p-2 rounded-lg border-2 cursor-pointer transition-all hover:shadow-lg ${
+                                img.type === 'good' 
+                                  ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20' 
+                                  : 'border-red-300 bg-red-50 dark:bg-red-900/20'
+                              }`}
+                            >
+                              <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center mb-2 overflow-hidden">
+                                <img 
+                                  src={img.url} 
+                                  alt={img.caption} 
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.parentElement.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-400"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span class="text-xs mt-1">Image</span></div>`;
+                                  }}
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge className={img.type === 'good' ? 'bg-emerald-500' : 'bg-red-500'}>
+                                  {img.type === 'good' ? 'PASS' : 'FAIL'}
+                                </Badge>
+                                <span className="text-xs text-gray-600 dark:text-gray-400">{img.caption}</span>
+                              </div>
+                            </div>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center gap-2">
+                                <Badge className={img.type === 'good' ? 'bg-emerald-500' : 'bg-red-500'}>
+                                  {img.type === 'good' ? 'PASS' : 'FAIL'}
+                                </Badge>
+                                {img.caption}
+                              </DialogTitle>
+                            </DialogHeader>
+                            <div className="mt-4">
+                              <img 
+                                src={img.url} 
+                                alt={img.caption} 
+                                className="w-full rounded-lg"
+                                onError={(e) => {
+                                  e.target.parentElement.innerHTML = '<div class="p-8 text-center text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg">Reference image - view in field documentation</div>';
+                                }}
+                              />
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <Button className="w-full mt-4" variant="outline" onClick={restart}>
                   Start New Diagnosis
