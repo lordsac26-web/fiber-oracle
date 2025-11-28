@@ -32,6 +32,7 @@ export default function LCPInfo() {
     lcpNumber: '',
     splitterNumber: '',
     physicalLocation: '',
+    oltName: '',
     oltShelf: '',
     oltSlot: '',
     oltPort: '',
@@ -60,6 +61,7 @@ export default function LCPInfo() {
       lcpNumber: '',
       splitterNumber: '',
       physicalLocation: '',
+      oltName: '',
       oltShelf: '',
       oltSlot: '',
       oltPort: '',
@@ -173,7 +175,15 @@ export default function LCPInfo() {
 
                   <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-3">
                     <Label className="text-sm font-medium">OLT Location (Logical)</Label>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-gray-500">OLT</Label>
+                        <Input
+                          placeholder="OLT-01"
+                          value={formData.oltName}
+                          onChange={(e) => setFormData({ ...formData, oltName: e.target.value })}
+                        />
+                      </div>
                       <div className="space-y-1">
                         <Label className="text-xs text-gray-500">Shelf</Label>
                         <Input
@@ -306,13 +316,13 @@ export default function LCPInfo() {
                           </div>
                         )}
 
-                        {(entry.oltShelf || entry.oltSlot || entry.oltPort) && (
+                        {(entry.oltName || entry.oltShelf || entry.oltSlot || entry.oltPort) && (
                           <div className="flex items-start gap-2">
                             <Server className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
                             <div>
                               <div className="text-xs text-gray-500">OLT Location</div>
                               <div className="text-sm font-mono">
-                                Shelf {entry.oltShelf || '-'} / Slot {entry.oltSlot || '-'} / Port {entry.oltPort || '-'}
+                                {entry.oltName || 'OLT'} / Shelf {entry.oltShelf || '-'} / Slot {entry.oltSlot || '-'} / Port {entry.oltPort || '-'}
                               </div>
                             </div>
                           </div>
