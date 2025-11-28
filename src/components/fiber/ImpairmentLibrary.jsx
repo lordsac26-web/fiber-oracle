@@ -423,17 +423,21 @@ export default function ImpairmentLibrary() {
       </div>
 
       {/* Category Filter */}
-      <div className="flex flex-wrap gap-2">
-        {['all', 'good', 'contamination', 'damage', 'manufacturing', 'artifact'].map(cat => (
+      <div className="flex flex-wrap gap-2 items-center">
+        {['all', 'good', 'contamination', 'damage', 'manufacturing', 'artifact', 'custom'].map(cat => (
           <Badge
             key={cat}
             variant={activeCategory === cat ? 'default' : 'outline'}
             className={`cursor-pointer capitalize ${activeCategory === cat ? 'bg-violet-600' : ''}`}
             onClick={() => setActiveCategory(cat)}
           >
-            {cat === 'all' ? 'All Types' : cat}
+            {cat === 'all' ? 'All Types' : cat === 'custom' ? `My Photos (${customImpairments.length})` : cat}
           </Badge>
         ))}
+        <Button size="sm" variant="outline" onClick={() => setShowAddDialog(true)} className="ml-auto">
+          <Plus className="h-4 w-4 mr-1" />
+          Add Custom
+        </Button>
       </div>
 
       <Tabs defaultValue="scope" className="space-y-6">
