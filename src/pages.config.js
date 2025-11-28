@@ -13,6 +13,7 @@ import LCPInfo from './pages/LCPInfo';
 import PowerLevelCalc from './pages/PowerLevelCalc';
 import SplitterLoss from './pages/SplitterLoss';
 import BendRadius from './pages/BendRadius';
+import OTDRTest from './pages/OTDRTest';
 import __Layout from './Layout.jsx';
 
 
@@ -32,6 +33,7 @@ export const PAGES = {
     "PowerLevelCalc": PowerLevelCalc,
     "SplitterLoss": SplitterLoss,
     "BendRadius": BendRadius,
+    "OTDRTest": OTDRTest,
 }
 
 export const pagesConfig = {
