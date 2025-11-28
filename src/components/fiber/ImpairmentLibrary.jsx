@@ -458,14 +458,14 @@ export default function ImpairmentLibrary() {
             {filteredScope.map(item => (
               <Card 
                 key={item.id}
-                className={`border-0 shadow-lg cursor-pointer transition-all hover:shadow-xl hover:scale-[1.02] ${
+                className={`border-0 shadow-lg cursor-pointer transition-all hover:shadow-xl hover:scale-[1.02] relative ${
                   item.severity === 'pass' ? 'ring-1 ring-emerald-200' :
                   item.severity === 'fail' ? 'ring-1 ring-red-200' :
                   'ring-1 ring-gray-100'
                 }`}
                 onClick={() => setSelectedImpairment(item)}
               >
-                <CardContent className="p-4">
+                <CardContent className="p-4 relative">
                   {/* Visual representation */}
                   <div className={`aspect-square rounded-xl mb-4 flex items-center justify-center bg-gradient-to-br ${
                     item.colorScheme === 'emerald' ? 'from-emerald-100 to-emerald-200' :
