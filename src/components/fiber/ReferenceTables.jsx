@@ -17,13 +17,14 @@ import {
   WAVELENGTH_INFO
 } from './FiberConstants';
 
-// Connector Types Data with real images
+// Connector reference image
+const CONNECTOR_REFERENCE_IMAGE = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/b61e02c48_connectortypes.png';
+
+// Connector Types Data
 const CONNECTOR_TYPES = [
   {
     type: 'LC',
     fullName: 'Lucent Connector / Little Connector',
-    thumbnail: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=200&h=150&fit=crop',
-    fullImage: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop',
     ferrule: '1.25mm',
     coupling: 'Push-pull latch',
     polishes: ['UPC', 'APC'],
@@ -36,8 +37,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'SC',
     fullName: 'Subscriber Connector / Square Connector',
-    thumbnail: null,
-    fullImage: null,
     ferrule: '2.5mm',
     coupling: 'Push-pull snap-in',
     polishes: ['UPC', 'APC'],
@@ -50,8 +49,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'MPO/MTP',
     fullName: 'Multi-fiber Push On / Multi-fiber Termination Push-on',
-    thumbnail: null,
-    fullImage: null,
     ferrule: 'Rectangular (12/24 fibers)',
     coupling: 'Push-pull with guide pins',
     polishes: ['UPC', 'APC'],
@@ -64,8 +61,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'FC',
     fullName: 'Ferrule Connector / Fixed Connector',
-    thumbnail: null,
-    fullImage: null,
     ferrule: '2.5mm',
     coupling: 'Threaded screw-on',
     polishes: ['UPC', 'APC'],
@@ -78,8 +73,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'ST',
     fullName: 'Straight Tip',
-    thumbnail: null,
-    fullImage: null,
     ferrule: '2.5mm',
     coupling: 'Bayonet twist-lock',
     polishes: ['UPC'],
@@ -92,8 +85,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'E2000',
     fullName: 'E2000 / LSH',
-    thumbnail: null,
-    fullImage: null,
     ferrule: '2.5mm',
     coupling: 'Push-pull with spring-loaded dust cap',
     polishes: ['UPC', 'APC'],
@@ -106,8 +97,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'MU',
     fullName: 'Miniature Unit',
-    thumbnail: null,
-    fullImage: null,
     ferrule: '1.25mm',
     coupling: 'Push-pull',
     polishes: ['UPC', 'APC'],
@@ -120,8 +109,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'MTRJ',
     fullName: 'Mechanical Transfer Registered Jack',
-    thumbnail: null,
-    fullImage: null,
     ferrule: 'Rectangular (duplex)',
     coupling: 'RJ-style latch',
     polishes: ['UPC'],
@@ -134,8 +121,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'SMA',
     fullName: 'Sub-Miniature version A',
-    thumbnail: null,
-    fullImage: null,
     ferrule: '3.175mm (stainless steel)',
     coupling: 'Threaded screw-on',
     polishes: ['Flat'],
@@ -148,8 +133,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'D4',
     fullName: 'D4 Connector',
-    thumbnail: null,
-    fullImage: null,
     ferrule: '2.0mm',
     coupling: 'Threaded with keying',
     polishes: ['PC'],
@@ -162,8 +145,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'Biconic',
     fullName: 'Biconic Connector',
-    thumbnail: null,
-    fullImage: null,
     ferrule: 'Tapered cone',
     coupling: 'Threaded alignment',
     polishes: ['PC'],
@@ -176,8 +157,6 @@ const CONNECTOR_TYPES = [
   {
     type: 'SMC',
     fullName: 'Small Media Connector',
-    thumbnail: null,
-    fullImage: null,
     ferrule: '1.25mm',
     coupling: 'Push-pull',
     polishes: ['UPC'],
@@ -191,7 +170,6 @@ const CONNECTOR_TYPES = [
 
 export default function ReferenceTables() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedConnector, setSelectedConnector] = useState(null);
 
   return (
     <div className="space-y-6">
@@ -671,15 +649,24 @@ export default function ReferenceTables() {
                 <Plug className="h-5 w-5 text-indigo-600" />
                 Fiber Optic Connector Types
               </CardTitle>
-              <p className="text-sm text-gray-500">Visual reference with specifications and 2025 market prevalence. Click thumbnails to enlarge.</p>
+              <p className="text-sm text-gray-500">Visual reference with specifications and 2025 market prevalence</p>
             </CardHeader>
             <CardContent>
+              {/* Reference Image */}
+              <div className="mb-6 p-4 bg-white rounded-xl border border-gray-200">
+                <h4 className="text-sm font-medium text-gray-700 mb-3">Visual Reference Guide</h4>
+                <img 
+                  src={CONNECTOR_REFERENCE_IMAGE} 
+                  alt="Fiber Optic Connector Types Reference" 
+                  className="w-full max-w-4xl mx-auto rounded-lg"
+                />
+              </div>
+
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50 dark:bg-gray-800">
                       <TableHead className="w-20">Type</TableHead>
-                      <TableHead>Image</TableHead>
                       <TableHead>Full Name</TableHead>
                       <TableHead className="text-center">Ferrule</TableHead>
                       <TableHead className="text-center">Coupling</TableHead>
@@ -696,38 +683,6 @@ export default function ReferenceTables() {
                     ).map((conn) => (
                       <TableRow key={conn.type}>
                         <TableCell className="font-bold text-lg">{conn.type}</TableCell>
-                        <TableCell>
-                          {conn.thumbnail ? (
-                            <button 
-                              onClick={() => setSelectedConnector(conn)}
-                              className="block w-16 h-12 rounded-lg overflow-hidden border-2 border-gray-200 hover:border-indigo-400 transition-colors cursor-pointer"
-                            >
-                              <img 
-                                src={conn.thumbnail} 
-                                alt={conn.type}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.parentElement.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500 text-xs">${conn.type}</div>`;
-                                }}
-                              />
-                            </button>
-                          ) : (
-                            <div className={`w-16 h-12 rounded-lg flex items-center justify-center text-white text-xs font-bold ${
-                              conn.type === 'LC' ? 'bg-blue-600' :
-                              conn.type === 'SC' ? 'bg-emerald-600' :
-                              conn.type === 'MPO/MTP' ? 'bg-purple-600' :
-                              conn.type === 'FC' ? 'bg-gray-600' :
-                              conn.type === 'ST' ? 'bg-orange-600' :
-                              conn.type === 'E2000' ? 'bg-cyan-600' :
-                              'bg-gray-500'
-                            }`}>
-                              <div className="text-center">
-                                <div>{conn.type}</div>
-                              </div>
-                            </div>
-                          )}
-                        </TableCell>
                         <TableCell className="text-sm">{conn.fullName}</TableCell>
                         <TableCell className="text-center font-mono text-sm">{conn.ferrule}</TableCell>
                         <TableCell className="text-center text-sm">{conn.coupling}</TableCell>
@@ -781,62 +736,6 @@ export default function ReferenceTables() {
             </CardContent>
           </Card>
 
-          {/* Connector Image Dialog */}
-          <Dialog open={!!selectedConnector} onOpenChange={() => setSelectedConnector(null)}>
-            <DialogContent className="max-w-2xl">
-              {selectedConnector && (
-                <>
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                      <Badge className={`${selectedConnector.commonalityColor} text-white`}>
-                        {selectedConnector.type}
-                      </Badge>
-                      {selectedConnector.fullName}
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    {selectedConnector.fullImage && (
-                      <div className="rounded-lg overflow-hidden border border-gray-200">
-                        <img 
-                          src={selectedConnector.fullImage} 
-                          alt={selectedConnector.fullName}
-                          className="w-full h-auto max-h-80 object-contain bg-white"
-                        />
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-500">Ferrule Size:</span>
-                        <span className="ml-2 font-medium">{selectedConnector.ferrule}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Coupling:</span>
-                        <span className="ml-2 font-medium">{selectedConnector.coupling}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Polish Types:</span>
-                        <span className="ml-2">{selectedConnector.polishes.join(', ')}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">2025 Usage:</span>
-                        <Badge className={`ml-2 ${selectedConnector.commonalityColor} text-white`}>
-                          {selectedConnector.commonality}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 text-sm">Applications:</span>
-                      <p className="mt-1">{selectedConnector.applications}</p>
-                    </div>
-                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <span className="text-sm font-medium">Note:</span>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{selectedConnector.notes}</p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </DialogContent>
-          </Dialog>
         </TabsContent>
       </Tabs>
     </div>
