@@ -16,11 +16,17 @@ import {
   AlertTriangle,
   FileDown,
   RotateCcw,
-  Wrench
+  Wrench,
+  Camera,
+  Trash2,
+  Mail,
+  Image
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
+import { base44 } from '@/api/base44Client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const ISSUE_TYPES = [
   { id: 'low_signal', label: 'Low Signal / Marginal Power', icon: '📉' },
@@ -95,6 +101,12 @@ export default function JobCheck() {
   const [stepNotes, setStepNotes] = useState({});
   const [finalNotes, setFinalNotes] = useState('');
   const [resolution, setResolution] = useState('');
+  const [fsanNumber, setFsanNumber] = useState('');
+  const [photos, setPhotos] = useState([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [emailAddress, setEmailAddress] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   const startJob = () => {
     if (!jobInfo.techNumber || !jobInfo.jobNumber || !jobInfo.issueType) {
@@ -124,12 +136,31 @@ export default function JobCheck() {
   const completedRequired = requiredSteps.filter(s => completedSteps[s.id]).length;
   const canComplete = completedRequired === requiredSteps.length;
 
-  const generatePDF = () => {
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadingPhoto(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      setPhotos(prev => [...prev, { url: file_url, name: file.name }]);
+      toast.success('Photo uploaded');
+    } catch (error) {
+      toast.error('Failed to upload photo');
+    }
+    setUploadingPhoto(false);
+  };
+
+  const removePhoto = (index) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const generateReportContent = () => {
     const endTime = new Date();
     const duration = Math.round((endTime - jobInfo.startTime) / 60000);
     const issueLabel = ISSUE_TYPES.find(i => i.id === jobInfo.issueType)?.label || jobInfo.issueType;
 
-    const content = `
+    return `
 FIBER OPTIC JOB REPORT
 ========================
 Generated: ${endTime.toLocaleString()}
@@ -138,6 +169,7 @@ JOB INFORMATION
 ---------------
 Tech Number: ${jobInfo.techNumber}
 Job Number: ${jobInfo.jobNumber}
+ONT FSAN: ${fsanNumber || 'N/A'}
 Issue Type: ${issueLabel}
 Description: ${jobInfo.issueDescription || 'N/A'}
 
@@ -161,22 +193,121 @@ FINAL NOTES
 -----------
 ${finalNotes || 'None'}
 
+ATTACHED PHOTOS
+---------------
+${photos.length > 0 ? photos.map((p, i) => `${i + 1}. ${p.name}\n   ${p.url}`).join('\n') : 'No photos attached'}
+
 ========================
 FiberTech Pro - Job Report
     `.trim();
+  };
 
-    // Create and download file
-    const blob = new Blob([content], { type: 'text/plain' });
+  const generateHTMLReport = () => {
+    const endTime = new Date();
+    const duration = Math.round((endTime - jobInfo.startTime) / 60000);
+    const issueLabel = ISSUE_TYPES.find(i => i.id === jobInfo.issueType)?.label || jobInfo.issueType;
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Job Report - ${jobInfo.jobNumber}</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    h1 { color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 10px; }
+    h2 { color: #374151; margin-top: 24px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f3f4f6; padding: 16px; border-radius: 8px; }
+    .info-item { }
+    .info-label { font-size: 12px; color: #6b7280; }
+    .info-value { font-weight: 600; }
+    .step { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+    .step-complete { color: #059669; }
+    .step-incomplete { color: #9ca3af; }
+    .step-note { font-size: 12px; color: #6b7280; margin-left: 24px; }
+    .photos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px; }
+    .photo { max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb; }
+    .resolution-box { background: #ecfdf5; padding: 16px; border-radius: 8px; border-left: 4px solid #059669; }
+    .footer { margin-top: 40px; text-align: center; color: #9ca3af; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Fiber Optic Job Report</h1>
+  
+  <div class="info-grid">
+    <div class="info-item"><div class="info-label">Tech Number</div><div class="info-value">${jobInfo.techNumber}</div></div>
+    <div class="info-item"><div class="info-label">Job Number</div><div class="info-value">${jobInfo.jobNumber}</div></div>
+    <div class="info-item"><div class="info-label">ONT FSAN</div><div class="info-value">${fsanNumber || 'N/A'}</div></div>
+    <div class="info-item"><div class="info-label">Issue Type</div><div class="info-value">${issueLabel}</div></div>
+    <div class="info-item"><div class="info-label">Start Time</div><div class="info-value">${jobInfo.startTime.toLocaleString()}</div></div>
+    <div class="info-item"><div class="info-label">Duration</div><div class="info-value">${duration} minutes</div></div>
+  </div>
+  
+  ${jobInfo.issueDescription ? `<p><strong>Description:</strong> ${jobInfo.issueDescription}</p>` : ''}
+  
+  <h2>Diagnostic Steps</h2>
+  ${currentSteps.map(step => `
+    <div class="step">
+      <span class="${completedSteps[step.id] ? 'step-complete' : 'step-incomplete'}">${completedSteps[step.id] ? '✓' : '○'}</span>
+      ${step.title} ${step.required ? '<small>(Required)</small>' : ''}
+      ${stepNotes[step.id] ? `<div class="step-note">Notes: ${stepNotes[step.id]}</div>` : ''}
+    </div>
+  `).join('')}
+  
+  <h2>Resolution</h2>
+  <div class="resolution-box">${resolution || 'Not specified'}</div>
+  
+  ${finalNotes ? `<h2>Final Notes</h2><p>${finalNotes}</p>` : ''}
+  
+  ${photos.length > 0 ? `
+    <h2>Attached Photos</h2>
+    <div class="photos">
+      ${photos.map(p => `<img src="${p.url}" alt="${p.name}" class="photo" />`).join('')}
+    </div>
+  ` : ''}
+  
+  <div class="footer">
+    Generated by FiberTech Pro • ${endTime.toLocaleString()}
+  </div>
+</body>
+</html>`;
+  };
+
+  const downloadReport = () => {
+    const html = generateHTMLReport();
+    const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Job_${jobInfo.jobNumber}_${endTime.toISOString().split('T')[0]}.txt`;
+    a.download = `Job_${jobInfo.jobNumber}_${new Date().toISOString().split('T')[0]}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
     toast.success('Job report downloaded');
+  };
+
+  const sendReportEmail = async () => {
+    if (!emailAddress) {
+      toast.error('Please enter an email address');
+      return;
+    }
+    
+    setSendingEmail(true);
+    try {
+      const htmlContent = generateHTMLReport();
+      await base44.integrations.Core.SendEmail({
+        to: emailAddress,
+        subject: `Fiber Job Report - ${jobInfo.jobNumber}`,
+        body: htmlContent
+      });
+      toast.success('Report sent to ' + emailAddress);
+      setShowEmailDialog(false);
+      setEmailAddress('');
+    } catch (error) {
+      toast.error('Failed to send email');
+    }
+    setSendingEmail(false);
   };
 
   const resetJob = () => {
@@ -186,6 +317,8 @@ FiberTech Pro - Job Report
     setStepNotes({});
     setFinalNotes('');
     setResolution('');
+    setFsanNumber('');
+    setPhotos([]);
   };
 
   return (
@@ -258,6 +391,16 @@ FiberTech Pro - Job Report
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>ONT FSAN (Optional)</Label>
+                <Input
+                  placeholder="e.g., ALCL12345678"
+                  value={fsanNumber}
+                  onChange={(e) => setFsanNumber(e.target.value)}
+                  className="font-mono"
+                />
               </div>
 
               <div className="space-y-2">
@@ -398,6 +541,16 @@ FiberTech Pro - Job Report
                 </div>
 
                 <div className="space-y-2">
+                  <Label>ONT FSAN</Label>
+                  <Input
+                    placeholder="e.g., ALCL12345678"
+                    value={fsanNumber}
+                    onChange={(e) => setFsanNumber(e.target.value)}
+                    className="font-mono"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label>Final Notes</Label>
                   <Textarea
                     placeholder="Add any final notes about the job..."
@@ -405,6 +558,49 @@ FiberTech Pro - Job Report
                     onChange={(e) => setFinalNotes(e.target.value)}
                     rows={4}
                   />
+                </div>
+
+                {/* Photo Attachments */}
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2">
+                    <Camera className="h-4 w-4" />
+                    Attach Photos
+                  </Label>
+                  
+                  {photos.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {photos.map((photo, index) => (
+                        <div key={index} className="relative group">
+                          <img 
+                            src={photo.url} 
+                            alt={photo.name} 
+                            className="w-full h-24 object-cover rounded-lg border"
+                          />
+                          <button
+                            onClick={() => removePhoto(index)}
+                            className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                          <div className="text-xs text-gray-500 truncate mt-1">{photo.name}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    <Image className="h-5 w-5 text-gray-400" />
+                    <span className="text-sm text-gray-500">
+                      {uploadingPhoto ? 'Uploading...' : 'Click to add photo'}
+                    </span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handlePhotoUpload}
+                      disabled={uploadingPhoto}
+                    />
+                  </label>
                 </div>
               </CardContent>
             </Card>
@@ -414,11 +610,47 @@ FiberTech Pro - Job Report
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Steps
               </Button>
-              <Button onClick={generatePDF} disabled={!resolution} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
+              <Button onClick={downloadReport} disabled={!resolution} className="flex-1 bg-emerald-600 hover:bg-emerald-700">
                 <FileDown className="h-4 w-4 mr-2" />
-                Export Report
+                Download Report
+              </Button>
+              <Button onClick={() => setShowEmailDialog(true)} disabled={!resolution} variant="outline" className="flex-1">
+                <Mail className="h-4 w-4 mr-2" />
+                Email Report
               </Button>
             </div>
+
+            {/* Email Dialog */}
+            <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Email Job Report</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label>Email Address</Label>
+                    <Input
+                      type="email"
+                      placeholder="recipient@example.com"
+                      value={emailAddress}
+                      onChange={(e) => setEmailAddress(e.target.value)}
+                    />
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    The report will be sent as an HTML email including {photos.length} photo{photos.length !== 1 ? 's' : ''}.
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="outline" onClick={() => setShowEmailDialog(false)} className="flex-1">
+                      Cancel
+                    </Button>
+                    <Button onClick={sendReportEmail} disabled={sendingEmail} className="flex-1">
+                      <Mail className="h-4 w-4 mr-2" />
+                      {sendingEmail ? 'Sending...' : 'Send Email'}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             <Button variant="ghost" onClick={resetJob} className="w-full">
               <RotateCcw className="h-4 w-4 mr-2" />
