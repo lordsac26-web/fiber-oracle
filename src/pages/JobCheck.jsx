@@ -296,27 +296,57 @@ FiberTech Pro - Job Report
     toast.success('Print dialog opened - select "Save as PDF" to download');
   };
 
-  const sendReportEmail = async () => {
+  const sendReportEmail = () => {
     if (!emailAddress) {
       toast.error('Please enter an email address');
       return;
     }
     
-    setSendingEmail(true);
-    try {
-      const htmlContent = generateHTMLReport();
-      await base44.integrations.Core.SendEmail({
-        to: emailAddress,
-        subject: `Fiber Job Report - ${jobInfo.jobNumber}`,
-        body: htmlContent
-      });
-      toast.success('Report sent to ' + emailAddress);
-      setShowEmailDialog(false);
-      setEmailAddress('');
-    } catch (error) {
-      toast.error('Failed to send email');
-    }
-    setSendingEmail(false);
+    const endTime = new Date();
+    const duration = Math.round((endTime - jobInfo.startTime) / 60000);
+    const issueLabel = ISSUE_TYPES.find(i => i.id === jobInfo.issueType)?.label || jobInfo.issueType;
+    
+    const subject = encodeURIComponent(`Fiber Job Report - ${jobInfo.jobNumber}`);
+    const body = encodeURIComponent(`FIBER OPTIC JOB REPORT
+========================
+Generated: ${endTime.toLocaleString()}
+
+JOB INFORMATION
+---------------
+Tech Number: ${jobInfo.techNumber}
+Job Number: ${jobInfo.jobNumber}
+ONT FSAN: ${fsanNumber || 'N/A'}
+Issue Type: ${issueLabel}
+Description: ${jobInfo.issueDescription || 'N/A'}
+Light Level: ${finalLightLevel ? finalLightLevel + ' dBm' : 'N/A'}
+
+Start Time: ${jobInfo.startTime.toLocaleString()}
+End Time: ${endTime.toLocaleString()}
+Duration: ${duration} minutes
+
+DIAGNOSTIC STEPS COMPLETED
+--------------------------
+${currentSteps.map(step => {
+  const completed = completedSteps[step.id] ? '✓' : '○';
+  const note = stepNotes[step.id] ? ` - Notes: ${stepNotes[step.id]}` : '';
+  return `${completed} ${step.title}${step.required ? ' (Required)' : ''}${note}`;
+}).join('\n')}
+
+RESOLUTION: ${resolution || 'Not specified'}
+
+FINAL NOTES: ${finalNotes || 'None'}
+
+${photos.length > 0 ? `ATTACHED PHOTOS:\n${photos.map((p, i) => `${i + 1}. ${p.url}`).join('\n')}` : ''}
+
+========================
+FiberTech Pro - Job Report`);
+    
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(emailAddress)}&su=${subject}&body=${body}`;
+    window.open(gmailUrl, '_blank');
+    
+    toast.success('Gmail opened with report');
+    setShowEmailDialog(false);
+    setEmailAddress('');
   };
 
   const resetJob = () => {
