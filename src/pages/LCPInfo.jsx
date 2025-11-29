@@ -40,12 +40,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 export default function LCPInfo() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'table'
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importPreview, setImportPreview] = useState([]);
   const [importError, setImportError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
+    entryType: 'LCP',
     lcpNumber: '',
     splitterNumber: '',
     physicalLocation: '',
