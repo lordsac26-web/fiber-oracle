@@ -36,11 +36,11 @@ export default function ReportForm({
           />
         </div>
         <div className="space-y-2">
-          <Label>Technician Name</Label>
+          <Label>Technician Name / ID</Label>
           <Input
             value={formData.technician_name}
             onChange={(e) => handleFieldChange('technician_name', e.target.value)}
-            placeholder="Your name"
+            placeholder="Name or tech number"
           />
         </div>
       </div>
