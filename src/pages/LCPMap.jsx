@@ -191,20 +191,20 @@ export default function LCPMap() {
             <Card className="border-0 shadow-md">
               <CardContent className="p-4 space-y-4">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-indigo-600 text-lg px-3 py-1">{selectedEntry.lcpNumber}</Badge>
+                  <Badge className="bg-indigo-600 text-lg px-3 py-1">{selectedEntry.lcp_number}</Badge>
                 </div>
                 
                 <div>
                   <div className="text-xs text-gray-500 mb-1">Splitter</div>
-                  <div className="font-mono">{selectedEntry.splitterNumber}</div>
+                  <div className="font-mono">{selectedEntry.splitter_number}</div>
                 </div>
 
-                {selectedEntry.physicalLocation && (
+                {selectedEntry.location && (
                   <div>
                     <div className="text-xs text-gray-500 mb-1">Location</div>
                     <div className="flex items-start gap-2">
                       <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
-                      <span className="text-sm">{selectedEntry.physicalLocation}</span>
+                      <span className="text-sm">{selectedEntry.location}</span>
                     </div>
                   </div>
                 )}
@@ -212,29 +212,29 @@ export default function LCPMap() {
                 <div>
                   <div className="text-xs text-gray-500 mb-1">Coordinates</div>
                   <div className="font-mono text-sm text-blue-600">
-                    {selectedEntry.latitude}, {selectedEntry.longitude}
+                    {selectedEntry.gps_lat}, {selectedEntry.gps_lng}
                   </div>
                 </div>
 
-                {selectedEntry.oltName && (
+                {selectedEntry.olt_shelf && (
                   <div>
                     <div className="text-xs text-gray-500 mb-1">OLT Location</div>
                     <div className="flex items-start gap-2">
                       <Server className="h-4 w-4 text-gray-400 mt-0.5" />
                       <div className="font-mono text-sm">
-                        {selectedEntry.oltName} / Shelf {selectedEntry.oltShelf} / Slot {selectedEntry.oltSlot} / Port {selectedEntry.oltPort}
+                        Shelf {selectedEntry.olt_shelf} / Slot {selectedEntry.olt_slot} / Port {selectedEntry.olt_port}
                       </div>
                     </div>
                   </div>
                 )}
 
-                {(selectedEntry.opticMake || selectedEntry.opticModel) && (
+                {(selectedEntry.optic_make || selectedEntry.optic_model) && (
                   <div>
                     <div className="text-xs text-gray-500 mb-1">Optic</div>
                     <div className="text-sm">
-                      {[selectedEntry.opticMake, selectedEntry.opticModel].filter(Boolean).join(' ')}
-                      {selectedEntry.opticSerial && (
-                        <div className="text-xs text-gray-400">S/N: {selectedEntry.opticSerial}</div>
+                      {[selectedEntry.optic_make, selectedEntry.optic_model].filter(Boolean).join(' ')}
+                      {selectedEntry.optic_serial && (
+                        <div className="text-xs text-gray-400">S/N: {selectedEntry.optic_serial}</div>
                       )}
                     </div>
                   </div>
@@ -250,7 +250,7 @@ export default function LCPMap() {
                 <Button 
                   variant="outline" 
                   className="w-full mt-2"
-                  onClick={() => window.open(`https://www.google.com/maps?q=${selectedEntry.latitude},${selectedEntry.longitude}`, '_blank')}
+                  onClick={() => window.open(`https://www.google.com/maps?q=${selectedEntry.gps_lat},${selectedEntry.gps_lng}`, '_blank')}
                 >
                   <MapPin className="h-4 w-4 mr-2" />
                   Open in Google Maps
