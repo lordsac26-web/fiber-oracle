@@ -338,14 +338,15 @@ export default function LCPInfo() {
               </div>
             </div>
             <div className="flex gap-2">
-              {entriesWithCoords.length > 0 && (
-                <Link to={createPageUrl('LCPMap')}>
-                  <Button variant="outline">
-                    <Map className="h-4 w-4 mr-2" />
-                    Map View
-                  </Button>
-                </Link>
-              )}
+              <Link to={createPageUrl('LCPMap')}>
+                <Button variant="outline" className="relative">
+                  <Map className="h-4 w-4 mr-2" />
+                  Map View
+                  {entriesWithCoords.length === 0 && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full" title="Add GPS coordinates to use map view" />
+                  )}
+                </Button>
+              </Link>
               <Button variant="outline" onClick={() => setShowImportDialog(true)}>
                 <Upload className="h-4 w-4 mr-2" />
                 Import
