@@ -37,13 +37,15 @@ import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useUserPreferences } from '@/components/UserPreferencesContext';
 
 export default function LCPInfo() {
   const queryClient = useQueryClient();
+  const { preferences } = useUserPreferences();
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'table'
-  const [sortBy, setSortBy] = useState('created_date'); // 'created_date', 'lcp_number', 'location'
-  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
+  const [sortBy, setSortBy] = useState(preferences.defaultSortBy === 'job_number' ? 'lcp_number' : preferences.defaultSortBy || 'created_date');
+  const [sortOrder, setSortOrder] = useState(preferences.defaultSortOrder || 'desc');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importPreview, setImportPreview] = useState([]);
