@@ -45,7 +45,8 @@ import {
   AlertTriangle,
   X,
   SortAsc,
-  SortDesc
+  SortDesc,
+  FileDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -169,6 +170,124 @@ export default function JobReports() {
     link.download = `job-reports-${moment().format('YYYY-MM-DD')}.csv`;
     link.click();
     toast.success('Reports exported to CSV');
+  };
+
+  // Export single report to PDF
+  const exportToPDF = (report) => {
+    const improvement = calculateImprovement(report.start_power_level, report.end_power_level);
+    const statusLabel = STATUS_CONFIG[report.status]?.label || report.status;
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Job Report - ${report.job_number}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #1f2937; }
+            .header { border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }
+            .header h1 { font-size: 24px; color: #1e40af; }
+            .header p { color: #6b7280; margin-top: 5px; }
+            .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+            .badge-progress { background: #dbeafe; color: #1e40af; }
+            .badge-completed { background: #dcfce7; color: #166534; }
+            .badge-followup { background: #fef3c7; color: #92400e; }
+            .section { margin-bottom: 24px; }
+            .section-title { font-size: 14px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+            .field { margin-bottom: 12px; }
+            .field-label { font-size: 12px; color: #9ca3af; margin-bottom: 2px; }
+            .field-value { font-size: 14px; font-weight: 500; }
+            .notes-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; }
+            .photos { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+            .photo { width: 150px; height: 150px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb; }
+            .improvement-positive { color: #16a34a; }
+            .improvement-negative { color: #dc2626; }
+            .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; text-align: center; }
+            @media print { body { padding: 20px; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Job Report: ${report.job_number}</h1>
+            <p>Generated on ${moment().format('MMMM D, YYYY [at] h:mm A')}</p>
+          </div>
+
+          <div class="section">
+            <div class="grid">
+              <div class="field">
+                <div class="field-label">Status</div>
+                <span class="badge ${report.status === 'completed' ? 'badge-completed' : report.status === 'needs_followup' ? 'badge-followup' : 'badge-progress'}">${statusLabel}</span>
+              </div>
+              <div class="field">
+                <div class="field-label">Date Created</div>
+                <div class="field-value">${moment(report.created_date).format('MMMM D, YYYY')}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Job Information</div>
+            <div class="grid">
+              <div class="field">
+                <div class="field-label">Technician</div>
+                <div class="field-value">${report.technician_name || '-'}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">Location</div>
+                <div class="field-value">${report.location || '-'}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Power Measurements</div>
+            <div class="grid">
+              <div class="field">
+                <div class="field-label">Start Power Level</div>
+                <div class="field-value">${report.start_power_level ? report.start_power_level + ' dBm' : '-'}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">End Power Level</div>
+                <div class="field-value">${report.end_power_level ? report.end_power_level + ' dBm' : '-'}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">Improvement</div>
+                <div class="field-value ${improvement && parseFloat(improvement) >= 0 ? 'improvement-positive' : 'improvement-negative'}">${improvement ? (parseFloat(improvement) >= 0 ? '+' : '') + improvement + ' dB' : '-'}</div>
+              </div>
+            </div>
+          </div>
+
+          ${report.notes ? `
+          <div class="section">
+            <div class="section-title">Notes</div>
+            <div class="notes-box">${report.notes}</div>
+          </div>
+          ` : ''}
+
+          ${report.photo_urls && report.photo_urls.length > 0 ? `
+          <div class="section">
+            <div class="section-title">Photos</div>
+            <div class="photos">
+              ${report.photo_urls.map(url => `<img src="${url}" class="photo" />`).join('')}
+            </div>
+          </div>
+          ` : ''}
+
+          <div class="footer">
+            Fiber Oracle Job Report • ${report.job_number}
+          </div>
+
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const handleSubmit = (e) => {
@@ -397,6 +516,10 @@ export default function JobReports() {
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => exportToPDF(report)}>
+                            <FileDown className="h-4 w-4 mr-2" />
+                            Export PDF
+                          </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="text-red-600"
                             onClick={() => {
@@ -529,6 +652,10 @@ export default function JobReports() {
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setViewingReport(null)}>
                   Close
+                </Button>
+                <Button variant="outline" onClick={() => exportToPDF(viewingReport)}>
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Export PDF
                 </Button>
                 <Button onClick={() => {
                   setViewingReport(null);
