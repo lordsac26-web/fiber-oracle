@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { 
   Calculator, 
   Stethoscope, 
@@ -19,11 +20,22 @@ import {
   Cable,
   GraduationCap,
   FileText,
-  LayoutGrid
+  LayoutGrid,
+  Eye,
+  EyeOff,
+  X,
+  Check
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import BottomNavigationBar from '@/components/BottomNavigationBar';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const MODULES = [
   {
@@ -221,6 +233,13 @@ export default function Home() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [darkMode, setDarkMode] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [showCustomizeDialog, setShowCustomizeDialog] = useState(false);
+  
+  // Load hidden modules from localStorage
+  const [hiddenModules, setHiddenModules] = useState(() => {
+    const saved = localStorage.getItem('hiddenModules');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -241,34 +260,120 @@ export default function Home() {
     }
   }, [darkMode]);
 
+  // Save hidden modules to localStorage
+  useEffect(() => {
+    localStorage.setItem('hiddenModules', JSON.stringify(hiddenModules));
+  }, [hiddenModules]);
+
+  const toggleModuleVisibility = (moduleId) => {
+    setHiddenModules(prev => 
+      prev.includes(moduleId) 
+        ? prev.filter(id => id !== moduleId)
+        : [...prev, moduleId]
+    );
+  };
+
+  const visibleModules = MODULES.filter(m => !hiddenModules.includes(m.id));
+  
   const filteredModules = selectedCategory === 'all'
-    ? MODULES
-    : MODULES.filter(m => m.badge === selectedCategory);
+    ? visibleModules
+    : visibleModules.filter(m => m.badge === selectedCategory);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border-b border-gray-200/50 dark:border-gray-700/50">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-500/25">
                 <Zap className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">FiberTech Pro</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Field Reference Tool v2.0</p>
+                <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">FiberTech Pro</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Field Reference Tool v2.0</p>
               </div>
             </div>
+
+            {/* Desktop Quick Reference - Inline in header */}
+            <div className="hidden lg:flex items-center gap-3 flex-1 justify-center max-w-2xl mx-8">
+              {QUICK_REFS.slice(0, 4).map((ref, i) => (
+                <div 
+                  key={i}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gray-100/80 dark:bg-gray-800/80"
+                >
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wide">{ref.label}</span>
+                  <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">{ref.value}</span>
+                </div>
+              ))}
+            </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2">
               <Badge 
                 variant="outline" 
-                className={`hidden sm:flex ${isOnline ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-amber-300 text-amber-700 bg-amber-50'}`}
+                className={`hidden md:flex ${isOnline ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-amber-300 text-amber-700 bg-amber-50'}`}
               >
                 {isOnline ? <Wifi className="h-3 w-3 mr-1" /> : <WifiOff className="h-3 w-3 mr-1" />}
                 {isOnline ? 'Online' : 'Offline'}
               </Badge>
+
+              {/* Customize Button - Desktop only */}
+              <Dialog open={showCustomizeDialog} onOpenChange={setShowCustomizeDialog}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="rounded-full h-9 w-9 hidden md:flex"
+                    title="Customize visible modules"
+                  >
+                    <Eye className="h-5 w-5" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Eye className="h-5 w-5" />
+                      Customize Modules
+                    </DialogTitle>
+                  </DialogHeader>
+                  <p className="text-sm text-gray-500 mb-4">Toggle modules on/off to customize your dashboard. Hidden modules won't appear in the grid.</p>
+                  <div className="space-y-1">
+                    {MODULES.map((module) => (
+                      <div 
+                        key={module.id}
+                        className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                          hiddenModules.includes(module.id) 
+                            ? 'bg-gray-100 dark:bg-gray-800 opacity-60' 
+                            : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${module.color} flex items-center justify-center`}>
+                            <module.icon className="h-4 w-4 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{module.title}</p>
+                            <p className="text-xs text-gray-500">{module.badge}</p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={!hiddenModules.includes(module.id)}
+                          onCheckedChange={() => toggleModuleVisibility(module.id)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {hiddenModules.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      className="w-full mt-4"
+                      onClick={() => setHiddenModules([])}
+                    >
+                      Show All Modules
+                    </Button>
+                  )}
+                </DialogContent>
+              </Dialog>
               
               <Button 
                 variant="ghost" 
@@ -289,29 +394,48 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-4 space-y-4 pb-24 md:pb-8">
-        {/* Category Filter - Desktop horizontal pills, hidden on mobile (bottom nav handles it) */}
-        <div className="hidden md:block overflow-x-auto pb-2 -mx-4 px-4">
-          <div className="flex gap-2 min-w-max">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all
-                  ${selectedCategory === cat.id
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
-                  }`}
-              >
-                <cat.icon className="h-4 w-4" />
-                {cat.label}
-              </button>
-            ))}
+      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6 pb-24 md:pb-8">
+        {/* Desktop: Category Pills + Module Count */}
+        <div className="hidden md:flex items-center justify-between">
+          <div className="flex gap-2">
+            {CATEGORIES.map((cat) => {
+              const count = cat.id === 'all' 
+                ? visibleModules.length 
+                : visibleModules.filter(m => m.badge === cat.id).length;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all
+                    ${selectedCategory === cat.id
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                    }`}
+                >
+                  <cat.icon className="h-4 w-4" />
+                  {cat.label}
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                    selectedCategory === cat.id 
+                      ? 'bg-white/20' 
+                      : 'bg-gray-100 dark:bg-gray-700'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
+          
+          {hiddenModules.length > 0 && (
+            <Badge variant="outline" className="text-xs">
+              <EyeOff className="h-3 w-3 mr-1" />
+              {hiddenModules.length} hidden
+            </Badge>
+          )}
         </div>
 
-        {/* Quick Reference Bar - Collapsible on mobile */}
-        <div className="hidden sm:block overflow-x-auto pb-2 -mx-4 px-4">
+        {/* Mobile: Quick Reference Bar */}
+        <div className="md:hidden overflow-x-auto pb-2 -mx-4 px-4">
           <div className="flex gap-2 min-w-max">
             {QUICK_REFS.map((ref, i) => (
               <div 
@@ -325,65 +449,104 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Module Grid - Compact cards on mobile */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        {/* Module Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
           {filteredModules.map((module) => (
             <Link key={module.id} to={createPageUrl(module.page)}>
-              <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer bg-white dark:bg-gray-800 h-full">
-                <CardContent className="p-3 md:p-4">
+              <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer bg-white dark:bg-gray-800 h-full">
+                {/* Hover gradient overlay */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${module.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+                
+                <CardContent className="p-3 md:p-5">
                   {/* Mobile: Compact layout */}
                   <div className="flex flex-col items-center text-center md:items-start md:text-left">
-                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br ${module.color} flex items-center justify-center shadow-md mb-2`}>
-                      <module.icon className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                    <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl bg-gradient-to-br ${module.color} flex items-center justify-center shadow-lg mb-2 md:mb-3 group-hover:scale-110 transition-transform duration-300`}>
+                      <module.icon className="h-5 w-5 md:h-7 md:w-7 text-white" />
                     </div>
                     
-                    <h3 className="font-medium text-sm md:text-base text-gray-900 dark:text-white leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    <h3 className="font-semibold text-sm md:text-base text-gray-900 dark:text-white leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {module.title}
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden md:block">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden md:block line-clamp-2">
                       {module.description}
                     </p>
+                    
+                    {/* Desktop: Show category badge */}
+                    <Badge variant="outline" className="mt-3 text-[10px] hidden md:inline-flex opacity-60 group-hover:opacity-100 transition-opacity">
+                      {module.badge}
+                    </Badge>
                   </div>
                 </CardContent>
+                
+                {/* Hover arrow indicator - desktop only */}
+                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
+                  <ChevronRight className="h-5 w-5 text-blue-500" />
+                </div>
               </Card>
             </Link>
           ))}
         </div>
 
-        {/* Standards Footer - Hidden on mobile for cleaner UI */}
-        <div className="hidden md:block mt-8 p-6 rounded-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur border border-gray-200/50 dark:border-gray-700/50">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Reference Standards</h3>
-          
-          {['TIA', 'IEC', 'IEEE', 'ITU-T', 'Telcordia'].map(category => (
-            <div key={category} className="mb-4">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{category}</p>
-              <div className="flex flex-wrap gap-2">
-                {STANDARDS_LINKS.filter(s => s.category === category).map((std) => (
-                  <a 
-                    key={std.name} 
-                    href={std.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    title={std.description}
-                  >
-                    <Badge 
-                      variant="outline" 
-                      className="bg-white dark:bg-gray-700 hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-900/30 cursor-pointer transition-colors"
-                    >
-                      {std.name}
-                    </Badge>
-                  </a>
+        {/* Empty state if all modules hidden */}
+        {filteredModules.length === 0 && (
+          <div className="text-center py-12">
+            <EyeOff className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400">No modules visible</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              {hiddenModules.length > 0 
+                ? "All modules in this category are hidden." 
+                : "No modules match this category."}
+            </p>
+            {hiddenModules.length > 0 && (
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => setShowCustomizeDialog(true)}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Manage Hidden Modules
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Standards Footer - Desktop only, more compact */}
+        <div className="hidden lg:block mt-8">
+          <Card className="border-0 shadow-lg bg-white/70 dark:bg-gray-800/70 backdrop-blur">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900 dark:text-white">Reference Standards</h3>
+                <Badge variant="outline" className="text-xs">
+                  {STANDARDS_LINKS.length} standards
+                </Badge>
+              </div>
+              
+              <div className="grid grid-cols-5 gap-4">
+                {['TIA', 'IEC', 'IEEE', 'ITU-T', 'Telcordia'].map(category => (
+                  <div key={category}>
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{category}</p>
+                    <div className="flex flex-col gap-1">
+                      {STANDARDS_LINKS.filter(s => s.category === category).map((std) => (
+                        <a 
+                          key={std.name} 
+                          href={std.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          title={std.description}
+                          className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate"
+                        >
+                          {std.name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-          ))}
-          
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-            Click any standard to view official documentation. All values based on 2024-2025 industry standards.
-          </p>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* App Info */}
+        {/* App Info - Minimal */}
         <div className="text-center py-4">
           <p className="text-xs text-gray-400">
             FiberTech Pro © 2025
