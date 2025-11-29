@@ -273,12 +273,21 @@ export default function LCPInfo() {
   };
 
   const confirmImport = () => {
-    const updated = [...lcpEntries, ...importPreview];
-    saveEntries(updated);
-    toast.success(`Imported ${importPreview.length} entries`);
-    setShowImportDialog(false);
-    setImportPreview([]);
-    setImportError('');
+    const entriesToImport = importPreview.map(entry => ({
+      lcp_number: entry.lcpNumber || '',
+      splitter_number: entry.splitterNumber || '',
+      location: entry.physicalLocation || '',
+      gps_lat: entry.latitude ? parseFloat(entry.latitude) : null,
+      gps_lng: entry.longitude ? parseFloat(entry.longitude) : null,
+      olt_shelf: entry.oltShelf || '',
+      olt_slot: entry.oltSlot || '',
+      olt_port: entry.oltPort || '',
+      optic_make: entry.opticMake || '',
+      optic_model: entry.opticModel || '',
+      optic_serial: entry.opticSerial || '',
+      notes: entry.notes || '',
+    }));
+    bulkCreateMutation.mutate(entriesToImport);
   };
 
   const downloadTemplate = () => {
