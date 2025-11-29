@@ -75,38 +75,36 @@ A comprehensive field reference tool designed for fiber optic technicians, netwo
 **Home Screen**
 The home screen displays all available modules organized into categories. Tap any card to access that tool.
 
-**Menu Structure (Categories):**
+**Menu Structure (5 Categories):**
 
 ┌─────────────────────────────────────────────────────────┐
 │  FIBER ORACLE - Home Dashboard                          │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│  📊 QUICK ACCESS                                        │
+│  🔢 CALCULATORS - Planning & Estimation                 │
 │  ├── Power Calculator (GPON/XGS-PON Rx estimator)      │
-│  ├── Splitter Loss (Tap ratio for instant values)      │
-│  └── Bend Radius (Min bend by cable type)              │
+│  ├── Loss Budget (TIA-568-D link loss calculation)     │
+│  ├── Splitter Loss (Instant values by split ratio)     │
+│  └── Bend Radius (Minimum bend by cable type)          │
 │                                                         │
-│  🩺 DIAGNOSTICS                                         │
-│  ├── Fiber Doctor (Symptom-based troubleshooting)      │
-│  ├── AI OTDR Analysis [BETA] (Upload trace for AI)     │
-│  └── Impairment Library (Scope & OTDR defect ref)      │
-│                                                         │
-│  🧪 TESTING                                             │
-│  ├── Loss Budget Calc (TIA-568-D values)               │
-│  ├── OLTS Tier-1 (Method B bidirectional)              │
+│  🧪 TESTING - Test Procedures & Wizards                 │
+│  ├── OLTS Tier-1 (Method B bidirectional power)        │
 │  ├── OTDR Tier-2 (Bidirectional characterization)      │
 │  └── Cleaning & Inspection (IEC 61300-3-35)            │
 │                                                         │
-│  📚 REFERENCE                                           │
+│  🩺 TROUBLESHOOT - Diagnostics & Analysis               │
+│  ├── Fiber Doctor (Interactive troubleshooting)        │
+│  ├── AI OTDR Analysis [BETA] (AI-powered trace)        │
+│  └── Impairment Library (Visual defect reference)      │
+│                                                         │
+│  📚 REFERENCE - Specs, Tables & Data                    │
 │  ├── Fiber Locator (TIA-598 color codes)               │
+│  ├── PON Power Levels (GPON & XGS-PON specs)           │
 │  ├── Reference Tables (Attenuation, connectors, etc.)  │
-│  └── PON Power Levels (GPON & XGS-PON specs)           │
+│  ├── LCP / CLCP Info (Cabinet & splitter database)     │
+│  └── Industry Links (Standards & vendors)              │
 │                                                         │
-│  🔧 FIELD TOOLS                                         │
-│  ├── LCP / CLCP Info (Cabinet & splitter lookup)       │
-│  └── Industry Links (Vendors & resources)              │
-│                                                         │
-│  🎓 LEARNING                                            │
+│  🎓 LEARN - Education & Documentation                   │
 │  ├── Education Center (Fiber 101, 102, 103)            │
 │  └── User Manual (This documentation)                  │
 │                                                         │
@@ -120,7 +118,7 @@ At the top of the home screen, you'll find commonly-referenced values:
 
 **Bottom Navigation (Mobile)**
 On mobile devices, use the bottom navigation bar to filter by category:
-- All | Quick | Diagnose | Test | Ref | Settings
+- All | Calc | Test | Fix | Ref | Settings
 
 **Customizing Your Dashboard**
 Click the eye icon (👁) in the header to show/hide modules based on your needs.
