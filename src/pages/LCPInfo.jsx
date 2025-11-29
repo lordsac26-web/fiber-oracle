@@ -187,7 +187,10 @@ export default function LCPInfo() {
   };
 
   const handleEdit = (entry) => {
+    // Detect if it's CLCP based on lcp_number prefix
+    const isClcp = entry.lcp_number?.toUpperCase().startsWith('CLCP');
     setFormData({
+      entryType: isClcp ? 'CLCP' : 'LCP',
       lcpNumber: entry.lcp_number || '',
       splitterNumber: entry.splitter_number || '',
       physicalLocation: entry.location || '',
