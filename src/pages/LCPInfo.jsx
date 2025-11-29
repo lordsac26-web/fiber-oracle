@@ -704,8 +704,9 @@ export default function LCPInfo() {
           </div>
         )}
 
-        <div className="text-center text-xs text-gray-400 py-4">
-          {lcpEntries.length} total entries • Data stored locally on this device
+        <div className="text-center text-xs text-gray-400 py-4 flex items-center justify-center gap-2">
+          <Cloud className="h-3 w-3" />
+          {lcpEntries.length} total entries • Synced to cloud database
         </div>
       </main>
     </div>
