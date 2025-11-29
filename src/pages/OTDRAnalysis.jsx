@@ -32,7 +32,6 @@ import {
   HelpCircle,
   BookOpen,
   MapPin,
-  Cable,
   FileType,
   MessageSquare,
   BarChart3,
@@ -44,7 +43,6 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import TraceVisualization from '@/components/otdr/TraceVisualization';
 import FeedbackPanel from '@/components/otdr/FeedbackPanel';
-import LCPContextPanel from '@/components/otdr/LCPContextPanel';
 
 const WIZARD_STEPS = [
   { id: 'intro', title: 'Introduction', icon: Info },
@@ -88,7 +86,6 @@ export default function OTDRAnalysis() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [selectedEventForFeedback, setSelectedEventForFeedback] = useState(null);
   const [feedbackHistory, setFeedbackHistory] = useState([]);
-  const [selectedLCP, setSelectedLCP] = useState(null);
   const [sorFileData, setSorFileData] = useState(null);
   
   // Form data
@@ -177,20 +174,6 @@ export default function OTDRAnalysis() {
     setIsAnalyzing(true);
     
     try {
-      // Build LCP context if available
-      const lcpContext = selectedLCP ? `
-**LCP/CLCP CONTEXT:**
-- LCP Number: ${selectedLCP.lcp_number}
-- Splitter: ${selectedLCP.splitter_number || 'N/A'}
-- Location: ${selectedLCP.location || 'N/A'}
-- Address: ${selectedLCP.address || 'N/A'}
-- OLT: ${selectedLCP.olt_name || 'N/A'} ${selectedLCP.olt_port ? `Port ${selectedLCP.olt_port}` : ''}
-- Splitter Ratio: ${selectedLCP.splitter_ratio || 'N/A'}
-- Known fiber count: ${selectedLCP.fiber_count || 'N/A'}
-- Notes: ${selectedLCP.notes || 'None'}
-
-Use this infrastructure data to correlate event distances with known components.` : '';
-
       const prompt = `You are an expert fiber optic OTDR trace analyst with deep knowledge of FTTH/PON networks. Analyze the following OTDR trace data and provide detailed diagnostic insights with CONFIDENCE SCORES for each diagnosis.
 
 **REFERENCE STANDARDS:**
@@ -216,7 +199,6 @@ Use this infrastructure data to correlate event distances with known components.
 - Pulse Width: ${traceData.pulseWidth || 'Not specified'}
 - Total Fiber Length: ${traceData.totalLength} km
 - Total Link Loss: ${traceData.totalLoss} dB
-${lcpContext}
 
 **EVENTS DETECTED:**
 ${traceData.events.map((e, i) => `Event ${i + 1}: Distance: ${e.distance}m, Loss: ${e.loss}dB, Reflectance: ${e.reflectance}dB, Type: ${e.type}, Notes: ${e.notes}`).join('\n')}
@@ -233,9 +215,8 @@ Provide detailed analysis with:
 2. For EACH event, provide a CONFIDENCE SCORE (0-100%) for your diagnosis
 3. Distinguish between subtle impairments (microbend vs macrobend, poor splice vs dirty connector)
 4. Identify any ghost events or measurement artifacts
-5. Correlate events with known infrastructure if LCP data provided
-6. Prioritized troubleshooting actions with expected improvement
-7. Required tools for each remediation`;
+5. Prioritized troubleshooting actions with expected improvement
+6. Required tools for each remediation`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
@@ -268,8 +249,7 @@ Provide detailed analysis with:
                   distinguishing_factors: { type: "array", items: { type: "string" } },
                   probable_causes: { type: "array", items: { type: "string" } },
                   troubleshooting_steps: { type: "array", items: { type: "string" } },
-                  is_artifact: { type: "boolean" },
-                  lcp_correlation: { type: "string" }
+                  is_artifact: { type: "boolean" }
                 }
               }
             },
@@ -529,12 +509,6 @@ Provide detailed analysis with:
                   </div>
                   <p className="text-xs text-gray-500">Accepts .sor (recommended), .pdf, or image files</p>
                 </div>
-
-                {/* LCP Context Integration */}
-                <LCPContextPanel 
-                  onLCPSelect={setSelectedLCP} 
-                  selectedLCP={selectedLCP} 
-                />
               </div>
             </div>
           </div>
@@ -856,16 +830,6 @@ Provide detailed analysis with:
                             </div>
                           )}
 
-                          {/* LCP Correlation */}
-                          {event.lcp_correlation && (
-                            <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                              <div className="text-xs flex items-center gap-1">
-                                <Cable className="h-3 w-3 text-blue-500" />
-                                <span className="text-blue-700 dark:text-blue-300">{event.lcp_correlation}</span>
-                              </div>
-                            </div>
-                          )}
-                          
                           {event.probable_causes?.length > 0 && (
                             <div className="mb-3">
                               <div className="text-xs font-semibold uppercase text-gray-500 mb-1">Probable Causes:</div>
