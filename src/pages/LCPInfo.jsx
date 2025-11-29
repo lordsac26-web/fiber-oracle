@@ -34,7 +34,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function LCPInfo() {
-  const [lcpEntries, setLcpEntries] = useState([]);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
@@ -57,19 +57,58 @@ export default function LCPInfo() {
     notes: ''
   });
 
-  // Load from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('lcpEntries');
-    if (saved) {
-      setLcpEntries(JSON.parse(saved));
-    }
-  }, []);
+  // Fetch LCP entries from database
+  const { data: lcpEntries = [], isLoading, error } = useQuery({
+    queryKey: ['lcpEntries'],
+    queryFn: () => base44.entities.LCPEntry.list('-created_date'),
+  });
 
-  // Save to localStorage
-  const saveEntries = (entries) => {
-    localStorage.setItem('lcpEntries', JSON.stringify(entries));
-    setLcpEntries(entries);
-  };
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: (data) => base44.entities.LCPEntry.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lcpEntries'] });
+      toast.success('LCP entry added');
+      resetForm();
+      setShowAddDialog(false);
+    },
+    onError: () => toast.error('Failed to save entry'),
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.LCPEntry.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lcpEntries'] });
+      toast.success('LCP entry updated');
+      resetForm();
+      setShowAddDialog(false);
+    },
+    onError: () => toast.error('Failed to update entry'),
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: (id) => base44.entities.LCPEntry.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lcpEntries'] });
+      toast.success('LCP entry deleted');
+    },
+    onError: () => toast.error('Failed to delete entry'),
+  });
+
+  // Bulk create mutation for imports
+  const bulkCreateMutation = useMutation({
+    mutationFn: (entries) => base44.entities.LCPEntry.bulkCreate(entries),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['lcpEntries'] });
+      toast.success(`Imported ${variables.length} entries`);
+      setShowImportDialog(false);
+      setImportPreview([]);
+      setImportError('');
+    },
+    onError: () => toast.error('Failed to import entries'),
+  });
 
   const resetForm = () => {
     setFormData({
