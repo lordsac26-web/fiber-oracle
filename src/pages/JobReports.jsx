@@ -54,6 +54,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import moment from 'moment';
+import { useUserPreferences } from '@/components/UserPreferencesContext';
 
 const STATUS_CONFIG = {
   in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-800', icon: Clock },
@@ -76,10 +77,11 @@ const EMPTY_REPORT = {
 
 export default function JobReports() {
   const queryClient = useQueryClient();
+  const { preferences } = useUserPreferences();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('created_date');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortBy, setSortBy] = useState(preferences.defaultSortBy || 'created_date');
+  const [sortOrder, setSortOrder] = useState(preferences.defaultSortOrder || 'desc');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingReport, setEditingReport] = useState(null);
   const [viewingReport, setViewingReport] = useState(null);
