@@ -114,7 +114,14 @@ export default function LCPMap() {
       <main className="flex h-[calc(100vh-73px)]">
         {/* Map */}
         <div className="flex-1 relative">
-          {filteredEntries.length > 0 ? (
+          {isLoading ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <Loader2 className="h-16 w-16 text-blue-500 mx-auto mb-4 animate-spin" />
+                <h3 className="text-lg font-medium text-gray-600">Loading map data...</h3>
+              </div>
+            </div>
+          ) : filteredEntries.length > 0 ? (
             <MapContainer
               center={defaultCenter}
               zoom={10}
@@ -130,7 +137,7 @@ export default function LCPMap() {
               {filteredEntries.map((entry) => (
                 <Marker
                   key={entry.id}
-                  position={[parseFloat(entry.latitude), parseFloat(entry.longitude)]}
+                  position={[entry.gps_lat, entry.gps_lng]}
                   icon={lcpIcon}
                   eventHandlers={{
                     click: () => setSelectedEntry(entry)
@@ -138,18 +145,18 @@ export default function LCPMap() {
                 >
                   <Popup>
                     <div className="min-w-[200px]">
-                      <div className="font-bold text-lg text-indigo-600">{entry.lcpNumber}</div>
-                      <div className="text-sm text-gray-600 mb-2">{entry.splitterNumber}</div>
-                      {entry.physicalLocation && (
+                      <div className="font-bold text-lg text-indigo-600">{entry.lcp_number}</div>
+                      <div className="text-sm text-gray-600 mb-2">{entry.splitter_number}</div>
+                      {entry.location && (
                         <div className="flex items-start gap-1 text-sm mb-1">
                           <MapPin className="h-3 w-3 mt-0.5 text-gray-400" />
-                          <span>{entry.physicalLocation}</span>
+                          <span>{entry.location}</span>
                         </div>
                       )}
-                      {entry.oltName && (
+                      {entry.olt_shelf && (
                         <div className="flex items-start gap-1 text-sm">
                           <Server className="h-3 w-3 mt-0.5 text-gray-400" />
-                          <span>{entry.oltName} / {entry.oltShelf}/{entry.oltSlot}/{entry.oltPort}</span>
+                          <span>Shelf {entry.olt_shelf}/{entry.olt_slot}/{entry.olt_port}</span>
                         </div>
                       )}
                     </div>
