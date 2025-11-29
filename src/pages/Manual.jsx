@@ -27,7 +27,9 @@ import {
   Info,
   HelpCircle,
   Layers,
-  Network
+  Network,
+  GraduationCap,
+  FileSearch
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -42,15 +44,20 @@ const MANUAL_SECTIONS = [
         id: 'overview',
         title: 'Overview',
         content: `
-**FiberTech Pro** is a comprehensive field reference tool designed for fiber optic technicians, network engineers, and installation professionals. 
+**Fiber Oracle** - "When you need to know, ask the Oracle."
+
+A comprehensive field reference tool designed for fiber optic technicians, network engineers, and installation professionals. 
 
 **Key Features:**
 - Power level calculations for GPON and XGS-PON networks
 - TIA-598 fiber color code identification (up to 3456 fibers)
 - Loss budget calculations with industry-standard values
 - OLTS and OTDR test wizards
+- AI-powered OTDR trace analysis (Beta)
+- Fiber Doctor interactive troubleshooting
 - Cleaning and inspection procedures
 - Comprehensive reference tables
+- Education Center with Fiber 101, 102, and 103 courses
 - Offline-capable PWA
 
 **Target Users:**
@@ -66,7 +73,44 @@ const MANUAL_SECTIONS = [
         title: 'Navigating the App',
         content: `
 **Home Screen**
-The home screen displays all available modules as cards. Tap any card to access that tool.
+The home screen displays all available modules organized into categories. Tap any card to access that tool.
+
+**Menu Structure (Categories):**
+
+┌─────────────────────────────────────────────────────────┐
+│  FIBER ORACLE - Home Dashboard                          │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  📊 QUICK ACCESS                                        │
+│  ├── Power Calculator (GPON/XGS-PON Rx estimator)      │
+│  ├── Splitter Loss (Tap ratio for instant values)      │
+│  └── Bend Radius (Min bend by cable type)              │
+│                                                         │
+│  🩺 DIAGNOSTICS                                         │
+│  ├── Fiber Doctor (Symptom-based troubleshooting)      │
+│  ├── AI OTDR Analysis [BETA] (Upload trace for AI)     │
+│  └── Impairment Library (Scope & OTDR defect ref)      │
+│                                                         │
+│  🧪 TESTING                                             │
+│  ├── Loss Budget Calc (TIA-568-D values)               │
+│  ├── OLTS Tier-1 (Method B bidirectional)              │
+│  ├── OTDR Tier-2 (Bidirectional characterization)      │
+│  └── Cleaning & Inspection (IEC 61300-3-35)            │
+│                                                         │
+│  📚 REFERENCE                                           │
+│  ├── Fiber Locator (TIA-598 color codes)               │
+│  ├── Reference Tables (Attenuation, connectors, etc.)  │
+│  └── PON Power Levels (GPON & XGS-PON specs)           │
+│                                                         │
+│  🔧 FIELD TOOLS                                         │
+│  ├── LCP / CLCP Info (Cabinet & splitter lookup)       │
+│  └── Industry Links (Vendors & resources)              │
+│                                                         │
+│  🎓 LEARNING                                            │
+│  ├── Education Center (Fiber 101, 102, 103)            │
+│  └── User Manual (This documentation)                  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
 
 **Quick Reference Bar**
 At the top of the home screen, you'll find commonly-referenced values:
@@ -74,11 +118,12 @@ At the top of the home screen, you'll find commonly-referenced values:
 - Elite connector loss values
 - Reflectance limits for UPC and APC
 
-**Module Categories:**
-- **Quick Access**: Power Level Calc, Splitter Loss, Bend Radius
-- **Core Tools**: Loss Budget, Fiber Locator, OLTS, OTDR, Fiber Doctor, Cleaning
-- **Reference**: Impairments, Reference Tables, PON Levels
-- **Tools**: LCP/CLCP Info, Industry Links
+**Bottom Navigation (Mobile)**
+On mobile devices, use the bottom navigation bar to filter by category:
+- All | Quick | Diagnose | Test | Ref | Settings
+
+**Customizing Your Dashboard**
+Click the eye icon (👁) in the header to show/hide modules based on your needs.
 
 **Navigation**
 - Use the back arrow (←) to return to the previous screen
@@ -90,22 +135,26 @@ At the top of the home screen, you'll find commonly-referenced values:
         title: 'Settings & Customization',
         content: `
 **Accessing Settings**
-Tap the gear icon (⚙️) on the home screen to access settings.
+Tap the gear icon (⚙️) on the home screen or use the bottom navigation bar.
 
-**Branding Tab**
-- Set your company name for reports
-- Upload a company logo
-- Set primary brand color
-
-**Appearance Tab**
-- Toggle dark mode
-- Theme persists across sessions
-
-**Test Values Tab**
-- Override default connector loss values
-- Override default splice loss values
-- Configure custom report fields
-- Toggle photo requirements for tests
+┌─────────────────────────────────────────────────────────┐
+│  SETTINGS                                               │
+├─────────────────────────────────────────────────────────┤
+│  📋 BRANDING TAB                                        │
+│  ├── Company Name (for reports)                        │
+│  ├── Company Logo (URL or upload)                      │
+│  └── Custom Report Fields                              │
+│                                                         │
+│  🎨 APPEARANCE TAB                                      │
+│  ├── Dark Mode Toggle                                  │
+│  └── Primary Color Selection                           │
+│                                                         │
+│  ⚙️ TEST VALUES TAB                                     │
+│  ├── Custom Connector Loss (override TIA default)      │
+│  ├── Custom Splice Loss (override TIA default)         │
+│  ├── Custom Fiber Attenuation                          │
+│  └── Require Photo Documentation                       │
+└─────────────────────────────────────────────────────────┘
 
 **Data Storage**
 All settings are stored locally on your device. Data persists even when offline.
@@ -274,11 +323,133 @@ Guide you through OTDR characterization testing with event analysis.
         `
       },
       {
+        id: 'ai-otdr-analysis',
+        title: 'AI OTDR Analysis (Beta)',
+        content: `
+**Purpose**
+Upload OTDR traces or enter event data for AI-powered analysis against TIA/IEC standards.
+
+┌─────────────────────────────────────────────────────────┐
+│  AI OTDR ANALYSIS - Workflow                            │
+├─────────────────────────────────────────────────────────┤
+│  Step 1: INTRODUCTION                                   │
+│  └── Overview of what the tool does                    │
+│                                                         │
+│  Step 2: INPUT DATA                                     │
+│  ├── Select OTDR brand/model                           │
+│  ├── Choose fiber type (G.652, G.657, etc.)            │
+│  ├── Set test wavelength                               │
+│  ├── Enter total length and loss                       │
+│  ├── Upload .SOR file (recommended) or image           │
+│  └── Describe reported symptom                         │
+│                                                         │
+│  Step 3: EVENT DETAILS                                  │
+│  ├── Add events manually (distance, loss, reflectance) │
+│  └── Add notes for each event                          │
+│                                                         │
+│  Step 4: AI ANALYSIS                                    │
+│  └── AI processes data against standards               │
+│                                                         │
+│  Step 5: RESULTS & ACTIONS                              │
+│  ├── Interactive trace visualization                   │
+│  ├── Overall assessment with confidence score          │
+│  ├── Event-by-event analysis                           │
+│  ├── Priority actions list                             │
+│  └── Technician feedback panel                         │
+└─────────────────────────────────────────────────────────┘
+
+**Key Features:**
+
+**1. .SOR File Support**
+Upload standard OTDR .sor files for richest data extraction. The AI extracts all events automatically.
+
+**2. Advanced Impairment Recognition**
+The AI distinguishes between subtle issues:
+- Microbend vs Macrobend (wavelength sensitivity)
+- Poor fusion splice vs dirty connector
+- Ghost events vs real reflections
+- Fiber breaks vs end-of-fiber
+
+**3. Confidence Scoring**
+Each diagnosis includes a confidence percentage (0-100%) indicating AI certainty.
+
+**4. Interactive Trace Visualization**
+┌─────────────────────────────────────────────────────────┐
+│  TRACE VIEW CONTROLS                                    │
+├─────────────────────────────────────────────────────────┤
+│  🔍 Zoom: Scroll wheel or +/- buttons                   │
+│  ✋ Pan: Click and drag when zoomed                     │
+│  ⚙️ Options:                                            │
+│     ├── Event Labels (on/off)                          │
+│     ├── Distance Markers (on/off)                      │
+│     └── Threshold Lines (configurable)                 │
+│  📑 Reference: Upload baseline trace for comparison    │
+│  📥 Export: Download trace as PNG image                │
+│  🖨️ Print: Print trace directly                        │
+└─────────────────────────────────────────────────────────┘
+
+**5. Threshold Lines**
+Configurable pass/fail threshold lines:
+- Connector max loss (default 0.5 dB)
+- Splice max loss (default 0.1 dB)
+
+**6. Reference Trace Overlay**
+Upload a baseline/reference trace to compare against current measurements (shown as dashed blue line).
+
+**7. Technician Feedback**
+Help improve AI accuracy by confirming or correcting diagnoses:
+- ✓ Correct - AI was right
+- ~ Partially - AI was close
+- ✗ Incorrect - Select actual impairment type
+
+**Supported File Types:**
+- .SOR (recommended - standard OTDR format)
+- .PDF (trace exports)
+- Images (.png, .jpg, .jpeg)
+
+**Standards Referenced:**
+- TIA-568-D (attenuation, connector, splice limits)
+- TIA-526-14-C (OLTS procedures)
+- IEC 61300-3-35 (inspection criteria)
+- ITU-T G.652/G.657 (fiber specifications)
+        `
+      },
+      {
         id: 'fiber-doctor',
         title: 'Fiber Doctor',
         content: `
 **Purpose**
 Interactive troubleshooting flowchart for diagnosing fiber issues.
+
+┌─────────────────────────────────────────────────────────┐
+│  FIBER DOCTOR - Decision Tree Flow                      │
+├─────────────────────────────────────────────────────────┤
+│  START: Select Primary Symptom                          │
+│  │                                                      │
+│  ├── High Loss on Link                                  │
+│  │   ├── Is it at a specific point?                    │
+│  │   │   ├── Yes → Check connector/splice              │
+│  │   │   └── No → Distributed loss (bends?)            │
+│  │   └── ...continues with targeted questions          │
+│  │                                                      │
+│  ├── High Reflectance                                   │
+│  │   ├── UPC or APC connector?                         │
+│  │   └── ...diagnosis path                             │
+│  │                                                      │
+│  ├── No Light / No Signal                               │
+│  │   ├── VFL visible through fiber?                    │
+│  │   └── ...diagnosis path                             │
+│  │                                                      │
+│  ├── Intermittent Connection                            │
+│  │   └── ...diagnosis path                             │
+│  │                                                      │
+│  └── PON-Specific Issues                                │
+│      ├── ONT not registering                           │
+│      ├── Low Rx power                                  │
+│      └── ...diagnosis path                             │
+│                                                         │
+│  RESULT: Diagnosis + Actions + Tools Needed             │
+└─────────────────────────────────────────────────────────┘
 
 **How to Use:**
 1. Start with your primary symptom
@@ -286,12 +457,15 @@ Interactive troubleshooting flowchart for diagnosing fiber issues.
 3. Follow the decision tree
 4. Receive specific diagnosis and action items
 
-**Common Issues Covered:**
-- High loss on link
-- High reflectance
-- No light/signal
-- Intermittent connectivity
-- PON-specific issues (ONT not registering, low Rx power)
+**Each Diagnosis Provides:**
+- Identified issue type and severity
+- Probable causes (ranked by likelihood)
+- Step-by-step troubleshooting actions
+- Required tools for remediation
+- Reference images when applicable
+
+**Integration with Learning:**
+After troubleshooting, the Fiber Doctor links to relevant sections in Fiber 103 (Advanced Troubleshooting) for deeper learning.
 
 **Diagnostic Tools Suggested:**
 - Visual Fault Locator (VFL)
@@ -590,6 +764,203 @@ Average Loss = (A→B Loss + B→A Loss) / 2
     ]
   },
   {
+    id: 'education',
+    title: 'Education Center',
+    icon: Lightbulb,
+    subsections: [
+      {
+        id: 'education-overview',
+        title: 'Learning Paths',
+        content: `
+**Education Center Overview**
+
+┌─────────────────────────────────────────────────────────┐
+│  RECOMMENDED LEARNING PATH                              │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ①  FIBER 101 - Foundations (20 min)                    │
+│  │   Beginner • Start Here                             │
+│  │   ├── Fiber Structure & Light Propagation           │
+│  │   ├── SMF vs MMF                                    │
+│  │   ├── TIA-598 Color Codes                           │
+│  │   ├── Connector Types                               │
+│  │   ├── PON/FTTH Architecture Basics                  │
+│  │   ├── Power Levels & dB Math                        │
+│  │   └── Safety Essentials                             │
+│  │                                                      │
+│  ▼                                                      │
+│  ②  FIBER 102 - Intermediate PON/FTTH (30 min)          │
+│  │   Intermediate • Level Up                           │
+│  │   ├── GPON Deep Dive                                │
+│  │   ├── XGS-PON Specifications                        │
+│  │   ├── Loss Budget Calculations                      │
+│  │   ├── OTDR Trace Interpretation                     │
+│  │   ├── Splitter Cascades                             │
+│  │   └── Basic Troubleshooting                         │
+│  │                                                      │
+│  ▼                                                      │
+│  ③  FIBER 103 - Advanced Troubleshooting (45 min)       │
+│  │   Advanced • Expert Level                           │
+│  │   ├── OTDR Mastery                                  │
+│  │   ├── Ghost Event Identification                    │
+│  │   ├── Bidirectional Analysis                        │
+│  │   ├── PON Error Counter Diagnostics                 │
+│  │   ├── Intermittent Fault Isolation                  │
+│  │   └── Documentation Best Practices                  │
+│  │                                                      │
+│  ▼                                                      │
+│  ④  FIBER DOCTOR - Apply Your Knowledge                 │
+│      Diagnostics Tool                                   │
+│      └── Real-world troubleshooting practice           │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+**Course Features:**
+- Interactive slide-based learning
+- Progress tracking within each course
+- Visual diagrams and examples
+- Quick navigation between topics
+        `
+      },
+      {
+        id: 'fiber-101-topics',
+        title: 'Fiber 101 Topics',
+        content: `
+**Fiber 101: Foundations of Fiber Optics**
+Duration: ~20 minutes | Level: Beginner
+
+**Topics Covered:**
+
+1. **What is Fiber Optics?**
+   - Total internal reflection
+   - Core, cladding, and buffer structure
+   - Light propagation basics
+
+2. **Fiber Types**
+   - Single-Mode Fiber (SMF) - G.652, G.657
+   - Multi-Mode Fiber (MMF) - OM3, OM4, OM5
+   - When to use each type
+
+3. **Color Codes (TIA-598)**
+   - 12-fiber color sequence
+   - Tube/binder identification
+   - High-count cable organization
+
+4. **Connectors**
+   - LC, SC, FC, ST, MPO/MTP
+   - UPC vs APC polish types
+   - Proper handling and care
+
+5. **FTTH/PON Architecture**
+   - OLT, ODN, ONT components
+   - Splitter function and placement
+   - Typical network layouts
+
+6. **Power Levels & dB**
+   - Understanding decibels
+   - Typical Tx and Rx ranges
+   - Loss budget concept introduction
+
+7. **Safety**
+   - Laser hazards
+   - Fiber shards
+   - Proper PPE
+        `
+      },
+      {
+        id: 'fiber-102-topics',
+        title: 'Fiber 102 Topics',
+        content: `
+**Fiber 102: Intermediate PON & FTTH**
+Duration: ~30 minutes | Level: Intermediate
+
+**Topics Covered:**
+
+1. **GPON Deep Dive**
+   - ITU-T G.984 specifications
+   - Wavelength plan (1310/1490/1550)
+   - Class B+ and C+ power budgets
+
+2. **XGS-PON**
+   - ITU-T G.9807 specifications
+   - 10G symmetric operation
+   - N1, N2, E1 power classes
+   - Coexistence with GPON
+
+3. **Loss Budget Calculation**
+   - Component loss values
+   - Step-by-step calculation method
+   - Safety margin requirements
+
+4. **Splitter Cascades**
+   - Calculating total split ratio
+   - Loss accumulation
+   - Design considerations
+
+5. **OTDR Basics**
+   - Trace interpretation
+   - Event identification
+   - Distance and loss reading
+
+6. **Common FTTH Issues**
+   - Connector contamination
+   - Bend loss
+   - Splitter failures
+
+7. **Field Best Practices**
+   - Testing procedures
+   - Documentation requirements
+   - Quality standards
+        `
+      },
+      {
+        id: 'fiber-103-topics',
+        title: 'Fiber 103 Topics',
+        content: `
+**Fiber 103: Advanced Troubleshooting**
+Duration: ~45 minutes | Level: Advanced
+
+**Topics Covered:**
+
+1. **OTDR Mastery**
+   - Pulse width selection
+   - Dead zone management
+   - Dynamic range optimization
+
+2. **Ghost Event Identification**
+   - What causes ghosts
+   - How to identify them
+   - Elimination techniques
+
+3. **Bidirectional Analysis**
+   - Why test both directions
+   - Averaging results
+   - Identifying gainers
+
+4. **PON Diagnostics**
+   - Error counter interpretation
+   - BIP, FEC, GEM, HEC errors
+   - Threshold monitoring
+
+5. **Intermittent Faults**
+   - Common causes
+   - Systematic isolation
+   - Documentation for patterns
+
+6. **Splitter Failure Modes**
+   - Partial failures
+   - Port-specific issues
+   - Testing methodology
+
+7. **Documentation Best Practices**
+   - What to record
+   - Photo documentation
+   - Report generation
+        `
+      }
+    ]
+  },
+  {
     id: 'faq',
     title: 'FAQ',
     icon: HelpCircle,
@@ -598,8 +969,8 @@ Average Loss = (A→B Loss + B→A Loss) / 2
         id: 'general-faq',
         title: 'General Questions',
         content: `
-**Q: Does FiberTech Pro work offline?**
-A: Yes! Once loaded, most features work without internet. Only external links require connectivity.
+**Q: Does Fiber Oracle work offline?**
+A: Yes! Once loaded, most features work without internet. Only external links and AI OTDR Analysis require connectivity.
 
 **Q: Where is my data stored?**
 A: All data (settings, LCP entries, custom impairments) is stored locally on your device using browser storage.
@@ -608,13 +979,16 @@ A: All data (settings, LCP entries, custom impairments) is stored locally on you
 A: Yes, but data doesn't sync between devices. Each device maintains its own local data.
 
 **Q: Is there a desktop version?**
-A: FiberTech Pro is a Progressive Web App (PWA). You can install it on desktop or mobile for an app-like experience.
+A: Fiber Oracle is a Progressive Web App (PWA). You can install it on desktop or mobile for an app-like experience.
 
 **Q: How do I install the PWA?**
 A: On mobile, use "Add to Home Screen" from your browser menu. On desktop, look for the install icon in the address bar.
 
 **Q: Are the values accurate?**
 A: All values are based on current industry standards (TIA-568-D, IEEE 802.3, ITU-T). When in doubt, verify against manufacturer specifications.
+
+**Q: What does the Beta tag mean on AI OTDR Analysis?**
+A: The AI OTDR Analysis feature is in beta testing. While functional, it's continuously being improved. Your feedback helps make it better!
         `
       },
       {
@@ -687,7 +1061,7 @@ export default function Manual() {
               </Link>
               <div>
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">User Manual</h1>
-                <p className="text-xs text-gray-500">FiberTech Pro Documentation</p>
+                <p className="text-xs text-gray-500">Fiber Oracle Documentation</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
