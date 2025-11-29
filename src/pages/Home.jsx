@@ -24,7 +24,9 @@ import {
   Eye,
   EyeOff,
   X,
-  Check
+  Check,
+  FileSearch,
+  FlaskConical
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -38,9 +40,10 @@ import {
 } from "@/components/ui/dialog";
 
 const MODULES = [
+  // Quick Access - Most used tools
   {
     id: 'powercalc',
-    title: 'Power Level Calculator',
+    title: 'Power Calculator',
     description: 'GPON & XGS-PON ONT Rx estimator',
     icon: Zap,
     color: 'from-emerald-500 to-teal-600',
@@ -49,7 +52,7 @@ const MODULES = [
   },
   {
     id: 'splitterloss',
-    title: 'Splitter Loss Reference',
+    title: 'Splitter Loss',
     description: 'Tap any ratio for instant loss values',
     icon: Activity,
     color: 'from-purple-500 to-pink-600',
@@ -58,49 +61,15 @@ const MODULES = [
   },
   {
     id: 'bendradius',
-    title: 'Macrobend Radius Guide',
+    title: 'Bend Radius',
     description: 'Min bend radius by cable type',
     icon: Cable,
     color: 'from-amber-500 to-orange-600',
     page: 'BendRadius',
     badge: 'Quick Access'
   },
-  {
-    id: 'calculator',
-    title: 'Loss Budget Calculator',
-    description: 'Calculate link loss with TIA-568-D values',
-    icon: Calculator,
-    color: 'from-blue-500 to-indigo-600',
-    page: 'LossBudget',
-    badge: 'Core'
-  },
-  {
-    id: 'fiberlocator',
-    title: 'Fiber Locator',
-    description: 'TIA-598 color code fiber identifier',
-    icon: Zap,
-    color: 'from-purple-500 to-pink-600',
-    page: 'FiberLocator',
-    badge: 'Core'
-  },
-  {
-    id: 'olts',
-    title: 'OLTS Tier-1 Wizard',
-    description: 'Method B bidirectional testing',
-    icon: Activity,
-    color: 'from-emerald-500 to-teal-600',
-    page: 'OLTSTest',
-    badge: 'Core'
-  },
-  {
-    id: 'otdr',
-    title: 'OTDR Tier-2 Wizard',
-    description: 'Bidirectional trace characterization',
-    icon: Activity,
-    color: 'from-indigo-500 to-purple-600',
-    page: 'OTDRTest',
-    badge: 'Core'
-  },
+  
+  // Diagnostics - Troubleshooting tools
   {
     id: 'doctor',
     title: 'Fiber Doctor',
@@ -108,16 +77,17 @@ const MODULES = [
     icon: Stethoscope,
     color: 'from-rose-500 to-pink-600',
     page: 'FiberDoctor',
-    badge: 'Core'
+    badge: 'Diagnostics'
   },
   {
-    id: 'cleaning',
-    title: 'Cleaning & Inspection',
-    description: 'IEC 61300-3-35 procedures with checklists',
-    icon: Sparkles,
-    color: 'from-cyan-500 to-blue-600',
-    page: 'Cleaning',
-    badge: 'Core'
+    id: 'otdranalysis',
+    title: 'AI OTDR Analysis',
+    description: 'Upload trace for AI-powered diagnostics',
+    icon: FileSearch,
+    color: 'from-purple-600 to-indigo-700',
+    page: 'OTDRAnalysis',
+    badge: 'Diagnostics',
+    isBeta: true
   },
   {
     id: 'impairments',
@@ -126,12 +96,61 @@ const MODULES = [
     icon: ImageIcon,
     color: 'from-violet-500 to-purple-600',
     page: 'Impairments',
+    badge: 'Diagnostics'
+  },
+  
+  // Testing - Test wizards and calculators
+  {
+    id: 'calculator',
+    title: 'Loss Budget Calc',
+    description: 'Calculate link loss with TIA-568-D values',
+    icon: Calculator,
+    color: 'from-blue-500 to-indigo-600',
+    page: 'LossBudget',
+    badge: 'Testing'
+  },
+  {
+    id: 'olts',
+    title: 'OLTS Tier-1',
+    description: 'Method B bidirectional testing',
+    icon: Activity,
+    color: 'from-emerald-500 to-teal-600',
+    page: 'OLTSTest',
+    badge: 'Testing'
+  },
+  {
+    id: 'otdr',
+    title: 'OTDR Tier-2',
+    description: 'Bidirectional trace characterization',
+    icon: Activity,
+    color: 'from-indigo-500 to-purple-600',
+    page: 'OTDRTest',
+    badge: 'Testing'
+  },
+  {
+    id: 'cleaning',
+    title: 'Cleaning & Inspection',
+    description: 'IEC 61300-3-35 procedures',
+    icon: Sparkles,
+    color: 'from-cyan-500 to-blue-600',
+    page: 'Cleaning',
+    badge: 'Testing'
+  },
+  
+  // Reference - Lookup tables and specs
+  {
+    id: 'fiberlocator',
+    title: 'Fiber Locator',
+    description: 'TIA-598 color code identifier',
+    icon: Zap,
+    color: 'from-purple-500 to-pink-600',
+    page: 'FiberLocator',
     badge: 'Reference'
   },
   {
     id: 'tables',
     title: 'Reference Tables',
-    description: 'Attenuation, connectors, splices, standards',
+    description: 'Attenuation, connectors, splices',
     icon: BookOpen,
     color: 'from-amber-500 to-orange-600',
     page: 'ReferenceTables',
@@ -140,47 +159,51 @@ const MODULES = [
   {
     id: 'pon',
     title: 'PON Power Levels',
-    description: 'GPON & XGS-PON acceptable levels',
+    description: 'GPON & XGS-PON specs',
     icon: Activity,
     color: 'from-cyan-500 to-blue-600',
     page: 'PONLevels',
     badge: 'Reference'
   },
+  
+  // Field Tools - On-site utilities
   {
     id: 'lcp',
     title: 'LCP / CLCP Info',
-    description: 'Cabinet & splitter reference lookup',
+    description: 'Cabinet & splitter lookup',
     icon: Cable,
     color: 'from-slate-500 to-gray-600',
     page: 'LCPInfo',
-    badge: 'Tools'
+    badge: 'Field Tools'
   },
   {
     id: 'links',
     title: 'Industry Links',
-    description: 'Vendors, manufacturers, training resources',
+    description: 'Vendors & resources',
     icon: Zap,
     color: 'from-teal-500 to-cyan-600',
     page: 'IndustryLinks',
-    badge: 'Resources'
+    badge: 'Field Tools'
   },
+  
+  // Learning - Education and documentation
   {
     id: 'education',
     title: 'Education Center',
-    description: 'Fiber 101, 102 courses & training',
+    description: 'Fiber 101, 102, 103 courses',
     icon: GraduationCap,
     color: 'from-green-500 to-emerald-600',
     page: 'Education',
-    badge: 'Learn'
+    badge: 'Learning'
   },
   {
     id: 'manual',
     title: 'User Manual',
-    description: 'Comprehensive documentation',
+    description: 'Documentation & help',
     icon: FileText,
     color: 'from-gray-500 to-slate-600',
     page: 'Manual',
-    badge: 'Reference'
+    badge: 'Learning'
   },
 ];
 
@@ -221,12 +244,13 @@ const STANDARDS_LINKS = [
 ];
 
 const CATEGORIES = [
-  { id: 'all', label: 'All Tools', icon: LayoutGrid },
-  { id: 'Quick Access', label: 'Quick Access', icon: Zap },
-  { id: 'Core', label: 'Core Tools', icon: Activity },
+  { id: 'all', label: 'All', icon: LayoutGrid },
+  { id: 'Quick Access', label: 'Quick', icon: Zap },
+  { id: 'Diagnostics', label: 'Diagnose', icon: Stethoscope },
+  { id: 'Testing', label: 'Test', icon: Activity },
   { id: 'Reference', label: 'Reference', icon: BookOpen },
-  { id: 'Tools', label: 'Field Tools', icon: Cable },
-  { id: 'Learn', label: 'Learning', icon: GraduationCap },
+  { id: 'Field Tools', label: 'Field', icon: Cable },
+  { id: 'Learning', label: 'Learn', icon: GraduationCap },
 ];
 
 export default function Home() {
@@ -466,6 +490,12 @@ export default function Home() {
                     
                     <h3 className="font-semibold text-sm md:text-base text-gray-900 dark:text-white leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {module.title}
+                      {module.isBeta && (
+                        <Badge className="ml-1 bg-amber-500 text-[9px] px-1 py-0 align-middle">
+                          <FlaskConical className="h-2 w-2 mr-0.5 inline" />
+                          BETA
+                        </Badge>
+                      )}
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden md:block line-clamp-2">
                       {module.description}

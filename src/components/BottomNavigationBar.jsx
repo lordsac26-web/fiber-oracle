@@ -7,15 +7,16 @@ import {
   BookOpen,
   GraduationCap,
   Settings,
-  LayoutGrid
+  LayoutGrid,
+  Stethoscope
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { id: 'all', label: 'All', icon: LayoutGrid, category: 'all' },
   { id: 'quick', label: 'Quick', icon: Zap, category: 'Quick Access' },
-  { id: 'core', label: 'Core', icon: Activity, category: 'Core' },
+  { id: 'diag', label: 'Diagnose', icon: Stethoscope, category: 'Diagnostics' },
+  { id: 'test', label: 'Test', icon: Activity, category: 'Testing' },
   { id: 'ref', label: 'Ref', icon: BookOpen, category: 'Reference' },
-  { id: 'learn', label: 'Learn', icon: GraduationCap, category: 'Learn' },
 ];
 
 export default function BottomNavigationBar({ selectedCategory, onCategoryChange }) {
