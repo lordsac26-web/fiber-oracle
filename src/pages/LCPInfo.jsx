@@ -615,15 +615,45 @@ export default function LCPInfo() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <Input
-            placeholder="Search by LCP number, splitter, location, or OLT..."
-            className="pl-10 h-12"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        {/* Map View Notice */}
+        {entriesWithCoords.length === 0 && lcpEntries.length > 0 && (
+          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-3">
+            <Info className="h-5 w-5 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              <strong>Map view available:</strong> Add GPS coordinates to your entries to view them on an interactive map.
+            </p>
+          </div>
+        )}
+
+        {/* Search and View Toggle */}
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Input
+              placeholder="Search by LCP number, splitter, location, or OLT..."
+              className="pl-10 h-12"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex border rounded-lg overflow-hidden">
+            <Button 
+              variant={viewMode === 'list' ? 'default' : 'ghost'} 
+              size="icon" 
+              className="rounded-none"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'table' ? 'default' : 'ghost'} 
+              size="icon" 
+              className="rounded-none"
+              onClick={() => setViewMode('table')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Results */}
