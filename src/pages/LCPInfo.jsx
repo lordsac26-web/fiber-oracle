@@ -304,10 +304,10 @@ export default function LCPInfo() {
   const filteredEntries = lcpEntries.filter(entry => {
     const term = searchTerm.toLowerCase();
     return (
-      entry.lcpNumber.toLowerCase().includes(term) ||
-      entry.splitterNumber.toLowerCase().includes(term) ||
-      entry.physicalLocation.toLowerCase().includes(term) ||
-      `${entry.oltShelf}/${entry.oltSlot}/${entry.oltPort}`.includes(term)
+      (entry.lcp_number || '').toLowerCase().includes(term) ||
+      (entry.splitter_number || '').toLowerCase().includes(term) ||
+      (entry.location || '').toLowerCase().includes(term) ||
+      `${entry.olt_shelf}/${entry.olt_slot}/${entry.olt_port}`.includes(term)
     );
   });
 
