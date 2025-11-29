@@ -40,79 +40,53 @@ import {
 } from "@/components/ui/dialog";
 
 const MODULES = [
-  // Quick Access - Most used tools
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CALCULATORS - Mathematical tools for planning and estimation
+  // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'powercalc',
     title: 'Power Calculator',
-    description: 'GPON & XGS-PON ONT Rx estimator',
+    description: 'Estimate ONT Rx power for GPON & XGS-PON',
     icon: Zap,
     color: 'from-emerald-500 to-teal-600',
     page: 'PowerLevelCalc',
-    badge: 'Quick Access'
+    badge: 'Calculators'
+  },
+  {
+    id: 'calculator',
+    title: 'Loss Budget',
+    description: 'Calculate total link loss (TIA-568-D)',
+    icon: Calculator,
+    color: 'from-blue-500 to-indigo-600',
+    page: 'LossBudget',
+    badge: 'Calculators'
   },
   {
     id: 'splitterloss',
     title: 'Splitter Loss',
-    description: 'Tap any ratio for instant loss values',
+    description: 'Instant loss values by split ratio',
     icon: Activity,
     color: 'from-purple-500 to-pink-600',
     page: 'SplitterLoss',
-    badge: 'Quick Access'
+    badge: 'Calculators'
   },
   {
     id: 'bendradius',
     title: 'Bend Radius',
-    description: 'Min bend radius by cable type',
+    description: 'Minimum bend radius by cable type',
     icon: Cable,
     color: 'from-amber-500 to-orange-600',
     page: 'BendRadius',
-    badge: 'Quick Access'
+    badge: 'Calculators'
   },
-  
-  // Diagnostics - Troubleshooting tools
-  {
-    id: 'doctor',
-    title: 'Fiber Doctor',
-    description: 'Symptom-based troubleshooting flowchart',
-    icon: Stethoscope,
-    color: 'from-rose-500 to-pink-600',
-    page: 'FiberDoctor',
-    badge: 'Diagnostics'
-  },
-  {
-    id: 'otdranalysis',
-    title: 'AI OTDR Analysis',
-    description: 'Upload trace for AI-powered diagnostics',
-    icon: FileSearch,
-    color: 'from-purple-600 to-indigo-700',
-    page: 'OTDRAnalysis',
-    badge: 'Diagnostics',
-    isBeta: true
-  },
-  {
-    id: 'impairments',
-    title: 'Impairment Library',
-    description: 'Visual reference for scope & OTDR defects',
-    icon: ImageIcon,
-    color: 'from-violet-500 to-purple-600',
-    page: 'Impairments',
-    badge: 'Diagnostics'
-  },
-  
-  // Testing - Test wizards and calculators
-  {
-    id: 'calculator',
-    title: 'Loss Budget Calc',
-    description: 'Calculate link loss with TIA-568-D values',
-    icon: Calculator,
-    color: 'from-blue-500 to-indigo-600',
-    page: 'LossBudget',
-    badge: 'Testing'
-  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TESTING - Test procedures and wizards
+  // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'olts',
     title: 'OLTS Tier-1',
-    description: 'Method B bidirectional testing',
+    description: 'Method B bidirectional power testing',
     icon: Activity,
     color: 'from-emerald-500 to-teal-600',
     page: 'OLTSTest',
@@ -136,57 +110,91 @@ const MODULES = [
     page: 'Cleaning',
     badge: 'Testing'
   },
-  
-  // Reference - Lookup tables and specs
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TROUBLESHOOTING - Diagnostic and analysis tools
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'doctor',
+    title: 'Fiber Doctor',
+    description: 'Interactive troubleshooting flowchart',
+    icon: Stethoscope,
+    color: 'from-rose-500 to-pink-600',
+    page: 'FiberDoctor',
+    badge: 'Troubleshoot'
+  },
+  {
+    id: 'otdranalysis',
+    title: 'AI OTDR Analysis',
+    description: 'AI-powered trace diagnostics',
+    icon: FileSearch,
+    color: 'from-purple-600 to-indigo-700',
+    page: 'OTDRAnalysis',
+    badge: 'Troubleshoot',
+    isBeta: true
+  },
+  {
+    id: 'impairments',
+    title: 'Impairment Library',
+    description: 'Visual defect reference guide',
+    icon: ImageIcon,
+    color: 'from-violet-500 to-purple-600',
+    page: 'Impairments',
+    badge: 'Troubleshoot'
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // REFERENCE - Lookup tables, specs, and standards
+  // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'fiberlocator',
     title: 'Fiber Locator',
     description: 'TIA-598 color code identifier',
-    icon: Zap,
-    color: 'from-purple-500 to-pink-600',
+    icon: Cable,
+    color: 'from-orange-500 to-amber-600',
     page: 'FiberLocator',
-    badge: 'Reference'
-  },
-  {
-    id: 'tables',
-    title: 'Reference Tables',
-    description: 'Attenuation, connectors, splices',
-    icon: BookOpen,
-    color: 'from-amber-500 to-orange-600',
-    page: 'ReferenceTables',
     badge: 'Reference'
   },
   {
     id: 'pon',
     title: 'PON Power Levels',
-    description: 'GPON & XGS-PON specs',
+    description: 'GPON & XGS-PON specifications',
     icon: Activity,
     color: 'from-cyan-500 to-blue-600',
     page: 'PONLevels',
     badge: 'Reference'
   },
-  
-  // Field Tools - On-site utilities
+  {
+    id: 'tables',
+    title: 'Reference Tables',
+    description: 'Attenuation, connectors, splices & more',
+    icon: BookOpen,
+    color: 'from-slate-500 to-gray-600',
+    page: 'ReferenceTables',
+    badge: 'Reference'
+  },
   {
     id: 'lcp',
     title: 'LCP / CLCP Info',
-    description: 'Cabinet & splitter lookup',
+    description: 'Cabinet & splitter database',
     icon: Cable,
-    color: 'from-slate-500 to-gray-600',
+    color: 'from-teal-500 to-cyan-600',
     page: 'LCPInfo',
-    badge: 'Field Tools'
+    badge: 'Reference'
   },
   {
     id: 'links',
     title: 'Industry Links',
-    description: 'Vendors & resources',
-    icon: Zap,
-    color: 'from-teal-500 to-cyan-600',
+    description: 'Vendors, standards & resources',
+    icon: BookOpen,
+    color: 'from-gray-500 to-slate-600',
     page: 'IndustryLinks',
-    badge: 'Field Tools'
+    badge: 'Reference'
   },
-  
-  // Learning - Education and documentation
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LEARN - Education and documentation
+  // ═══════════════════════════════════════════════════════════════════════════
   {
     id: 'education',
     title: 'Education Center',
@@ -194,16 +202,16 @@ const MODULES = [
     icon: GraduationCap,
     color: 'from-green-500 to-emerald-600',
     page: 'Education',
-    badge: 'Learning'
+    badge: 'Learn'
   },
   {
     id: 'manual',
     title: 'User Manual',
-    description: 'Documentation & help',
+    description: 'App documentation & help',
     icon: FileText,
-    color: 'from-gray-500 to-slate-600',
+    color: 'from-blue-500 to-indigo-600',
     page: 'Manual',
-    badge: 'Learning'
+    badge: 'Learn'
   },
 ];
 
@@ -245,12 +253,11 @@ const STANDARDS_LINKS = [
 
 const CATEGORIES = [
   { id: 'all', label: 'All', icon: LayoutGrid },
-  { id: 'Quick Access', label: 'Quick', icon: Zap },
-  { id: 'Diagnostics', label: 'Diagnose', icon: Stethoscope },
+  { id: 'Calculators', label: 'Calculate', icon: Calculator },
   { id: 'Testing', label: 'Test', icon: Activity },
+  { id: 'Troubleshoot', label: 'Troubleshoot', icon: Stethoscope },
   { id: 'Reference', label: 'Reference', icon: BookOpen },
-  { id: 'Field Tools', label: 'Field', icon: Cable },
-  { id: 'Learning', label: 'Learn', icon: GraduationCap },
+  { id: 'Learn', label: 'Learn', icon: GraduationCap },
 ];
 
 export default function Home() {

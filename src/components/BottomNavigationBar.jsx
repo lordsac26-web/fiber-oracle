@@ -2,10 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import {
-  Zap,
+  Calculator,
   Activity,
   BookOpen,
-  GraduationCap,
   Settings,
   LayoutGrid,
   Stethoscope
@@ -13,9 +12,9 @@ import {
 
 const NAV_ITEMS = [
   { id: 'all', label: 'All', icon: LayoutGrid, category: 'all' },
-  { id: 'quick', label: 'Quick', icon: Zap, category: 'Quick Access' },
-  { id: 'diag', label: 'Diagnose', icon: Stethoscope, category: 'Diagnostics' },
+  { id: 'calc', label: 'Calc', icon: Calculator, category: 'Calculators' },
   { id: 'test', label: 'Test', icon: Activity, category: 'Testing' },
+  { id: 'fix', label: 'Fix', icon: Stethoscope, category: 'Troubleshoot' },
   { id: 'ref', label: 'Ref', icon: BookOpen, category: 'Reference' },
 ];
 
