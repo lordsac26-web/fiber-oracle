@@ -25,8 +25,12 @@ import {
   Navigation,
   Loader2,
   CloudOff,
-  Cloud
+  Cloud,
+  List,
+  LayoutGrid,
+  Info
 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
