@@ -686,7 +686,59 @@ export default function LCPInfo() {
               </p>
             </CardContent>
           </Card>
+        ) : viewMode === 'table' ? (
+          /* Table View */
+          <Card className="border-0 shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 dark:bg-gray-800">
+                    <TableHead>LCP/CLCP</TableHead>
+                    <TableHead>Splitter</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>OLT (Shelf/Slot/Port)</TableHead>
+                    <TableHead>GPS</TableHead>
+                    <TableHead className="w-20">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEntries.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell>
+                        <Badge className="bg-indigo-600">{entry.lcp_number}</Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">{entry.splitter_number}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{entry.location || '-'}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {entry.olt_shelf || entry.olt_slot || entry.olt_port 
+                          ? `${entry.olt_shelf || '-'}/${entry.olt_slot || '-'}/${entry.olt_port || '-'}`
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {entry.gps_lat && entry.gps_lng ? (
+                          <Badge variant="outline" className="text-xs">📍</Badge>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(entry)}>
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(entry.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
         ) : (
+          /* List View */
           <div className="space-y-4">
             {filteredEntries.map((entry) => (
               <Card key={entry.id} className="border-0 shadow-lg">
@@ -696,6 +748,9 @@ export default function LCPInfo() {
                       <div className="flex items-center gap-3 flex-wrap">
                         <Badge className="bg-indigo-600 text-lg px-3 py-1">{entry.lcp_number}</Badge>
                         <Badge variant="outline" className="font-mono">{entry.splitter_number}</Badge>
+                        {entry.gps_lat && entry.gps_lng && (
+                          <Badge variant="outline" className="text-xs text-blue-600">📍 Has GPS</Badge>
+                        )}
                       </div>
 
                       <div className="grid md:grid-cols-2 gap-4">
@@ -707,7 +762,7 @@ export default function LCPInfo() {
                               <div className="text-sm">{entry.location}</div>
                               {entry.gps_lat && entry.gps_lng && (
                                 <div className="text-xs text-blue-600 font-mono mt-0.5">
-                                  📍 {entry.gps_lat}, {entry.gps_lng}
+                                  {entry.gps_lat}, {entry.gps_lng}
                                 </div>
                               )}
                             </div>
