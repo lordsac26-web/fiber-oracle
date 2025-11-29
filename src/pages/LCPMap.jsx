@@ -36,7 +36,7 @@ function FitBounds({ entries }) {
   useEffect(() => {
     if (entries.length > 0) {
       const bounds = L.latLngBounds(
-        entries.map(e => [parseFloat(e.latitude), parseFloat(e.longitude)])
+        entries.map(e => [e.gps_lat, e.gps_lng])
       );
       map.fitBounds(bounds, { padding: [50, 50] });
     }
@@ -46,35 +46,32 @@ function FitBounds({ entries }) {
 }
 
 export default function LCPMap() {
-  const [lcpEntries, setLcpEntries] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEntry, setSelectedEntry] = useState(null);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('lcpEntries');
-    if (saved) {
-      setLcpEntries(JSON.parse(saved));
-    }
-  }, []);
+  // Fetch LCP entries from database
+  const { data: lcpEntries = [], isLoading } = useQuery({
+    queryKey: ['lcpEntries'],
+    queryFn: () => base44.entities.LCPEntry.list('-created_date'),
+  });
 
   const entriesWithCoords = lcpEntries.filter(e => 
-    e.latitude && e.longitude && 
-    !isNaN(parseFloat(e.latitude)) && !isNaN(parseFloat(e.longitude))
+    e.gps_lat && e.gps_lng && 
+    !isNaN(e.gps_lat) && !isNaN(e.gps_lng)
   );
 
   const filteredEntries = entriesWithCoords.filter(entry => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
-      entry.lcpNumber?.toLowerCase().includes(term) ||
-      entry.splitterNumber?.toLowerCase().includes(term) ||
-      entry.physicalLocation?.toLowerCase().includes(term) ||
-      entry.oltName?.toLowerCase().includes(term)
+      entry.lcp_number?.toLowerCase().includes(term) ||
+      entry.splitter_number?.toLowerCase().includes(term) ||
+      entry.location?.toLowerCase().includes(term)
     );
   });
 
   const defaultCenter = filteredEntries.length > 0 
-    ? [parseFloat(filteredEntries[0].latitude), parseFloat(filteredEntries[0].longitude)]
+    ? [filteredEntries[0].gps_lat, filteredEntries[0].gps_lng]
     : [39.8283, -98.5795]; // Center of USA
 
   return (
