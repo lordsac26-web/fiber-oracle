@@ -90,7 +90,8 @@ The home screen displays all available modules organized into categories. Tap an
 │  🧪 TESTING - Test Procedures & Wizards                 │
 │  ├── OLTS Tier-1 (Method B bidirectional power)        │
 │  ├── OTDR Tier-2 (Bidirectional characterization)      │
-│  └── Cleaning & Inspection (IEC 61300-3-35)            │
+│  ├── Cleaning & Inspection (IEC 61300-3-35)            │
+│  └── Job Reports (Track & document fiber jobs)         │
 │                                                         │
 │  🩺 TROUBLESHOOT - Diagnostics & Analysis               │
 │  ├── Fiber Doctor (Interactive troubleshooting)        │
@@ -620,6 +621,7 @@ Store and lookup cabinet and splitter location information.
 - Store OLT logical location (Shelf/Slot/Port)
 - Track optic information (make, model, serial)
 - Search and filter entries
+- Sort by date, LCP number, or location
 - Import from CSV/TXT files
 - View entries on map
 
@@ -640,6 +642,42 @@ Store and lookup cabinet and splitter location information.
 
 **Data Storage:**
 All LCP data is stored locally on your device.
+        `
+      },
+      {
+        id: 'job-reports',
+        title: 'Job Reports',
+        content: `
+**Purpose**
+Track and document fiber optic installation and repair jobs.
+
+**Features:**
+- Create, edit, and delete job reports
+- Record technician name or ID number
+- Track start and end power levels
+- Calculate power improvement automatically
+- Set job status (In Progress, Completed, Needs Follow-up)
+- Add notes and observations
+- Upload photos (optional) for documentation
+- Search, filter by status, and sort reports
+- Export reports to CSV
+
+**Creating a Report:**
+1. Tap "New Report"
+2. Enter job number (required)
+3. Enter technician name or ID
+4. Add location and power readings
+5. Set status and add notes
+6. Upload photos if needed (optional)
+7. Save
+
+**Sorting Options:**
+- Sort by date (newest/oldest first)
+- Sort by job number (A-Z or Z-A)
+- Sort by status
+
+**Exporting:**
+Click "Export CSV" to download all reports for use in spreadsheets or external systems.
         `
       }
     ]
