@@ -18,11 +18,12 @@ import {
   Sun,
   Cable,
   GraduationCap,
-  FileText
+  FileText,
+  LayoutGrid
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { motion } from 'framer-motion';
+import BottomNavigationBar from '@/components/BottomNavigationBar';
 
 const MODULES = [
   {
@@ -207,9 +208,19 @@ const STANDARDS_LINKS = [
   { name: 'Telcordia GR-20', url: 'https://telecom-info.njdepot.ericsson.net/site-cgi/ido/docs.cgi?ID=SEARCH&DOCUMENT=GR-20', category: 'Telcordia', description: 'Generic Requirements for Optical Fiber' },
 ];
 
+const CATEGORIES = [
+  { id: 'all', label: 'All Tools', icon: LayoutGrid },
+  { id: 'Quick Access', label: 'Quick Access', icon: Zap },
+  { id: 'Core', label: 'Core Tools', icon: Activity },
+  { id: 'Reference', label: 'Reference', icon: BookOpen },
+  { id: 'Tools', label: 'Field Tools', icon: Cable },
+  { id: 'Learn', label: 'Learning', icon: GraduationCap },
+];
+
 export default function Home() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [darkMode, setDarkMode] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -230,6 +241,10 @@ export default function Home() {
     }
   }, [darkMode]);
 
+  const filteredModules = selectedCategory === 'all'
+    ? MODULES
+    : MODULES.filter(m => m.badge === selectedCategory);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       {/* Header */}
@@ -246,10 +261,10 @@ export default function Home() {
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <Badge 
                 variant="outline" 
-                className={`${isOnline ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-amber-300 text-amber-700 bg-amber-50'}`}
+                className={`hidden sm:flex ${isOnline ? 'border-emerald-300 text-emerald-700 bg-emerald-50' : 'border-amber-300 text-amber-700 bg-amber-50'}`}
               >
                 {isOnline ? <Wifi className="h-3 w-3 mr-1" /> : <WifiOff className="h-3 w-3 mr-1" />}
                 {isOnline ? 'Online' : 'Offline'}
@@ -259,13 +274,13 @@ export default function Home() {
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setDarkMode(!darkMode)}
-                className="rounded-full"
+                className="rounded-full h-9 w-9"
               >
                 {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </Button>
               
-              <Link to={createPageUrl('Settings')}>
-                <Button variant="ghost" size="icon" className="rounded-full">
+              <Link to={createPageUrl('Settings')} className="hidden md:block">
+                <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
                   <Settings className="h-5 w-5" />
                 </Button>
               </Link>
@@ -274,69 +289,71 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 space-y-8">
-        {/* Quick Reference Bar */}
-        <div className="overflow-x-auto pb-2 -mx-4 px-4">
-          <div className="flex gap-3 min-w-max">
+      <main className="max-w-7xl mx-auto px-4 py-4 space-y-4 pb-24 md:pb-8">
+        {/* Category Filter - Desktop horizontal pills, hidden on mobile (bottom nav handles it) */}
+        <div className="hidden md:block overflow-x-auto pb-2 -mx-4 px-4">
+          <div className="flex gap-2 min-w-max">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all
+                  ${selectedCategory === cat.id
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
+                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                  }`}
+              >
+                <cat.icon className="h-4 w-4" />
+                {cat.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Quick Reference Bar - Collapsible on mobile */}
+        <div className="hidden sm:block overflow-x-auto pb-2 -mx-4 px-4">
+          <div className="flex gap-2 min-w-max">
             {QUICK_REFS.map((ref, i) => (
               <div 
                 key={i}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700"
               >
                 <span className="text-xs text-gray-500">{ref.label}</span>
-                <span className="text-sm font-mono font-semibold text-gray-900 dark:text-white">{ref.value}</span>
+                <span className="text-xs font-mono font-semibold text-gray-900 dark:text-white">{ref.value}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Module Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {MODULES.map((module, index) => (
-            <motion.div
-              key={module.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Link to={createPageUrl(module.page)}>
-                <Card className="group relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer bg-white dark:bg-gray-800">
-                  {/* Gradient overlay */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${module.color} opacity-0 group-hover:opacity-5 transition-opacity`} />
-                  
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${module.color} flex items-center justify-center shadow-lg`}>
-                        <module.icon className="h-6 w-6 text-white" />
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {module.badge}
-                      </Badge>
+        {/* Module Grid - Compact cards on mobile */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {filteredModules.map((module) => (
+            <Link key={module.id} to={createPageUrl(module.page)}>
+              <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer bg-white dark:bg-gray-800 h-full">
+                <CardContent className="p-3 md:p-4">
+                  {/* Mobile: Compact layout */}
+                  <div className="flex flex-col items-center text-center md:items-start md:text-left">
+                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br ${module.color} flex items-center justify-center shadow-md mb-2`}>
+                      <module.icon className="h-5 w-5 md:h-6 md:w-6 text-white" />
                     </div>
                     
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    <h3 className="font-medium text-sm md:text-base text-gray-900 dark:text-white leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {module.title}
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden md:block">
                       {module.description}
                     </p>
-                    
-                    <div className="flex items-center text-sm text-blue-600 dark:text-blue-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                      Open Tool
-                      <ChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            </motion.div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
 
-        {/* Standards Footer */}
-        <div className="mt-8 p-6 rounded-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur border border-gray-200/50 dark:border-gray-700/50">
+        {/* Standards Footer - Hidden on mobile for cleaner UI */}
+        <div className="hidden md:block mt-8 p-6 rounded-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur border border-gray-200/50 dark:border-gray-700/50">
           <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Reference Standards</h3>
           
-          {/* Group by category */}
           {['TIA', 'IEC', 'IEEE', 'ITU-T', 'Telcordia'].map(category => (
             <div key={category} className="mb-4">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">{category}</p>
@@ -362,20 +379,23 @@ export default function Home() {
           ))}
           
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-            Click any standard to view official documentation. Hover for description. All values based on 2024-2025 industry standards.
+            Click any standard to view official documentation. All values based on 2024-2025 industry standards.
           </p>
         </div>
 
         {/* App Info */}
-        <div className="text-center py-6">
+        <div className="text-center py-4">
           <p className="text-xs text-gray-400">
-            FiberTech Pro © 2025 • Built for fiber optic professionals
-          </p>
-          <p className="text-xs text-gray-400 mt-1">
-            All calculations use industry-standard values from TIA, IEEE, IEC, and ITU-T
+            FiberTech Pro © 2025
           </p>
         </div>
       </main>
+
+      {/* Bottom Navigation - Mobile only */}
+      <BottomNavigationBar 
+        selectedCategory={selectedCategory} 
+        onCategoryChange={setSelectedCategory} 
+      />
     </div>
   );
 }
