@@ -151,6 +151,24 @@ const MODULES = [
     page: 'IndustryLinks',
     badge: 'Resources'
   },
+  {
+    id: 'fiber101',
+    title: 'Fiber 101',
+    description: 'Quick start guide for beginners',
+    icon: GraduationCap,
+    color: 'from-green-500 to-emerald-600',
+    page: 'Fiber101',
+    badge: 'Learn'
+  },
+  {
+    id: 'manual',
+    title: 'User Manual',
+    description: 'Comprehensive documentation',
+    icon: FileText,
+    color: 'from-gray-500 to-slate-600',
+    page: 'Manual',
+    badge: 'Learn'
+  },
 ];
 
 const QUICK_REFS = [
