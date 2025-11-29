@@ -32,6 +32,7 @@ import {
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import BottomNavigationBar from '@/components/BottomNavigationBar';
+import { useUserPreferences } from '@/components/UserPreferencesContext';
 import {
   Dialog,
   DialogContent,
@@ -276,15 +277,13 @@ const CATEGORIES = [
 
 export default function Home() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [darkMode, setDarkMode] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showCustomizeDialog, setShowCustomizeDialog] = useState(false);
   
-  // Load hidden modules from localStorage
-  const [hiddenModules, setHiddenModules] = useState(() => {
-    const saved = localStorage.getItem('hiddenModules');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Use user preferences context
+  const { preferences, updatePreferences } = useUserPreferences();
+  const darkMode = preferences.darkMode;
+  const hiddenModules = preferences.hiddenModules || [];
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -297,25 +296,15 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
-
-  // Save hidden modules to localStorage
-  useEffect(() => {
-    localStorage.setItem('hiddenModules', JSON.stringify(hiddenModules));
-  }, [hiddenModules]);
-
   const toggleModuleVisibility = (moduleId) => {
-    setHiddenModules(prev => 
-      prev.includes(moduleId) 
-        ? prev.filter(id => id !== moduleId)
-        : [...prev, moduleId]
-    );
+    const newHidden = hiddenModules.includes(moduleId) 
+      ? hiddenModules.filter(id => id !== moduleId)
+      : [...hiddenModules, moduleId];
+    updatePreferences({ hiddenModules: newHidden });
+  };
+  
+  const setDarkMode = (value) => {
+    updatePreferences({ darkMode: value });
   };
 
   const visibleModules = MODULES.filter(m => !hiddenModules.includes(m.id));
@@ -412,7 +401,7 @@ export default function Home() {
                     <Button 
                       variant="outline" 
                       className="w-full mt-4"
-                      onClick={() => setHiddenModules([])}
+                      onClick={() => updatePreferences({ hiddenModules: [] })}
                     >
                       Show All Modules
                     </Button>
