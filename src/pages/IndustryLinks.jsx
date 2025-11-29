@@ -25,12 +25,17 @@ const INDUSTRY_LINKS = {
     { name: 'Fluke Networks', url: 'https://www.flukenetworks.com', description: 'Certifiers, OTDRs, cable testers' },
     { name: 'AFL', url: 'https://www.aflglobal.com', description: 'Test equipment, fusion splicers, accessories' },
     { name: 'Kingfisher', url: 'https://www.kingfisherfiber.com', description: 'Power meters, light sources, test kits' },
+    { name: 'Anritsu', url: 'https://www.anritsu.com', description: 'OTDRs, optical test solutions' },
+    { name: 'Yokogawa', url: 'https://www.yokogawa.com', description: 'AQ series OTDRs, optical meters' },
+    { name: 'Tempo (Greenlee)', url: 'https://www.tempocom.com', description: 'Fiber test tools and accessories' },
   ],
   fusionSplicers: [
     { name: 'Fujikura', url: 'https://www.fujikura.com', description: 'Premium fusion splicers and cleavers' },
     { name: 'Sumitomo Electric', url: 'https://www.sumitomoelectric.com', description: 'Fusion splicers, fiber products' },
     { name: 'FITEL / Furukawa', url: 'https://www.fitel.com', description: 'Splicers, fiber products' },
     { name: 'INNO Instrument', url: 'https://www.innoinstrument.com', description: 'Affordable fusion splicers' },
+    { name: 'Ilsintech', url: 'https://www.ilsintech.com', description: 'Swift fusion splicers' },
+    { name: 'Orientek', url: 'https://www.orientekfiber.com', description: 'Budget-friendly splicers' },
   ],
   fiberManufacturers: [
     { name: 'Corning', url: 'https://www.corning.com/optical-communications', description: 'Fiber, cable, connectivity solutions' },
@@ -38,6 +43,9 @@ const INDUSTRY_LINKS = {
     { name: 'CommScope', url: 'https://www.commscope.com', description: 'Infrastructure, connectivity' },
     { name: 'OFS (Furukawa)', url: 'https://www.ofsoptics.com', description: 'Specialty and standard fibers' },
     { name: 'Sterlite Technologies', url: 'https://www.stl.tech', description: 'Fiber and cable manufacturing' },
+    { name: 'Draka (Prysmian)', url: 'https://www.draka.com', description: 'Fiber and cable solutions' },
+    { name: 'Fiber Mountain', url: 'https://www.fibermountain.com', description: 'Glass core connectivity' },
+    { name: 'Clearfield', url: 'https://www.seeclearfield.com', description: 'Fiber management, enclosures' },
   ],
   connectorsAccessories: [
     { name: 'Senko', url: 'https://www.senko.com', description: 'Connectors, adapters, cleaning products' },
@@ -45,6 +53,9 @@ const INDUSTRY_LINKS = {
     { name: 'Diamond SA', url: 'https://www.diamond-fo.com', description: 'E2000 and specialty connectors' },
     { name: 'Amphenol', url: 'https://www.amphenol.com', description: 'Connectors and interconnects' },
     { name: 'Sticklers / MicroCare', url: 'https://www.sticklers.com', description: 'Fiber cleaning products' },
+    { name: 'Panduit', url: 'https://www.panduit.com', description: 'Connectivity and cable management' },
+    { name: 'Molex', url: 'https://www.molex.com', description: 'Optical interconnects' },
+    { name: 'TE Connectivity', url: 'https://www.te.com', description: 'Fiber optic connectors and assemblies' },
   ],
   standardsOrganizations: [
     { name: 'TIA (Telecommunications Industry Association)', url: 'https://www.tiaonline.org', description: 'TIA-568, TIA-526 standards' },
@@ -52,15 +63,24 @@ const INDUSTRY_LINKS = {
     { name: 'IEC', url: 'https://www.iec.ch', description: 'IEC 61300 connector standards' },
     { name: 'ITU-T', url: 'https://www.itu.int', description: 'G.652, G.657 fiber standards' },
     { name: 'Fiber Optic Association (FOA)', url: 'https://www.foa.org', description: 'Training, certification, resources' },
+    { name: 'Telcordia / Ericsson', url: 'https://www.ericsson.com', description: 'GR-326, GR-20 standards' },
+    { name: 'ANSI', url: 'https://www.ansi.org', description: 'American National Standards Institute' },
   ],
   training: [
     { name: 'FOA (Fiber Optic Association)', url: 'https://www.foa.org', description: 'CFOT, CFOS certifications' },
     { name: 'Light Brigade', url: 'https://www.lightbrigade.com', description: 'Hands-on fiber training' },
     { name: 'BICSI', url: 'https://www.bicsi.org', description: 'ICT installer certifications' },
     { name: 'The Fiber School', url: 'https://www.thefiberschool.com', description: 'Online and in-person training' },
+    { name: 'Fiber U (Corning)', url: 'https://www.corning.com/fiber-u', description: 'Corning product training' },
+    { name: 'Pearson VUE (ETA)', url: 'https://www.eta-i.org', description: 'FOT certification exams' },
   ],
   suppliers: [
     { name: 'Fiber Instrument Sales', url: 'https://www.fiberinstrumentsales.com', description: 'Fiber optic tools, test equipment, supplies' },
+    { name: 'Graybar', url: 'https://www.graybar.com', description: 'Electrical and fiber distribution' },
+    { name: 'Anixter (WESCO)', url: 'https://www.anixter.com', description: 'Network infrastructure products' },
+    { name: 'FS.com', url: 'https://www.fs.com', description: 'Fiber optic cables, transceivers, equipment' },
+    { name: 'FiberStore', url: 'https://www.fiberstore.com', description: 'Affordable fiber products' },
+    { name: 'Multicom', url: 'https://www.multicominc.com', description: 'CATV and fiber distribution' },
   ]
 };
 
