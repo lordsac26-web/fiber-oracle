@@ -203,14 +203,18 @@ export default function JobReports() {
     setEditingReport(report);
   };
 
-  const ReportForm = () => (
+  const handleFieldChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const ReportForm = ({ isEditing }) => (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Job Number *</Label>
           <Input
             value={formData.job_number}
-            onChange={(e) => setFormData({ ...formData, job_number: e.target.value })}
+            onChange={(e) => handleFieldChange('job_number', e.target.value)}
             placeholder="e.g., WO-2024-001"
             required
           />
@@ -219,7 +223,7 @@ export default function JobReports() {
           <Label>Technician Name</Label>
           <Input
             value={formData.technician_name}
-            onChange={(e) => setFormData({ ...formData, technician_name: e.target.value })}
+            onChange={(e) => handleFieldChange('technician_name', e.target.value)}
             placeholder="Your name"
           />
         </div>
@@ -229,7 +233,7 @@ export default function JobReports() {
         <Label>Location</Label>
         <Input
           value={formData.location}
-          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+          onChange={(e) => handleFieldChange('location', e.target.value)}
           placeholder="Job site address"
         />
       </div>
@@ -241,7 +245,7 @@ export default function JobReports() {
             type="number"
             step="0.01"
             value={formData.start_power_level}
-            onChange={(e) => setFormData({ ...formData, start_power_level: e.target.value })}
+            onChange={(e) => handleFieldChange('start_power_level', e.target.value)}
             placeholder="-25.5"
           />
         </div>
@@ -251,13 +255,13 @@ export default function JobReports() {
             type="number"
             step="0.01"
             value={formData.end_power_level}
-            onChange={(e) => setFormData({ ...formData, end_power_level: e.target.value })}
+            onChange={(e) => handleFieldChange('end_power_level', e.target.value)}
             placeholder="-22.0"
           />
         </div>
         <div className="space-y-2">
           <Label>Status</Label>
-          <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
+          <Select value={formData.status} onValueChange={(v) => handleFieldChange('status', v)}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -274,7 +278,7 @@ export default function JobReports() {
         <Label>Notes</Label>
         <Textarea
           value={formData.notes}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          onChange={(e) => handleFieldChange('notes', e.target.value)}
           placeholder="Observations, issues found, actions taken..."
           rows={4}
         />
@@ -289,7 +293,7 @@ export default function JobReports() {
           Cancel
         </Button>
         <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-          {editingReport ? 'Update Report' : 'Create Report'}
+          {isEditing ? 'Update Report' : 'Create Report'}
         </Button>
       </div>
     </form>
@@ -325,11 +329,11 @@ export default function JobReports() {
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Create Job Report</DialogTitle>
-                  </DialogHeader>
-                  <ReportForm />
-                </DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Create Job Report</DialogTitle>
+                          </DialogHeader>
+                          <ReportForm isEditing={false} />
+                        </DialogContent>
               </Dialog>
             </div>
           </div>
@@ -540,7 +544,7 @@ export default function JobReports() {
           <DialogHeader>
             <DialogTitle>Edit Job Report</DialogTitle>
           </DialogHeader>
-          <ReportForm />
+          <ReportForm isEditing={true} />
         </DialogContent>
       </Dialog>
 
