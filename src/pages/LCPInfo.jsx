@@ -28,7 +28,8 @@ import {
   Cloud,
   List,
   LayoutGrid,
-  Info
+  Info,
+  ArrowUpDown
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from 'react-router-dom';
@@ -41,6 +42,8 @@ export default function LCPInfo() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'table'
+  const [sortBy, setSortBy] = useState('created_date'); // 'created_date', 'lcp_number', 'location'
+  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importPreview, setImportPreview] = useState([]);
@@ -312,15 +315,32 @@ export default function LCPInfo() {
     URL.revokeObjectURL(url);
   };
 
-  const filteredEntries = lcpEntries.filter(entry => {
-    const term = searchTerm.toLowerCase();
-    return (
-      (entry.lcp_number || '').toLowerCase().includes(term) ||
-      (entry.splitter_number || '').toLowerCase().includes(term) ||
-      (entry.location || '').toLowerCase().includes(term) ||
-      `${entry.olt_shelf}/${entry.olt_slot}/${entry.olt_port}`.includes(term)
-    );
-  });
+  const filteredEntries = lcpEntries
+    .filter(entry => {
+      const term = searchTerm.toLowerCase();
+      return (
+        (entry.lcp_number || '').toLowerCase().includes(term) ||
+        (entry.splitter_number || '').toLowerCase().includes(term) ||
+        (entry.location || '').toLowerCase().includes(term) ||
+        `${entry.olt_shelf}/${entry.olt_slot}/${entry.olt_port}`.includes(term)
+      );
+    })
+    .sort((a, b) => {
+      let aVal, bVal;
+      if (sortBy === 'lcp_number') {
+        aVal = (a.lcp_number || '').toLowerCase();
+        bVal = (b.lcp_number || '').toLowerCase();
+      } else if (sortBy === 'location') {
+        aVal = (a.location || '').toLowerCase();
+        bVal = (b.location || '').toLowerCase();
+      } else {
+        aVal = a.created_date || '';
+        bVal = b.created_date || '';
+      }
+      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -626,9 +646,9 @@ export default function LCPInfo() {
           </div>
         )}
 
-        {/* Search and View Toggle */}
-        <div className="flex gap-3">
-          <div className="relative flex-1">
+        {/* Search, Sort, and View Toggle */}
+        <div className="flex gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <Input
               placeholder="Search by LCP number, splitter, location, or OLT..."
@@ -636,6 +656,26 @@ export default function LCPInfo() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={`${sortBy}-${sortOrder}`} onValueChange={(val) => {
+              const [field, order] = val.split('-');
+              setSortBy(field);
+              setSortOrder(order);
+            }}>
+              <SelectTrigger className="w-[160px] h-12">
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_date-desc">Newest First</SelectItem>
+                <SelectItem value="created_date-asc">Oldest First</SelectItem>
+                <SelectItem value="lcp_number-asc">LCP # (A-Z)</SelectItem>
+                <SelectItem value="lcp_number-desc">LCP # (Z-A)</SelectItem>
+                <SelectItem value="location-asc">Location (A-Z)</SelectItem>
+                <SelectItem value="location-desc">Location (Z-A)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex border rounded-lg overflow-hidden">
             <Button 
