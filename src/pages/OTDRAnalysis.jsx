@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -30,12 +31,20 @@ import {
   FlaskConical,
   HelpCircle,
   BookOpen,
-  MapPin
+  MapPin,
+  Cable,
+  FileType,
+  MessageSquare,
+  BarChart3,
+  Eye
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import TraceVisualization from '@/components/otdr/TraceVisualization';
+import FeedbackPanel from '@/components/otdr/FeedbackPanel';
+import LCPContextPanel from '@/components/otdr/LCPContextPanel';
 
 const WIZARD_STEPS = [
   { id: 'intro', title: 'Introduction', icon: Info },
@@ -77,10 +86,14 @@ export default function OTDRAnalysis() {
   const [currentStep, setCurrentStep] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [selectedEventForFeedback, setSelectedEventForFeedback] = useState(null);
+  const [feedbackHistory, setFeedbackHistory] = useState([]);
+  const [selectedLCP, setSelectedLCP] = useState(null);
+  const [sorFileData, setSorFileData] = useState(null);
   
   // Form data
   const [traceData, setTraceData] = useState({
-    inputMethod: 'manual', // 'manual' or 'upload'
+    inputMethod: 'manual', // 'manual', 'upload', or 'sor'
     uploadedFile: null,
     fileUrl: null,
     
@@ -132,21 +145,53 @@ export default function OTDRAnalysis() {
     const file = e.target.files[0];
     if (!file) return;
     
+    const isSorFile = file.name.toLowerCase().endsWith('.sor');
+    
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       updateTraceData('uploadedFile', file.name);
       updateTraceData('fileUrl', file_url);
-      toast.success('File uploaded successfully');
+      
+      if (isSorFile) {
+        updateTraceData('inputMethod', 'sor');
+        setSorFileData({ fileName: file.name, url: file_url });
+        toast.success('.SOR file uploaded - AI will extract trace data');
+      } else {
+        toast.success('File uploaded successfully');
+      }
     } catch (error) {
       toast.error('Failed to upload file');
     }
+  };
+
+  const handleEventClick = (event, index, analysis) => {
+    setSelectedEventForFeedback(analysis);
+  };
+
+  const handleFeedbackSubmit = (feedback) => {
+    setFeedbackHistory(prev => [...prev, feedback]);
+    // In a real implementation, this would be sent to a database for model improvement
   };
 
   const runAnalysis = async () => {
     setIsAnalyzing(true);
     
     try {
-      const prompt = `You are an expert fiber optic OTDR trace analyst. Analyze the following OTDR trace data and provide detailed diagnostic insights.
+      // Build LCP context if available
+      const lcpContext = selectedLCP ? `
+**LCP/CLCP CONTEXT:**
+- LCP Number: ${selectedLCP.lcp_number}
+- Splitter: ${selectedLCP.splitter_number || 'N/A'}
+- Location: ${selectedLCP.location || 'N/A'}
+- Address: ${selectedLCP.address || 'N/A'}
+- OLT: ${selectedLCP.olt_name || 'N/A'} ${selectedLCP.olt_port ? `Port ${selectedLCP.olt_port}` : ''}
+- Splitter Ratio: ${selectedLCP.splitter_ratio || 'N/A'}
+- Known fiber count: ${selectedLCP.fiber_count || 'N/A'}
+- Notes: ${selectedLCP.notes || 'None'}
+
+Use this infrastructure data to correlate event distances with known components.` : '';
+
+      const prompt = `You are an expert fiber optic OTDR trace analyst with deep knowledge of FTTH/PON networks. Analyze the following OTDR trace data and provide detailed diagnostic insights with CONFIDENCE SCORES for each diagnosis.
 
 **REFERENCE STANDARDS:**
 - TIA-568-D: SMF attenuation ≤0.35 dB/km @1310nm, ≤0.25 dB/km @1550nm
@@ -156,6 +201,14 @@ export default function OTDRAnalysis() {
 - ITU-T G.652/G.657: Single-mode fiber specifications
 - Reflectance thresholds: UPC <-50 dB, APC <-60 dB, Dirty >-35 dB
 
+**ADVANCED IMPAIRMENT SIGNATURES:**
+- Microbend: Small non-reflective loss, often distributed, sensitive to 1550nm
+- Macrobend: Larger non-reflective loss, much higher at 1550nm than 1310nm (>0.5dB difference)
+- Poor fusion splice: Non-reflective 0.1-0.3dB loss, may show slight gainer in opposite direction
+- Contaminated connector: Reflective event >-35dB with 0.3-1.0dB loss
+- Cracked fiber: High reflectance spike, may show intermittent behavior
+- Ghost event: Appears at exactly 2x distance of a real reflective event
+
 **OTDR TRACE DATA:**
 - OTDR Brand: ${traceData.otdrBrand || 'Not specified'}
 - Fiber Type: ${traceData.fiberType}
@@ -163,6 +216,7 @@ export default function OTDRAnalysis() {
 - Pulse Width: ${traceData.pulseWidth || 'Not specified'}
 - Total Fiber Length: ${traceData.totalLength} km
 - Total Link Loss: ${traceData.totalLoss} dB
+${lcpContext}
 
 **EVENTS DETECTED:**
 ${traceData.events.map((e, i) => `Event ${i + 1}: Distance: ${e.distance}m, Loss: ${e.loss}dB, Reflectance: ${e.reflectance}dB, Type: ${e.type}, Notes: ${e.notes}`).join('\n')}
@@ -172,22 +226,20 @@ ${traceData.events.map((e, i) => `Event ${i + 1}: Distance: ${e.distance}m, Loss
 **ADDITIONAL NOTES:** ${traceData.additionalNotes || 'None'}
 
 ${traceData.fileUrl ? `**UPLOADED TRACE FILE:** ${traceData.fileUrl}` : ''}
+${sorFileData ? `**SOR FILE UPLOADED:** ${sorFileData.fileName} - Extract and analyze all event data from this standard OTDR trace file.` : ''}
 
-Please analyze this data and provide:
+Provide detailed analysis with:
 1. Overall link health assessment (Pass/Marginal/Fail)
-2. Identification of each event type (connector, splice, bend, break, etc.)
-3. For each problematic event:
-   - What the issue likely is
-   - Why it's occurring (probable causes)
-   - Specific location guidance
-   - Step-by-step troubleshooting actions
-4. Comparison to industry standards
-5. Priority ranking of issues to address
-6. Recommended tools needed
-7. Any ghost events or artifacts to ignore`;
+2. For EACH event, provide a CONFIDENCE SCORE (0-100%) for your diagnosis
+3. Distinguish between subtle impairments (microbend vs macrobend, poor splice vs dirty connector)
+4. Identify any ghost events or measurement artifacts
+5. Correlate events with known infrastructure if LCP data provided
+6. Prioritized troubleshooting actions with expected improvement
+7. Required tools for each remediation`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
+        file_urls: traceData.fileUrl ? [traceData.fileUrl] : undefined,
         response_json_schema: {
           type: "object",
           properties: {
@@ -197,7 +249,8 @@ Please analyze this data and provide:
                 status: { type: "string", enum: ["pass", "marginal", "fail"] },
                 summary: { type: "string" },
                 total_excess_loss: { type: "number" },
-                standards_compliance: { type: "string" }
+                standards_compliance: { type: "string" },
+                overall_confidence: { type: "number" }
               }
             },
             events_analysis: {
@@ -208,11 +261,15 @@ Please analyze this data and provide:
                   event_number: { type: "number" },
                   distance: { type: "string" },
                   identified_type: { type: "string" },
+                  impairment_category: { type: "string", enum: ["connector", "splice", "macrobend", "microbend", "break", "end", "splitter", "unknown"] },
                   severity: { type: "string", enum: ["critical", "warning", "info", "ok"] },
+                  confidence_score: { type: "number" },
                   description: { type: "string" },
+                  distinguishing_factors: { type: "array", items: { type: "string" } },
                   probable_causes: { type: "array", items: { type: "string" } },
                   troubleshooting_steps: { type: "array", items: { type: "string" } },
-                  is_artifact: { type: "boolean" }
+                  is_artifact: { type: "boolean" },
+                  lcp_correlation: { type: "string" }
                 }
               }
             },
@@ -224,13 +281,23 @@ Please analyze this data and provide:
                   priority: { type: "number" },
                   action: { type: "string" },
                   location: { type: "string" },
-                  expected_improvement: { type: "string" }
+                  expected_improvement: { type: "string" },
+                  confidence: { type: "number" }
                 }
               }
             },
             tools_needed: { type: "array", items: { type: "string" } },
             additional_recommendations: { type: "array", items: { type: "string" } },
-            ghost_events_detected: { type: "array", items: { type: "string" } }
+            ghost_events_detected: { type: "array", items: { type: "string" } },
+            sor_file_extracted_data: {
+              type: "object",
+              properties: {
+                total_events: { type: "number" },
+                fiber_length: { type: "string" },
+                test_wavelength: { type: "string" },
+                average_loss: { type: "string" }
+              }
+            }
           }
         }
       });
@@ -430,8 +497,8 @@ Please analyze this data and provide:
                   </Select>
                 </div>
 
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                  <Label className="mb-2 block">Upload OTDR Trace (optional)</Label>
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3">
+                  <Label className="mb-2 block">Upload OTDR Trace</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       type="file"
@@ -441,13 +508,33 @@ Please analyze this data and provide:
                     />
                   </div>
                   {traceData.uploadedFile && (
-                    <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
-                      <CheckCircle2 className="h-4 w-4" />
-                      {traceData.uploadedFile}
-                    </p>
+                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                      <p className="text-sm text-green-700 dark:text-green-300 flex items-center gap-1">
+                        <CheckCircle2 className="h-4 w-4" />
+                        {traceData.uploadedFile}
+                      </p>
+                      {sorFileData && (
+                        <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                          <FileType className="h-3 w-3" />
+                          .SOR file detected - Full trace data will be extracted
+                        </p>
+                      )}
+                    </div>
                   )}
-                  <p className="text-xs text-gray-500 mt-2">Accepts .sor, .pdf, or image files</p>
+                  <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                    <p className="text-xs text-purple-700 dark:text-purple-300 flex items-center gap-1">
+                      <Info className="h-3 w-3" />
+                      <strong>.SOR files</strong> provide the richest data for AI analysis
+                    </p>
+                  </div>
+                  <p className="text-xs text-gray-500">Accepts .sor (recommended), .pdf, or image files</p>
                 </div>
+
+                {/* LCP Context Integration */}
+                <LCPContextPanel 
+                  onLCPSelect={setSelectedLCP} 
+                  selectedLCP={selectedLCP} 
+                />
               </div>
             </div>
           </div>
@@ -603,16 +690,38 @@ Please analyze this data and provide:
           ok: 'bg-green-100 border-green-300 text-green-800'
         };
 
+        const getConfidenceColor = (score) => {
+          if (score >= 85) return 'text-green-600 bg-green-100';
+          if (score >= 70) return 'text-amber-600 bg-amber-100';
+          return 'text-red-600 bg-red-100';
+        };
+
         return (
           <div className="space-y-6">
+            {/* Interactive Trace Visualization */}
+            <TraceVisualization
+              events={traceData.events}
+              totalLength={traceData.totalLength}
+              totalLoss={traceData.totalLoss}
+              analysisResult={analysisResult}
+              onEventClick={handleEventClick}
+            />
+
             {/* Overall Assessment */}
             <Card className={`border-2 ${analysisResult.overall_assessment?.status === 'pass' ? 'border-green-300' : analysisResult.overall_assessment?.status === 'marginal' ? 'border-amber-300' : 'border-red-300'}`}>
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-lg">Overall Assessment</h3>
-                  <Badge className={statusColors[analysisResult.overall_assessment?.status] || 'bg-gray-500'}>
-                    {analysisResult.overall_assessment?.status?.toUpperCase()}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {analysisResult.overall_assessment?.overall_confidence && (
+                      <Badge variant="outline" className={getConfidenceColor(analysisResult.overall_assessment.overall_confidence)}>
+                        {analysisResult.overall_assessment.overall_confidence}% confidence
+                      </Badge>
+                    )}
+                    <Badge className={statusColors[analysisResult.overall_assessment?.status] || 'bg-gray-500'}>
+                      {analysisResult.overall_assessment?.status?.toUpperCase()}
+                    </Badge>
+                  </div>
                 </div>
                 <p className="text-gray-600 dark:text-gray-300">{analysisResult.overall_assessment?.summary}</p>
                 {analysisResult.overall_assessment?.standards_compliance && (
@@ -622,6 +731,36 @@ Please analyze this data and provide:
                 )}
               </CardContent>
             </Card>
+
+            {/* SOR File Extracted Data */}
+            {analysisResult.sor_file_extracted_data?.total_events && (
+              <Card className="border-2 border-purple-200 bg-purple-50 dark:bg-purple-900/20">
+                <CardContent className="p-4">
+                  <h4 className="font-semibold flex items-center gap-2 mb-3">
+                    <FileType className="h-4 w-4 text-purple-600" />
+                    .SOR File Data Extracted
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded">
+                      <div className="text-gray-500 text-xs">Total Events</div>
+                      <div className="font-semibold">{analysisResult.sor_file_extracted_data.total_events}</div>
+                    </div>
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded">
+                      <div className="text-gray-500 text-xs">Fiber Length</div>
+                      <div className="font-semibold">{analysisResult.sor_file_extracted_data.fiber_length}</div>
+                    </div>
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded">
+                      <div className="text-gray-500 text-xs">Wavelength</div>
+                      <div className="font-semibold">{analysisResult.sor_file_extracted_data.test_wavelength}</div>
+                    </div>
+                    <div className="p-2 bg-white dark:bg-gray-800 rounded">
+                      <div className="text-gray-500 text-xs">Avg Loss</div>
+                      <div className="font-semibold">{analysisResult.sor_file_extracted_data.average_loss}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Priority Actions */}
             {analysisResult.priority_actions?.length > 0 && (
@@ -658,57 +797,130 @@ Please analyze this data and provide:
               </Card>
             )}
 
-            {/* Event Analysis */}
+            {/* Event Analysis with Tabs */}
             {analysisResult.events_analysis?.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-purple-500" />
-                    Event Analysis
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {analysisResult.events_analysis.filter(e => !e.is_artifact).map((event, i) => (
-                    <div key={i} className={`p-4 rounded-xl border-2 ${severityColors[event.severity]}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-semibold">
-                          Event {event.event_number}: {event.identified_type}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Activity className="h-5 w-5 text-purple-500" />
+                        Event Analysis
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {analysisResult.events_analysis.filter(e => !e.is_artifact).map((event, i) => (
+                        <div 
+                          key={i} 
+                          className={`p-4 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md ${severityColors[event.severity]} ${selectedEventForFeedback?.event_number === event.event_number ? 'ring-2 ring-purple-500' : ''}`}
+                          onClick={() => setSelectedEventForFeedback(event)}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="font-semibold">
+                              Event {event.event_number}: {event.identified_type}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {event.confidence_score && (
+                                <Badge variant="outline" className={getConfidenceColor(event.confidence_score)}>
+                                  {event.confidence_score}%
+                                </Badge>
+                              )}
+                              <Badge variant="outline">{event.distance}</Badge>
+                            </div>
+                          </div>
+                          
+                          {/* Impairment Category */}
+                          {event.impairment_category && (
+                            <Badge className="mb-2 text-xs" variant="secondary">
+                              {event.impairment_category}
+                            </Badge>
+                          )}
+                          
+                          <p className="text-sm mb-3">{event.description}</p>
+
+                          {/* Distinguishing Factors */}
+                          {event.distinguishing_factors?.length > 0 && (
+                            <div className="mb-3 p-2 bg-white/50 dark:bg-gray-800/50 rounded">
+                              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">
+                                <Eye className="h-3 w-3 inline mr-1" />
+                                Why this diagnosis:
+                              </div>
+                              <ul className="text-xs space-y-1">
+                                {event.distinguishing_factors.map((factor, j) => (
+                                  <li key={j} className="flex items-start gap-1">
+                                    <CheckCircle2 className="h-3 w-3 text-green-500 mt-0.5" />
+                                    <span>{factor}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* LCP Correlation */}
+                          {event.lcp_correlation && (
+                            <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                              <div className="text-xs flex items-center gap-1">
+                                <Cable className="h-3 w-3 text-blue-500" />
+                                <span className="text-blue-700 dark:text-blue-300">{event.lcp_correlation}</span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {event.probable_causes?.length > 0 && (
+                            <div className="mb-3">
+                              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">Probable Causes:</div>
+                              <ul className="text-sm space-y-1">
+                                {event.probable_causes.map((cause, j) => (
+                                  <li key={j} className="flex items-start gap-2">
+                                    <span>•</span>
+                                    <span>{cause}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {event.troubleshooting_steps?.length > 0 && (
+                            <div>
+                              <div className="text-xs font-semibold uppercase text-gray-500 mb-1">Troubleshooting Steps:</div>
+                              <ol className="text-sm space-y-1">
+                                {event.troubleshooting_steps.map((step, j) => (
+                                  <li key={j} className="flex items-start gap-2">
+                                    <span className="font-bold">{j + 1}.</span>
+                                    <span>{step}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
                         </div>
-                        <Badge variant="outline">{event.distance}</Badge>
-                      </div>
-                      <p className="text-sm mb-3">{event.description}</p>
-                      
-                      {event.probable_causes?.length > 0 && (
-                        <div className="mb-3">
-                          <div className="text-xs font-semibold uppercase text-gray-500 mb-1">Probable Causes:</div>
-                          <ul className="text-sm space-y-1">
-                            {event.probable_causes.map((cause, j) => (
-                              <li key={j} className="flex items-start gap-2">
-                                <span>•</span>
-                                <span>{cause}</span>
-                              </li>
-                            ))}
-                          </ul>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Feedback Panel */}
+                <div className="space-y-4">
+                  <FeedbackPanel 
+                    eventAnalysis={selectedEventForFeedback}
+                    onFeedbackSubmit={handleFeedbackSubmit}
+                  />
+                  
+                  {feedbackHistory.length > 0 && (
+                    <Card className="border-dashed">
+                      <CardContent className="p-4">
+                        <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4" />
+                          Feedback Submitted ({feedbackHistory.length})
+                        </h4>
+                        <div className="text-xs text-gray-500">
+                          Your feedback helps improve AI accuracy for all technicians.
                         </div>
-                      )}
-                      
-                      {event.troubleshooting_steps?.length > 0 && (
-                        <div>
-                          <div className="text-xs font-semibold uppercase text-gray-500 mb-1">Troubleshooting Steps:</div>
-                          <ol className="text-sm space-y-1">
-                            {event.troubleshooting_steps.map((step, j) => (
-                              <li key={j} className="flex items-start gap-2">
-                                <span className="font-bold">{j + 1}.</span>
-                                <span>{step}</span>
-                              </li>
-                            ))}
-                          </ol>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* Ghost Events */}
