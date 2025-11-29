@@ -22,6 +22,7 @@ import Education from './pages/Education';
 import Fiber102 from './pages/Fiber102';
 import Fiber103 from './pages/Fiber103';
 import OTDRAnalysis from './pages/OTDRAnalysis';
+import JobReports from './pages/JobReports';
 import __Layout from './Layout.jsx';
 
 
@@ -50,6 +51,7 @@ export const PAGES = {
     "Fiber102": Fiber102,
     "Fiber103": Fiber103,
     "OTDRAnalysis": OTDRAnalysis,
+    "JobReports": JobReports,
 }
 
 export const pagesConfig = {

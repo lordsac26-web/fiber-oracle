@@ -26,7 +26,8 @@ import {
   X,
   Check,
   FileSearch,
-  FlaskConical
+  FlaskConical,
+  ClipboardList
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -212,6 +213,19 @@ const MODULES = [
     color: 'from-blue-500 to-indigo-600',
     page: 'Manual',
     badge: 'Learn'
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TESTING - Job Reports (added to Testing category)
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'jobreports',
+    title: 'Job Reports',
+    description: 'Track & document fiber jobs',
+    icon: ClipboardList,
+    color: 'from-slate-500 to-gray-600',
+    page: 'JobReports',
+    badge: 'Testing'
   },
 ];
 
