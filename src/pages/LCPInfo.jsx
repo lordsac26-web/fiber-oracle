@@ -22,11 +22,16 @@ import {
   FileText,
   Download,
   Map,
-  Navigation
+  Navigation,
+  Loader2,
+  CloudOff,
+  Cloud
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { toast } from 'sonner';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function LCPInfo() {
   const [lcpEntries, setLcpEntries] = useState([]);
