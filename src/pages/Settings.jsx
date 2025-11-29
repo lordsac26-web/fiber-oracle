@@ -7,6 +7,13 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { 
   ArrowLeft, 
   Palette, 
@@ -17,16 +24,20 @@ import {
   Moon,
   Sun,
   Info,
-  CheckCircle2
+  CheckCircle2,
+  User,
+  Ruler
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { base44 } from '@/api/base44Client';
+import { useUserPreferences } from '@/components/UserPreferencesContext';
 import { toast } from 'sonner';
 
 export default function Settings() {
+  const { preferences, updatePreferences, isSaving, isAuthenticated, user } = useUserPreferences();
+  
   const [settings, setSettings] = useState({
-    companyName: 'FiberTech Pro',
+    companyName: 'Fiber Oracle',
     logoUrl: '',
     primaryColor: '#3b82f6',
     darkMode: false,
@@ -34,27 +45,41 @@ export default function Settings() {
     customConnectorLoss: '',
     customSpliceLoss: '',
     customAttenuation: '',
-    customFields: ['Job Number', 'Technician', 'Location']
+    customFields: ['Job Number', 'Technician', 'Location'],
+    units: 'metric',
+    defaultSortOrder: 'desc',
+    defaultSortBy: 'created_date',
   });
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // Load settings from localStorage for now
-    const savedSettings = localStorage.getItem('fibertechSettings');
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
-    }
-  }, []);
+    setSettings({
+      companyName: preferences.companyName || 'Fiber Oracle',
+      logoUrl: preferences.logoUrl || '',
+      primaryColor: preferences.primaryColor || '#3b82f6',
+      darkMode: preferences.darkMode || false,
+      requirePhotos: preferences.requirePhotos ?? true,
+      customConnectorLoss: preferences.customConnectorLoss?.toString() || '',
+      customSpliceLoss: preferences.customSpliceLoss?.toString() || '',
+      customAttenuation: preferences.customAttenuation?.toString() || '',
+      customFields: preferences.customFields || ['Job Number', 'Technician', 'Location'],
+      units: preferences.units || 'metric',
+      defaultSortOrder: preferences.defaultSortOrder || 'desc',
+      defaultSortBy: preferences.defaultSortBy || 'created_date',
+    });
+  }, [preferences]);
 
   const handleSave = async () => {
-    setSaving(true);
     try {
-      localStorage.setItem('fibertechSettings', JSON.stringify(settings));
+      await updatePreferences({
+        ...settings,
+        customConnectorLoss: settings.customConnectorLoss ? parseFloat(settings.customConnectorLoss) : null,
+        customSpliceLoss: settings.customSpliceLoss ? parseFloat(settings.customSpliceLoss) : null,
+        customAttenuation: settings.customAttenuation ? parseFloat(settings.customAttenuation) : null,
+      });
       toast.success('Settings saved successfully');
     } catch (error) {
       toast.error('Failed to save settings');
     }
-    setSaving(false);
   };
 
   const addCustomField = () => {
@@ -93,17 +118,42 @@ export default function Settings() {
                 <p className="text-xs text-gray-500">Customize your app</p>
               </div>
             </div>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={isSaving}>
               <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Saving...' : 'Save Changes'}
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        <Tabs defaultValue="branding" className="space-y-6">
-          <TabsList className="bg-white dark:bg-gray-800 shadow-lg p-1 rounded-xl">
+        {/* User Profile Card */}
+        {isAuthenticated && user && (
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
+                  {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{user.full_name || 'User'}</h3>
+                  <p className="text-sm text-gray-500">{user.email}</p>
+                </div>
+                <Badge className="ml-auto" variant="outline">
+                  <User className="h-3 w-3 mr-1" />
+                  {user.role || 'user'}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Tabs defaultValue="preferences" className="space-y-6">
+          <TabsList className="bg-white dark:bg-gray-800 shadow-lg p-1 rounded-xl flex-wrap">
+            <TabsTrigger value="preferences" className="rounded-lg">
+              <User className="h-4 w-4 mr-2" />
+              Preferences
+            </TabsTrigger>
             <TabsTrigger value="branding" className="rounded-lg">
               <Building2 className="h-4 w-4 mr-2" />
               Branding
@@ -117,6 +167,89 @@ export default function Settings() {
               Test Values
             </TabsTrigger>
           </TabsList>
+
+          {/* User Preferences Tab */}
+          <TabsContent value="preferences" className="space-y-6">
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle>User Preferences</CardTitle>
+                <CardDescription>Customize your personal app experience</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Ruler className="h-4 w-4" />
+                      Measurement Units
+                    </Label>
+                    <Select 
+                      value={settings.units} 
+                      onValueChange={(v) => setSettings({...settings, units: v})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="metric">Metric (km, m)</SelectItem>
+                        <SelectItem value="imperial">Imperial (mi, ft)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500">Used in calculators and distance displays</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Default Sort Order</Label>
+                    <Select 
+                      value={settings.defaultSortOrder} 
+                      onValueChange={(v) => setSettings({...settings, defaultSortOrder: v})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="desc">Newest First</SelectItem>
+                        <SelectItem value="asc">Oldest First</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500">Default sort order for lists and reports</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Default Sort Field</Label>
+                    <Select 
+                      value={settings.defaultSortBy} 
+                      onValueChange={(v) => setSettings({...settings, defaultSortBy: v})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="created_date">Date Created</SelectItem>
+                        <SelectItem value="updated_date">Date Updated</SelectItem>
+                        <SelectItem value="job_number">Job Number</SelectItem>
+                        <SelectItem value="status">Status</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-gray-500">Default field to sort by in lists</p>
+                  </div>
+                </div>
+
+                {!isAuthenticated && (
+                  <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <Info className="h-5 w-5 text-amber-600 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-amber-800 dark:text-amber-200">Local Storage Only</h4>
+                        <p className="text-sm text-amber-700 dark:text-amber-300">
+                          Settings are saved locally. Sign in to sync preferences across devices.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Branding Tab */}
           <TabsContent value="branding" className="space-y-6">
