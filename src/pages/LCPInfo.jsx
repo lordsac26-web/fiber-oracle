@@ -363,11 +363,23 @@ export default function LCPInfo() {
                   <DialogTitle>{editingId ? 'Edit LCP Entry' : 'Add New LCP Entry'}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label>LCP/CLCP Number *</Label>
+                      <Label>Type *</Label>
+                      <Select value={formData.entryType} onValueChange={(value) => setFormData({ ...formData, entryType: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="LCP">LCP</SelectItem>
+                          <SelectItem value="CLCP">CLCP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{formData.entryType} Number *</Label>
                       <Input
-                        placeholder="e.g., LCP-001"
+                        placeholder={`e.g., ${formData.entryType}-001`}
                         value={formData.lcpNumber}
                         onChange={(e) => setFormData({ ...formData, lcpNumber: e.target.value })}
                       />
