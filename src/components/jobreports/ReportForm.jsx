@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Upload, X, Image } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+import { toast } from 'sonner';
 
 export default function ReportForm({ 
   formData, 
@@ -19,8 +22,32 @@ export default function ReportForm({
   isEditing, 
   isSubmitting 
 }) {
+  const [uploading, setUploading] = useState(false);
+
   const handleFieldChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const currentPhotos = formData.photo_urls || [];
+      handleFieldChange('photo_urls', [...currentPhotos, file_url]);
+      toast.success('Photo uploaded');
+    } catch (error) {
+      toast.error('Failed to upload photo');
+    }
+    setUploading(false);
+    e.target.value = '';
+  };
+
+  const removePhoto = (index) => {
+    const currentPhotos = formData.photo_urls || [];
+    handleFieldChange('photo_urls', currentPhotos.filter((_, i) => i !== index));
   };
 
   return (
@@ -98,6 +125,41 @@ export default function ReportForm({
           placeholder="Observations, issues found, actions taken..."
           rows={4}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Photos (optional)</Label>
+        <div className="flex flex-wrap gap-2">
+          {(formData.photo_urls || []).map((url, index) => (
+            <div key={index} className="relative w-20 h-20 rounded-lg overflow-hidden border">
+              <img src={url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removePhoto(index)}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+          <label className={`w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+            {uploading ? (
+              <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+            ) : (
+              <>
+                <Upload className="h-5 w-5 text-gray-400" />
+                <span className="text-xs text-gray-400 mt-1">Add</span>
+              </>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handlePhotoUpload}
+              className="hidden"
+              disabled={uploading}
+            />
+          </label>
+        </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
