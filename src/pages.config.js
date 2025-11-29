@@ -15,6 +15,9 @@ import SplitterLoss from './pages/SplitterLoss';
 import BendRadius from './pages/BendRadius';
 import OTDRTest from './pages/OTDRTest';
 import LCPMap from './pages/LCPMap';
+import Fiber101 from './pages/Fiber101';
+import Manual from './pages/Manual';
+import Brochure from './pages/Brochure';
 import __Layout from './Layout.jsx';
 
 
@@ -36,6 +39,9 @@ export const PAGES = {
     "BendRadius": BendRadius,
     "OTDRTest": OTDRTest,
     "LCPMap": LCPMap,
+    "Fiber101": Fiber101,
+    "Manual": Manual,
+    "Brochure": Brochure,
 }
 
 export const pagesConfig = {
