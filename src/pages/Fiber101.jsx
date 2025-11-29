@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   BookOpen,
   Play,
-  RotateCcw
+  RotateCcw,
+  Home
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -26,25 +27,25 @@ const SLIDES = [
   {
     id: 'welcome',
     title: 'Welcome to Fiber 101',
-    subtitle: 'Your Quick Start Guide to Fiber Optics',
+    subtitle: 'Foundations of Fiber Optics & FTTH',
     icon: Zap,
-    color: 'from-blue-500 to-indigo-600',
+    color: 'from-green-500 to-emerald-600',
     content: (
       <div className="space-y-6 text-center">
         <p className="text-lg text-gray-600 dark:text-gray-300">
-          This guide will teach you the essentials of fiber optic technology—from the central office to the customer's ONT.
+          This guide will teach you the essentials of fiber optic technology and FTTH (Fiber to the Home) networks—from the central office to the customer's ONT.
         </p>
         <div className="grid grid-cols-3 gap-4 max-w-md mx-auto">
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-            <div className="text-2xl font-bold text-blue-600">15</div>
+          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+            <div className="text-2xl font-bold text-green-600">20</div>
             <div className="text-xs text-gray-500">Minutes</div>
           </div>
           <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
-            <div className="text-2xl font-bold text-emerald-600">12</div>
+            <div className="text-2xl font-bold text-emerald-600">15</div>
             <div className="text-xs text-gray-500">Topics</div>
           </div>
-          <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-            <div className="text-2xl font-bold text-purple-600">∞</div>
+          <div className="p-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl">
+            <div className="text-2xl font-bold text-teal-600">∞</div>
             <div className="text-xs text-gray-500">Knowledge</div>
           </div>
         </div>
@@ -229,6 +230,43 @@ const SLIDES = [
     )
   },
   {
+    id: 'ftth-overview',
+    title: 'What is FTTH?',
+    subtitle: 'Fiber to the Home explained',
+    icon: Cable,
+    color: 'from-teal-500 to-cyan-600',
+    content: (
+      <div className="space-y-6">
+        <p className="text-center text-gray-600 dark:text-gray-300">
+          FTTH (Fiber to the Home) delivers fiber optic connectivity directly to residential customers, providing the fastest and most reliable internet service available.
+        </p>
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="p-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl text-center">
+            <div className="text-3xl font-bold text-teal-600 mb-1">1-10 Gbps</div>
+            <div className="text-sm text-gray-600">Typical Speeds</div>
+          </div>
+          <div className="p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl text-center">
+            <div className="text-3xl font-bold text-cyan-600 mb-1">20+ km</div>
+            <div className="text-sm text-gray-600">Max Distance</div>
+          </div>
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-center">
+            <div className="text-3xl font-bold text-blue-600 mb-1">99.9%</div>
+            <div className="text-sm text-gray-600">Reliability</div>
+          </div>
+        </div>
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+          <div className="font-bold mb-2">FTTH Advantages over Copper:</div>
+          <div className="grid md:grid-cols-2 gap-2 text-sm">
+            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /> No electromagnetic interference</div>
+            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /> Much longer distances</div>
+            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /> Symmetric upload/download</div>
+            <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-green-500" /> Future-proof bandwidth</div>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
     id: 'pon-network',
     title: 'The PON Network',
     subtitle: 'From OLT to ONT',
@@ -273,6 +311,74 @@ const SLIDES = [
         <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
           <div className="font-bold text-purple-700 mb-1">Splitter</div>
           <p className="text-sm text-gray-600">Passive device that splits the optical signal. A 1:32 splitter serves 32 customers from one OLT port with ~17.5 dB loss.</p>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: 'gpon-basics',
+    title: 'GPON Basics',
+    subtitle: 'The most common PON technology',
+    icon: Zap,
+    color: 'from-blue-500 to-indigo-600',
+    content: (
+      <div className="space-y-6">
+        <p className="text-center text-gray-600 dark:text-gray-300">
+          GPON (Gigabit Passive Optical Network) is the most widely deployed FTTH technology worldwide.
+        </p>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+            <div className="font-bold text-blue-700 mb-2">Downstream</div>
+            <div className="text-2xl font-mono font-bold">2.488 Gbps</div>
+            <div className="text-sm text-gray-500 mt-1">Wavelength: 1490 nm</div>
+          </div>
+          <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl">
+            <div className="font-bold text-indigo-700 mb-2">Upstream</div>
+            <div className="text-2xl font-mono font-bold">1.244 Gbps</div>
+            <div className="text-sm text-gray-500 mt-1">Wavelength: 1310 nm</div>
+          </div>
+        </div>
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+          <div className="font-bold mb-2">Key GPON Facts:</div>
+          <ul className="text-sm space-y-2">
+            <li className="flex items-start gap-2"><CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" /> Up to 128 ONTs per OLT port (typically 32-64)</li>
+            <li className="flex items-start gap-2"><CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" /> Maximum reach of 20 km (60 km with extended optics)</li>
+            <li className="flex items-start gap-2"><CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" /> Bandwidth shared among all users on a PON</li>
+            <li className="flex items-start gap-2"><CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" /> Uses TDMA for upstream traffic management</li>
+          </ul>
+        </div>
+      </div>
+    )
+  },
+  {
+    id: 'xgspon-intro',
+    title: 'XGS-PON Introduction',
+    subtitle: '10G Symmetric - The next generation',
+    icon: Target,
+    color: 'from-emerald-500 to-teal-600',
+    content: (
+      <div className="space-y-6">
+        <p className="text-center text-gray-600 dark:text-gray-300">
+          XGS-PON delivers 10 Gbps symmetric speeds for demanding applications like business services and multi-gig residential.
+        </p>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
+            <div className="font-bold text-emerald-700 mb-2">Downstream</div>
+            <div className="text-2xl font-mono font-bold text-emerald-600">9.953 Gbps</div>
+            <div className="text-sm text-gray-500 mt-1">Wavelength: 1577 nm</div>
+          </div>
+          <div className="p-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl">
+            <div className="font-bold text-teal-700 mb-2">Upstream</div>
+            <div className="text-2xl font-mono font-bold text-teal-600">9.953 Gbps</div>
+            <div className="text-sm text-gray-500 mt-1">Wavelength: 1270 nm</div>
+          </div>
+        </div>
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="font-bold text-blue-700 mb-2">GPON vs XGS-PON Coexistence</div>
+          <p className="text-sm text-gray-600">XGS-PON uses different wavelengths than GPON, allowing both to run on the same fiber infrastructure during migration. This is called "combo PON" deployment.</p>
+        </div>
+        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-center">
+          <strong>Coming Up:</strong> Learn more about XGS-PON in Fiber 102!
         </div>
       </div>
     )
@@ -517,7 +623,7 @@ const SLIDES = [
   {
     id: 'complete',
     title: 'You\'re Ready!',
-    subtitle: 'Start exploring FiberTech Pro',
+    subtitle: 'Foundations complete',
     icon: CheckCircle2,
     color: 'from-emerald-500 to-green-600',
     content: (
@@ -526,24 +632,24 @@ const SLIDES = [
           <CheckCircle2 className="h-16 w-16 text-emerald-500" />
         </div>
         <p className="text-lg text-gray-600 dark:text-gray-300">
-          You've completed Fiber 101! You now know the basics of fiber optic technology.
+          You've completed Fiber 101! You now understand the fundamentals of fiber optics, FTTH architecture, and PON technology.
         </p>
         <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
-          <Link to={createPageUrl('Home')}>
+          <Link to={createPageUrl('Fiber102')}>
             <Button className="w-full" size="lg">
-              <Zap className="h-4 w-4 mr-2" />
-              Start Using App
+              <Target className="h-4 w-4 mr-2" />
+              Continue to 102
             </Button>
           </Link>
-          <Link to={createPageUrl('Manual')}>
+          <Link to={createPageUrl('Education')}>
             <Button variant="outline" className="w-full" size="lg">
               <BookOpen className="h-4 w-4 mr-2" />
-              Full Manual
+              Education Hub
             </Button>
           </Link>
         </div>
         <p className="text-sm text-gray-500">
-          Remember: When in doubt, clean the connector and test again!
+          Ready for more? Fiber 102 covers advanced PON, troubleshooting, and OTDR analysis!
         </p>
       </div>
     )
@@ -578,14 +684,14 @@ export default function Fiber101() {
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link to={createPageUrl('Home')}>
+              <Link to={createPageUrl('Education')}>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </Link>
               <div>
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Fiber 101</h1>
-                <p className="text-xs text-gray-500">Quick Start Guide</p>
+                <p className="text-xs text-gray-500">Foundations of Fiber Optics</p>
               </div>
             </div>
             <div className="flex items-center gap-2">

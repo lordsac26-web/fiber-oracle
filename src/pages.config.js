@@ -18,6 +18,8 @@ import LCPMap from './pages/LCPMap';
 import Fiber101 from './pages/Fiber101';
 import Manual from './pages/Manual';
 import Brochure from './pages/Brochure';
+import Education from './pages/Education';
+import Fiber102 from './pages/Fiber102';
 import __Layout from './Layout.jsx';
 
 
@@ -42,6 +44,8 @@ export const PAGES = {
     "Fiber101": Fiber101,
     "Manual": Manual,
     "Brochure": Brochure,
+    "Education": Education,
+    "Fiber102": Fiber102,
 }
 
 export const pagesConfig = {
