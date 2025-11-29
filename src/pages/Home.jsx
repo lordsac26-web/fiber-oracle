@@ -165,12 +165,12 @@ const MODULES = [
     badge: 'Resources'
   },
   {
-    id: 'fiber101',
-    title: 'Fiber 101',
-    description: 'Quick start guide for beginners',
+    id: 'education',
+    title: 'Education Center',
+    description: 'Fiber 101, 102 courses & training',
     icon: GraduationCap,
     color: 'from-green-500 to-emerald-600',
-    page: 'Fiber101',
+    page: 'Education',
     badge: 'Learn'
   },
   {
@@ -180,7 +180,7 @@ const MODULES = [
     icon: FileText,
     color: 'from-gray-500 to-slate-600',
     page: 'Manual',
-    badge: 'Learn'
+    badge: 'Reference'
   },
 ];
 
