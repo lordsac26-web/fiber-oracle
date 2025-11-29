@@ -149,7 +149,7 @@ export default function LCPInfo() {
     }
   };
 
-  const entriesWithCoords = lcpEntries.filter(e => e.latitude && e.longitude);
+  const entriesWithCoords = lcpEntries.filter(e => e.gps_lat && e.gps_lng);
 
   const handleSubmit = () => {
     if (!formData.lcpNumber || !formData.splitterNumber) {
@@ -157,32 +157,50 @@ export default function LCPInfo() {
       return;
     }
 
-    if (editingId) {
-      const updated = lcpEntries.map(entry => 
-        entry.id === editingId ? { ...formData, id: editingId } : entry
-      );
-      saveEntries(updated);
-      toast.success('LCP entry updated');
-    } else {
-      const newEntry = { ...formData, id: Date.now() };
-      saveEntries([...lcpEntries, newEntry]);
-      toast.success('LCP entry added');
-    }
+    const entryData = {
+      lcp_number: formData.lcpNumber,
+      splitter_number: formData.splitterNumber,
+      location: formData.physicalLocation,
+      gps_lat: formData.latitude ? parseFloat(formData.latitude) : null,
+      gps_lng: formData.longitude ? parseFloat(formData.longitude) : null,
+      olt_shelf: formData.oltShelf,
+      olt_slot: formData.oltSlot,
+      olt_port: formData.oltPort,
+      optic_make: formData.opticMake,
+      optic_model: formData.opticModel,
+      optic_serial: formData.opticSerial,
+      notes: formData.notes,
+    };
 
-    resetForm();
-    setShowAddDialog(false);
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, data: entryData });
+    } else {
+      createMutation.mutate(entryData);
+    }
   };
 
   const handleEdit = (entry) => {
-    setFormData(entry);
+    setFormData({
+      lcpNumber: entry.lcp_number || '',
+      splitterNumber: entry.splitter_number || '',
+      physicalLocation: entry.location || '',
+      latitude: entry.gps_lat?.toString() || '',
+      longitude: entry.gps_lng?.toString() || '',
+      oltName: '',
+      oltShelf: entry.olt_shelf || '',
+      oltSlot: entry.olt_slot || '',
+      oltPort: entry.olt_port || '',
+      opticMake: entry.optic_make || '',
+      opticModel: entry.optic_model || '',
+      opticSerial: entry.optic_serial || '',
+      notes: entry.notes || ''
+    });
     setEditingId(entry.id);
     setShowAddDialog(true);
   };
 
   const handleDelete = (id) => {
-    const updated = lcpEntries.filter(entry => entry.id !== id);
-    saveEntries(updated);
-    toast.success('LCP entry deleted');
+    deleteMutation.mutate(id);
   };
 
   const handleFileUpload = (e) => {
