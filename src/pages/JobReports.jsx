@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -25,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import ReportForm from '@/components/jobreports/ReportForm';
 import { 
   ArrowLeft, 
   Plus, 
@@ -203,101 +203,11 @@ export default function JobReports() {
     setEditingReport(report);
   };
 
-  const handleFieldChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const handleCancel = () => {
+    setShowCreateDialog(false);
+    setEditingReport(null);
+    setFormData(EMPTY_REPORT);
   };
-
-  const ReportForm = ({ isEditing }) => (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Job Number *</Label>
-          <Input
-            value={formData.job_number}
-            onChange={(e) => handleFieldChange('job_number', e.target.value)}
-            placeholder="e.g., WO-2024-001"
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Technician Name</Label>
-          <Input
-            value={formData.technician_name}
-            onChange={(e) => handleFieldChange('technician_name', e.target.value)}
-            placeholder="Your name"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Location</Label>
-        <Input
-          value={formData.location}
-          onChange={(e) => handleFieldChange('location', e.target.value)}
-          placeholder="Job site address"
-        />
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label>Start Power (dBm)</Label>
-          <Input
-            type="number"
-            step="0.01"
-            value={formData.start_power_level}
-            onChange={(e) => handleFieldChange('start_power_level', e.target.value)}
-            placeholder="-25.5"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>End Power (dBm)</Label>
-          <Input
-            type="number"
-            step="0.01"
-            value={formData.end_power_level}
-            onChange={(e) => handleFieldChange('end_power_level', e.target.value)}
-            placeholder="-22.0"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <Select value={formData.status} onValueChange={(v) => handleFieldChange('status', v)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="needs_followup">Needs Follow-up</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Notes</Label>
-        <Textarea
-          value={formData.notes}
-          onChange={(e) => handleFieldChange('notes', e.target.value)}
-          placeholder="Observations, issues found, actions taken..."
-          rows={4}
-        />
-      </div>
-
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={() => {
-          setShowCreateDialog(false);
-          setEditingReport(null);
-          setFormData(EMPTY_REPORT);
-        }}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-          {isEditing ? 'Update Report' : 'Create Report'}
-        </Button>
-      </div>
-    </form>
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -332,7 +242,14 @@ export default function JobReports() {
                           <DialogHeader>
                             <DialogTitle>Create Job Report</DialogTitle>
                           </DialogHeader>
-                          <ReportForm isEditing={false} />
+                          <ReportForm 
+                            formData={formData}
+                            setFormData={setFormData}
+                            onSubmit={handleSubmit}
+                            onCancel={handleCancel}
+                            isEditing={false}
+                            isSubmitting={createMutation.isPending}
+                          />
                         </DialogContent>
               </Dialog>
             </div>
@@ -544,7 +461,14 @@ export default function JobReports() {
           <DialogHeader>
             <DialogTitle>Edit Job Report</DialogTitle>
           </DialogHeader>
-          <ReportForm isEditing={true} />
+          <ReportForm 
+            formData={formData}
+            setFormData={setFormData}
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            isEditing={true}
+            isSubmitting={updateMutation.isPending}
+          />
         </DialogContent>
       </Dialog>
 
