@@ -170,6 +170,7 @@ export default function LCPInfo() {
       location: formData.physicalLocation,
       gps_lat: formData.latitude ? parseFloat(formData.latitude) : null,
       gps_lng: formData.longitude ? parseFloat(formData.longitude) : null,
+      olt_name: formData.oltName,
       olt_shelf: formData.oltShelf,
       olt_slot: formData.oltSlot,
       olt_port: formData.oltPort,
@@ -196,7 +197,7 @@ export default function LCPInfo() {
       physicalLocation: entry.location || '',
       latitude: entry.gps_lat?.toString() || '',
       longitude: entry.gps_lng?.toString() || '',
-      oltName: '',
+      oltName: entry.olt_name || '',
       oltShelf: entry.olt_shelf || '',
       oltSlot: entry.olt_slot || '',
       oltPort: entry.olt_port || '',
@@ -710,8 +711,8 @@ export default function LCPInfo() {
                       <TableCell className="font-mono text-sm">{entry.splitter_number}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{entry.location || '-'}</TableCell>
                       <TableCell className="font-mono text-sm">
-                        {entry.olt_shelf || entry.olt_slot || entry.olt_port 
-                          ? `${entry.olt_shelf || '-'}/${entry.olt_slot || '-'}/${entry.olt_port || '-'}`
+                        {entry.olt_name || entry.olt_shelf || entry.olt_slot || entry.olt_port 
+                          ? `${entry.olt_name ? entry.olt_name + ' ' : ''}${entry.olt_shelf || '-'}/${entry.olt_slot || '-'}/${entry.olt_port || '-'}`
                           : '-'}
                       </TableCell>
                       <TableCell>
@@ -769,12 +770,13 @@ export default function LCPInfo() {
                           </div>
                         )}
 
-                        {(entry.olt_shelf || entry.olt_slot || entry.olt_port) && (
+                        {(entry.olt_name || entry.olt_shelf || entry.olt_slot || entry.olt_port) && (
                           <div className="flex items-start gap-2">
                             <Server className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
                             <div>
                               <div className="text-xs text-gray-500">OLT Location</div>
                               <div className="text-sm font-mono">
+                                {entry.olt_name && <span className="font-semibold">{entry.olt_name} </span>}
                                 Shelf {entry.olt_shelf || '-'} / Slot {entry.olt_slot || '-'} / Port {entry.olt_port || '-'}
                               </div>
                             </div>
