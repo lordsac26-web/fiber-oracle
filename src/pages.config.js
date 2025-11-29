@@ -20,6 +20,7 @@ import Manual from './pages/Manual';
 import Brochure from './pages/Brochure';
 import Education from './pages/Education';
 import Fiber102 from './pages/Fiber102';
+import Fiber103 from './pages/Fiber103';
 import __Layout from './Layout.jsx';
 
 
@@ -46,6 +47,7 @@ export const PAGES = {
     "Brochure": Brochure,
     "Education": Education,
     "Fiber102": Fiber102,
+    "Fiber103": Fiber103,
 }
 
 export const pagesConfig = {

@@ -286,12 +286,12 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-500/25">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-purple-500/25">
                 <Zap className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">FiberTech Pro</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">Field Reference Tool v2.0</p>
+                <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Fiber Oracle</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">When you need to know, ask the Oracle.</p>
               </div>
             </div>
 
@@ -549,7 +549,7 @@ export default function Home() {
         {/* App Info - Minimal */}
         <div className="text-center py-4">
           <p className="text-xs text-gray-400">
-            FiberTech Pro © 2025
+            Fiber Oracle © 2025
           </p>
         </div>
       </main>

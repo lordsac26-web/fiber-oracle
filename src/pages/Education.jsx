@@ -10,7 +10,9 @@ import {
   ChevronRight,
   Clock,
   Target,
-  Zap
+  Zap,
+  Wrench,
+  Stethoscope
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -39,8 +41,21 @@ const COURSES = [
     page: 'Fiber102',
     duration: '30 min',
     level: 'Intermediate',
-    topics: ['GPON Deep Dive', 'XGS-PON', 'Loss Budgets', 'OTDR Analysis', 'Advanced Troubleshooting', 'Splitter Cascades', 'OLT/ONT Config'],
+    topics: ['GPON Deep Dive', 'XGS-PON', 'Loss Budgets', 'OTDR Analysis', 'Troubleshooting Basics', 'Splitter Cascades', 'OLT/ONT Config'],
     badge: { text: 'Level Up', color: 'bg-blue-500' }
+  },
+  {
+    id: 'fiber103',
+    title: 'Fiber 103',
+    subtitle: 'Advanced Troubleshooting',
+    description: 'Expert-level diagnostics for complex issues. Master OTDR trace analysis, PON error counters, and systematic fault isolation.',
+    icon: Wrench,
+    color: 'from-purple-500 to-indigo-600',
+    page: 'Fiber103',
+    duration: '45 min',
+    level: 'Advanced',
+    topics: ['OTDR Mastery', 'Ghost Events', 'Bidirectional Analysis', 'PON Diagnostics', 'Error Counters', 'Intermittent Faults', 'Splitter Failures', 'Documentation'],
+    badge: { text: 'Expert', color: 'bg-purple-500' }
   },
 ];
 
@@ -164,13 +179,23 @@ export default function Education() {
                 </div>
               </div>
               <ChevronRight className="h-5 w-5 text-gray-300 flex-shrink-0" />
-              <div className="flex items-center gap-2 flex-shrink-0 opacity-50">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center text-white font-bold">3</div>
                 <div>
                   <div className="font-medium text-sm">Fiber 103</div>
-                  <div className="text-xs text-gray-500">Coming Soon</div>
+                  <div className="text-xs text-gray-500">Advanced</div>
                 </div>
               </div>
+              <ChevronRight className="h-5 w-5 text-gray-300 flex-shrink-0" />
+              <Link to={createPageUrl('FiberDoctor')} className="flex items-center gap-2 flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-rose-500 flex items-center justify-center text-white">
+                  <Stethoscope className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="font-medium text-sm">Fiber Doctor</div>
+                  <div className="text-xs text-gray-500">Diagnostics</div>
+                </div>
+              </Link>
             </div>
           </CardContent>
         </Card>

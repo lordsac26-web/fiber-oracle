@@ -351,7 +351,7 @@ export default function Settings() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">FiberTech Pro</h3>
+                <h3 className="font-semibold">Fiber Oracle</h3>
                 <p className="text-sm text-gray-500">Version 2.0.0</p>
               </div>
               <Badge variant="outline" className="flex items-center gap-1">

@@ -22,6 +22,9 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import { BookOpen } from 'lucide-react';
 
 // Reference images for diagnostics
 const DIAGNOSTIC_IMAGES = {
@@ -920,9 +923,17 @@ export default function FiberDoctor() {
                   </div>
                 )}
 
-                <Button className="w-full mt-4" variant="outline" onClick={restart}>
-                  Start New Diagnosis
-                </Button>
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <Button variant="outline" onClick={restart}>
+                    Start New Diagnosis
+                  </Button>
+                  <Link to={createPageUrl('Fiber103')}>
+                    <Button variant="outline" className="w-full">
+                      <BookOpen className="h-4 w-4 mr-2" />
+                      Learn More (103)
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           ) : (
