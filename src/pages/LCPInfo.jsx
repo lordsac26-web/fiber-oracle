@@ -118,6 +118,7 @@ export default function LCPInfo() {
 
   const resetForm = () => {
     setFormData({
+      entryType: 'LCP',
       lcpNumber: '',
       splitterNumber: '',
       physicalLocation: '',
