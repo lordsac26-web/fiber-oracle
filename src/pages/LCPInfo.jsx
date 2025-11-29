@@ -604,7 +604,22 @@ export default function LCPInfo() {
         </div>
 
         {/* Results */}
-        {filteredEntries.length === 0 ? (
+        {isLoading ? (
+          <Card className="border-0 shadow-lg">
+            <CardContent className="py-12 text-center">
+              <Loader2 className="h-12 w-12 text-blue-500 mx-auto mb-4 animate-spin" />
+              <h3 className="text-lg font-medium text-gray-600">Loading entries...</h3>
+            </CardContent>
+          </Card>
+        ) : error ? (
+          <Card className="border-0 shadow-lg">
+            <CardContent className="py-12 text-center">
+              <CloudOff className="h-12 w-12 text-red-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-600">Failed to load entries</h3>
+              <p className="text-sm text-gray-500 mt-1">Please check your connection and try again</p>
+            </CardContent>
+          </Card>
+        ) : filteredEntries.length === 0 ? (
           <Card className="border-0 shadow-lg">
             <CardContent className="py-12 text-center">
               <Cable className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -626,45 +641,45 @@ export default function LCPInfo() {
                   <div className="flex items-start justify-between">
                     <div className="space-y-3 flex-1">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <Badge className="bg-indigo-600 text-lg px-3 py-1">{entry.lcpNumber}</Badge>
-                        <Badge variant="outline" className="font-mono">{entry.splitterNumber}</Badge>
+                        <Badge className="bg-indigo-600 text-lg px-3 py-1">{entry.lcp_number}</Badge>
+                        <Badge variant="outline" className="font-mono">{entry.splitter_number}</Badge>
                       </div>
 
                       <div className="grid md:grid-cols-2 gap-4">
-                        {entry.physicalLocation && (
+                        {entry.location && (
                           <div className="flex items-start gap-2">
                             <MapPin className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
                             <div>
                               <div className="text-xs text-gray-500">Physical Location</div>
-                              <div className="text-sm">{entry.physicalLocation}</div>
-                              {entry.latitude && entry.longitude && (
+                              <div className="text-sm">{entry.location}</div>
+                              {entry.gps_lat && entry.gps_lng && (
                                 <div className="text-xs text-blue-600 font-mono mt-0.5">
-                                  📍 {entry.latitude}, {entry.longitude}
+                                  📍 {entry.gps_lat}, {entry.gps_lng}
                                 </div>
                               )}
                             </div>
                           </div>
                         )}
 
-                        {(entry.oltName || entry.oltShelf || entry.oltSlot || entry.oltPort) && (
+                        {(entry.olt_shelf || entry.olt_slot || entry.olt_port) && (
                           <div className="flex items-start gap-2">
                             <Server className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
                             <div>
                               <div className="text-xs text-gray-500">OLT Location</div>
                               <div className="text-sm font-mono">
-                                {entry.oltName || 'OLT'} / Shelf {entry.oltShelf || '-'} / Slot {entry.oltSlot || '-'} / Port {entry.oltPort || '-'}
+                                Shelf {entry.olt_shelf || '-'} / Slot {entry.olt_slot || '-'} / Port {entry.olt_port || '-'}
                               </div>
                             </div>
                           </div>
                         )}
                       </div>
 
-                      {(entry.opticMake || entry.opticModel || entry.opticSerial) && (
+                      {(entry.optic_make || entry.optic_model || entry.optic_serial) && (
                         <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
                           <div className="text-xs text-gray-500 mb-1">Optic Info</div>
                           <div className="text-sm">
-                            {[entry.opticMake, entry.opticModel].filter(Boolean).join(' ')}
-                            {entry.opticSerial && <span className="text-gray-500 ml-2">S/N: {entry.opticSerial}</span>}
+                            {[entry.optic_make, entry.optic_model].filter(Boolean).join(' ')}
+                            {entry.optic_serial && <span className="text-gray-500 ml-2">S/N: {entry.optic_serial}</span>}
                           </div>
                         </div>
                       )}
@@ -675,10 +690,10 @@ export default function LCPInfo() {
                     </div>
 
                     <div className="flex gap-1 ml-4">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)}>
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(entry)} disabled={updateMutation.isPending}>
                         <Edit2 className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(entry.id)}>
+                      <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(entry.id)} disabled={deleteMutation.isPending}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
