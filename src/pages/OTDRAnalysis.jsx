@@ -907,13 +907,13 @@ Provide detailed analysis with:
             {/* Tools Needed */}
             {analysisResult.tools_needed?.length > 0 && (
               <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
-                <h4 className="font-semibold flex items-center gap-2 mb-2">
+                <h4 className="font-semibold flex items-center gap-2 mb-2 text-emerald-800 dark:text-emerald-200">
                   <Wrench className="h-4 w-4 text-emerald-600" />
                   Tools Needed
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {analysisResult.tools_needed.map((tool, i) => (
-                    <Badge key={i} variant="outline" className="bg-white">
+                    <Badge key={i} variant="outline" className="bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-emerald-300 dark:border-emerald-700">
                       {tool}
                     </Badge>
                   ))}
