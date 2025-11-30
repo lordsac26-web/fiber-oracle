@@ -24,6 +24,7 @@ import Fiber103 from './pages/Fiber103';
 import OTDRAnalysis from './pages/OTDRAnalysis';
 import JobReports from './pages/JobReports';
 import CertificationExam from './pages/CertificationExam';
+import StudyGuide from './pages/StudyGuide';
 import __Layout from './Layout.jsx';
 
 
@@ -54,6 +55,7 @@ export const PAGES = {
     "OTDRAnalysis": OTDRAnalysis,
     "JobReports": JobReports,
     "CertificationExam": CertificationExam,
+    "StudyGuide": StudyGuide,
 }
 
 export const pagesConfig = {
