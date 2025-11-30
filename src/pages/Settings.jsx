@@ -26,8 +26,10 @@ import {
   Info,
   CheckCircle2,
   User,
-  Ruler
+  Ruler,
+  LogOut
 } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useUserPreferences } from '@/components/UserPreferencesContext';
