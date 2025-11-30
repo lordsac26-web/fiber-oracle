@@ -363,6 +363,7 @@ export default function StudyGuide({ courseId }) {
       </head>
       <body>
         <div class="header">
+          <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" alt="Fiber Oracle" style="width: 70px; height: 70px; border-radius: 12px; margin: 0 auto 15px;" />
           <h1>${guide.title}</h1>
           <p class="subtitle">${guide.subtitle}</p>
           <p class="subtitle">Fiber Oracle Education Center</p>
