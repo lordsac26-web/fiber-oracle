@@ -501,6 +501,28 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Logout */}
+        {isAuthenticated && (
+          <Card className="border-0 shadow-lg border-red-100">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">Sign Out</h3>
+                  <p className="text-sm text-gray-500">Log out of your account</p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                  onClick={() => base44.auth.logout()}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );
