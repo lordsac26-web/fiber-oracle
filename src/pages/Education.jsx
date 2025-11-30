@@ -12,7 +12,9 @@ import {
   Target,
   Zap,
   Wrench,
-  Stethoscope
+  Stethoscope,
+  FileText,
+  ClipboardCheck
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -28,6 +30,7 @@ const COURSES = [
     page: 'Fiber101',
     duration: '20 min',
     level: 'Beginner',
+    passingScore: 70,
     topics: ['Fiber Structure', 'SMF vs MMF', 'Color Codes', 'Connectors', 'PON Basics', 'FTTH Architecture', 'Power Levels', 'Safety'],
     badge: { text: 'Start Here', color: 'bg-green-500' }
   },
@@ -41,6 +44,7 @@ const COURSES = [
     page: 'Fiber102',
     duration: '30 min',
     level: 'Intermediate',
+    passingScore: 75,
     topics: ['GPON Deep Dive', 'XGS-PON', 'Loss Budgets', 'OTDR Analysis', 'Troubleshooting Basics', 'Splitter Cascades', 'OLT/ONT Config'],
     badge: { text: 'Level Up', color: 'bg-blue-500' }
   },
@@ -54,6 +58,7 @@ const COURSES = [
     page: 'Fiber103',
     duration: '45 min',
     level: 'Advanced',
+    passingScore: 80,
     topics: ['OTDR Mastery', 'Ghost Events', 'Bidirectional Analysis', 'PON Diagnostics', 'Error Counters', 'Intermittent Faults', 'Splitter Failures', 'Documentation'],
     badge: { text: 'Expert', color: 'bg-purple-500' }
   },
@@ -142,6 +147,14 @@ export default function Education() {
                     )}
                   </div>
 
+                  {/* Certification Info */}
+                  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg mb-3">
+                    <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+                      <Award className="h-4 w-4" />
+                      <span>Certification available • {course.passingScore}% to pass</span>
+                    </div>
+                  </div>
+
                   {/* CTA */}
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-sm font-medium text-blue-600 dark:text-blue-400 group-hover:underline">
@@ -153,6 +166,42 @@ export default function Education() {
               </Card>
             </Link>
           ))}
+
+          {/* Certification & Resources Card */}
+          <Card className="md:col-span-2 border-0 shadow-lg bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+                  <Award className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Certification Center</h3>
+                  <p className="text-sm text-gray-500">Study guides, exams, and certificates</p>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-3 gap-4">
+                {COURSES.map(course => (
+                  <div key={`cert-${course.id}`} className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow">
+                    <h4 className="font-semibold mb-2">{course.title}</h4>
+                    <div className="space-y-2">
+                      <Link to={createPageUrl(`StudyGuide?course=${course.id}`)}>
+                        <Button variant="outline" size="sm" className="w-full justify-start">
+                          <FileText className="h-4 w-4 mr-2" />
+                          Study Guide
+                        </Button>
+                      </Link>
+                      <Link to={createPageUrl(`CertificationExam?course=${course.id}`)}>
+                        <Button size="sm" className="w-full justify-start bg-gradient-to-r from-indigo-500 to-purple-600">
+                          <ClipboardCheck className="h-4 w-4 mr-2" />
+                          Take Exam
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Learning Path */}
