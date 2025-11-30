@@ -29,7 +29,8 @@ import {
   Layers,
   Network,
   GraduationCap,
-  FileSearch
+  FileSearch,
+  Award
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -1009,10 +1010,10 @@ Duration: ~45 minutes | Level: Advanced
 A: Yes! Once loaded, most features work without internet. Only external links and AI OTDR Analysis require connectivity.
 
 **Q: Where is my data stored?**
-A: All data (settings, LCP entries, custom impairments) is stored locally on your device using browser storage.
+A: All data (settings, LCP entries, custom impairments) is stored locally on your device. If you're logged in, preferences sync to your account.
 
 **Q: Can I use this on multiple devices?**
-A: Yes, but data doesn't sync between devices. Each device maintains its own local data.
+A: Yes! When logged in, your preferences sync across devices. Local data like LCP entries is device-specific.
 
 **Q: Is there a desktop version?**
 A: Fiber Oracle is a Progressive Web App (PWA). You can install it on desktop or mobile for an app-like experience.
@@ -1025,6 +1026,9 @@ A: All values are based on current industry standards (TIA-568-D, IEEE 802.3, IT
 
 **Q: What does the Beta tag mean on AI OTDR Analysis?**
 A: The AI OTDR Analysis feature is in beta testing. While functional, it's continuously being improved. Your feedback helps make it better!
+
+**Q: How do I earn a certification?**
+A: Complete the course content (Fiber 101, 102, or 103), review the study guide, then take the certification exam from the Education Center.
         `
       },
       {
@@ -1045,6 +1049,199 @@ A: Calculations use maximum specified values from standards. Actual measured los
 
 **Q: What's encircled flux and why does it matter?**
 A: Encircled flux (EF) is a standard for controlling light launch conditions in multimode testing. Using EF-compliant test equipment ensures repeatable results.
+
+**Q: What causes high FEC errors on a PON link?**
+A: High FEC errors typically indicate marginal optical power, dirty connectors, excessive bends, or a failing laser/receiver. Check power levels first, then clean and inspect connectors.
+
+**Q: How do I identify a macrobend vs microbend?**
+A: Macrobends show significantly higher loss at 1550nm compared to 1310nm. Microbends show smaller wavelength-dependent loss difference. Both are non-reflective events on OTDR.
+
+**Q: What's the maximum splitter cascade depth for GPON?**
+A: GPON supports up to 1:128 total split. Common configurations: 1:32 single splitter, or 1:4 + 1:8 cascade (32 ports), or 1:4 + 1:32 (128 ports). Loss budget is the limiting factor.
+        `
+      },
+      {
+        id: 'common-tasks-faq',
+        title: 'Common Field Tasks',
+        content: `
+**Q: How do I calculate if a new drop will work?**
+A: Use the Power Level Calculator. Enter OLT power, splitter ratio, fiber length, and connector/splice count. If the calculated ONT Rx is between -8 and -27 dBm, the link should work.
+
+**Q: What's the proper connector cleaning sequence?**
+A: 1) Inspect with scope, 2) Dry clean with one-click cleaner, 3) Re-inspect, 4) If still dirty, wet clean with IPA, 5) Dry, 6) Final inspection. Never connect without inspecting.
+
+**Q: How do I find fiber #37 in a 144-count cable?**
+A: Use the Fiber Locator. Fiber 37 is in Tube 4 (Brown), Fiber position 1 (Blue). Formula: (37-1)÷12 = 3 remainder 0, so Tube 4, Fiber 12. Correction: Tube 4, Position 1.
+
+**Q: What power level is "good enough" for GPON?**
+A: Aim for -15 to -22 dBm at the ONT. This provides margin for aging, temperature, and future repairs. Below -25 dBm is marginal; below -27 dBm will likely cause issues.
+
+**Q: How do I test a live fiber without taking it down?**
+A: Use 1625nm or 1650nm wavelength on your OTDR if available—these are outside PON wavelengths. Never use 1310nm, 1490nm, or 1550nm on a live PON as they'll interfere with traffic.
+
+**Q: My ONT won't register—where do I start?**
+A: Check PON light on ONT (should blink then go solid). Measure Rx power. If no light: trace back to splitter, check patch at LCP. If low light: clean connectors, check for bends. If good light but no register: check OLT provisioning.
+
+**Q: How often should test equipment be calibrated?**
+A: Annual factory calibration is the industry standard. Daily reference checks should be performed before testing. Keep calibration certificates current for compliance.
+
+**Q: What's the #1 cause of failed fiber installations?**
+A: Connector contamination accounts for approximately 85% of fiber problems. Always inspect and clean before connecting—no exceptions.
+
+**Q: How do I document a completed job properly?**
+A: Record: Job/ticket number, technician ID, before/after power readings, photos of work, OTDR traces if applicable, notes on issues found and resolved. Use the Job Reports feature to track everything.
+        `
+      }
+    ]
+  },
+  {
+    id: 'certification',
+    title: 'Certification',
+    icon: Award,
+    subsections: [
+      {
+        id: 'cert-overview',
+        title: 'Certification Overview',
+        content: `
+**Fiber Oracle Certification Program**
+
+Earn professional certifications by completing our training modules and passing the certification exams.
+
+┌─────────────────────────────────────────────────────────┐
+│  CERTIFICATION TRACKS                                   │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  🟢 FIBER 101 CERTIFIED                                 │
+│  │   Passing Score: 70%                                │
+│  │   Time Limit: 45 minutes                            │
+│  │   Questions: 40                                     │
+│  │   Level: Beginner                                   │
+│  │                                                      │
+│  🔵 FIBER 102 CERTIFIED                                 │
+│  │   Passing Score: 75%                                │
+│  │   Time Limit: 60 minutes                            │
+│  │   Questions: 40                                     │
+│  │   Level: Intermediate                               │
+│  │                                                      │
+│  🟣 FIBER 103 CERTIFIED                                 │
+│      Passing Score: 80%                                │
+│      Time Limit: 75 minutes                            │
+│      Questions: 40                                     │
+│      Level: Advanced                                   │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+**Certification Process:**
+1. Complete the course content
+2. Download and review the study guide
+3. Take the certification exam
+4. Pass with minimum required score
+5. Download your certificate
+
+**Study Guide Benefits:**
+- Condensed reference material
+- Key terms and definitions
+- Formulas and specifications
+- Downloadable PDF format
+- May be referenced during exam (open book)
+        `
+      },
+      {
+        id: 'exam-format',
+        title: 'Exam Format',
+        content: `
+**Question Types**
+
+Our exams use multiple question formats aligned with industry certification standards (similar to FOA CFOT, CompTIA, etc.):
+
+**1. Multiple Choice (Single Answer)**
+Select one correct answer from four options.
+
+**2. True/False**
+Determine if a statement is accurate.
+
+**3. Fill-in-the-Blank**
+Type the correct term, value, or specification.
+
+**4. Scenario-Based Questions**
+Read a real-world scenario and select the best solution or next step.
+
+**Exam Features:**
+- Timed examination
+- Questions randomized on each attempt
+- Answer choices shuffled
+- Progress tracking
+- Question navigator
+- Flag questions for review
+
+**Grading:**
+- Immediate results upon submission
+- Score breakdown by domain
+- Detailed explanations for all questions
+- Identify weak areas for review
+
+**Passing:**
+- Certificate of completion downloadable as PDF
+- Unique certificate ID
+- Professional certificate design
+- Completion date recorded
+
+**Not Passing:**
+- Encouraging feedback
+- Weak domain identification
+- Unlimited retakes allowed
+- Review explanations before retaking
+        `
+      },
+      {
+        id: 'study-tips',
+        title: 'Study Tips',
+        content: `
+**How to Prepare for Certification Exams**
+
+**Before the Exam:**
+1. Complete all course slides thoroughly
+2. Download the study guide PDF
+3. Review key formulas and specifications
+4. Use the reference tools in the app to practice
+5. Try the Fiber Doctor for practical scenarios
+
+**Key Topics by Level:**
+
+**Fiber 101 (Beginner)**
+- Fiber structure (core, cladding, buffer)
+- SMF vs MMF differences and uses
+- TIA-598 color codes (memorize the 12 colors!)
+- Connector types and polish (UPC vs APC)
+- Basic PON architecture (OLT, splitter, ONT)
+- Power level basics (dBm, dB)
+- Safety essentials
+
+**Fiber 102 (Intermediate)**
+- GPON and XGS-PON specifications
+- Wavelength plans
+- Loss budget calculations (practice these!)
+- Splitter loss values (1:4, 1:8, 1:16, 1:32)
+- OTDR event identification
+- PON error types (BIP, FEC)
+- Systematic troubleshooting
+
+**Fiber 103 (Advanced)**
+- Ghost event identification and elimination
+- Bidirectional OTDR analysis
+- PON diagnostic states (O1-O7)
+- Error counter interpretation
+- Wavelength-dependent loss analysis
+- Intermittent fault isolation
+- Documentation best practices
+
+**During the Exam:**
+- Use the study guide (it's open book!)
+- Read questions carefully
+- Eliminate obviously wrong answers
+- Watch for "always" or "never" qualifiers
+- Manage your time—don't get stuck
+- Use the question navigator to review
         `
       }
     ]
