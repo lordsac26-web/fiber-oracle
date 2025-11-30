@@ -86,9 +86,11 @@ export default function Education() {
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
         {/* Hero Section */}
         <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-xl">
-            <GraduationCap className="h-10 w-10 text-white" />
-          </div>
+          <img 
+            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
+            alt="Fiber Oracle" 
+            className="w-24 h-24 rounded-2xl object-cover shadow-xl mx-auto"
+          />
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
             Fiber Optic Training
           </h2>

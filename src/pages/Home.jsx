@@ -320,14 +320,16 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-purple-500/25">
-                <Zap className="h-5 w-5 text-white" />
+                <img 
+                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
+                  alt="Fiber Oracle" 
+                  className="w-10 h-10 rounded-xl object-cover shadow-lg"
+                />
+                <div>
+                  <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Fiber Oracle</h1>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">When you need to know, ask the Oracle.</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Fiber Oracle</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">When you need to know, ask the Oracle.</p>
-              </div>
-            </div>
 
             {/* Desktop Quick Reference - Inline in header */}
             <div className="hidden lg:flex items-center gap-3 flex-1 justify-center max-w-2xl mx-8">

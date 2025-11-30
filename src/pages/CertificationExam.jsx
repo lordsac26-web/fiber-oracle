@@ -309,7 +309,8 @@ export default function CertificationExam() {
       <body>
         <div class="certificate">
           <div class="header">
-            <div class="logo">⚡ FIBER ORACLE</div>
+            <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" alt="Fiber Oracle" style="width: 80px; height: 80px; border-radius: 16px; margin: 0 auto 10px;" />
+            <div class="logo">FIBER ORACLE</div>
             <div class="subtitle">Education & Certification Center</div>
             <div class="title">Certificate of Completion</div>
           </div>
@@ -420,7 +421,11 @@ export default function CertificationExam() {
         <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
           <Card className="border-0 shadow-xl overflow-hidden">
             <div className="bg-gradient-to-r from-indigo-600 to-purple-700 p-8 text-white text-center">
-              <Award className="h-16 w-16 mx-auto mb-4" />
+              <img 
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
+                alt="Fiber Oracle" 
+                className="w-20 h-20 rounded-2xl object-cover shadow-xl mx-auto mb-4"
+              />
               <h2 className="text-2xl font-bold">{examData.title}</h2>
               <p className="text-indigo-100 mt-2">{examData.subtitle}</p>
             </div>
