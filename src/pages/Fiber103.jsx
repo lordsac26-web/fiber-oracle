@@ -765,22 +765,26 @@ const SLIDES = [
         <p className="text-lg text-gray-600 dark:text-gray-300">
           You've mastered advanced troubleshooting techniques! You now have expert-level knowledge of OTDR analysis, PON diagnostics, and systematic fault isolation.
         </p>
+        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl mb-4">
+          <p className="text-amber-800 dark:text-amber-200 font-medium">Ready for Certification?</p>
+          <p className="text-sm text-amber-700 dark:text-amber-300">Review the study guide and take the exam to earn your Fiber 103 Expert certificate!</p>
+        </div>
         <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
-          <Link to={createPageUrl('FiberDoctor')}>
-            <Button className="w-full" size="lg">
+          <Link to={createPageUrl('CertificationExam') + '?course=fiber103'}>
+            <Button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600" size="lg">
               <Stethoscope className="h-4 w-4 mr-2" />
-              Fiber Doctor
+              Take Exam
             </Button>
           </Link>
-          <Link to={createPageUrl('Education')}>
+          <Link to={createPageUrl('FiberDoctor')}>
             <Button variant="outline" className="w-full" size="lg">
               <BookOpen className="h-4 w-4 mr-2" />
-              Education Hub
+              Fiber Doctor
             </Button>
           </Link>
         </div>
         <p className="text-sm text-gray-500">
-          "When you need to know, ask the Oracle."
+          Or review the <Link to={createPageUrl('StudyGuide') + '?course=fiber103'} className="text-blue-600 underline">study guide</Link> first. "When you need to know, ask the Oracle."
         </p>
       </div>
     )

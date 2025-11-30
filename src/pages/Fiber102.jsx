@@ -640,22 +640,26 @@ const SLIDES = [
         <p className="text-lg text-gray-600 dark:text-gray-300">
           You now have intermediate-level knowledge of PON technologies, loss budgets, OTDR interpretation, and systematic troubleshooting!
         </p>
+        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl mb-4">
+          <p className="text-amber-800 dark:text-amber-200 font-medium">Ready for Certification?</p>
+          <p className="text-sm text-amber-700 dark:text-amber-300">Review the study guide and take the exam to earn your Fiber 102 certificate!</p>
+        </div>
         <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
-          <Link to={createPageUrl('Home')}>
-            <Button className="w-full" size="lg">
+          <Link to={createPageUrl('CertificationExam') + '?course=fiber102'}>
+            <Button className="w-full bg-gradient-to-r from-indigo-600 to-purple-600" size="lg">
               <Zap className="h-4 w-4 mr-2" />
-              Use the Tools
+              Take Exam
             </Button>
           </Link>
-          <Link to={createPageUrl('Education')}>
+          <Link to={createPageUrl('Fiber103')}>
             <Button variant="outline" className="w-full" size="lg">
               <BookOpen className="h-4 w-4 mr-2" />
-              More Courses
+              Continue to 103
             </Button>
           </Link>
         </div>
         <p className="text-sm text-gray-500">
-          Keep learning, keep testing, and always document your work!
+          Or review the <Link to={createPageUrl('StudyGuide') + '?course=fiber102'} className="text-blue-600 underline">study guide</Link> first.
         </p>
       </div>
     )
