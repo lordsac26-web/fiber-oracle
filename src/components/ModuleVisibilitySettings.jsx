@@ -87,11 +87,7 @@ const MODULE_CONFIG = {
     title: 'Cleaning & Inspection',
     icon: Sparkles,
     color: 'from-cyan-500 to-blue-600',
-    sections: [
-      { id: 'procedures', name: 'Cleaning Procedures' },
-      { id: 'inspection', name: 'Inspection Zones' },
-      { id: 'grades', name: 'Pass/Fail Grades' },
-    ]
+    sections: []
   },
   doctor: {
     title: 'Fiber Doctor',
@@ -109,12 +105,7 @@ const MODULE_CONFIG = {
     title: 'Impairment Library',
     icon: ImageIcon,
     color: 'from-violet-500 to-purple-600',
-    sections: [
-      { id: 'dust', name: 'Dust & Particles' },
-      { id: 'scratches', name: 'Scratches' },
-      { id: 'damage', name: 'Physical Damage' },
-      { id: 'contamination', name: 'Contamination' },
-    ]
+    sections: []
   },
   fiberlocator: {
     title: 'Fiber Locator',
@@ -132,33 +123,21 @@ const MODULE_CONFIG = {
     sections: [
       { id: 'gpon', name: 'GPON' },
       { id: 'xgspon', name: 'XGS-PON' },
-      { id: 'ngpon', name: '25G/50G-PON' },
+      { id: 'splitters', name: 'Splitter Loss' },
+      { id: 'errors', name: 'BIP/FEC/GEM Errors' },
     ]
   },
   tables: {
     title: 'Reference Tables',
     icon: BookOpen,
     color: 'from-slate-500 to-gray-600',
-    sections: [
-      { id: 'attenuation', name: 'Attenuation' },
-      { id: 'connectors', name: 'Connectors' },
-      { id: 'splices', name: 'Splices' },
-      { id: 'standards', name: 'Standards' },
-      { id: 'otdrevents', name: 'OTDR Events' },
-      { id: 'colors', name: 'Fiber Colors' },
-      { id: 'glossary', name: 'Glossary' },
-    ]
+    sections: []
   },
   education: {
     title: 'Education Center',
     icon: GraduationCap,
     color: 'from-green-500 to-emerald-600',
-    sections: [
-      { id: 'fiber101', name: 'Fiber 101' },
-      { id: 'fiber102', name: 'Fiber 102' },
-      { id: 'fiber103', name: 'Fiber 103' },
-      { id: 'certifications', name: 'Certifications' },
-    ]
+    sections: []
   },
   manual: {
     title: 'User Manual',
