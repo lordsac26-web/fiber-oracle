@@ -890,7 +890,7 @@ export default function PONPMAnalysis() {
                 </div>
               </div>
               
-              {Object.entries(result.olts).sort().map(([oltName, oltStats]) => {
+              {Object.entries(result.olts).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([oltName, oltStats]) => {
                 const oltOnts = result.onts.filter(o => o._oltName === oltName);
                 const oltCritical = oltOnts.filter(o => o._analysis.status === 'critical').length;
                 const oltWarning = oltOnts.filter(o => o._analysis.status === 'warning').length;
@@ -951,7 +951,7 @@ export default function PONPMAnalysis() {
                       
                       <CollapsibleContent>
                         <div className="p-3 space-y-2 bg-gray-50 dark:bg-gray-800/50">
-                          {Object.entries(oltStats.ports).sort().map(([portKey, portStats]) => {
+                          {Object.entries(oltStats.ports).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([portKey, portStats]) => {
                             const portOnts = oltOnts.filter(o => o._port === portKey);
                             const portCritical = portOnts.filter(o => o._analysis.status === 'critical').length;
                             const portWarning = portOnts.filter(o => o._analysis.status === 'warning').length;
