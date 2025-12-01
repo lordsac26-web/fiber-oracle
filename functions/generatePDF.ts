@@ -347,3 +347,154 @@ function generateJobReportPDF(data) {
 
   return doc.output('arraybuffer');
 }
+
+function generateCertificatePDF(data) {
+  const { learnerName, courseTitle, courseSubtitle, score, certificateId, completionDate, courseId } = data;
+  const doc = new jsPDF('landscape');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Course colors
+  const courseColors = {
+    fiber101: { r: 34, g: 197, b: 94 },   // Green
+    fiber102: { r: 59, g: 130, b: 246 },  // Blue
+    fiber103: { r: 168, g: 85, b: 247 },  // Purple
+  };
+  const color = courseColors[courseId] || courseColors.fiber101;
+
+  // Background - light wash
+  doc.setFillColor(248, 250, 252);
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+  // Decorative fiber optic lines (top left corner)
+  doc.setDrawColor(color.r, color.g, color.b);
+  doc.setLineWidth(0.5);
+  for (let i = 0; i < 5; i++) {
+    doc.line(0, 15 + i * 4, 40 + i * 8, 0);
+  }
+
+  // Decorative fiber optic lines (bottom right corner)
+  for (let i = 0; i < 5; i++) {
+    doc.line(pageWidth - 40 - i * 8, pageHeight, pageWidth, pageHeight - 15 - i * 4);
+  }
+
+  // Main border
+  doc.setDrawColor(color.r, color.g, color.b);
+  doc.setLineWidth(2);
+  doc.roundedRect(12, 12, pageWidth - 24, pageHeight - 24, 3, 3, 'S');
+
+  // Inner border
+  doc.setLineWidth(0.5);
+  doc.setDrawColor(200, 200, 200);
+  doc.roundedRect(18, 18, pageWidth - 36, pageHeight - 36, 2, 2, 'S');
+
+  // Header accent bar
+  doc.setFillColor(color.r, color.g, color.b);
+  doc.rect(20, 20, pageWidth - 40, 8, 'F');
+
+  // "CERTIFICATE OF COMPLETION" header
+  doc.setTextColor(color.r, color.g, color.b);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.text('CERTIFICATE OF COMPLETION', pageWidth / 2, 45, { align: 'center' });
+
+  // Fiber Oracle branding
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Fiber Oracle', pageWidth / 2, 60, { align: 'center' });
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 116, 139);
+  doc.text('Education Center', pageWidth / 2, 68, { align: 'center' });
+
+  // Decorative line
+  doc.setDrawColor(color.r, color.g, color.b);
+  doc.setLineWidth(1);
+  doc.line(pageWidth / 2 - 60, 75, pageWidth / 2 + 60, 75);
+
+  // "This certifies that"
+  doc.setTextColor(100, 116, 139);
+  doc.setFontSize(11);
+  doc.text('This is to certify that', pageWidth / 2, 88, { align: 'center' });
+
+  // Learner Name (prominent)
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(32);
+  doc.setFont('helvetica', 'bold');
+  doc.text(learnerName || 'Learner Name', pageWidth / 2, 105, { align: 'center' });
+
+  // Underline for name
+  const nameWidth = doc.getTextWidth(learnerName || 'Learner Name');
+  doc.setDrawColor(color.r, color.g, color.b);
+  doc.setLineWidth(0.5);
+  doc.line(pageWidth / 2 - nameWidth / 2 - 10, 110, pageWidth / 2 + nameWidth / 2 + 10, 110);
+
+  // "has successfully completed"
+  doc.setTextColor(100, 116, 139);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text('has successfully completed the certification exam for', pageWidth / 2, 123, { align: 'center' });
+
+  // Course Title
+  doc.setTextColor(color.r, color.g, color.b);
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text(courseTitle || 'Fiber Optics Course', pageWidth / 2, 138, { align: 'center' });
+
+  // Course Subtitle
+  doc.setTextColor(71, 85, 105);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
+  doc.text(courseSubtitle || 'Professional Training', pageWidth / 2, 148, { align: 'center' });
+
+  // Score badge
+  const scoreX = pageWidth / 2;
+  const scoreY = 165;
+  doc.setFillColor(color.r, color.g, color.b);
+  doc.roundedRect(scoreX - 30, scoreY - 8, 60, 16, 8, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Score: ' + score + '%', scoreX, scoreY + 2, { align: 'center' });
+
+  // Footer section with two columns
+  const footerY = pageHeight - 45;
+
+  // Left: Date
+  doc.setTextColor(100, 116, 139);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Date of Completion', 50, footerY);
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  const formattedDate = completionDate ? new Date(completionDate).toLocaleDateString('en-US', { 
+    year: 'numeric', month: 'long', day: 'numeric' 
+  }) : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  doc.text(formattedDate, 50, footerY + 8);
+
+  // Right: Certificate ID
+  doc.setTextColor(100, 116, 139);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Certificate ID', pageWidth - 50, footerY, { align: 'right' });
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(certificateId || 'FO-CERT-000000', pageWidth - 50, footerY + 8, { align: 'right' });
+
+  // Bottom accent bar
+  doc.setFillColor(color.r, color.g, color.b);
+  doc.rect(20, pageHeight - 28, pageWidth - 40, 8, 'F');
+
+  // Standards footer
+  doc.setTextColor(148, 163, 184);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Standards: TIA-568-D | IEC 61300 | ITU-T G.984/G.9807 | IEEE 802.3', pageWidth / 2, pageHeight - 16, { align: 'center' });
+  doc.text('fiberoracle.com', pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+  return doc.output('arraybuffer');
+}
