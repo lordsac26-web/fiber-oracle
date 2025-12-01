@@ -57,8 +57,10 @@ A comprehensive field reference tool designed for fiber optic technicians, netwo
 - AI-powered OTDR trace analysis (Beta)
 - Fiber Doctor interactive troubleshooting
 - Cleaning and inspection procedures
-- Comprehensive reference tables
-- Education Center with Fiber 101, 102, and 103 courses
+- Comprehensive reference tables with 200+ glossary terms
+- FOA (Fiber Optic Association) guidelines integration
+- Education Center with Fiber 101, 102, and 103 courses & certifications
+- Interactive onboarding tour for new users
 - Offline-capable PWA
 
 **Target Users:**
@@ -125,9 +127,14 @@ On mobile devices, use the bottom navigation bar to filter by category:
 **Customizing Your Dashboard**
 Click the eye icon (👁) in the header to show/hide modules based on your needs.
 
+**Onboarding Tour**
+New users are automatically guided through the app features with an interactive tour. You can restart the tour anytime from Settings or by clicking the help (?) icon on the home screen.
+
 **Navigation**
 - Use the back arrow (←) to return to the previous screen
 - All pages have a sticky header for easy navigation
+- Help (?) icon opens the onboarding tour
+- Info (i) icon opens the About/Brochure page
         `
       },
       {
@@ -154,10 +161,18 @@ Tap the gear icon (⚙️) on the home screen or use the bottom navigation bar.
 │  ├── Custom Splice Loss (override TIA default)         │
 │  ├── Custom Fiber Attenuation                          │
 │  └── Require Photo Documentation                       │
+│                                                         │
+│  📍 PREFERENCES TAB                                     │
+│  ├── Measurement Units (Metric/Imperial)               │
+│  ├── Default Sort Order                                │
+│  └── Default Sort Field                                │
 └─────────────────────────────────────────────────────────┘
 
+**Onboarding Tour**
+You can restart the onboarding tour from Settings by clicking "Restart Tour" in the App Tour section.
+
 **Data Storage**
-All settings are stored locally on your device. Data persists even when offline.
+All settings are stored locally on your device. Data persists even when offline. When logged in, preferences sync to your account.
         `
       },
       {
@@ -570,9 +585,26 @@ Comprehensive reference data for fiber optic specifications.
 - Visual reference for all connector types
 - Usage and commonality
 
-**Glossary**
-- Comprehensive fiber terminology
-- Organized by skill level
+**Ethernet Cables**
+- Cat5e through Cat8 specifications
+- T568A/T568B wiring diagrams
+
+**Glossary (200+ terms)**
+- Basic Terms (All Personnel)
+- Technical Terms (Engineers & Technicians)
+- Installation & Splicing (Field Technicians)
+- Testing & Certification
+- PON & Access (FTTx Technicians)
+- Standards & Specifications
+- FOA Guidelines & Best Practices
+
+**Interactive Diagrams**
+- PON Architecture visualization
+- Fiber structure cross-sections
+- Wavelength plans
+- Connector polish types (UPC vs APC)
+- OTDR trace interpretation
+- Splitter loss diagrams
         `
       },
       {
@@ -697,12 +729,12 @@ Click "Export CSV" to download all reports for use in spreadsheets or external s
 - **TIA-526-7**: Optical Power Loss - SMF
 - **TIA-526-14-C**: Optical Power Loss - MMF
 - **TIA-598-D**: Optical Fiber Color Coding
-- **TIA-455 (FOTP)**: Fiber Optic Test Procedures
+- **TIA-758-B**: Customer-Owned Outside Plant
 
 **IEC Standards**
 - **IEC 61300-3-35**: Connector End Face Inspection
 - **IEC 61280**: Fiber Optic Test Procedures
-- **IEC 61073**: Mechanical Splices and Protectors
+- **IEC 60794**: Optical Fiber Cables - Generic Specification
 
 **IEEE Standards**
 - **IEEE 802.3**: Ethernet (10M to 400G)
@@ -717,6 +749,17 @@ Click "Export CSV" to download all reports for use in spreadsheets or external s
 **Telcordia**
 - **GR-326**: Single-Mode Connectors & Jumpers
 - **GR-20**: Generic Requirements for Optical Fiber
+- **GR-449**: Fiber Optic Splice Closures
+
+**FOA (Fiber Optic Association)**
+- **FOA Reference Method**: 1-Jumper testing recommended
+- **FOA Best Practices**: Inspection, cleaning, documentation
+- **FOA Safety**: Laser hazards, fiber scrap handling
+- **FOA Certifications**: CFOT, CFOS/T, CFOS/S
+
+**Safety & Compliance**
+- **NEC Article 770**: Optical Fiber Cables & Raceways
+- **OSHA 1926.950**: Work near electrical hazards
         `
       },
       {
@@ -1022,13 +1065,19 @@ A: Fiber Oracle is a Progressive Web App (PWA). You can install it on desktop or
 A: On mobile, use "Add to Home Screen" from your browser menu. On desktop, look for the install icon in the address bar.
 
 **Q: Are the values accurate?**
-A: All values are based on current industry standards (TIA-568-D, IEEE 802.3, ITU-T). When in doubt, verify against manufacturer specifications.
+A: All values are based on current industry standards (TIA-568-D, IEEE 802.3, ITU-T, IEC, Telcordia, FOA). When in doubt, verify against manufacturer specifications.
 
 **Q: What does the Beta tag mean on AI OTDR Analysis?**
 A: The AI OTDR Analysis feature is in beta testing. While functional, it's continuously being improved. Your feedback helps make it better!
 
 **Q: How do I earn a certification?**
 A: Complete the course content (Fiber 101, 102, or 103), review the study guide, then take the certification exam from the Education Center.
+
+**Q: How do I contact support?**
+A: Use the Contact page (accessible from Industry Links or Settings) to send a message to the Fiber Oracle team. Your inquiry will be sent securely.
+
+**Q: What is the onboarding tour?**
+A: The onboarding tour is an interactive guide that shows new users the key features of Fiber Oracle. It runs automatically on first visit and can be restarted from Settings or the help (?) icon on the home screen.
         `
       },
       {
@@ -1068,7 +1117,7 @@ A: GPON supports up to 1:128 total split. Common configurations: 1:32 single spl
 A: Use the Power Level Calculator. Enter OLT power, splitter ratio, fiber length, and connector/splice count. If the calculated ONT Rx is between -8 and -27 dBm, the link should work.
 
 **Q: What's the proper connector cleaning sequence?**
-A: 1) Inspect with scope, 2) Dry clean with one-click cleaner, 3) Re-inspect, 4) If still dirty, wet clean with IPA, 5) Dry, 6) Final inspection. Never connect without inspecting.
+A: Per FOA guidelines: 1) Inspect with scope, 2) Dry clean first (preferred), 3) Re-inspect, 4) If still dirty, wet clean with IPA, 5) Dry thoroughly, 6) Final inspection. Never connect without inspecting. Never use canned air.
 
 **Q: How do I find fiber #37 in a 144-count cable?**
 A: Use the Fiber Locator. Fiber 37 is in Tube 4 (Brown), Fiber position 1 (Blue). Formula: (37-1)÷12 = 3 remainder 0, so Tube 4, Fiber 12. Correction: Tube 4, Position 1.
@@ -1083,7 +1132,7 @@ A: Use 1625nm or 1650nm wavelength on your OTDR if available—these are outside
 A: Check PON light on ONT (should blink then go solid). Measure Rx power. If no light: trace back to splitter, check patch at LCP. If low light: clean connectors, check for bends. If good light but no register: check OLT provisioning.
 
 **Q: How often should test equipment be calibrated?**
-A: Annual factory calibration is the industry standard. Daily reference checks should be performed before testing. Keep calibration certificates current for compliance.
+A: Per FOA guidelines, annual NIST-traceable factory calibration is recommended. Daily reference checks should be performed before testing. Keep calibration certificates current for compliance.
 
 **Q: What's the #1 cause of failed fiber installations?**
 A: Connector contamination accounts for approximately 85% of fiber problems. Always inspect and clean before connecting—no exceptions.
@@ -1152,7 +1201,7 @@ Earn professional certifications by completing our training modules and passing 
         content: `
 **Question Types**
 
-Our exams use multiple question formats aligned with industry certification standards (similar to FOA CFOT, CompTIA, etc.):
+Our exams use multiple question formats aligned with industry certification standards (similar to FOA CFOT, CFOS, BICSI, CompTIA, etc.):
 
 **1. Multiple Choice (Single Answer)**
 Select one correct answer from four options.
