@@ -20,6 +20,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -46,7 +62,10 @@ import {
   FileSpreadsheet,
   Router,
   Loader2,
-  Filter
+  Filter,
+  Settings,
+  FileText,
+  RotateCcw
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -66,6 +85,20 @@ const STATUS_BADGES = {
   ok: 'bg-green-100 text-green-800 border-green-300',
 };
 
+const DEFAULT_THRESHOLDS = {
+  OntRxOptPwr: { low: -27, marginal: -25, high: -8 },
+  OLTRXOptPwr: { low: -30, marginal: -28, high: -8 },
+  OntTxPwr: { low: 0.5, high: 5 },
+  UsSdberRate: { warning: 1e-9, critical: 1e-6 },
+  DsSdberRate: { warning: 1e-9, critical: 1e-6 },
+  UpstreamBipErrors: { warning: 100, critical: 1000 },
+  DownstreamBipErrors: { warning: 100, critical: 1000 },
+  UpstreamMissedBursts: { warning: 10, critical: 100 },
+  UpstreamGemHecErrors: { warning: 10, critical: 100 },
+  UpstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
+  DownstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
+};
+
 export default function PONPMAnalysis() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -76,6 +109,11 @@ export default function PONPMAnalysis() {
   const [expandedOlts, setExpandedOlts] = useState([]);
   const [expandedPorts, setExpandedPorts] = useState([]);
   const [issueDetailView, setIssueDetailView] = useState(null); // { type: 'critical'|'warning', oltName?, portKey? }
+  const [showThresholdSettings, setShowThresholdSettings] = useState(false);
+  const [customThresholds, setCustomThresholds] = useState(() => {
+    const saved = localStorage.getItem('ponPmThresholds');
+    return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
+  });
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -143,42 +181,145 @@ export default function PONPMAnalysis() {
     return matchesSearch && matchesStatus && matchesOlt && matchesPort;
   }) || [];
 
-  const exportCSV = () => {
+  const saveThresholds = () => {
+    localStorage.setItem('ponPmThresholds', JSON.stringify(customThresholds));
+    toast.success('Thresholds saved');
+    setShowThresholdSettings(false);
+  };
+
+  const resetThresholds = () => {
+    setCustomThresholds({ ...DEFAULT_THRESHOLDS });
+    localStorage.removeItem('ponPmThresholds');
+    toast.success('Thresholds reset to defaults');
+  };
+
+  const updateThreshold = (field, key, value) => {
+    setCustomThresholds(prev => ({
+      ...prev,
+      [field]: {
+        ...prev[field],
+        [key]: parseFloat(value) || 0
+      }
+    }));
+  };
+
+  const exportCSV = (filterType = 'all') => {
     if (!result?.onts) return;
 
+    let ontsToExport = filteredOnts;
+    if (filterType === 'critical') {
+      ontsToExport = filteredOnts.filter(ont => ont._analysis.status === 'critical');
+    } else if (filterType === 'warning') {
+      ontsToExport = filteredOnts.filter(ont => ont._analysis.status === 'warning');
+    } else if (filterType === 'issues') {
+      ontsToExport = filteredOnts.filter(ont => ont._analysis.status !== 'ok');
+    }
+
     const headers = [
-      'Status', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'Model',
+      'Status', 'OLT', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'Model',
       'OntRxOptPwr', 'OntTxPwr', 'OLTRXOptPwr',
       'UpstreamBipErrors', 'DownstreamBipErrors',
       'UpstreamFecUncorrected', 'DownstreamFecUncorrected',
-      'Issues'
+      'Issues', 'Issue Details'
     ];
 
-    const rows = filteredOnts.map(ont => [
-      ont._analysis.status,
-      ont['Shelf/Slot/Port'],
-      ont.OntID,
-      ont.SerialNumber,
-      ont.model,
-      ont.OntRxOptPwr,
-      ont.OntTxPwr,
-      ont.OLTRXOptPwr,
-      ont.UpstreamBipErrors,
-      ont.DownstreamBipErrors,
-      ont.UpstreamFecUncorrectedCodeWords,
-      ont.DownstreamFecUncorrectedCodeWords,
-      [...ont._analysis.issues, ...ont._analysis.warnings].map(i => i.message).join('; ')
-    ]);
+    const rows = ontsToExport.map(ont => {
+      const allIssues = [...ont._analysis.issues, ...ont._analysis.warnings];
+      return [
+        ont._analysis.status.toUpperCase(),
+        ont._oltName,
+        ont['Shelf/Slot/Port'],
+        ont.OntID,
+        ont.SerialNumber,
+        ont.model,
+        ont.OntRxOptPwr,
+        ont.OntTxPwr,
+        ont.OLTRXOptPwr,
+        ont.UpstreamBipErrors,
+        ont.DownstreamBipErrors,
+        ont.UpstreamFecUncorrectedCodeWords,
+        ont.DownstreamFecUncorrectedCodeWords,
+        allIssues.map(i => i.field).join(', '),
+        allIssues.map(i => `${i.field}: ${i.value} (${i.message})`).join('; ')
+      ];
+    });
 
     const csv = [headers, ...rows].map(row => row.map(cell => `"${cell || ''}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pon-pm-analysis-${new Date().toISOString().slice(0,10)}.csv`;
+    const suffix = filterType === 'all' ? '' : `-${filterType}`;
+    a.download = `pon-pm-analysis${suffix}-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('Exported analysis results');
+    toast.success(`Exported ${ontsToExport.length} ${filterType === 'all' ? '' : filterType + ' '}ONTs`);
+  };
+
+  const exportIssueReport = () => {
+    if (!result?.onts) return;
+
+    const criticalOnts = result.onts.filter(o => o._analysis.status === 'critical');
+    const warningOnts = result.onts.filter(o => o._analysis.status === 'warning');
+
+    let report = `PON PM Issue Report - ${new Date().toLocaleDateString()}\n`;
+    report += `${'='.repeat(60)}\n\n`;
+    report += `Summary:\n`;
+    report += `  Total ONTs: ${result.summary.totalOnts}\n`;
+    report += `  Critical: ${result.summary.criticalCount}\n`;
+    report += `  Warnings: ${result.summary.warningCount}\n`;
+    report += `  Healthy: ${result.summary.okCount}\n\n`;
+    
+    report += `Thresholds Used:\n`;
+    report += `  ONT Rx Power: Critical < ${customThresholds.OntRxOptPwr.low} dBm, Warning < ${customThresholds.OntRxOptPwr.marginal} dBm\n`;
+    report += `  OLT Rx Power: Critical < ${customThresholds.OLTRXOptPwr.low} dBm, Warning < ${customThresholds.OLTRXOptPwr.marginal} dBm\n`;
+    report += `  BIP Errors: Critical >= ${customThresholds.UpstreamBipErrors.critical}, Warning >= ${customThresholds.UpstreamBipErrors.warning}\n`;
+    report += `  FEC Uncorrected: Critical >= ${customThresholds.UpstreamFecUncorrectedCodeWords.critical}, Warning >= ${customThresholds.UpstreamFecUncorrectedCodeWords.warning}\n\n`;
+
+    if (criticalOnts.length > 0) {
+      report += `${'='.repeat(60)}\n`;
+      report += `CRITICAL ISSUES (${criticalOnts.length})\n`;
+      report += `${'='.repeat(60)}\n\n`;
+      
+      criticalOnts.forEach(ont => {
+        report += `ONT: ${ont.OntID} | Serial: ${ont.SerialNumber}\n`;
+        report += `Location: ${ont._oltName} / ${ont._port}\n`;
+        report += `Model: ${ont.model || 'N/A'}\n`;
+        report += `Issues:\n`;
+        ont._analysis.issues.forEach(issue => {
+          report += `  - ${issue.field}: ${issue.value} (Threshold: ${issue.threshold})\n`;
+          report += `    ${issue.message}\n`;
+        });
+        report += `\n`;
+      });
+    }
+
+    if (warningOnts.length > 0) {
+      report += `${'='.repeat(60)}\n`;
+      report += `WARNINGS (${warningOnts.length})\n`;
+      report += `${'='.repeat(60)}\n\n`;
+      
+      warningOnts.forEach(ont => {
+        report += `ONT: ${ont.OntID} | Serial: ${ont.SerialNumber}\n`;
+        report += `Location: ${ont._oltName} / ${ont._port}\n`;
+        report += `Model: ${ont.model || 'N/A'}\n`;
+        report += `Warnings:\n`;
+        ont._analysis.warnings.forEach(warn => {
+          report += `  - ${warn.field}: ${warn.value} (Threshold: ${warn.threshold})\n`;
+          report += `    ${warn.message}\n`;
+        });
+        report += `\n`;
+      });
+    }
+
+    const blob = new Blob([report], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pon-pm-issue-report-${new Date().toISOString().slice(0,10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Issue report exported');
   };
 
   return (
@@ -198,10 +339,207 @@ export default function PONPMAnalysis() {
               </div>
             </div>
             {result && (
-              <Button variant="outline" size="sm" onClick={exportCSV}>
-                <Download className="h-4 w-4 mr-2" />
-                Export Results
-              </Button>
+              <div className="flex items-center gap-2">
+                <Dialog open={showThresholdSettings} onOpenChange={setShowThresholdSettings}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Thresholds
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Settings className="h-5 w-5" />
+                        Analysis Thresholds
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-6 py-4">
+                      {/* Optical Power Thresholds */}
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-sm text-gray-700 border-b pb-1">Optical Power (dBm)</h4>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs">ONT Rx Critical (&lt;)</Label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={customThresholds.OntRxOptPwr.low}
+                              onChange={(e) => updateThreshold('OntRxOptPwr', 'low', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">ONT Rx Warning (&lt;)</Label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={customThresholds.OntRxOptPwr.marginal}
+                              onChange={(e) => updateThreshold('OntRxOptPwr', 'marginal', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">ONT Rx High (&gt;)</Label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={customThresholds.OntRxOptPwr.high}
+                              onChange={(e) => updateThreshold('OntRxOptPwr', 'high', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs">OLT Rx Critical (&lt;)</Label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={customThresholds.OLTRXOptPwr.low}
+                              onChange={(e) => updateThreshold('OLTRXOptPwr', 'low', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">OLT Rx Warning (&lt;)</Label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={customThresholds.OLTRXOptPwr.marginal}
+                              onChange={(e) => updateThreshold('OLTRXOptPwr', 'marginal', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">OLT Rx High (&gt;)</Label>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              value={customThresholds.OLTRXOptPwr.high}
+                              onChange={(e) => updateThreshold('OLTRXOptPwr', 'high', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Error Thresholds */}
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-sm text-gray-700 border-b pb-1">Error Counts</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs">BIP Errors Warning (≥)</Label>
+                            <Input
+                              type="number"
+                              value={customThresholds.UpstreamBipErrors.warning}
+                              onChange={(e) => {
+                                updateThreshold('UpstreamBipErrors', 'warning', e.target.value);
+                                updateThreshold('DownstreamBipErrors', 'warning', e.target.value);
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">BIP Errors Critical (≥)</Label>
+                            <Input
+                              type="number"
+                              value={customThresholds.UpstreamBipErrors.critical}
+                              onChange={(e) => {
+                                updateThreshold('UpstreamBipErrors', 'critical', e.target.value);
+                                updateThreshold('DownstreamBipErrors', 'critical', e.target.value);
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs">FEC Uncorrected Warning (≥)</Label>
+                            <Input
+                              type="number"
+                              value={customThresholds.UpstreamFecUncorrectedCodeWords.warning}
+                              onChange={(e) => {
+                                updateThreshold('UpstreamFecUncorrectedCodeWords', 'warning', e.target.value);
+                                updateThreshold('DownstreamFecUncorrectedCodeWords', 'warning', e.target.value);
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">FEC Uncorrected Critical (≥)</Label>
+                            <Input
+                              type="number"
+                              value={customThresholds.UpstreamFecUncorrectedCodeWords.critical}
+                              onChange={(e) => {
+                                updateThreshold('UpstreamFecUncorrectedCodeWords', 'critical', e.target.value);
+                                updateThreshold('DownstreamFecUncorrectedCodeWords', 'critical', e.target.value);
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-xs">Missed Bursts Warning (≥)</Label>
+                            <Input
+                              type="number"
+                              value={customThresholds.UpstreamMissedBursts.warning}
+                              onChange={(e) => updateThreshold('UpstreamMissedBursts', 'warning', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-xs">Missed Bursts Critical (≥)</Label>
+                            <Input
+                              type="number"
+                              value={customThresholds.UpstreamMissedBursts.critical}
+                              onChange={(e) => updateThreshold('UpstreamMissedBursts', 'critical', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+                        <Info className="h-4 w-4 inline mr-2" />
+                        Note: Changes apply to exports and reports. Re-upload the file to re-analyze with new thresholds.
+                      </div>
+                    </div>
+                    <DialogFooter className="gap-2">
+                      <Button variant="outline" onClick={resetThresholds}>
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Reset Defaults
+                      </Button>
+                      <Button onClick={saveThresholds}>
+                        Save Thresholds
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                      <ChevronDown className="h-4 w-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => exportCSV('all')}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      All Results (CSV)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => exportCSV('issues')}>
+                      <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
+                      All Issues (CSV)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => exportCSV('critical')}>
+                      <AlertCircle className="h-4 w-4 mr-2 text-red-500" />
+                      Critical Only (CSV)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => exportCSV('warning')}>
+                      <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
+                      Warnings Only (CSV)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={exportIssueReport}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Issue Report (TXT)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
           </div>
         </div>
