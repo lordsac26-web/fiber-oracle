@@ -388,13 +388,20 @@ export default function PONPMAnalysis() {
                             <div className="space-y-1">
                               {issues.map((issue, i) => (
                                 <div key={i} className={`text-sm p-2 rounded ${issueDetailView.type === 'critical' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-medium">{issue.field}:</span>
-                                    <span className="font-mono text-xs bg-white/50 px-1.5 py-0.5 rounded">
-                                      {issue.value !== undefined ? issue.value : ont[issue.field]}
-                                    </span>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="font-medium">{issue.field}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono text-xs bg-white/70 px-1.5 py-0.5 rounded font-bold">
+                                        {issue.value}
+                                      </span>
+                                      {issue.threshold && (
+                                        <span className="font-mono text-xs text-gray-600 bg-white/50 px-1.5 py-0.5 rounded">
+                                          Threshold: {issue.threshold}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                  <div className="text-xs mt-0.5 opacity-80">{issue.message}</div>
+                                  <div className="text-xs opacity-80">{issue.message}</div>
                                 </div>
                               ))}
                             </div>
