@@ -26,6 +26,7 @@ import JobReports from './pages/JobReports';
 import CertificationExam from './pages/CertificationExam';
 import StudyGuide from './pages/StudyGuide';
 import Certifications from './pages/Certifications';
+import Contact from './pages/Contact';
 import __Layout from './Layout.jsx';
 
 
@@ -58,6 +59,7 @@ export const PAGES = {
     "CertificationExam": CertificationExam,
     "StudyGuide": StudyGuide,
     "Certifications": Certifications,
+    "Contact": Contact,
 }
 
 export const pagesConfig = {
