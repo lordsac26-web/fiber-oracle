@@ -87,6 +87,7 @@ The home screen displays all available modules organized into categories. Tap an
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │  🔢 CALCULATORS - Planning & Estimation                 │
+│  ├── Optical Calculator [NEW] (Link loss, PON, dB)     │
 │  ├── Power Calculator (GPON/XGS-PON Rx estimator)      │
 │  ├── Loss Budget (TIA-568-D link loss calculation)     │
 │  ├── Splitter Loss (Instant values by split ratio)     │
