@@ -338,6 +338,8 @@ export default function BendRadius() {
             </ul>
           </CardContent>
         </Card>
+        </>
+        )}
       </main>
     </div>
   );
