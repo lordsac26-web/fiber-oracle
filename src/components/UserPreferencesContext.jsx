@@ -9,13 +9,15 @@ const DEFAULT_PREFERENCES = {
   defaultSortOrder: 'desc',
   defaultSortBy: 'created_date',
   hiddenModules: [],
+  hiddenSections: {}, // { moduleId: ['sectionId1', 'sectionId2'] }
   customConnectorLoss: null,
   customSpliceLoss: null,
   customAttenuation: null,
   requirePhotos: true,
   companyName: 'Fiber Oracle',
   logoUrl: '',
-  customFields: ['Job Number', 'Technician', 'Location']
+  customFields: ['Job Number', 'Technician', 'Location'],
+  hasSeenTour: false,
 };
 
 const UserPreferencesContext = createContext();
