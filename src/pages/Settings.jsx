@@ -514,7 +514,7 @@ export default function Settings() {
                 <Button 
                   variant="outline" 
                   className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-                  onClick={() => base44.auth.logout()}
+                  onClick={() => base44.auth.logout(window.location.origin)}
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
