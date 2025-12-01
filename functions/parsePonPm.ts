@@ -62,18 +62,18 @@ function analyzeOnt(ont, segmentStats) {
   const ontRx = parseNumeric(ont.OntRxOptPwr);
   if (ontRx !== null) {
     if (ontRx < THRESHOLDS.OntRxOptPwr.low) {
-      issues.push({ field: 'OntRxOptPwr', severity: 'critical', message: `ONT Rx power critically low: ${ontRx} dBm` });
+      issues.push({ field: 'OntRxOptPwr', severity: 'critical', value: `${ontRx} dBm`, threshold: `< ${THRESHOLDS.OntRxOptPwr.low} dBm`, message: `ONT Rx power critically low` });
     } else if (ontRx < THRESHOLDS.OntRxOptPwr.marginal) {
-      warnings.push({ field: 'OntRxOptPwr', severity: 'warning', message: `ONT Rx power marginal: ${ontRx} dBm` });
+      warnings.push({ field: 'OntRxOptPwr', severity: 'warning', value: `${ontRx} dBm`, threshold: `< ${THRESHOLDS.OntRxOptPwr.marginal} dBm`, message: `ONT Rx power marginal` });
     } else if (ontRx > THRESHOLDS.OntRxOptPwr.high) {
-      warnings.push({ field: 'OntRxOptPwr', severity: 'warning', message: `ONT Rx power too high: ${ontRx} dBm (may need attenuator)` });
+      warnings.push({ field: 'OntRxOptPwr', severity: 'warning', value: `${ontRx} dBm`, threshold: `> ${THRESHOLDS.OntRxOptPwr.high} dBm`, message: `ONT Rx power too high (may need attenuator)` });
     }
     
     // Compare to segment average
     if (segmentStats && segmentStats.avgOntRxOptPwr !== null) {
       const diff = ontRx - segmentStats.avgOntRxOptPwr;
       if (diff < -3) {
-        warnings.push({ field: 'OntRxOptPwr', severity: 'info', message: `ONT Rx ${Math.abs(diff).toFixed(1)} dB below segment average` });
+        warnings.push({ field: 'OntRxOptPwr', severity: 'info', value: `${ontRx} dBm`, threshold: `Avg: ${segmentStats.avgOntRxOptPwr.toFixed(1)} dBm`, message: `${Math.abs(diff).toFixed(1)} dB below segment average` });
       }
     }
   }
@@ -82,9 +82,9 @@ function analyzeOnt(ont, segmentStats) {
   const oltRx = parseNumeric(ont.OLTRXOptPwr);
   if (oltRx !== null) {
     if (oltRx < THRESHOLDS.OLTRXOptPwr.low) {
-      issues.push({ field: 'OLTRXOptPwr', severity: 'critical', message: `OLT Rx power critically low: ${oltRx} dBm` });
+      issues.push({ field: 'OLTRXOptPwr', severity: 'critical', value: `${oltRx} dBm`, threshold: `< ${THRESHOLDS.OLTRXOptPwr.low} dBm`, message: `OLT Rx power critically low` });
     } else if (oltRx < THRESHOLDS.OLTRXOptPwr.marginal) {
-      warnings.push({ field: 'OLTRXOptPwr', severity: 'warning', message: `OLT Rx power marginal: ${oltRx} dBm` });
+      warnings.push({ field: 'OLTRXOptPwr', severity: 'warning', value: `${oltRx} dBm`, threshold: `< ${THRESHOLDS.OLTRXOptPwr.marginal} dBm`, message: `OLT Rx power marginal` });
     }
   }
 
@@ -93,9 +93,9 @@ function analyzeOnt(ont, segmentStats) {
     const num = parseNumeric(value);
     if (num !== null && THRESHOLDS[fieldName]) {
       if (num >= THRESHOLDS[fieldName].critical) {
-        issues.push({ field: fieldName, severity: 'critical', message: `High ${fieldName}: ${num}` });
+        issues.push({ field: fieldName, severity: 'critical', value: num.toLocaleString(), threshold: `≥ ${THRESHOLDS[fieldName].critical.toLocaleString()}`, message: `High error count` });
       } else if (num >= THRESHOLDS[fieldName].warning) {
-        warnings.push({ field: fieldName, severity: 'warning', message: `Elevated ${fieldName}: ${num}` });
+        warnings.push({ field: fieldName, severity: 'warning', value: num.toLocaleString(), threshold: `≥ ${THRESHOLDS[fieldName].warning.toLocaleString()}`, message: `Elevated error count` });
       }
     }
   };
@@ -111,18 +111,18 @@ function analyzeOnt(ont, segmentStats) {
   const usBer = parseNumeric(ont.UsSdberRate);
   if (usBer !== null && usBer > 0) {
     if (usBer >= THRESHOLDS.UsSdberRate.critical) {
-      issues.push({ field: 'UsSdberRate', severity: 'critical', message: `Critical upstream BER: ${usBer.toExponential(2)}` });
+      issues.push({ field: 'UsSdberRate', severity: 'critical', value: usBer.toExponential(2), threshold: `≥ ${THRESHOLDS.UsSdberRate.critical.toExponential(0)}`, message: `Critical upstream BER` });
     } else if (usBer >= THRESHOLDS.UsSdberRate.warning) {
-      warnings.push({ field: 'UsSdberRate', severity: 'warning', message: `Elevated upstream BER: ${usBer.toExponential(2)}` });
+      warnings.push({ field: 'UsSdberRate', severity: 'warning', value: usBer.toExponential(2), threshold: `≥ ${THRESHOLDS.UsSdberRate.warning.toExponential(0)}`, message: `Elevated upstream BER` });
     }
   }
 
   const dsBer = parseNumeric(ont.DsSdberRate);
   if (dsBer !== null && dsBer > 0) {
     if (dsBer >= THRESHOLDS.DsSdberRate.critical) {
-      issues.push({ field: 'DsSdberRate', severity: 'critical', message: `Critical downstream BER: ${dsBer.toExponential(2)}` });
+      issues.push({ field: 'DsSdberRate', severity: 'critical', value: dsBer.toExponential(2), threshold: `≥ ${THRESHOLDS.DsSdberRate.critical.toExponential(0)}`, message: `Critical downstream BER` });
     } else if (dsBer >= THRESHOLDS.DsSdberRate.warning) {
-      warnings.push({ field: 'DsSdberRate', severity: 'warning', message: `Elevated downstream BER: ${dsBer.toExponential(2)}` });
+      warnings.push({ field: 'DsSdberRate', severity: 'warning', value: dsBer.toExponential(2), threshold: `≥ ${THRESHOLDS.DsSdberRate.warning.toExponential(0)}`, message: `Elevated downstream BER` });
     }
   }
 
