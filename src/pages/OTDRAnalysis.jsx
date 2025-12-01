@@ -936,6 +936,19 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
               </div>
             )}
 
+            {/* Wavelength Comparison Note */}
+            {analysisResult.wavelength_comparison_note && (
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+                <h4 className="font-semibold flex items-center gap-2 mb-2 text-purple-800 dark:text-purple-200">
+                  <BarChart3 className="h-4 w-4 text-purple-600" />
+                  Wavelength Analysis
+                </h4>
+                <p className="text-sm text-purple-700 dark:text-purple-300">
+                  {analysisResult.wavelength_comparison_note}
+                </p>
+              </div>
+            )}
+
             {/* Ghost Events */}
             {analysisResult.ghost_events_detected?.length > 0 && (
               <Card className="border-dashed border-2 border-gray-300">
