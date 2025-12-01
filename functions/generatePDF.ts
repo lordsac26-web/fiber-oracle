@@ -156,7 +156,7 @@ function generateBrochurePDF() {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
-    doc.text(cat.items.join('  •  '), margin + 6, y + 12);
+    doc.text(cat.items.join('  |  '), margin + 6, y + 12);
     y += 22;
   });
 
@@ -165,7 +165,7 @@ function generateBrochurePDF() {
   doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
-  doc.text('Fiber Oracle © 2025  |  Page 1 of 3', pageWidth / 2, pageHeight - 8, { align: 'center' });
+  doc.text('Fiber Oracle 2025  |  Page 1 of 3', pageWidth / 2, pageHeight - 8, { align: 'center' });
 
   // ========== PAGE 2: Features Deep Dive ==========
   doc.addPage();
@@ -256,7 +256,7 @@ function generateBrochurePDF() {
   doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
-  doc.text('Fiber Oracle © 2025  |  Page 2 of 3', pageWidth / 2, pageHeight - 8, { align: 'center' });
+  doc.text('Fiber Oracle 2025  |  Page 2 of 3', pageWidth / 2, pageHeight - 8, { align: 'center' });
 
   // ========== PAGE 3: Standards & Quick Reference ==========
   doc.addPage();
@@ -294,7 +294,7 @@ function generateBrochurePDF() {
     doc.text(group.org + ':', margin, y);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
-    doc.text(group.standards.join('  •  '), margin + 15, y);
+    doc.text(group.standards.join('  |  '), margin + 15, y);
     y += 6;
   });
 
@@ -319,12 +319,12 @@ function generateBrochurePDF() {
   y += 8;
 
   const refValues = [
-    ['SMF Attenuation @1310nm', '≤0.35 dB/km', 'TIA-568-D'],
-    ['SMF Attenuation @1550nm', '≤0.25 dB/km', 'TIA-568-D'],
-    ['MMF Attenuation @850nm', '≤3.0 dB/km', 'TIA-568-D'],
-    ['Elite Connector Loss', '≤0.15 dB', 'TIA-568-D'],
-    ['Standard Connector Loss', '≤0.50 dB', 'TIA-568-D'],
-    ['Fusion Splice Loss', '≤0.10 dB', 'TIA-568-D'],
+    ['SMF Attenuation @1310nm', '<=0.35 dB/km', 'TIA-568-D'],
+    ['SMF Attenuation @1550nm', '<=0.25 dB/km', 'TIA-568-D'],
+    ['MMF Attenuation @850nm', '<=3.0 dB/km', 'TIA-568-D'],
+    ['Elite Connector Loss', '<=0.15 dB', 'TIA-568-D'],
+    ['Standard Connector Loss', '<=0.50 dB', 'TIA-568-D'],
+    ['Fusion Splice Loss', '<=0.10 dB', 'TIA-568-D'],
     ['UPC Reflectance', '<-50 dB', 'GR-326'],
     ['APC Reflectance', '<-60 dB', 'GR-326'],
     ['GPON Budget (B+)', '28 dB', 'G.984.2'],
@@ -408,7 +408,7 @@ function generateBrochurePDF() {
   doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
-  doc.text('Fiber Oracle © 2025  |  Page 3 of 3  |  fiberoracle.com', pageWidth / 2, pageHeight - 8, { align: 'center' });
+  doc.text('Fiber Oracle 2025  |  Page 3 of 3  |  fiberoracle.com', pageWidth / 2, pageHeight - 8, { align: 'center' });
 
   return doc.output('arraybuffer');
 }
