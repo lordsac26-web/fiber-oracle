@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Circle, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { ArrowLeft, Circle, AlertTriangle, CheckCircle2, Info, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useUserPreferences } from '@/components/UserPreferencesContext';
+import HiddenContentBanner from '@/components/HiddenContentBanner';
 
 const CABLE_TYPES = {
   indoor: [
@@ -44,8 +46,23 @@ const FIBER_SPECS = [
 ];
 
 export default function BendRadius() {
-  const [activeTab, setActiveTab] = useState('drop');
+  const { preferences, updatePreferences } = useUserPreferences();
+  const hiddenSections = preferences.hiddenSections?.bendradius || [];
+  
+  const allTabs = ['drop', 'indoor', 'outdoor', 'patchcord'];
+  const visibleTabs = allTabs.filter(t => !hiddenSections.includes(t));
+  
+  const [activeTab, setActiveTab] = useState(visibleTabs[0] || 'drop');
   const [selectedCable, setSelectedCable] = useState(null);
+
+  const handleShowAll = () => {
+    updatePreferences({
+      hiddenSections: {
+        ...preferences.hiddenSections,
+        bendradius: []
+      }
+    });
+  };
 
   const renderSizeVisual = (radiusMm) => {
     // Common object comparisons
@@ -77,6 +94,12 @@ export default function BendRadius() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <HiddenContentBanner 
+          hiddenCount={hiddenSections.length} 
+          moduleId="bendradius" 
+          onShowAll={handleShowAll}
+        />
+
         {/* Warning Banner */}
         <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
           <div className="flex items-start gap-3">
@@ -91,15 +114,24 @@ export default function BendRadius() {
         </div>
 
         {/* Cable Type Tabs */}
+        {visibleTabs.length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl">
+            <EyeOff className="h-8 w-8 mx-auto mb-3 text-gray-400" />
+            <p className="text-gray-500">All cable type sections are hidden.</p>
+            <Link to={createPageUrl('Settings') + '?tab=visibility'}>
+              <Button variant="outline" className="mt-4">Manage Visibility</Button>
+            </Link>
+          </div>
+        ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 bg-white dark:bg-gray-800 shadow-lg">
-            <TabsTrigger value="drop" className="text-xs md:text-sm">Drop</TabsTrigger>
-            <TabsTrigger value="indoor" className="text-xs md:text-sm">Indoor</TabsTrigger>
-            <TabsTrigger value="outdoor" className="text-xs md:text-sm">Outdoor</TabsTrigger>
-            <TabsTrigger value="patchcord" className="text-xs md:text-sm">Patch</TabsTrigger>
+          <TabsList className={`grid w-full grid-cols-${visibleTabs.length} bg-white dark:bg-gray-800 shadow-lg`}>
+            {!hiddenSections.includes('drop') && <TabsTrigger value="drop" className="text-xs md:text-sm">Drop</TabsTrigger>}
+            {!hiddenSections.includes('indoor') && <TabsTrigger value="indoor" className="text-xs md:text-sm">Indoor</TabsTrigger>}
+            {!hiddenSections.includes('outdoor') && <TabsTrigger value="outdoor" className="text-xs md:text-sm">Outdoor</TabsTrigger>}
+            {!hiddenSections.includes('patchcord') && <TabsTrigger value="patchcord" className="text-xs md:text-sm">Patch</TabsTrigger>}
           </TabsList>
 
-          {Object.entries(CABLE_TYPES).map(([type, cables]) => (
+          {Object.entries(CABLE_TYPES).filter(([type]) => !hiddenSections.includes(type)).map(([type, cables]) => (
             <TabsContent key={type} value={type} className="mt-4 space-y-3">
               {cables.map((cable) => {
                 const visual = renderSizeVisual(cable.minBend);
