@@ -186,37 +186,31 @@ function generateBrochurePDF() {
   const features = [
     {
       title: 'Power Level Calculator',
-      icon: '⚡',
       color: colors.emerald,
       desc: 'Instantly estimate ONT receive power for GPON and XGS-PON networks. Enter OLT transmit power, splitter ratio, fiber length, and connector count to get accurate predictions with pass/fail status.',
     },
     {
       title: 'Fiber Locator',
-      icon: '🔍',
       color: colors.amber,
       desc: 'Identify any fiber from 12 to 3,456 count cables using TIA-598 color codes. Supports loose tube, ribbon, and high-count configurations with visual color displays.',
     },
     {
       title: 'Fiber Doctor',
-      icon: '🩺',
       color: [239, 68, 68],
       desc: 'Interactive troubleshooting flowchart guides you through diagnosing fiber issues. Answer questions about symptoms and get targeted solutions with required tools and procedures.',
     },
     {
       title: 'AI OTDR Analysis',
-      icon: '🤖',
       color: colors.secondary,
       desc: 'Upload OTDR traces or enter event data for AI-powered diagnostics. Get event-by-event analysis, confidence scores, and prioritized action items based on industry standards.',
     },
     {
       title: 'Reference Tables & Glossary',
-      icon: '📚',
       color: colors.blue,
       desc: 'Comprehensive reference including 200+ glossary terms, attenuation coefficients, connector specs, splice values, color codes, PON specifications, and interactive diagrams.',
     },
     {
       title: 'Education Center',
-      icon: '🎓',
       color: colors.primary,
       desc: 'Three progressive courses: Fiber 101 (Foundations), Fiber 102 (PON & FTTH), Fiber 103 (Advanced Troubleshooting). Each includes study guides and certification exams.',
     },
@@ -389,7 +383,7 @@ function generateBrochurePDF() {
   
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  const foaText = '• 1-Jumper Reference Method  • Bidirectional OTDR Testing  • Inspect Before Connection  • Complete Documentation  • Safety Protocols';
+  const foaText = '* 1-Jumper Reference Method  * Bidirectional OTDR Testing  * Inspect Before Connection  * Complete Documentation  * Safety Protocols';
   doc.text(foaText, margin + 5, y + 14);
 
   y += 28;
@@ -405,7 +399,7 @@ function generateBrochurePDF() {
   
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  const whyText = '✓ Works 100% offline after first load    ✓ Mobile-first responsive design    ✓ Current 2025 standards    ✓ Free to use    ✓ No account required for basic tools    ✓ Built by fiber techs, for fiber techs';
+  const whyText = '* Works 100% offline after first load  * Mobile-first responsive design  * Current 2025 standards  * Free to use  * No account required for basic tools  * Built by fiber techs, for fiber techs';
   const whyLines = doc.splitTextToSize(whyText, pageWidth - 2 * margin - 10);
   doc.text(whyLines, margin + 5, y + 18);
 
