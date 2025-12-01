@@ -29,8 +29,11 @@ import {
   Ruler,
   LogOut,
   HelpCircle,
-  RotateCcw
+  RotateCcw,
+  Eye,
+  EyeOff
 } from 'lucide-react';
+import ModuleVisibilitySettings from '@/components/ModuleVisibilitySettings';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -38,9 +41,13 @@ import { useUserPreferences } from '@/components/UserPreferencesContext';
 import { toast } from 'sonner';
 
 export default function Settings() {
-  const { preferences, updatePreferences, isSaving, isAuthenticated, user } = useUserPreferences();
-  
-  const [settings, setSettings] = useState({
+    const { preferences, updatePreferences, isSaving, isAuthenticated, user } = useUserPreferences();
+
+    // Check for tab param from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialTab = urlParams.get('tab') || 'preferences';
+
+    const [settings, setSettings] = useState({
     companyName: 'Fiber Oracle',
     logoUrl: '',
     primaryColor: '#3b82f6',
@@ -152,11 +159,15 @@ export default function Settings() {
           </Card>
         )}
 
-        <Tabs defaultValue="preferences" className="space-y-6">
+        <Tabs defaultValue={initialTab} className="space-y-6">
           <TabsList className="bg-white dark:bg-gray-800 shadow-lg p-1 rounded-xl flex-wrap">
             <TabsTrigger value="preferences" className="rounded-lg">
               <User className="h-4 w-4 mr-2" />
               Preferences
+            </TabsTrigger>
+            <TabsTrigger value="visibility" className="rounded-lg">
+              <Eye className="h-4 w-4 mr-2" />
+              Visibility
             </TabsTrigger>
             <TabsTrigger value="branding" className="rounded-lg">
               <Building2 className="h-4 w-4 mr-2" />
@@ -252,11 +263,34 @@ export default function Settings() {
                   </div>
                 )}
               </CardContent>
-            </Card>
-          </TabsContent>
+              </Card>
+              </TabsContent>
 
-          {/* Branding Tab */}
-          <TabsContent value="branding" className="space-y-6">
+              {/* Visibility Tab */}
+              <TabsContent value="visibility" className="space-y-6">
+              <ModuleVisibilitySettings />
+
+              {/* Hidden Content Info */}
+              <Card className="border-0 shadow-lg bg-blue-50 dark:bg-blue-900/20">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <p className="font-medium mb-1">About Hidden Content</p>
+                    <ul className="list-disc list-inside space-y-1 text-blue-700 dark:text-blue-300">
+                      <li>Hidden modules won't appear on the home screen</li>
+                      <li>Hidden sections won't appear within modules</li>
+                      <li>A banner will remind you when content is hidden</li>
+                      <li>You can always restore hidden content here</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+              </Card>
+              </TabsContent>
+
+              {/* Branding Tab */}
+              <TabsContent value="branding" className="space-y-6">
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle>Company Branding</CardTitle>
