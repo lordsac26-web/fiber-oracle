@@ -50,6 +50,7 @@ const MANUAL_SECTIONS = [
 A comprehensive field reference tool designed for fiber optic technicians, network engineers, and installation professionals. 
 
 **Key Features:**
+- **NEW: Optical Calculator** - Combined link loss, PON power, and dB converter
 - Power level calculations for GPON and XGS-PON networks
 - TIA-598 fiber color code identification (up to 3456 fibers)
 - Loss budget calculations with industry-standard values
@@ -61,6 +62,7 @@ A comprehensive field reference tool designed for fiber optic technicians, netwo
 - FOA (Fiber Optic Association) guidelines integration
 - Education Center with Fiber 101, 102, and 103 courses & certifications
 - Interactive onboarding tour for new users
+- **Offline document storage** - Save PDFs for offline access
 - Offline-capable PWA
 
 **Target Users:**
@@ -106,7 +108,8 @@ The home screen displays all available modules organized into categories. Tap an
 │  ├── PON Power Levels (GPON & XGS-PON specs)           │
 │  ├── Reference Tables (Attenuation, connectors, etc.)  │
 │  ├── LCP / CLCP Info (Cabinet & splitter database)     │
-│  └── Industry Links (Standards & vendors)              │
+│  ├── Industry Links (Standards & vendors)              │
+│  └── Offline Documents (Saved PDFs for offline)        │
 │                                                         │
 │  🎓 LEARN - Education & Documentation                   │
 │  ├── Education Center (Fiber 101, 102, 103)            │
@@ -645,37 +648,189 @@ Reference for acceptable power levels in GPON and XGS-PON networks.
         id: 'lcp-info',
         title: 'LCP / CLCP Info',
         content: `
-**Purpose**
-Store and lookup cabinet and splitter location information.
+      **Purpose**
+      Store and lookup cabinet and splitter location information.
 
-**Features:**
-- Add LCP/CLCP entries with splitter information
-- Record physical location and GPS coordinates
-- Store OLT logical location (Shelf/Slot/Port)
-- Track optic information (make, model, serial)
-- Search and filter entries
-- Sort by date, LCP number, or location
-- Import from CSV/TXT files
-- View entries on map
+      **Features:**
+      - Add LCP/CLCP entries with splitter information
+      - Record physical location and GPS coordinates
+      - Store OLT logical location (Shelf/Slot/Port)
+      - Track optic information (make, model, serial)
+      - Search and filter entries
+      - Sort by date, LCP number, or location
+      - Import from CSV/TXT files
+      - View entries on map
 
-**Adding Entries:**
-1. Tap "Add LCP"
-2. Enter LCP number and splitter number (required)
-3. Add location details (optional)
-4. Capture GPS coordinates (optional)
-5. Add OLT mapping (optional)
-6. Save
+      **Adding Entries:**
+      1. Tap "Add LCP"
+      2. Enter LCP number and splitter number (required)
+      3. Add location details (optional)
+      4. Capture GPS coordinates (optional)
+      5. Add OLT mapping (optional)
+      6. Save
 
-**Importing Data:**
-1. Tap "Import"
-2. Download template for format reference
-3. Upload CSV or TXT file
-4. Review preview
-5. Confirm import
+      **Importing Data:**
+      1. Tap "Import"
+      2. Download template for format reference
+      3. Upload CSV or TXT file
+      4. Review preview
+      5. Confirm import
 
-**Data Storage:**
-All LCP data is stored locally on your device.
-        `
+      **Data Storage:**
+      All LCP data is stored locally on your device.
+      `
+      },
+      {
+        id: 'optical-calculator',
+        title: 'Optical Calculator',
+        content: `
+      **Purpose**
+      Comprehensive fiber optical calculator combining three essential tools in one module.
+
+      ┌─────────────────────────────────────────────────────────────┐
+      │  OPTICAL CALCULATOR - Three Tools in One                    │
+      ├─────────────────────────────────────────────────────────────┤
+      │                                                             │
+      │  📊 TAB 1: LINK LOSS CALCULATOR                             │
+      │  ├── Fiber type selection (OS2, G.657, OM3/4/5)            │
+      │  ├── Wavelength selection                                  │
+      │  ├── Distance input (0.1 - 50 km)                          │
+      │  ├── Connector count and grade (Elite/Standard/MPO)        │
+      │  ├── Splice count and type (Fusion/Mechanical)             │
+      │  ├── Splitter ratio (1:2 to 1:128)                         │
+      │  ├── Configurable safety margin                            │
+      │  └── Real-time loss breakdown with totals                  │
+      │                                                             │
+      │  ⚡ TAB 2: PON POWER CALCULATOR                              │
+      │  ├── PON class selection:                                  │
+      │  │   ├── GPON B+, C+                                       │
+      │  │   ├── XGS-PON N1, N2, E1                                │
+      │  │   └── 25G-PON, 50G-PON                                  │
+      │  ├── OLT Tx power input                                    │
+      │  ├── Distance and splitter configuration                   │
+      │  ├── Expected ONT Rx power calculation                     │
+      │  ├── Pass/Marginal/Fail status indicator                   │
+      │  └── Margin to sensitivity threshold                       │
+      │                                                             │
+      │  🔄 TAB 3: dB CONVERTER                                     │
+      │  ├── dBm ↔ Milliwatts (mW) conversion                      │
+      │  ├── dB ↔ Linear ratio conversion                          │
+      │  ├── Quick reference table (3dB = 2×, 10dB = 10×)          │
+      │  └── Formula reference                                     │
+      │                                                             │
+      └─────────────────────────────────────────────────────────────┘
+
+      **Link Loss Calculator**
+
+      Calculates total link loss based on:
+      - Fiber attenuation (dB/km) by type and wavelength
+      - Connector loss (Elite ≤0.15 dB, Standard ≤0.50 dB)
+      - Splice loss (Fusion ≤0.10 dB, Mechanical ≤0.30 dB)
+      - Splitter insertion loss (1:32 = 17.5 dB)
+      - Configurable safety margin (0-6 dB)
+
+      **Formula:**
+      \`\`\`
+      Total Loss = (Distance × Attenuation) + (Connectors × Conn Loss) 
+         + (Splices × Splice Loss) + Splitter Loss + Margin
+      \`\`\`
+
+      **PON Power Calculator**
+
+      Estimates expected ONT receive power for:
+      - GPON Class B+ (28 dB budget) and C+ (32 dB budget)
+      - XGS-PON N1 (29 dB), N2 (31 dB), E1 (33 dB)
+      - 25G-PON and 50G-PON configurations
+
+      **Status Indicators:**
+      - **Good**: Within acceptable range with margin
+      - **Marginal**: Within spec but low margin (<3 dB)
+      - **Too Low**: Below minimum sensitivity
+      - **Too High**: Above maximum (may need attenuator)
+
+      **dB Converter**
+
+      Instant conversions between:
+      - dBm (absolute power) and milliwatts (mW)
+      - dB (relative) and linear power ratios
+
+      **Key Formulas:**
+      - mW = 10^(dBm/10)
+      - dBm = 10 × log₁₀(mW)
+      - Ratio = 10^(dB/10)
+      - dB = 10 × log₁₀(Ratio)
+
+      **Standards Referenced:**
+      - TIA-568-D.3 (fiber attenuation limits)
+      - TIA-526-14-C (OLTS testing)
+      - ITU-T G.984.2 (GPON)
+      - ITU-T G.9807.1 (XGS-PON)
+      - ITU-T G.9804.3 (25G/50G-PON)
+      - FOA Reference Method (1-Jumper)
+      `
+      },
+      {
+        id: 'offline-documents',
+        title: 'Offline Documents',
+        content: `
+      **Purpose**
+      Save and manage documents for offline access using browser storage (IndexedDB).
+
+      ┌─────────────────────────────────────────────────────────────┐
+      │  OFFLINE DOCUMENTS - Features                               │
+      ├─────────────────────────────────────────────────────────────┤
+      │                                                             │
+      │  📥 AUTOMATIC SAVING                                        │
+      │  ├── Study guides saved when downloaded                    │
+      │  ├── Certificates saved when downloaded                    │
+      │  └── "Saved Offline" badge appears on saved items          │
+      │                                                             │
+      │  📁 MANUAL SAVING                                           │
+      │  ├── Fiber Oracle Brochure                                 │
+      │  └── Future: Custom documents                              │
+      │                                                             │
+      │  🗂️ DOCUMENT MANAGEMENT                                     │
+      │  ├── View all saved documents                              │
+      │  ├── See document type, size, and save date                │
+      │  ├── Open/download saved documents                         │
+      │  ├── Delete individual documents                           │
+      │  └── Clear all documents                                   │
+      │                                                             │
+      │  📊 STORAGE INFO                                            │
+      │  ├── Total storage used                                    │
+      │  └── Document count                                        │
+      │                                                             │
+      └─────────────────────────────────────────────────────────────┘
+
+      **How It Works:**
+
+      Documents are stored in your browser's IndexedDB, a client-side database that persists even when offline.
+
+      **Supported Document Types:**
+      - **Study Guides**: Fiber 101, 102, 103 PDF guides
+      - **Certificates**: Earned certification PDFs
+      - **Brochure**: Fiber Oracle overview PDF
+      - **Job Reports**: Exported job documentation
+
+      **Accessing Offline Documents:**
+      1. Go to Offline Documents page (Reference category)
+      2. View list of saved documents
+      3. Tap a document to open/download
+      4. Delete documents you no longer need
+
+      **Automatic Offline Saving:**
+      When you download a study guide or certificate from the Education Center, it's automatically saved for offline access. Look for the "Saved Offline" badge.
+
+      **Storage Recommendations:**
+      - Keep total storage under 50MB for best performance
+      - Delete old certificates and reports periodically
+      - Clear all if experiencing storage issues
+
+      **Important Notes:**
+      - Clearing browser data will delete offline documents
+      - Documents are device-specific (not synced across devices)
+      - Works best on modern browsers (Chrome, Firefox, Safari, Edge)
+      `
       },
       {
         id: 'job-reports',
