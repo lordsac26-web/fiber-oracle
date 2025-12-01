@@ -9,9 +9,13 @@ import {
   GraduationCap, 
   Activity,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  FileText,
+  LogIn
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 import { motion } from 'framer-motion';
 
 const FEATURES = [
@@ -100,20 +104,32 @@ export default function Splash() {
             </div>
           </motion.div>
 
-          {/* CTA Button */}
+          {/* CTA Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.6 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <Button 
               onClick={handleLogin}
               size="lg"
               className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-8 py-6 text-lg rounded-xl shadow-xl shadow-blue-500/25 group"
             >
-              Get Started
+              <LogIn className="mr-2 h-5 w-5" />
+              Sign In
               <ChevronRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Button>
+            <Link to={createPageUrl('Brochure')}>
+              <Button 
+                variant="outline"
+                size="lg"
+                className="border-white/30 text-white hover:bg-white/10 px-8 py-6 text-lg rounded-xl w-full"
+              >
+                <FileText className="mr-2 h-5 w-5" />
+                View Brochure
+              </Button>
+            </Link>
           </motion.div>
         </motion.div>
 
