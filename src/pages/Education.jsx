@@ -172,14 +172,22 @@ export default function Education() {
           {/* Certification & Resources Card */}
           <Card className="md:col-span-2 border-0 shadow-lg bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
             <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
-                  <Award className="h-6 w-6 text-white" />
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+                    <Award className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">Certification Center</h3>
+                    <p className="text-sm text-gray-500">Study guides, exams, and certificates</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold">Certification Center</h3>
-                  <p className="text-sm text-gray-500">Study guides, exams, and certificates</p>
-                </div>
+                <Link to={createPageUrl('Certifications')}>
+                  <Button variant="outline" className="gap-2">
+                    <Trophy className="h-4 w-4" />
+                    My Certifications
+                  </Button>
+                </Link>
               </div>
               <div className="grid md:grid-cols-3 gap-4">
                 {COURSES.map(course => (

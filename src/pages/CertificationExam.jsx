@@ -31,6 +31,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { EXAM_QUESTIONS } from '@/components/education/ExamQuestions';
 import { motion, AnimatePresence } from 'framer-motion';
+import { base44 } from '@/api/base44Client';
 
 // Shuffle array function
 const shuffleArray = (array) => {
@@ -147,7 +148,7 @@ export default function CertificationExam() {
     const score = Math.round((correct / questions.length) * 100);
     const passed = score >= examData.passingScore;
     
-    setExamResults({
+    const results = {
       score,
       correct,
       incorrect,
@@ -156,6 +157,20 @@ export default function CertificationExam() {
       domainScores,
       completionDate: new Date().toLocaleDateString(),
       certificateId: `FO-${courseId.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`
+    };
+    
+    setExamResults(results);
+    
+    // Save to database
+    base44.entities.Certification.create({
+      course_id: courseId,
+      course_title: examData.title.replace(' Certification Exam', ''),
+      learner_name: learnerName,
+      score,
+      passed,
+      certificate_id: results.certificateId,
+      completion_date: new Date().toISOString().split('T')[0],
+      domain_scores: domainScores
     });
     
     setStage('results');
