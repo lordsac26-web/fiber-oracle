@@ -928,6 +928,79 @@ A: We recommend individual accounts for accurate job tracking and personalized s
         `
       },
       {
+        id: 'formulas',
+        title: 'Common Formulas',
+        content: `
+### Link Loss Calculation
+Total Loss = (Fiber Length × Attenuation) + (Connectors × Connector Loss) + (Splices × Splice Loss) + Splitter Loss
+
+### Fiber Number from Colors (144-fiber)
+Fiber # = (Tube Position - 1) × 12 + Fiber Position
+
+### Power Level
+Rx Power (dBm) = Tx Power (dBm) - Total Loss (dB)
+
+### Splitter Loss (Theoretical)
+Loss (dB) = 10 × log₁₀(N)
+where N = number of output ports
+
+### dB to Linear Conversion
+Linear Ratio = 10^(dB/10)
+dB = 10 × log₁₀(Linear Ratio)
+
+### Bidirectional Average
+Average Loss = (A→B Loss + B→A Loss) / 2
+
+### dBm to mW Conversion
+mW = 10^(dBm/10)
+dBm = 10 × log₁₀(mW)
+
+### Quick dB Reference
+- 3 dB = 2× power ratio (50% loss)
+- 6 dB = 4× power ratio (75% loss)  
+- 10 dB = 10× power ratio (90% loss)
+- 20 dB = 100× power ratio (99% loss)
+        `
+      },
+      {
+        id: 'standards',
+        title: 'Industry Standards Referenced',
+        content: `
+### TIA Standards
+- **TIA-568-D** - Generic Telecommunications Cabling for Customer Premises
+- **TIA-526-7** - Optical Power Loss Measurement - Single-Mode Fiber
+- **TIA-526-14-C** - Optical Power Loss Measurement - Multimode Fiber
+- **TIA-598-D** - Optical Fiber Cable Color Coding
+- **TIA-758-B** - Customer-Owned Outside Plant Telecommunications Infrastructure
+
+### IEC Standards
+- **IEC 61300-3-35** - Connector End Face Visual Inspection
+- **IEC 61280** - Fiber Optic Communication Test Procedures
+- **IEC 60794** - Optical Fiber Cables - Generic Specification
+
+### ITU-T Standards
+- **ITU-T G.652** - Single-Mode Optical Fiber Characteristics
+- **ITU-T G.657** - Bend-Insensitive Single-Mode Fiber
+- **ITU-T G.984** - GPON (Gigabit Passive Optical Network)
+- **ITU-T G.9807** - XGS-PON (10G Symmetric PON)
+- **ITU-T G.9804** - 25G/50G Higher Speed PON
+
+### Telcordia Standards
+- **GR-326** - Single-Mode Optical Connectors & Jumpers
+- **GR-20** - Generic Requirements for Optical Fiber
+- **GR-449** - Fiber Optic Splice Closures
+
+### FOA (Fiber Optic Association)
+- FOA Reference Method (1-Jumper testing)
+- FOA Best Practices for inspection, cleaning, documentation
+- FOA Safety guidelines for laser hazards and fiber handling
+
+### Safety & Compliance
+- **NEC Article 770** - Optical Fiber Cables & Raceways
+- **OSHA 1926** - Construction Safety Standards
+        `
+      },
+      {
         id: 'support',
         title: 'Getting Help',
         content: `
