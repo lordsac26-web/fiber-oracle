@@ -286,10 +286,11 @@ function generateBrochurePDF() {
   y += 8;
 
   const standardGroups = [
-    { org: 'TIA', standards: ['TIA-568-D (Cabling)', 'TIA-526-14-C (OLTS)', 'TIA-598-D (Color Codes)', 'TIA-455 (FOTP)'] },
+    { org: 'TIA', standards: ['TIA-568-D (Cabling)', 'TIA-526-14-C (OLTS)', 'TIA-598-D (Color Codes)', 'TIA-758-B (OSP)'] },
     { org: 'ITU-T', standards: ['G.652/G.657 (Fiber)', 'G.984 (GPON)', 'G.9807 (XGS-PON)', 'G.9804 (25G/50G PON)'] },
-    { org: 'IEC', standards: ['IEC 61300-3-35 (Inspection)', 'IEC 61280 (Test Procedures)'] },
-    { org: 'IEEE', standards: ['802.3 (Ethernet)', '802.3ah/av (EPON)'] },
+    { org: 'IEC', standards: ['IEC 61300-3-35 (Inspection)', 'IEC 60794 (Cable)', 'IEC 61280 (Testing)'] },
+    { org: 'FOA', standards: ['CFOT Guidelines', 'Testing Best Practices', 'Safety Standards'] },
+    { org: 'Other', standards: ['IEEE 802.3', 'Telcordia GR-326/20', 'NEC 770', 'OSHA 1926'] },
   ];
 
   doc.setFontSize(8);
@@ -374,6 +375,22 @@ function generateBrochurePDF() {
   doc.setTextColor(71, 85, 105);
   const splitterText = splitters.join('    |    ');
   doc.text(splitterText, pageWidth / 2, y + 10, { align: 'center' });
+
+  y += 25;
+
+  // FOA Guidelines Callout
+  doc.setFillColor(139, 92, 246); // Purple
+  doc.roundedRect(margin, y, pageWidth - 2 * margin, 22, 2, 2, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('FOA Recommended Practices Integrated', margin + 5, y + 7);
+  
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  const foaText = '• 1-Jumper Reference Method  • Bidirectional OTDR Testing  • Inspect Before Connection  • Complete Documentation  • Safety Protocols';
+  doc.text(foaText, margin + 5, y + 14);
 
   y += 28;
 

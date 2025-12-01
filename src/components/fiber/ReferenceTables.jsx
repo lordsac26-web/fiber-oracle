@@ -209,10 +209,37 @@ const FIBER_GLOSSARY = {
       { term: "TIA-568", definition: "Commercial building telecommunications cabling standard.", example: "TIA-568.3-D specifies fiber optic cabling components and testing." },
       { term: "TIA-598", definition: "Optical fiber cable color coding standard.", example: "TIA-598-D defines the 12-color sequence for fiber identification." },
       { term: "TIA-526", definition: "Fiber optic test procedure standards.", example: "TIA-526-14-C covers OLTS methods; TIA-526-7 covers SMF power measurement." },
+      { term: "TIA-758", definition: "Customer-Owned Outside Plant Telecommunications Infrastructure Standard.", example: "TIA-758-B covers campus cabling, pathways, and outside plant design." },
       { term: "IEC 61300", definition: "Fiber optic interconnecting devices test and measurement procedures.", example: "IEC 61300-3-35 defines connector end face inspection criteria." },
       { term: "IEC 61280", definition: "Fiber optic communication subsystem test procedures.", example: "IEC 61280-4-1 covers OTDR calibration and measurement methods." },
+      { term: "IEC 60794", definition: "Optical fiber cables - Generic specification and test methods.", example: "IEC 60794 covers mechanical, environmental, and transmission requirements for fiber cables." },
       { term: "Telcordia GR-326", definition: "Generic requirements for single-mode optical connectors and jumper assemblies.", example: "GR-326-CORE specifies connector performance requirements for telecom." },
       { term: "Telcordia GR-20", definition: "Generic requirements for optical fiber and fiber optic cable.", example: "GR-20 covers fiber specifications for telecommunications applications." },
+      { term: "Telcordia GR-449", definition: "Generic requirements for fiber optic splice closures.", example: "GR-449 specifies environmental and mechanical requirements for outdoor enclosures." },
+      { term: "NEC Article 770", definition: "National Electrical Code requirements for optical fiber cables and raceways.", example: "NEC 770 defines OFNP (plenum), OFNR (riser), and OFN cable ratings." },
+      { term: "OSHA 1926.950", definition: "Occupational Safety standards for work near power lines and electrical hazards.", example: "Maintain minimum approach distances when installing aerial fiber near power." },
+      { term: "FOA Standard", definition: "Fiber Optic Association recommended practices for testing, installation, and safety.", example: "FOA recommends 1-jumper reference method and bidirectional OTDR testing." },
+    ]
+  },
+  foa: {
+    title: "FOA Guidelines & Best Practices",
+    audience: "All Fiber Professionals",
+    terms: [
+      { term: "FOA Reference Method", definition: "FOA recommends the 1-jumper (1-cord) reference method for OLTS testing as it provides the most accurate measurement of connector loss at both ends of the link under test.", example: "Set reference with launch cord connected to source and meter, then measure link with same launch cord." },
+      { term: "FOA Acceptable Loss", definition: "FOA guidelines state that a properly terminated fiber link should have total loss within the calculated loss budget. Connectors should be ≤0.5 dB (field) or ≤0.15 dB (factory).", example: "Calculate: (length × attenuation) + (connectors × 0.5) + (splices × 0.3) = max acceptable loss." },
+      { term: "FOA Inspection Before Connection", definition: "FOA mandates visual inspection of all connector end faces before mating. All connectors must be inspected and cleaned per IEC 61300-3-35 before testing or use.", example: "Always inspect with fiber scope, clean if contaminated, re-inspect to verify cleanliness." },
+      { term: "FOA Cleaning Protocol", definition: "FOA recommends dry cleaning first, then wet cleaning with IPA only if dry cleaning fails. Never use canned air. Always re-inspect after cleaning.", example: "Dry clean with lint-free wipe, check with scope. If still dirty, wet clean with IPA, dry, re-check." },
+      { term: "FOA OTDR Best Practice", definition: "FOA recommends bidirectional OTDR testing with averaging of results to account for backscatter coefficient differences and gainer events at splices.", example: "Test A→B and B→A, then average: (0.12 + 0.08) / 2 = 0.10 dB actual splice loss." },
+      { term: "FOA Launch Cable Length", definition: "FOA recommends launch cables of at least 100-150m for OTDR testing to ensure accurate measurement of the first connector, avoiding dead zone issues.", example: "Use 150m launch fiber so first connector is beyond OTDR's event dead zone." },
+      { term: "FOA Receive Cable", definition: "FOA recommends using a receive (tail) cable to properly characterize the far-end connector of the link under test during OTDR testing.", example: "Add 150m receive fiber to measure loss of final connector before end reflection." },
+      { term: "FOA Documentation", definition: "FOA emphasizes complete documentation including test results, cable IDs, connector types, wavelengths tested, and equipment used for every link.", example: "Record: Date, tech name, cable ID, fiber #, wavelength, loss, length, pass/fail, equipment serial." },
+      { term: "FOA Safety - Laser", definition: "FOA safety guidelines: Never look into a fiber end or connector that may have active light. Use power meter to check for live fibers before handling.", example: "Check all fibers with power meter before splicing or inspection to ensure no active signals." },
+      { term: "FOA Safety - Fiber Scraps", definition: "FOA mandates proper disposal of fiber scraps. All cleaved ends must be collected in a designated scrap container to prevent injury from glass shards.", example: "Use a labeled fiber scrap container. Tape lid when full and dispose as sharps waste." },
+      { term: "FOA Splicing Standards", definition: "FOA specifies fusion splice loss should be ≤0.1 dB and mechanical splice ≤0.3 dB. Splices exceeding these values should be remade.", example: "Fusion splice shows 0.15 dB on splicer—FOA recommends re-splicing to achieve <0.1 dB." },
+      { term: "FOA Power Meter Calibration", definition: "FOA recommends annual calibration of all test equipment to NIST-traceable standards. Keep calibration certificates with equipment.", example: "Check calibration date on power meter before testing. If expired, send for recalibration." },
+      { term: "FOA Link Loss Budget", definition: "FOA formula for calculating maximum acceptable link loss: (fiber length × attenuation) + (connector pairs × connector loss) + (splices × splice loss) + (splitters × splitter loss).", example: "5km SMF + 4 connectors + 2 splices = (5 × 0.35) + (4 × 0.5) + (2 × 0.3) = 4.35 dB max." },
+      { term: "FOA Certification Levels", definition: "FOA offers progressive certifications: CFOT (Certified Fiber Optic Technician), CFOS/T (Specialist in Testing), CFOS/S (Splicing), CFOS/O (OSP), and CFOS/D (Design).", example: "Start with CFOT for basic installation, add CFOS/T for advanced testing certification." },
+      { term: "FOA Connector Grading", definition: "FOA recognizes TIA connector grades: Grade A (≤0.15 dB) for factory/high-density; Grade B (≤0.50 dB) for field termination.", example: "Factory pre-terminated trunk cable uses Grade A; field-installed connectors should meet Grade B." },
     ]
   }
 };
@@ -223,6 +250,8 @@ const AUDIENCE_COLORS = {
   "Field Technicians & Splicers": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   "All Testing Personnel": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
   "FTTx Technicians": "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
+  "Engineers & Designers": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+  "All Fiber Professionals": "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
 };
 
 // Connector Types Data
@@ -387,7 +416,7 @@ export default function ReferenceTables() {
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Reference Tables</h2>
-            <p className="text-sm text-gray-500">Industry standard values (TIA-568-D, IEEE, ITU-T)</p>
+            <p className="text-sm text-gray-500">Industry standard values (TIA, IEEE, ITU-T, IEC, FOA)</p>
           </div>
         </div>
         <div className="relative w-64">
@@ -526,7 +555,7 @@ export default function ReferenceTables() {
                   <Zap className="h-5 w-5 text-blue-600" />
                   Connector Insertion Loss (dB per mated pair)
                 </CardTitle>
-                <p className="text-sm text-gray-500">Per TIA-568-D and Telcordia GR-326-CORE</p>
+                <p className="text-sm text-gray-500">Per TIA-568-D, Telcordia GR-326, and FOA Guidelines</p>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -612,7 +641,7 @@ export default function ReferenceTables() {
                 <Scissors className="h-5 w-5 text-purple-600" />
                 Splice Loss Values (dB)
               </CardTitle>
-              <p className="text-sm text-gray-500">Per TIA-568-D and IEC 61073</p>
+              <p className="text-sm text-gray-500">Per TIA-568-D, IEC 61073, and FOA Guidelines</p>
             </CardHeader>
             <CardContent>
               <Table>
