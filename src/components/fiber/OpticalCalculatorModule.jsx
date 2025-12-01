@@ -777,7 +777,34 @@ function PowerConverter() {
 // MAIN OPTICAL CALCULATOR MODULE COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { useUserPreferences } from '@/components/UserPreferencesContext';
+import HiddenContentBanner from '@/components/HiddenContentBanner';
+
 export default function OpticalCalculatorModule() {
+  const { preferences, updatePreferences } = useUserPreferences();
+  const hiddenSections = preferences.hiddenSections?.opticalcalc || [];
+
+  const sections = [
+    { id: 'linkloss', name: 'Link Loss', icon: Cable },
+    { id: 'ponpower', name: 'PON Power', icon: Zap },
+    { id: 'converter', name: 'dB Converter', icon: ArrowRightLeft },
+  ];
+
+  const visibleSections = sections.filter(s => !hiddenSections.includes(s.id));
+  const hiddenCount = hiddenSections.length;
+
+  const handleShowAll = () => {
+    updatePreferences({
+      hiddenSections: {
+        ...preferences.hiddenSections,
+        opticalcalc: []
+      }
+    });
+  };
+
+  // Get first visible section as default
+  const defaultTab = visibleSections.length > 0 ? visibleSections[0].id : 'linkloss';
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -791,34 +818,58 @@ export default function OpticalCalculatorModule() {
           </div>
         </div>
 
-        <Tabs defaultValue="linkloss" className="space-y-6">
-          <TabsList className="bg-white dark:bg-gray-800 shadow-lg p-1 rounded-xl">
-            <TabsTrigger value="linkloss" className="rounded-lg">
-              <Cable className="h-4 w-4 mr-2" />
-              Link Loss
-            </TabsTrigger>
-            <TabsTrigger value="ponpower" className="rounded-lg">
-              <Zap className="h-4 w-4 mr-2" />
-              PON Power
-            </TabsTrigger>
-            <TabsTrigger value="converter" className="rounded-lg">
-              <ArrowRightLeft className="h-4 w-4 mr-2" />
-              dB Converter
-            </TabsTrigger>
-          </TabsList>
+        <HiddenContentBanner 
+          hiddenCount={hiddenCount} 
+          moduleId="opticalcalc" 
+          onShowAll={handleShowAll}
+        />
 
-          <TabsContent value="linkloss">
-            <LinkLossCalculator />
-          </TabsContent>
+        {visibleSections.length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl">
+            <p className="text-gray-500">All sections in this module are hidden.</p>
+          </div>
+        ) : (
+          <Tabs defaultValue={defaultTab} className="space-y-6">
+            <TabsList className="bg-white dark:bg-gray-800 shadow-lg p-1 rounded-xl">
+              {!hiddenSections.includes('linkloss') && (
+                <TabsTrigger value="linkloss" className="rounded-lg">
+                  <Cable className="h-4 w-4 mr-2" />
+                  Link Loss
+                </TabsTrigger>
+              )}
+              {!hiddenSections.includes('ponpower') && (
+                <TabsTrigger value="ponpower" className="rounded-lg">
+                  <Zap className="h-4 w-4 mr-2" />
+                  PON Power
+                </TabsTrigger>
+              )}
+              {!hiddenSections.includes('converter') && (
+                <TabsTrigger value="converter" className="rounded-lg">
+                  <ArrowRightLeft className="h-4 w-4 mr-2" />
+                  dB Converter
+                </TabsTrigger>
+              )}
+            </TabsList>
 
-          <TabsContent value="ponpower">
-            <PONPowerCalculator />
-          </TabsContent>
+            {!hiddenSections.includes('linkloss') && (
+              <TabsContent value="linkloss">
+                <LinkLossCalculator />
+              </TabsContent>
+            )}
 
-          <TabsContent value="converter">
-            <PowerConverter />
-          </TabsContent>
-        </Tabs>
+            {!hiddenSections.includes('ponpower') && (
+              <TabsContent value="ponpower">
+                <PONPowerCalculator />
+              </TabsContent>
+            )}
+
+            {!hiddenSections.includes('converter') && (
+              <TabsContent value="converter">
+                <PowerConverter />
+              </TabsContent>
+            )}
+          </Tabs>
+        )}
       </div>
     </TooltipProvider>
   );

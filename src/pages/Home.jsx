@@ -532,11 +532,18 @@ export default function Home() {
             })}
           </div>
           
-          {hiddenModules.length > 0 && (
-            <Badge variant="outline" className="text-xs">
-              <EyeOff className="h-3 w-3 mr-1" />
-              {hiddenModules.length} hidden
-            </Badge>
+          {(hiddenModules.length > 0 || Object.values(preferences.hiddenSections || {}).some(arr => arr.length > 0)) && (
+            <Link to={createPageUrl('Settings') + '?tab=visibility'}>
+              <Badge variant="outline" className="text-xs cursor-pointer hover:bg-amber-50 border-amber-300 text-amber-700">
+                <EyeOff className="h-3 w-3 mr-1" />
+                {hiddenModules.length > 0 && `${hiddenModules.length} modules`}
+                {hiddenModules.length > 0 && Object.values(preferences.hiddenSections || {}).some(arr => arr.length > 0) && ' + '}
+                {Object.values(preferences.hiddenSections || {}).some(arr => arr.length > 0) && 
+                  `${Object.values(preferences.hiddenSections || {}).reduce((sum, arr) => sum + arr.length, 0)} sections`
+                }
+                {' hidden'}
+              </Badge>
+            </Link>
           )}
         </div>
 
@@ -615,14 +622,12 @@ export default function Home() {
                 : "No modules match this category."}
             </p>
             {hiddenModules.length > 0 && (
-              <Button 
-                variant="outline" 
-                className="mt-4"
-                onClick={() => setShowCustomizeDialog(true)}
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                Manage Hidden Modules
-              </Button>
+              <Link to={createPageUrl('Settings') + '?tab=visibility'}>
+                <Button variant="outline" className="mt-4">
+                  <Eye className="h-4 w-4 mr-2" />
+                  Manage Hidden Content
+                </Button>
+              </Link>
             )}
           </div>
         )}
