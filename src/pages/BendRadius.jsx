@@ -251,6 +251,8 @@ export default function BendRadius() {
         )}
 
         {/* Fiber Type Reference */}
+        {visibleTabs.length > 0 && (
+        <>
         <Card className="border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="text-base">Fiber Type Bend Tolerance</CardTitle>
