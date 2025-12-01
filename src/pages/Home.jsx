@@ -27,7 +27,8 @@ import {
   Check,
   FileSearch,
   FlaskConical,
-  ClipboardList
+  ClipboardList,
+  Info
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -419,6 +420,12 @@ export default function Home() {
               >
                 {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </Button>
+              
+              <Link to={createPageUrl('Brochure')} className="hidden md:block">
+                <Button variant="ghost" size="icon" className="rounded-full h-9 w-9" title="About Fiber Oracle">
+                  <Info className="h-5 w-5" />
+                </Button>
+              </Link>
               
               <Link to={createPageUrl('Settings')} className="hidden md:block">
                 <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
