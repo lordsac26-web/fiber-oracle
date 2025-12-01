@@ -89,19 +89,41 @@ export default function TraceVisualization({
   const plotHeight = height - padding.top - padding.bottom;
 
   // Calculate dynamic scales
-  const maxDistance = parseFloat(totalLength) * 1000 || 5000;
+  const validEvents = events.filter(e => e.distance);
+  const maxEventDistance = validEvents.length > 0 
+    ? Math.max(...validEvents.map(e => parseFloat(e.distance) || 0))
+    : 0;
+  const lengthInMeters = parseFloat(totalLength) * 1000 || 0;
+  const maxDistance = Math.max(maxEventDistance * 1.1, lengthInMeters, 1000); // At least 1km, with 10% padding
+  
+  // Calculate cumulative loss for proper Y scale
+  const totalCumulativeLoss = validEvents.reduce((sum, e) => {
+    const dist = parseFloat(e.distance) || 0;
+    const eventLoss = parseFloat(e.loss) || 0;
+    const fiberLoss = (dist / 1000) * 0.35;
+    return sum + eventLoss;
+  }, 0) + (maxDistance / 1000) * 0.35;
+  
   const calculatedMaxLoss = Math.max(
     parseFloat(totalLoss) || 5,
-    ...events.filter(e => e.loss).map(e => parseFloat(e.loss) || 0)
+    totalCumulativeLoss,
+    ...validEvents.map(e => parseFloat(e.loss) || 0)
   );
-  const maxLoss = Math.ceil(calculatedMaxLoss * 1.3); // 30% headroom
+  const maxLoss = Math.max(Math.ceil(calculatedMaxLoss * 1.3), 2); // 30% headroom, min 2dB
 
   // Generate trace path
   const generateTracePath = (eventData, isReference = false) => {
-    if (!eventData || eventData.length === 0) return '';
-    
     let pathData = `M ${padding.left} ${padding.top}`;
     let currentLoss = 0;
+    let lastDistance = 0;
+    
+    if (!eventData || eventData.length === 0) {
+      // Just draw a line to the end with fiber attenuation
+      const endLoss = (maxDistance / 1000) * 0.35;
+      const endY = padding.top + (endLoss / maxLoss) * plotHeight;
+      pathData += ` L ${padding.left + plotWidth} ${endY}`;
+      return pathData;
+    }
     
     const sortedEvents = [...eventData]
       .filter(e => e.distance)
@@ -111,18 +133,30 @@ export default function TraceVisualization({
       const distance = parseFloat(event.distance) || 0;
       const loss = parseFloat(event.loss) || 0;
       
-      const x = padding.left + (distance / maxDistance) * plotWidth;
-      const fiberLoss = (distance / 1000) * 0.35;
+      // Calculate fiber loss from last point to this event
+      const segmentLength = distance - lastDistance;
+      const fiberLoss = (segmentLength / 1000) * 0.35;
       currentLoss += fiberLoss;
+      
+      const x = padding.left + (distance / maxDistance) * plotWidth;
       const yBeforeEvent = padding.top + (currentLoss / maxLoss) * plotHeight;
       
       pathData += ` L ${x} ${yBeforeEvent}`;
       currentLoss += loss;
       const yAfterEvent = padding.top + (currentLoss / maxLoss) * plotHeight;
       pathData += ` L ${x} ${yAfterEvent}`;
+      
+      lastDistance = distance;
     });
     
-    pathData += ` L ${width - padding.right} ${padding.top + (currentLoss / maxLoss) * plotHeight}`;
+    // Continue to end of fiber with attenuation
+    const remainingDistance = maxDistance - lastDistance;
+    const remainingFiberLoss = (remainingDistance / 1000) * 0.35;
+    currentLoss += remainingFiberLoss;
+    const endY = padding.top + (currentLoss / maxLoss) * plotHeight;
+    const endX = padding.left + plotWidth;
+    pathData += ` L ${endX} ${endY}`;
+    
     return pathData;
   };
 
@@ -133,15 +167,22 @@ export default function TraceVisualization({
 
   const getEventYPosition = (event, index) => {
     let currentLoss = 0;
+    let lastDistance = 0;
     const sortedEvents = [...events]
       .filter(e => e.distance)
       .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
     
-    for (let i = 0; i <= index && i < sortedEvents.length; i++) {
+    // Find the actual index in sorted events
+    const eventDistance = parseFloat(event.distance) || 0;
+    const sortedIndex = sortedEvents.findIndex(e => parseFloat(e.distance) === eventDistance);
+    
+    for (let i = 0; i <= sortedIndex && i < sortedEvents.length; i++) {
       const e = sortedEvents[i];
       const distance = parseFloat(e.distance) || 0;
-      currentLoss += (distance / 1000) * 0.35;
-      if (i < index) currentLoss += parseFloat(e.loss) || 0;
+      const segmentLength = distance - lastDistance;
+      currentLoss += (segmentLength / 1000) * 0.35;
+      currentLoss += parseFloat(e.loss) || 0;
+      lastDistance = distance;
     }
     
     return padding.top + (currentLoss / maxLoss) * plotHeight;
@@ -737,7 +778,7 @@ export default function TraceVisualization({
           )}
           <div className="hidden sm:flex items-center gap-2 ml-auto">
             <Info className="h-4 w-4 text-gray-500" />
-            <span className="text-gray-500">Click events for details</span>
+            <span className="text-gray-500">Hover over events for details</span>
           </div>
         </div>
       </CardContent>
