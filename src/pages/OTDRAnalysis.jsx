@@ -859,12 +859,20 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
                                     <span>•</span>
                                     <span>{cause}</span>
                                   </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          
-                          {event.troubleshooting_steps?.length > 0 && (
+                                  ))}
+                                  </ul>
+                                  </div>
+                                  )}
+
+                                  {/* Differential Diagnosis */}
+                                  {event.differential_diagnosis && (
+                                  <div className="mb-3 p-2 bg-purple-50/50 dark:bg-purple-900/20 rounded text-xs">
+                                  <span className="font-semibold text-purple-700 dark:text-purple-300">Differential: </span>
+                                  <span className="text-purple-600 dark:text-purple-400">{event.differential_diagnosis}</span>
+                                  </div>
+                                  )}
+
+                                  {event.troubleshooting_steps?.length > 0 && (
                             <div>
                               <div className="text-xs font-semibold uppercase text-gray-500 mb-1">Troubleshooting Steps:</div>
                               <ol className="text-sm space-y-1">
