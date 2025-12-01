@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +9,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   Lightbulb,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { base44 } from '@/api/base44Client';
 
 // Study guide content for each module
 const STUDY_GUIDES = {
@@ -322,7 +324,7 @@ const STUDY_GUIDES = {
 };
 
 export default function StudyGuide({ courseId }) {
-  const printRef = useRef();
+  const [isDownloading, setIsDownloading] = useState(false);
   const guide = STUDY_GUIDES[courseId];
 
   if (!guide) {
@@ -335,63 +337,34 @@ export default function StudyGuide({ courseId }) {
     );
   }
 
-  const handleDownloadPDF = () => {
-    const printContent = printRef.current;
-    const originalContents = document.body.innerHTML;
-    
-    // Create print-friendly content
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${guide.title}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-          h1 { color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 10px; }
-          h2 { color: #1e3a8a; margin-top: 30px; border-left: 4px solid #3b82f6; padding-left: 12px; }
-          .section { margin-bottom: 24px; }
-          .term { font-weight: bold; color: #1e40af; }
-          .definition { margin-left: 20px; margin-bottom: 8px; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .subtitle { color: #64748b; font-size: 14px; }
-          .passing-score { background: #dbeafe; padding: 12px; border-radius: 8px; text-align: center; margin: 20px 0; }
-          .footer { margin-top: 40px; text-align: center; color: #64748b; font-size: 12px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
-          .warning { background: #fef3c7; padding: 10px; border-radius: 8px; margin: 10px 0; }
-          @media print { body { padding: 20px; } }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" alt="Fiber Oracle" style="width: 70px; height: 70px; border-radius: 12px; margin: 0 auto 15px;" />
-          <h1>${guide.title}</h1>
-          <p class="subtitle">${guide.subtitle}</p>
-          <p class="subtitle">Fiber Oracle Education Center</p>
-        </div>
-        <div class="passing-score">
-          <strong>Exam Passing Score: ${guide.passingScore}%</strong>
-          <p style="font-size: 12px; margin: 5px 0 0 0;">This study guide may be referenced during the exam.</p>
-        </div>
-        ${guide.sections.map(section => `
-          <div class="section">
-            <h2>${section.title}</h2>
-            ${section.content.map(item => `
-              <p>
-                <span class="term">${item.term}:</span>
-                <span class="definition">${item.definition}</span>
-              </p>
-            `).join('')}
-          </div>
-        `).join('')}
-        <div class="footer">
-          <p>© ${new Date().getFullYear()} Fiber Oracle - When you need to know, ask the Oracle.</p>
-          <p>Generated: ${new Date().toLocaleDateString()}</p>
-        </div>
-      </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await base44.functions.invoke('generatePDF', { 
+        type: 'studyGuide',
+        data: {
+          courseId,
+          title: guide.title,
+          subtitle: guide.subtitle,
+          passingScore: guide.passingScore,
+          sections: guide.sections
+        }
+      }, { responseType: 'arraybuffer' });
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${guide.title.replace(/\s+/g, '-')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -408,9 +381,9 @@ export default function StudyGuide({ courseId }) {
               <Badge className="bg-white/20 text-white border-0">
                 Passing Score: {guide.passingScore}%
               </Badge>
-              <Button onClick={handleDownloadPDF} variant="secondary" className="bg-white text-blue-700 hover:bg-blue-50">
-                <Download className="h-4 w-4 mr-2" />
-                Download PDF
+              <Button onClick={handleDownloadPDF} disabled={isDownloading} variant="secondary" className="bg-white text-blue-700 hover:bg-blue-50">
+                {isDownloading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                {isDownloading ? 'Generating...' : 'Download PDF'}
               </Button>
             </div>
           </div>
@@ -433,7 +406,7 @@ export default function StudyGuide({ courseId }) {
       </Card>
 
       {/* Study Guide Content */}
-      <div ref={printRef} className="space-y-6">
+      <div className="space-y-6">
         {guide.sections.map((section, idx) => (
           <Card key={idx} className="border-0 shadow-lg">
             <CardHeader className="border-b bg-gray-50 dark:bg-gray-800">
