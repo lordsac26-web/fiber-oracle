@@ -134,57 +134,91 @@ function analyzeOnt(ont, segmentStats) {
 }
 
 function calculateSegmentStats(onts) {
-  const segments = {};
+  const olts = {};
 
   for (const ont of onts) {
-    const segmentKey = ont['Shelf/Slot/Port'] || 'Unknown';
-    if (!segments[segmentKey]) {
-      segments[segmentKey] = {
+    const oltName = ont.OLTName || 'Unknown OLT';
+    const portKey = ont['Shelf/Slot/Port'] || 'Unknown';
+    
+    if (!olts[oltName]) {
+      olts[oltName] = {
+        ports: {},
+        ontRxValues: [],
+        oltRxValues: [],
+      };
+    }
+    
+    if (!olts[oltName].ports[portKey]) {
+      olts[oltName].ports[portKey] = {
         onts: [],
         ontRxValues: [],
         oltRxValues: [],
       };
     }
-    segments[segmentKey].onts.push(ont);
+    
+    olts[oltName].ports[portKey].onts.push(ont);
     
     const ontRx = parseNumeric(ont.OntRxOptPwr);
-    if (ontRx !== null) segments[segmentKey].ontRxValues.push(ontRx);
+    if (ontRx !== null) {
+      olts[oltName].ports[portKey].ontRxValues.push(ontRx);
+      olts[oltName].ontRxValues.push(ontRx);
+    }
     
     const oltRx = parseNumeric(ont.OLTRXOptPwr);
-    if (oltRx !== null) segments[segmentKey].oltRxValues.push(oltRx);
+    if (oltRx !== null) {
+      olts[oltName].ports[portKey].oltRxValues.push(oltRx);
+      olts[oltName].oltRxValues.push(oltRx);
+    }
   }
 
-  // Calculate stats for each segment
-  for (const key of Object.keys(segments)) {
-    const seg = segments[key];
-    seg.count = seg.onts.length;
+  // Calculate stats for each OLT and port
+  for (const oltName of Object.keys(olts)) {
+    const olt = olts[oltName];
     
-    if (seg.ontRxValues.length > 0) {
-      seg.avgOntRxOptPwr = seg.ontRxValues.reduce((a, b) => a + b, 0) / seg.ontRxValues.length;
-      seg.minOntRxOptPwr = Math.min(...seg.ontRxValues);
-      seg.maxOntRxOptPwr = Math.max(...seg.ontRxValues);
+    // OLT-level stats
+    olt.totalOnts = Object.values(olt.ports).reduce((sum, p) => sum + p.onts.length, 0);
+    olt.portCount = Object.keys(olt.ports).length;
+    
+    if (olt.ontRxValues.length > 0) {
+      olt.avgOntRxOptPwr = olt.ontRxValues.reduce((a, b) => a + b, 0) / olt.ontRxValues.length;
     } else {
-      seg.avgOntRxOptPwr = null;
-      seg.minOntRxOptPwr = null;
-      seg.maxOntRxOptPwr = null;
+      olt.avgOntRxOptPwr = null;
     }
+    
+    delete olt.ontRxValues;
+    delete olt.oltRxValues;
+    
+    // Port-level stats
+    for (const portKey of Object.keys(olt.ports)) {
+      const port = olt.ports[portKey];
+      port.count = port.onts.length;
+      
+      if (port.ontRxValues.length > 0) {
+        port.avgOntRxOptPwr = port.ontRxValues.reduce((a, b) => a + b, 0) / port.ontRxValues.length;
+        port.minOntRxOptPwr = Math.min(...port.ontRxValues);
+        port.maxOntRxOptPwr = Math.max(...port.ontRxValues);
+      } else {
+        port.avgOntRxOptPwr = null;
+        port.minOntRxOptPwr = null;
+        port.maxOntRxOptPwr = null;
+      }
 
-    if (seg.oltRxValues.length > 0) {
-      seg.avgOLTRXOptPwr = seg.oltRxValues.reduce((a, b) => a + b, 0) / seg.oltRxValues.length;
-      seg.minOLTRXOptPwr = Math.min(...seg.oltRxValues);
-      seg.maxOLTRXOptPwr = Math.max(...seg.oltRxValues);
-    } else {
-      seg.avgOLTRXOptPwr = null;
-      seg.minOLTRXOptPwr = null;
-      seg.maxOLTRXOptPwr = null;
+      if (port.oltRxValues.length > 0) {
+        port.avgOLTRXOptPwr = port.oltRxValues.reduce((a, b) => a + b, 0) / port.oltRxValues.length;
+        port.minOLTRXOptPwr = Math.min(...port.oltRxValues);
+        port.maxOLTRXOptPwr = Math.max(...port.oltRxValues);
+      } else {
+        port.avgOLTRXOptPwr = null;
+        port.minOLTRXOptPwr = null;
+        port.maxOLTRXOptPwr = null;
+      }
+
+      delete port.ontRxValues;
+      delete port.oltRxValues;
     }
-
-    // Clean up temporary arrays
-    delete seg.ontRxValues;
-    delete seg.oltRxValues;
   }
 
-  return segments;
+  return olts;
 }
 
 Deno.serve(async (req) => {
@@ -238,13 +272,15 @@ Deno.serve(async (req) => {
 
     // Analyze each ONT
     const analyzedOnts = parsedOnts.map(ont => {
-      const segmentKey = ont['Shelf/Slot/Port'] || 'Unknown';
-      const stats = segmentStats[segmentKey];
-      const analysis = analyzeOnt(ont, stats);
+      const oltName = ont.OLTName || 'Unknown OLT';
+      const portKey = ont['Shelf/Slot/Port'] || 'Unknown';
+      const portStats = segmentStats[oltName]?.ports[portKey];
+      const analysis = analyzeOnt(ont, portStats);
       return {
         ...ont,
         _analysis: analysis,
-        _segment: segmentKey,
+        _oltName: oltName,
+        _port: portKey,
       };
     });
 
@@ -254,13 +290,14 @@ Deno.serve(async (req) => {
       criticalCount: analyzedOnts.filter(o => o._analysis.status === 'critical').length,
       warningCount: analyzedOnts.filter(o => o._analysis.status === 'warning').length,
       okCount: analyzedOnts.filter(o => o._analysis.status === 'ok').length,
-      segmentCount: Object.keys(segmentStats).length,
+      oltCount: Object.keys(segmentStats).length,
+      portCount: Object.values(segmentStats).reduce((sum, olt) => sum + Object.keys(olt.ports).length, 0),
     };
 
     return Response.json({
       success: true,
       summary,
-      segments: segmentStats,
+      olts: segmentStats,
       onts: analyzedOnts,
     });
 

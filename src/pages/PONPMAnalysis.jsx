@@ -71,8 +71,10 @@ export default function PONPMAnalysis() {
   const [result, setResult] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [segmentFilter, setSegmentFilter] = useState('all');
-  const [expandedSegments, setExpandedSegments] = useState([]);
+  const [oltFilter, setOltFilter] = useState('all');
+  const [portFilter, setPortFilter] = useState('all');
+  const [expandedOlts, setExpandedOlts] = useState([]);
+  const [expandedPorts, setExpandedPorts] = useState([]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -95,13 +97,25 @@ export default function PONPMAnalysis() {
 
       if (response.data?.success) {
         setResult(response.data);
-        // Auto-expand segments with issues
-        const segmentsWithIssues = Object.keys(response.data.segments).filter(seg => {
+        // Auto-expand OLTs with issues
+        const oltsWithIssues = Object.keys(response.data.olts).filter(oltName => {
           return response.data.onts.some(ont => 
-            ont._segment === seg && ont._analysis.status !== 'ok'
+            ont._oltName === oltName && ont._analysis.status !== 'ok'
           );
         });
-        setExpandedSegments(segmentsWithIssues);
+        setExpandedOlts(oltsWithIssues);
+        // Auto-expand ports with issues
+        const portsWithIssues = [];
+        for (const oltName of oltsWithIssues) {
+          for (const portKey of Object.keys(response.data.olts[oltName].ports)) {
+            if (response.data.onts.some(ont => 
+              ont._oltName === oltName && ont._port === portKey && ont._analysis.status !== 'ok'
+            )) {
+              portsWithIssues.push(`${oltName}|${portKey}`);
+            }
+          }
+        }
+        setExpandedPorts(portsWithIssues);
         toast.success(`Parsed ${response.data.summary.totalOnts} ONTs successfully`, { id: 'pon-parse' });
       } else {
         toast.error(response.data?.error || 'Failed to parse file', { id: 'pon-parse' });
@@ -114,11 +128,19 @@ export default function PONPMAnalysis() {
     }
   };
 
-  const toggleSegment = (segment) => {
-    setExpandedSegments(prev => 
-      prev.includes(segment) 
-        ? prev.filter(s => s !== segment)
-        : [...prev, segment]
+  const toggleOlt = (oltName) => {
+    setExpandedOlts(prev => 
+      prev.includes(oltName) 
+        ? prev.filter(o => o !== oltName)
+        : [...prev, oltName]
+    );
+  };
+
+  const togglePort = (portKey) => {
+    setExpandedPorts(prev => 
+      prev.includes(portKey) 
+        ? prev.filter(p => p !== portKey)
+        : [...prev, portKey]
     );
   };
 
@@ -126,12 +148,14 @@ export default function PONPMAnalysis() {
     const matchesSearch = !searchTerm || 
       ont.SerialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ont.OntID?.toString().includes(searchTerm) ||
-      ont['Shelf/Slot/Port']?.toLowerCase().includes(searchTerm.toLowerCase());
+      ont['Shelf/Slot/Port']?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ont.OLTName?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || ont._analysis.status === statusFilter;
-    const matchesSegment = segmentFilter === 'all' || ont._segment === segmentFilter;
+    const matchesOlt = oltFilter === 'all' || ont._oltName === oltFilter;
+    const matchesPort = portFilter === 'all' || ont._port === portFilter;
 
-    return matchesSearch && matchesStatus && matchesSegment;
+    return matchesSearch && matchesStatus && matchesOlt && matchesPort;
   }) || [];
 
   const exportCSV = () => {
@@ -323,9 +347,9 @@ export default function PONPMAnalysis() {
               <Card className="border-0 shadow">
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-blue-600">
-                    {result.summary.segmentCount}
+                    {result.summary.oltCount}
                   </div>
-                  <div className="text-xs text-gray-500">PON Ports</div>
+                  <div className="text-xs text-gray-500">OLTs</div>
                 </CardContent>
               </Card>
             </div>
@@ -380,20 +404,38 @@ export default function PONPMAnalysis() {
                       <SelectItem value="ok">OK</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Select value={segmentFilter} onValueChange={setSegmentFilter}>
-                    <SelectTrigger className="w-full md:w-48">
-                      <SelectValue placeholder="PON Port" />
+                  <Select value={oltFilter} onValueChange={(v) => { setOltFilter(v); setPortFilter('all'); }}>
+                    <SelectTrigger className="w-full md:w-40">
+                      <SelectValue placeholder="OLT" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All OLTs</SelectItem>
+                      {Object.keys(result.olts).sort().map(olt => (
+                        <SelectItem key={olt} value={olt}>{olt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={portFilter} onValueChange={setPortFilter}>
+                    <SelectTrigger className="w-full md:w-40">
+                      <SelectValue placeholder="Port" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Ports</SelectItem>
-                      {Object.keys(result.segments).sort().map(seg => (
-                        <SelectItem key={seg} value={seg}>{seg}</SelectItem>
-                      ))}
+                      {oltFilter !== 'all' && result.olts[oltFilter] && 
+                        Object.keys(result.olts[oltFilter].ports).sort().map(port => (
+                          <SelectItem key={port} value={port}>{port}</SelectItem>
+                        ))
+                      }
+                      {oltFilter === 'all' && 
+                        [...new Set(result.onts.map(o => o._port))].sort().map(port => (
+                          <SelectItem key={port} value={port}>{port}</SelectItem>
+                        ))
+                      }
                     </SelectContent>
                   </Select>
                   <Button 
                     variant="outline" 
-                    onClick={() => { setSearchTerm(''); setStatusFilter('all'); setSegmentFilter('all'); }}
+                    onClick={() => { setSearchTerm(''); setStatusFilter('all'); setOltFilter('all'); setPortFilter('all'); }}
                   >
                     Clear
                   </Button>
@@ -401,65 +443,55 @@ export default function PONPMAnalysis() {
               </CardContent>
             </Card>
 
-            {/* Segment Overview */}
-            <div className="space-y-3">
+            {/* OLT / Port Hierarchy */}
+            <div className="space-y-4">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Router className="h-5 w-5 text-blue-500" />
-                PON Port Segments
+                OLT &amp; PON Port Overview
               </h2>
               
-              {Object.entries(result.segments).sort().map(([segment, stats]) => {
-                const segmentOnts = result.onts.filter(o => o._segment === segment);
-                const criticalCount = segmentOnts.filter(o => o._analysis.status === 'critical').length;
-                const warningCount = segmentOnts.filter(o => o._analysis.status === 'warning').length;
-                const isExpanded = expandedSegments.includes(segment);
+              {Object.entries(result.olts).sort().map(([oltName, oltStats]) => {
+                const oltOnts = result.onts.filter(o => o._oltName === oltName);
+                const oltCritical = oltOnts.filter(o => o._analysis.status === 'critical').length;
+                const oltWarning = oltOnts.filter(o => o._analysis.status === 'warning').length;
+                const isOltExpanded = expandedOlts.includes(oltName);
 
                 return (
-                  <Collapsible key={segment} open={isExpanded} onOpenChange={() => toggleSegment(segment)}>
-                    <Card className={`border-0 shadow ${criticalCount > 0 ? 'ring-2 ring-red-200' : warningCount > 0 ? 'ring-2 ring-amber-200' : ''}`}>
+                  <Collapsible key={oltName} open={isOltExpanded} onOpenChange={() => toggleOlt(oltName)}>
+                    <Card className={`border-0 shadow-lg ${oltCritical > 0 ? 'ring-2 ring-red-300' : oltWarning > 0 ? 'ring-2 ring-amber-300' : ''}`}>
                       <CollapsibleTrigger className="w-full">
-                        <CardContent className="p-4">
+                        <CardContent className="p-4 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-gray-800 dark:to-gray-700">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                              {isOltExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                              <Router className="h-5 w-5 text-blue-600" />
                               <div className="text-left">
-                                <div className="font-semibold">{segment}</div>
-                                <div className="text-xs text-gray-500">{stats.count} ONTs</div>
+                                <div className="font-bold text-lg">{oltName}</div>
+                                <div className="text-xs text-gray-500">{oltStats.portCount} ports • {oltStats.totalOnts} ONTs</div>
                               </div>
                             </div>
                             
                             <div className="flex items-center gap-4">
-                              {/* Segment Stats */}
-                              <div className="hidden md:flex items-center gap-4 text-sm">
-                                <div className="text-center">
-                                  <div className="text-gray-500 text-xs">Avg ONT Rx</div>
-                                  <div className="font-mono font-medium">
-                                    {stats.avgOntRxOptPwr?.toFixed(1) || 'N/A'} dBm
-                                  </div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-gray-500 text-xs">Range</div>
-                                  <div className="font-mono font-medium text-xs">
-                                    {stats.minOntRxOptPwr?.toFixed(1) || 'N/A'} to {stats.maxOntRxOptPwr?.toFixed(1) || 'N/A'}
-                                  </div>
+                              <div className="hidden md:block text-center">
+                                <div className="text-gray-500 text-xs">Avg ONT Rx</div>
+                                <div className="font-mono font-medium">
+                                  {oltStats.avgOntRxOptPwr?.toFixed(1) || 'N/A'} dBm
                                 </div>
                               </div>
-
-                              {/* Status badges */}
                               <div className="flex items-center gap-2">
-                                {criticalCount > 0 && (
+                                {oltCritical > 0 && (
                                   <Badge className="bg-red-100 text-red-800 border-red-300">
                                     <AlertCircle className="h-3 w-3 mr-1" />
-                                    {criticalCount}
+                                    {oltCritical}
                                   </Badge>
                                 )}
-                                {warningCount > 0 && (
+                                {oltWarning > 0 && (
                                   <Badge className="bg-amber-100 text-amber-800 border-amber-300">
                                     <AlertTriangle className="h-3 w-3 mr-1" />
-                                    {warningCount}
+                                    {oltWarning}
                                   </Badge>
                                 )}
-                                {criticalCount === 0 && warningCount === 0 && (
+                                {oltCritical === 0 && oltWarning === 0 && (
                                   <Badge className="bg-green-100 text-green-800 border-green-300">
                                     <CheckCircle2 className="h-3 w-3 mr-1" />
                                     OK
@@ -472,93 +504,160 @@ export default function PONPMAnalysis() {
                       </CollapsibleTrigger>
                       
                       <CollapsibleContent>
-                        <div className="border-t">
-                          <div className="overflow-x-auto">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="w-12">Status</TableHead>
-                                  <TableHead>ONT ID</TableHead>
-                                  <TableHead>Serial</TableHead>
-                                  <TableHead>Model</TableHead>
-                                  <TableHead className="text-right">ONT Rx</TableHead>
-                                  <TableHead className="text-right">OLT Rx</TableHead>
-                                  <TableHead className="text-right">US BIP</TableHead>
-                                  <TableHead className="text-right">DS BIP</TableHead>
-                                  <TableHead>Issues</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {segmentOnts.map((ont, idx) => (
-                                  <TableRow key={idx} className={ont._analysis.status === 'critical' ? 'bg-red-50 dark:bg-red-900/10' : ont._analysis.status === 'warning' ? 'bg-amber-50 dark:bg-amber-900/10' : ''}>
-                                    <TableCell>
-                                      <div className={`w-3 h-3 rounded-full ${STATUS_COLORS[ont._analysis.status]}`} />
-                                    </TableCell>
-                                    <TableCell className="font-mono">{ont.OntID || '-'}</TableCell>
-                                    <TableCell className="font-mono text-xs">{ont.SerialNumber || '-'}</TableCell>
-                                    <TableCell className="text-xs">{ont.model || '-'}</TableCell>
-                                    <TableCell className="text-right font-mono">
-                                      <span className={
-                                        parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' :
-                                        parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : ''
-                                      }>
-                                        {ont.OntRxOptPwr || '-'}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono">
-                                      <span className={
-                                        parseFloat(ont.OLTRXOptPwr) < -30 ? 'text-red-600 font-bold' :
-                                        parseFloat(ont.OLTRXOptPwr) < -28 ? 'text-amber-600' : ''
-                                      }>
-                                        {ont.OLTRXOptPwr || '-'}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono text-xs">
-                                      <span className={parseInt(ont.UpstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
-                                        {ont.UpstreamBipErrors || '0'}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono text-xs">
-                                      <span className={parseInt(ont.DownstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
-                                        {ont.DownstreamBipErrors || '0'}
-                                      </span>
-                                    </TableCell>
-                                    <TableCell>
-                                      <TooltipProvider>
-                                        <div className="flex flex-wrap gap-1">
-                                          {ont._analysis.issues.slice(0, 2).map((issue, i) => (
-                                            <Tooltip key={i}>
-                                              <TooltipTrigger>
-                                                <Badge variant="outline" className="text-[10px] bg-red-50 border-red-300 text-red-700">
-                                                  {issue.field}
-                                                </Badge>
-                                              </TooltipTrigger>
-                                              <TooltipContent>{issue.message}</TooltipContent>
-                                            </Tooltip>
-                                          ))}
-                                          {ont._analysis.warnings.slice(0, 2).map((warn, i) => (
-                                            <Tooltip key={`w-${i}`}>
-                                              <TooltipTrigger>
-                                                <Badge variant="outline" className="text-[10px] bg-amber-50 border-amber-300 text-amber-700">
-                                                  {warn.field}
-                                                </Badge>
-                                              </TooltipTrigger>
-                                              <TooltipContent>{warn.message}</TooltipContent>
-                                            </Tooltip>
-                                          ))}
-                                          {(ont._analysis.issues.length + ont._analysis.warnings.length) > 4 && (
-                                            <Badge variant="outline" className="text-[10px]">
-                                              +{ont._analysis.issues.length + ont._analysis.warnings.length - 4}
-                                            </Badge>
-                                          )}
+                        <div className="p-3 space-y-2 bg-gray-50 dark:bg-gray-800/50">
+                          {Object.entries(oltStats.ports).sort().map(([portKey, portStats]) => {
+                            const portOnts = oltOnts.filter(o => o._port === portKey);
+                            const portCritical = portOnts.filter(o => o._analysis.status === 'critical').length;
+                            const portWarning = portOnts.filter(o => o._analysis.status === 'warning').length;
+                            const portId = `${oltName}|${portKey}`;
+                            const isPortExpanded = expandedPorts.includes(portId);
+
+                            return (
+                              <Collapsible key={portKey} open={isPortExpanded} onOpenChange={() => togglePort(portId)}>
+                                <Card className={`border shadow-sm ${portCritical > 0 ? 'border-red-300' : portWarning > 0 ? 'border-amber-300' : 'border-gray-200'}`}>
+                                  <CollapsibleTrigger className="w-full">
+                                    <CardContent className="p-3">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                          {isPortExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                          <div className="text-left">
+                                            <div className="font-semibold text-sm">{portKey}</div>
+                                            <div className="text-xs text-gray-500">{portStats.count} ONTs</div>
+                                          </div>
                                         </div>
-                                      </TooltipProvider>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
+                                        
+                                        <div className="flex items-center gap-4">
+                                          <div className="hidden md:flex items-center gap-4 text-sm">
+                                            <div className="text-center">
+                                              <div className="text-gray-500 text-[10px]">Avg ONT Rx</div>
+                                              <div className="font-mono text-xs font-medium">
+                                                {portStats.avgOntRxOptPwr?.toFixed(1) || 'N/A'} dBm
+                                              </div>
+                                            </div>
+                                            <div className="text-center">
+                                              <div className="text-gray-500 text-[10px]">Range</div>
+                                              <div className="font-mono text-[10px] font-medium">
+                                                {portStats.minOntRxOptPwr?.toFixed(1) || 'N/A'} to {portStats.maxOntRxOptPwr?.toFixed(1) || 'N/A'}
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="flex items-center gap-1">
+                                            {portCritical > 0 && (
+                                              <Badge className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5">
+                                                {portCritical}
+                                              </Badge>
+                                            )}
+                                            {portWarning > 0 && (
+                                              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5">
+                                                {portWarning}
+                                              </Badge>
+                                            )}
+                                            {portCritical === 0 && portWarning === 0 && (
+                                              <Badge className="bg-green-100 text-green-800 border-green-300 text-xs px-1.5">
+                                                OK
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </CardContent>
+                                  </CollapsibleTrigger>
+                                  
+                                  <CollapsibleContent>
+                                    <div className="border-t">
+                                      <div className="overflow-x-auto">
+                                        <Table>
+                                          <TableHeader>
+                                            <TableRow>
+                                              <TableHead className="w-12">Status</TableHead>
+                                              <TableHead>ONT ID</TableHead>
+                                              <TableHead>Serial</TableHead>
+                                              <TableHead>Model</TableHead>
+                                              <TableHead className="text-right">ONT Rx</TableHead>
+                                              <TableHead className="text-right">OLT Rx</TableHead>
+                                              <TableHead className="text-right">US BIP</TableHead>
+                                              <TableHead className="text-right">DS BIP</TableHead>
+                                              <TableHead>Issues</TableHead>
+                                            </TableRow>
+                                          </TableHeader>
+                                          <TableBody>
+                                            {portOnts.map((ont, idx) => (
+                                              <TableRow key={idx} className={ont._analysis.status === 'critical' ? 'bg-red-50 dark:bg-red-900/10' : ont._analysis.status === 'warning' ? 'bg-amber-50 dark:bg-amber-900/10' : ''}>
+                                                <TableCell>
+                                                  <div className={`w-3 h-3 rounded-full ${STATUS_COLORS[ont._analysis.status]}`} />
+                                                </TableCell>
+                                                <TableCell className="font-mono">{ont.OntID || '-'}</TableCell>
+                                                <TableCell className="font-mono text-xs">{ont.SerialNumber || '-'}</TableCell>
+                                                <TableCell className="text-xs">{ont.model || '-'}</TableCell>
+                                                <TableCell className="text-right font-mono">
+                                                  <span className={
+                                                    parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' :
+                                                    parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : ''
+                                                  }>
+                                                    {ont.OntRxOptPwr || '-'}
+                                                  </span>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono">
+                                                  <span className={
+                                                    parseFloat(ont.OLTRXOptPwr) < -30 ? 'text-red-600 font-bold' :
+                                                    parseFloat(ont.OLTRXOptPwr) < -28 ? 'text-amber-600' : ''
+                                                  }>
+                                                    {ont.OLTRXOptPwr || '-'}
+                                                  </span>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-xs">
+                                                  <span className={parseInt(ont.UpstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
+                                                    {ont.UpstreamBipErrors || '0'}
+                                                  </span>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-xs">
+                                                  <span className={parseInt(ont.DownstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
+                                                    {ont.DownstreamBipErrors || '0'}
+                                                  </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                  <TooltipProvider>
+                                                    <div className="flex flex-wrap gap-1">
+                                                      {ont._analysis.issues.slice(0, 2).map((issue, i) => (
+                                                        <Tooltip key={i}>
+                                                          <TooltipTrigger>
+                                                            <Badge variant="outline" className="text-[10px] bg-red-50 border-red-300 text-red-700">
+                                                              {issue.field}
+                                                            </Badge>
+                                                          </TooltipTrigger>
+                                                          <TooltipContent>{issue.message}</TooltipContent>
+                                                        </Tooltip>
+                                                      ))}
+                                                      {ont._analysis.warnings.slice(0, 2).map((warn, i) => (
+                                                        <Tooltip key={`w-${i}`}>
+                                                          <TooltipTrigger>
+                                                            <Badge variant="outline" className="text-[10px] bg-amber-50 border-amber-300 text-amber-700">
+                                                              {warn.field}
+                                                            </Badge>
+                                                          </TooltipTrigger>
+                                                          <TooltipContent>{warn.message}</TooltipContent>
+                                                        </Tooltip>
+                                                      ))}
+                                                      {(ont._analysis.issues.length + ont._analysis.warnings.length) > 4 && (
+                                                        <Badge variant="outline" className="text-[10px]">
+                                                          +{ont._analysis.issues.length + ont._analysis.warnings.length - 4}
+                                                        </Badge>
+                                                      )}
+                                                    </div>
+                                                  </TooltipProvider>
+                                                </TableCell>
+                                              </TableRow>
+                                            ))}
+                                          </TableBody>
+                                        </Table>
+                                      </div>
+                                    </div>
+                                  </CollapsibleContent>
+                                </Card>
+                              </Collapsible>
+                            );
+                          })}
                         </div>
                       </CollapsibleContent>
                     </Card>
