@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette, Plug, X, GraduationCap, ChevronDown, ChevronUp, Network, ArrowRightLeft, RotateCcw, Minus } from 'lucide-react';
+import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette, Plug, X, GraduationCap, ChevronDown, ChevronUp, Network, ArrowRightLeft, RotateCcw, Minus, Lightbulb, Layers } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import GlossaryDiagrams from '@/components/reference/GlossaryDiagrams';
 import { 
   FIBER_ATTENUATION, 
   CONNECTOR_LOSS, 
@@ -382,6 +383,10 @@ export default function ReferenceTables() {
           <TabsTrigger value="ethernet" className="rounded-lg data-[state=active]:bg-teal-100 data-[state=active]:text-teal-700">
             <Network className="h-4 w-4 mr-2" />
             Ethernet
+          </TabsTrigger>
+          <TabsTrigger value="diagrams" className="rounded-lg data-[state=active]:bg-rose-100 data-[state=active]:text-rose-700">
+            <Lightbulb className="h-4 w-4 mr-2" />
+            Diagrams
           </TabsTrigger>
           </TabsList>
 
@@ -1182,6 +1187,11 @@ export default function ReferenceTables() {
               )}
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        {/* Interactive Diagrams */}
+        <TabsContent value="diagrams">
+          <GlossaryDiagrams />
         </TabsContent>
 
         {/* Glossary */}
