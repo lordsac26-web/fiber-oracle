@@ -97,25 +97,9 @@ export default function PONPMAnalysis() {
 
       if (response.data?.success) {
         setResult(response.data);
-        // Auto-expand OLTs with issues
-        const oltsWithIssues = Object.keys(response.data.olts).filter(oltName => {
-          return response.data.onts.some(ont => 
-            ont._oltName === oltName && ont._analysis.status !== 'ok'
-          );
-        });
-        setExpandedOlts(oltsWithIssues);
-        // Auto-expand ports with issues
-        const portsWithIssues = [];
-        for (const oltName of oltsWithIssues) {
-          for (const portKey of Object.keys(response.data.olts[oltName].ports)) {
-            if (response.data.onts.some(ont => 
-              ont._oltName === oltName && ont._port === portKey && ont._analysis.status !== 'ok'
-            )) {
-              portsWithIssues.push(`${oltName}|${portKey}`);
-            }
-          }
-        }
-        setExpandedPorts(portsWithIssues);
+        // Start collapsed
+        setExpandedOlts([]);
+        setExpandedPorts([]);
         toast.success(`Parsed ${response.data.summary.totalOnts} ONTs successfully`, { id: 'pon-parse' });
       } else {
         toast.error(response.data?.error || 'Failed to parse file', { id: 'pon-parse' });
@@ -445,10 +429,40 @@ export default function PONPMAnalysis() {
 
             {/* OLT / Port Hierarchy */}
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Router className="h-5 w-5 text-blue-500" />
-                OLT &amp; PON Port Overview
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Router className="h-5 w-5 text-blue-500" />
+                  OLT &amp; PON Port Overview
+                </h2>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setExpandedOlts(Object.keys(result.olts));
+                      const allPorts = [];
+                      Object.entries(result.olts).forEach(([oltName, olt]) => {
+                        Object.keys(olt.ports).forEach(port => allPorts.push(`${oltName}|${port}`));
+                      });
+                      setExpandedPorts(allPorts);
+                    }}
+                  >
+                    <ChevronDown className="h-4 w-4 mr-1" />
+                    Expand All
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setExpandedOlts([]);
+                      setExpandedPorts([]);
+                    }}
+                  >
+                    <ChevronRight className="h-4 w-4 mr-1" />
+                    Collapse All
+                  </Button>
+                </div>
+              </div>
               
               {Object.entries(result.olts).sort().map(([oltName, oltStats]) => {
                 const oltOnts = result.onts.filter(o => o._oltName === oltName);
