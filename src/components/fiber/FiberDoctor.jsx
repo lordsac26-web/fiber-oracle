@@ -701,25 +701,25 @@ export default function FiberDoctor() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 text-white">
-            <Stethoscope className="h-6 w-6" />
+          <div className="p-2 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex-shrink-0">
+            <Stethoscope className="h-5 w-5 md:h-6 md:w-6" />
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Fiber Doctor</h2>
-            <p className="text-sm text-gray-500">Interactive troubleshooting guide</p>
+            <h2 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white">Fiber Doctor</h2>
+            <p className="text-xs md:text-sm text-gray-500">Interactive troubleshooting guide</p>
           </div>
         </div>
         {history.length > 0 && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={goBack}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
+          <div className="flex gap-2 self-end sm:self-auto">
+            <Button variant="outline" size="sm" onClick={goBack} className="h-8 text-xs md:text-sm">
+              <ArrowLeft className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
               Back
             </Button>
-            <Button variant="outline" size="sm" onClick={restart}>
+            <Button variant="outline" size="sm" onClick={restart} className="h-8 text-xs md:text-sm">
               Restart
             </Button>
           </div>
@@ -750,18 +750,18 @@ export default function FiberDoctor() {
           {node.diagnosis ? (
             // Diagnosis result
             <Card className="border-0 shadow-xl">
-              <CardHeader className={`${getSeverityColor(node.severity)} rounded-t-lg`}>
-                <div className="flex items-center gap-3">
-                  {node.icon && <node.icon className="h-6 w-6" />}
+              <CardHeader className={`${getSeverityColor(node.severity)} rounded-t-lg p-4 md:p-6`}>
+                <div className="flex items-center gap-2 md:gap-3">
+                  {node.icon && <node.icon className="h-5 w-5 md:h-6 md:w-6 flex-shrink-0" />}
                   <div>
-                    <Badge variant="secondary" className="mb-2 bg-white/20 text-white">
+                    <Badge variant="secondary" className="mb-1 md:mb-2 bg-white/20 text-white text-xs">
                       Diagnosis
                     </Badge>
-                    <CardTitle className="text-white text-xl">{node.title}</CardTitle>
+                    <CardTitle className="text-white text-base md:text-xl">{node.title}</CardTitle>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-6 space-y-6">
+              <CardContent className="p-4 md:p-6 space-y-4 md:space-y-6">
                 {/* Probable Causes */}
                 <div>
                   <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -813,34 +813,34 @@ export default function FiberDoctor() {
 
                 {/* PON Specifications */}
                 {node.ponSpecs && (
-                  <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
-                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <div className="p-3 md:p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                    <h4 className="font-semibold mb-2 md:mb-3 flex items-center gap-2 text-sm md:text-base">
                       <Info className="h-4 w-4 text-indigo-500" />
                       PON Reference Values
                     </h4>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="grid grid-cols-2 gap-2 md:gap-3 text-xs md:text-sm">
                       {node.ponSpecs.acceptable && (
                         <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded">
-                          <div className="font-medium text-emerald-700 dark:text-emerald-300">Acceptable</div>
-                          <div className="font-mono">{node.ponSpecs.acceptable.min} to {node.ponSpecs.acceptable.max} {node.ponSpecs.acceptable.unit}</div>
+                          <div className="font-medium text-emerald-700 dark:text-emerald-300 text-xs md:text-sm">Acceptable</div>
+                          <div className="font-mono text-xs md:text-sm">{node.ponSpecs.acceptable.min} to {node.ponSpecs.acceptable.max} {node.ponSpecs.acceptable.unit}</div>
                         </div>
                       )}
                       {node.ponSpecs.marginal && (
                         <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded">
-                          <div className="font-medium text-amber-700 dark:text-amber-300">Marginal</div>
-                          <div className="font-mono">{node.ponSpecs.marginal.min} to {node.ponSpecs.marginal.max} {node.ponSpecs.marginal.unit}</div>
+                          <div className="font-medium text-amber-700 dark:text-amber-300 text-xs md:text-sm">Marginal</div>
+                          <div className="font-mono text-xs md:text-sm">{node.ponSpecs.marginal.min} to {node.ponSpecs.marginal.max} {node.ponSpecs.marginal.unit}</div>
                         </div>
                       )}
                       {node.ponSpecs.ontTx && (
                         <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
-                          <div className="font-medium text-blue-700 dark:text-blue-300">ONT Tx Power</div>
-                          <div className="font-mono">+{node.ponSpecs.ontTx.min} to +{node.ponSpecs.ontTx.max} {node.ponSpecs.ontTx.unit}</div>
+                          <div className="font-medium text-blue-700 dark:text-blue-300 text-xs md:text-sm">ONT Tx Power</div>
+                          <div className="font-mono text-xs md:text-sm">+{node.ponSpecs.ontTx.min} to +{node.ponSpecs.ontTx.max} {node.ponSpecs.ontTx.unit}</div>
                         </div>
                       )}
                       {node.ponSpecs.oltRx && (
                         <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded">
-                          <div className="font-medium text-purple-700 dark:text-purple-300">OLT Rx Range</div>
-                          <div className="font-mono">{node.ponSpecs.oltRx.min} to {node.ponSpecs.oltRx.max} {node.ponSpecs.oltRx.unit}</div>
+                          <div className="font-medium text-purple-700 dark:text-purple-300 text-xs md:text-sm">OLT Rx Range</div>
+                          <div className="font-mono text-xs md:text-sm">{node.ponSpecs.oltRx.min} to {node.ponSpecs.oltRx.max} {node.ponSpecs.oltRx.unit}</div>
                         </div>
                       )}
                     </div>
@@ -863,11 +863,11 @@ export default function FiberDoctor() {
                 {/* Reference Images */}
                 {node.images && node.images.length > 0 && (
                   <div>
-                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <h4 className="font-semibold mb-2 md:mb-3 flex items-center gap-2 text-sm md:text-base">
                       <Image className="h-4 w-4 text-purple-500" />
                       Reference Images
                     </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 gap-3">
                       {node.images.map((img, i) => (
                         <Dialog key={i}>
                           <DialogTrigger asChild>
@@ -923,12 +923,12 @@ export default function FiberDoctor() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3 mt-4">
-                  <Button variant="outline" onClick={restart}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3 mt-4">
+                  <Button variant="outline" onClick={restart} className="text-sm">
                     Start New Diagnosis
                   </Button>
                   <Link to={createPageUrl('Fiber103')}>
-                    <Button variant="outline" className="w-full">
+                    <Button variant="outline" className="w-full text-sm">
                       <BookOpen className="h-4 w-4 mr-2" />
                       Learn More (103)
                     </Button>
@@ -939,28 +939,28 @@ export default function FiberDoctor() {
           ) : (
             // Question node
             <Card className="border-0 shadow-xl">
-              <CardHeader>
-                <div className="flex items-center gap-3 mb-2">
+              <CardHeader className="p-4 md:p-6">
+                <div className="flex items-start gap-2 md:gap-3 mb-2">
                   {node.icon && (
-                    <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800">
-                      <node.icon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                    <div className="p-1.5 md:p-2 rounded-lg bg-gray-100 dark:bg-gray-800 flex-shrink-0">
+                      <node.icon className="h-4 w-4 md:h-5 md:w-5 text-gray-600 dark:text-gray-400" />
                     </div>
                   )}
-                  <CardTitle className="text-lg">{node.question}</CardTitle>
+                  <CardTitle className="text-base md:text-lg">{node.question}</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2 md:space-y-3 p-4 md:p-6 pt-0 md:pt-0">
                 {node.options.map((option, index) => (
                   <button
                     key={index}
                     onClick={() => goTo(option.next)}
-                    className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between group ${getSeverityBg(option.severity)}`}
+                    className={`w-full p-3 md:p-4 rounded-xl border-2 transition-all flex items-center justify-between group ${getSeverityBg(option.severity)} active:scale-[0.98]`}
                   >
-                    <div className="flex items-center gap-3">
-                      {option.icon && <option.icon className="h-5 w-5 text-gray-500" />}
-                      <span className="font-medium text-left">{option.label}</span>
+                    <div className="flex items-center gap-2 md:gap-3">
+                      {option.icon && <option.icon className="h-4 w-4 md:h-5 md:w-5 text-gray-500 flex-shrink-0" />}
+                      <span className="font-medium text-left text-sm md:text-base">{option.label}</span>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400 group-hover:translate-x-1 transition-transform" />
+                    <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-gray-400 group-hover:translate-x-1 transition-transform flex-shrink-0" />
                   </button>
                 ))}
               </CardContent>

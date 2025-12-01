@@ -397,10 +397,10 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
 
       case 1: // Input Data
         return (
-          <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h3 className="font-semibold">Test Setup</h3>
+          <div className="space-y-4 md:space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              <div className="space-y-3 md:space-y-4">
+                <h3 className="font-semibold text-sm md:text-base">Test Setup</h3>
                 
                 <div className="space-y-2">
                   <Label>OTDR Brand/Model</Label>
@@ -455,8 +455,8 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h3 className="font-semibold">Link Summary</h3>
+              <div className="space-y-3 md:space-y-4">
+                <h3 className="font-semibold text-sm md:text-base">Link Summary</h3>
                 
                 <div className="space-y-2">
                   <Label>Total Fiber Length (km)</Label>
@@ -536,63 +536,66 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
 
       case 2: // Event Details
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">OTDR Events</h3>
-                <p className="text-sm text-gray-500">Enter events from your OTDR trace</p>
+                <h3 className="font-semibold text-sm md:text-base">OTDR Events</h3>
+                <p className="text-xs md:text-sm text-gray-500">Enter events from your OTDR trace</p>
               </div>
-              <Button variant="outline" size="sm" onClick={addEvent}>
+              <Button variant="outline" size="sm" onClick={addEvent} className="text-xs md:text-sm h-8">
                 Add Event
               </Button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {traceData.events.map((event, index) => (
                 <Card key={index} className="border shadow-sm">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <Badge variant="outline">Event {index + 1}</Badge>
+                  <CardContent className="p-3 md:p-4">
+                    <div className="flex items-center justify-between mb-2 md:mb-3">
+                      <Badge variant="outline" className="text-xs">Event {index + 1}</Badge>
                       {traceData.events.length > 1 && (
-                        <Button variant="ghost" size="sm" onClick={() => removeEvent(index)} className="text-red-500">
+                        <Button variant="ghost" size="sm" onClick={() => removeEvent(index)} className="text-red-500 h-7 text-xs">
                           Remove
                         </Button>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
                       <div className="space-y-1">
-                        <Label className="text-xs">Distance (m)</Label>
+                        <Label className="text-[10px] md:text-xs">Distance (m)</Label>
                         <Input
                           type="number"
-                          placeholder="e.g., 150"
+                          placeholder="150"
                           value={event.distance}
                           onChange={(e) => updateEvent(index, 'distance', e.target.value)}
+                          className="h-8 md:h-9 text-sm"
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Loss (dB)</Label>
+                        <Label className="text-[10px] md:text-xs">Loss (dB)</Label>
                         <Input
                           type="number"
                           step="0.01"
-                          placeholder="e.g., 0.35"
+                          placeholder="0.35"
                           value={event.loss}
                           onChange={(e) => updateEvent(index, 'loss', e.target.value)}
+                          className="h-8 md:h-9 text-sm"
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Reflectance (dB)</Label>
+                        <Label className="text-[10px] md:text-xs">Reflectance (dB)</Label>
                         <Input
                           type="number"
                           step="0.1"
-                          placeholder="e.g., -45"
+                          placeholder="-45"
                           value={event.reflectance}
                           onChange={(e) => updateEvent(index, 'reflectance', e.target.value)}
+                          className="h-8 md:h-9 text-sm"
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Event Type</Label>
+                        <Label className="text-[10px] md:text-xs">Event Type</Label>
                         <Select value={event.type} onValueChange={(v) => updateEvent(index, 'type', v)}>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-8 md:h-9 text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -606,12 +609,13 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
                         </Select>
                       </div>
                     </div>
-                    <div className="mt-3">
-                      <Label className="text-xs">Notes (optional)</Label>
+                    <div className="mt-2 md:mt-3">
+                      <Label className="text-[10px] md:text-xs">Notes (optional)</Label>
                       <Input
-                        placeholder="Any observations about this event"
+                        placeholder="Any observations"
                         value={event.notes}
                         onChange={(e) => updateEvent(index, 'notes', e.target.value)}
+                        className="h-8 md:h-9 text-sm"
                       />
                     </div>
                   </CardContent>
@@ -814,8 +818,8 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
 
             {/* Event Analysis with Tabs */}
             {analysisResult.events_analysis?.length > 0 && (
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2">
                   <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
@@ -1002,13 +1006,13 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
             )}
 
             {/* Actions */}
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setCurrentStep(0)} className="flex-1">
-                Start New Analysis
+            <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
+              <Button variant="outline" onClick={() => setCurrentStep(0)} className="flex-1 text-sm h-9 md:h-10">
+                New Analysis
               </Button>
               <Link to={createPageUrl('FiberDoctor')} className="flex-1">
-                <Button variant="outline" className="w-full">
-                  Open Fiber Doctor
+                <Button variant="outline" className="w-full text-sm h-9 md:h-10">
+                  Fiber Doctor
                 </Button>
               </Link>
             </div>
@@ -1051,61 +1055,63 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
       </header>
 
       {/* Step Indicators */}
-      <div className="max-w-4xl mx-auto px-4 py-4">
+      <div className="max-w-4xl mx-auto px-3 md:px-4 py-3 md:py-4">
         <div className="flex justify-between">
           {WIZARD_STEPS.map((step, i) => (
             <button
               key={step.id}
               onClick={() => i < currentStep && setCurrentStep(i)}
               disabled={i > currentStep}
-              className={`flex flex-col items-center gap-1 ${
+              className={`flex flex-col items-center gap-0.5 md:gap-1 ${
                 i <= currentStep ? 'text-purple-600' : 'text-gray-400'
               } ${i < currentStep ? 'cursor-pointer' : 'cursor-default'}`}
             >
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+              <div className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center ${
                 i < currentStep ? 'bg-purple-600 text-white' :
                 i === currentStep ? 'bg-purple-100 text-purple-600 ring-2 ring-purple-600' :
                 'bg-gray-200 text-gray-400'
               }`}>
                 {i < currentStep ? (
-                  <CheckCircle2 className="h-5 w-5" />
+                  <CheckCircle2 className="h-3 w-3 md:h-5 md:w-5" />
                 ) : (
-                  <step.icon className="h-4 w-4" />
+                  <step.icon className="h-3 w-3 md:h-4 md:w-4" />
                 )}
               </div>
-              <span className="text-xs hidden md:block">{step.title}</span>
+              <span className="text-[9px] md:text-xs hidden sm:block">{step.title}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-4 pb-8">
+      <main className="max-w-4xl mx-auto px-3 md:px-4 pb-8">
         <Card className="border-0 shadow-xl">
-          <CardContent className="p-6 md:p-8">
+          <CardContent className="p-4 md:p-6 lg:p-8">
             {renderStepContent()}
           </CardContent>
           
           {currentStep !== 4 && !isAnalyzing && (
-            <div className="border-t p-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
+            <div className="border-t p-3 md:p-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50">
               <Button 
                 variant="outline" 
                 onClick={goPrev}
                 disabled={currentStep === 0}
+                className="h-9 text-sm"
               >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
+                <ChevronLeft className="h-4 w-4 mr-0.5 md:mr-1" />
+                <span className="hidden sm:inline">Previous</span>
+                <span className="sm:hidden">Back</span>
               </Button>
               
-              <Button onClick={goNext}>
+              <Button onClick={goNext} className="h-9 text-sm">
                 {currentStep === 3 ? (
                   <>
                     <Zap className="h-4 w-4 mr-1" />
-                    Run Analysis
+                    Analyze
                   </>
                 ) : (
                   <>
                     Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
+                    <ChevronRight className="h-4 w-4 ml-0.5 md:ml-1" />
                   </>
                 )}
               </Button>

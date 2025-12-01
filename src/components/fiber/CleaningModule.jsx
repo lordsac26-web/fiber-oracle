@@ -108,62 +108,62 @@ export default function CleaningModule() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="p-2 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white">
-          <Sparkles className="h-6 w-6" />
+        <div className="p-2 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white flex-shrink-0">
+          <Sparkles className="h-5 w-5 md:h-6 md:w-6" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Cleaning & Inspection</h2>
-          <p className="text-sm text-gray-500">IEC 61300-3-35 compliant procedures</p>
+          <h2 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white">Cleaning & Inspection</h2>
+          <p className="text-xs md:text-sm text-gray-500">IEC 61300-3-35 compliant procedures</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Main Cleaning Procedures */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 md:space-y-6">
           <Card className="border-0 shadow-lg">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 px-3 md:px-6">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-2 lg:grid-cols-4 h-auto gap-1 bg-gray-100 dark:bg-gray-800 p-1">
-                  <TabsTrigger value="dry_clean" className="text-xs py-2">
-                    <Wind className="h-3 w-3 mr-1" />
+                <TabsList className="grid grid-cols-4 h-auto gap-0.5 md:gap-1 bg-gray-100 dark:bg-gray-800 p-0.5 md:p-1">
+                  <TabsTrigger value="dry_clean" className="text-[10px] md:text-xs py-1.5 md:py-2 px-1 md:px-2">
+                    <Wind className="h-3 w-3 mr-0.5 md:mr-1 hidden sm:block" />
                     Dry
                   </TabsTrigger>
-                  <TabsTrigger value="wet_dry_clean" className="text-xs py-2">
-                    <Droplets className="h-3 w-3 mr-1" />
+                  <TabsTrigger value="wet_dry_clean" className="text-[10px] md:text-xs py-1.5 md:py-2 px-1 md:px-2">
+                    <Droplets className="h-3 w-3 mr-0.5 md:mr-1 hidden sm:block" />
                     Wet/Dry
                   </TabsTrigger>
-                  <TabsTrigger value="adapter_clean" className="text-xs py-2">
-                    <CircleDot className="h-3 w-3 mr-1" />
+                  <TabsTrigger value="adapter_clean" className="text-[10px] md:text-xs py-1.5 md:py-2 px-1 md:px-2">
+                    <CircleDot className="h-3 w-3 mr-0.5 md:mr-1 hidden sm:block" />
                     Adapter
                   </TabsTrigger>
-                  <TabsTrigger value="mpo_mtp_clean" className="text-xs py-2">
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    MPO/MTP
+                  <TabsTrigger value="mpo_mtp_clean" className="text-[10px] md:text-xs py-1.5 md:py-2 px-1 md:px-2">
+                    <Sparkles className="h-3 w-3 mr-0.5 md:mr-1 hidden sm:block" />
+                    MPO
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardHeader>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between mb-4">
+            <CardContent className="pt-3 md:pt-4 px-3 md:px-6">
+              <div className="flex items-center justify-between mb-3 md:mb-4">
                 <div className="flex items-center gap-2">
-                  <procedure.icon className={`h-5 w-5 text-${procedure.color}-600`} />
-                  <h3 className="font-semibold">{procedure.title}</h3>
+                  <procedure.icon className={`h-4 w-4 md:h-5 md:w-5 text-${procedure.color}-600`} />
+                  <h3 className="font-semibold text-sm md:text-base">{procedure.title}</h3>
                 </div>
-                <Badge variant="outline">
-                  {completedCount}/{procedure.steps.length} steps
+                <Badge variant="outline" className="text-xs">
+                  {completedCount}/{procedure.steps.length}
                 </Badge>
               </div>
 
-              <Progress value={progress} className="mb-6" />
+              <Progress value={progress} className="mb-4 md:mb-6" />
 
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3">
                 {procedure.steps.map((step, index) => (
                   <div
                     key={step.id}
-                    className={`flex items-start gap-3 p-3 rounded-lg transition-all ${
+                    className={`flex items-start gap-2 md:gap-3 p-2 md:p-3 rounded-lg transition-all ${
                       completedSteps[step.id] 
                         ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800' 
                         : 'bg-gray-50 dark:bg-gray-800 border border-transparent'
@@ -173,34 +173,34 @@ export default function CleaningModule() {
                       id={step.id}
                       checked={completedSteps[step.id] || false}
                       onCheckedChange={() => toggleStep(step.id)}
-                      className="mt-0.5"
+                      className="mt-0.5 h-4 w-4 md:h-5 md:w-5"
                     />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <Label 
                         htmlFor={step.id} 
-                        className={`cursor-pointer ${completedSteps[step.id] ? 'line-through text-gray-400' : ''}`}
+                        className={`cursor-pointer text-xs md:text-sm leading-relaxed ${completedSteps[step.id] ? 'line-through text-gray-400' : ''}`}
                       >
-                        <span className="text-sm font-medium text-gray-500 mr-2">{index + 1}.</span>
+                        <span className="font-medium text-gray-500 mr-1 md:mr-2">{index + 1}.</span>
                         {step.text}
                       </Label>
                     </div>
                     {completedSteps[step.id] && (
-                      <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                      <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-emerald-500 flex-shrink-0" />
                     )}
                   </div>
                 ))}
               </div>
 
-              <div className="flex gap-2 mt-6">
-                <Button variant="outline" onClick={resetChecklist} className="flex-1">
-                  Reset Checklist
+              <div className="flex flex-col sm:flex-row gap-2 mt-4 md:mt-6">
+                <Button variant="outline" onClick={resetChecklist} className="flex-1 text-sm h-9 md:h-10">
+                  Reset
                 </Button>
                 <Button 
-                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600"
+                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-sm h-9 md:h-10"
                   disabled={completedCount < procedure.steps.length}
                 >
                   <ClipboardCheck className="h-4 w-4 mr-2" />
-                  Mark Complete
+                  Complete
                 </Button>
               </div>
             </CardContent>
@@ -208,33 +208,33 @@ export default function CleaningModule() {
 
           {/* Impairment Quick Reference */}
           <Card className="border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-base">Impairment → Cleaning Method</CardTitle>
+            <CardHeader className="px-3 md:px-6">
+              <CardTitle className="text-sm md:text-base">Impairment → Cleaning Method</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="px-3 md:px-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-4">
                 {Object.entries(CLEANING_PROCEDURES).map(([key, proc]) => (
                   <div 
                     key={key}
-                    className={`p-4 rounded-xl border-2 ${
+                    className={`p-2 md:p-4 rounded-xl border-2 ${
                       proc.severity === 'Low' ? 'border-blue-200 bg-blue-50 dark:bg-blue-900/20' :
                       proc.severity === 'Medium' ? 'border-amber-200 bg-amber-50 dark:bg-amber-900/20' :
                       proc.severity === 'High' ? 'border-orange-200 bg-orange-50 dark:bg-orange-900/20' :
                       'border-red-200 bg-red-50 dark:bg-red-900/20'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium capitalize">{key.replace(/_/g, ' ')}</span>
-                      <Badge className={
+                    <div className="flex items-center justify-between mb-1 md:mb-2">
+                      <span className="font-medium capitalize text-xs md:text-sm">{key.replace(/_/g, ' ')}</span>
+                      <Badge className={`text-[10px] md:text-xs ${
                         proc.severity === 'Low' ? 'bg-blue-500' :
                         proc.severity === 'Medium' ? 'bg-amber-500' :
                         proc.severity === 'High' ? 'bg-orange-500' :
                         'bg-red-500'
-                      }>
+                      }`}>
                         {proc.severity}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
                       <strong>Method:</strong> {proc.method}
                     </p>
                   </div>
@@ -245,22 +245,22 @@ export default function CleaningModule() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Inspection Zones */}
           <Card className="border-0 shadow-lg">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
+            <CardHeader className="pb-2 px-3 md:px-6">
+              <CardTitle className="text-sm md:text-base flex items-center gap-2">
                 <Eye className="h-4 w-4" />
-                Inspection Zones (IEC 61300-3-35)
+                Inspection Zones (IEC)
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="px-3 md:px-6">
+              <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 md:gap-4">
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Single-Mode (SMF)</h4>
-                  <div className="space-y-2">
+                  <h4 className="text-xs md:text-sm font-medium mb-1 md:mb-2">Single-Mode (SMF)</h4>
+                  <div className="space-y-1 md:space-y-2">
                     {Object.entries(INSPECTION_ZONES.smf).map(([zone, info]) => (
-                      <div key={zone} className="flex justify-between text-sm">
+                      <div key={zone} className="flex justify-between text-xs md:text-sm">
                         <span className="capitalize text-gray-600 dark:text-gray-400">{zone}:</span>
                         <span className="font-mono">{info.diameter}μm</span>
                       </div>
@@ -268,10 +268,10 @@ export default function CleaningModule() {
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Multi-Mode (MMF)</h4>
-                  <div className="space-y-2">
+                  <h4 className="text-xs md:text-sm font-medium mb-1 md:mb-2">Multi-Mode (MMF)</h4>
+                  <div className="space-y-1 md:space-y-2">
                     {Object.entries(INSPECTION_ZONES.mmf).map(([zone, info]) => (
-                      <div key={zone} className="flex justify-between text-sm">
+                      <div key={zone} className="flex justify-between text-xs md:text-sm">
                         <span className="capitalize text-gray-600 dark:text-gray-400">{zone}:</span>
                         <span className="font-mono">{info.diameter}μm</span>
                       </div>
@@ -279,11 +279,11 @@ export default function CleaningModule() {
                   </div>
                 </div>
               </div>
-              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <div className="flex items-start gap-2 text-sm">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="mt-3 md:mt-4 p-2 md:p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <div className="flex items-start gap-2 text-xs md:text-sm">
+                  <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 text-amber-600 mt-0.5 flex-shrink-0" />
                   <span className="text-amber-800 dark:text-amber-200">
-                    Core zone must be completely free of defects. Any scratches or contamination in core = FAIL
+                    Core zone must be free of defects. Any scratches in core = FAIL
                   </span>
                 </div>
               </div>
@@ -292,22 +292,22 @@ export default function CleaningModule() {
 
           {/* Timer */}
           <Card className="border-0 shadow-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <Timer className="h-5 w-5 text-gray-500" />
-                <span className="font-medium">Quick Reference</span>
+            <CardContent className="p-3 md:p-4">
+              <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
+                <Timer className="h-4 w-4 md:h-5 md:w-5 text-gray-500" />
+                <span className="font-medium text-sm md:text-base">Quick Reference</span>
               </div>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-1 md:space-y-2 text-xs md:text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">IPA evaporation:</span>
-                  <span>2-3 seconds</span>
+                  <span>2-3 sec</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Wait after wet clean:</span>
-                  <span>5 seconds</span>
+                  <span className="text-gray-500">Wait after wet:</span>
+                  <span>5 sec</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Max cleaning attempts:</span>
+                  <span className="text-gray-500">Max attempts:</span>
                   <span>3 times</span>
                 </div>
               </div>

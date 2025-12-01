@@ -305,32 +305,32 @@ export default function TraceVisualization({
 
   return (
     <Card className="border-0 shadow-lg overflow-hidden">
-      <CardContent className="p-4">
+      <CardContent className="p-2 md:p-4">
         {/* Toolbar */}
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <h3 className="font-semibold">Interactive Trace View</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 md:mb-4 gap-2">
+          <h3 className="font-semibold text-sm md:text-base">Interactive Trace View</h3>
           
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 md:gap-2 flex-wrap">
             {/* Zoom controls */}
-            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}>
-                <ZoomOut className="h-4 w-4" />
+            <div className="flex items-center gap-0.5 md:gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 md:p-1">
+              <Button variant="ghost" size="sm" className="h-6 w-6 md:h-7 md:w-7 p-0" onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}>
+                <ZoomOut className="h-3 w-3 md:h-4 md:w-4" />
               </Button>
-              <span className="text-xs w-12 text-center">{Math.round(zoom * 100)}%</span>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setZoom(Math.min(4, zoom + 0.25))}>
-                <ZoomIn className="h-4 w-4" />
+              <span className="text-[10px] md:text-xs w-8 md:w-12 text-center">{Math.round(zoom * 100)}%</span>
+              <Button variant="ghost" size="sm" className="h-6 w-6 md:h-7 md:w-7 p-0" onClick={() => setZoom(Math.min(4, zoom + 0.25))}>
+                <ZoomIn className="h-3 w-3 md:h-4 md:w-4" />
               </Button>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={resetView}>
-                <Maximize2 className="h-4 w-4" />
+              <Button variant="ghost" size="sm" className="h-6 w-6 md:h-7 md:w-7 p-0" onClick={resetView}>
+                <Maximize2 className="h-3 w-3 md:h-4 md:w-4" />
               </Button>
             </div>
 
             {/* Settings popover */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Settings className="h-4 w-4 mr-1" />
-                  Options
+                <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs md:text-sm px-2 md:px-3">
+                  <Settings className="h-3 w-3 md:h-4 md:w-4 mr-0.5 md:mr-1" />
+                  <span className="hidden sm:inline">Options</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-72">
@@ -383,9 +383,9 @@ export default function TraceVisualization({
             {/* Reference trace */}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Layers className="h-4 w-4 mr-1" />
-                  Reference
+                <Button variant="outline" size="sm" className="h-7 md:h-8 text-xs md:text-sm px-2 md:px-3">
+                  <Layers className="h-3 w-3 md:h-4 md:w-4 mr-0.5 md:mr-1" />
+                  <span className="hidden sm:inline">Ref</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-64">
@@ -426,12 +426,12 @@ export default function TraceVisualization({
             </Popover>
 
             {/* Export options */}
-            <Button variant="outline" size="sm" onClick={exportAsPNG}>
-              <Download className="h-4 w-4 mr-1" />
-              Export
+            <Button variant="outline" size="sm" onClick={exportAsPNG} className="h-7 md:h-8 text-xs md:text-sm px-2 md:px-3">
+              <Download className="h-3 w-3 md:h-4 md:w-4 mr-0.5 md:mr-1" />
+              <span className="hidden sm:inline">Export</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={handlePrint}>
-              <Printer className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={handlePrint} className="h-7 md:h-8 px-2 md:px-3">
+              <Printer className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </div>
         </div>
@@ -712,30 +712,30 @@ export default function TraceVisualization({
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap items-center gap-4 mt-4 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500" />
+        <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-3 md:mt-4 text-xs md:text-sm">
+          <div className="flex items-center gap-1 md:gap-2">
+            <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-red-500" />
             <span>Critical</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-amber-500" />
+          <div className="flex items-center gap-1 md:gap-2">
+            <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-amber-500" />
             <span>Warning</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-blue-500" />
+          <div className="flex items-center gap-1 md:gap-2">
+            <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-blue-500" />
             <span>Info</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500" />
+          <div className="flex items-center gap-1 md:gap-2">
+            <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-green-500" />
             <span>OK</span>
           </div>
           {showReference && referenceTrace && (
-            <div className="flex items-center gap-2 ml-4 pl-4 border-l">
-              <div className="w-6 h-0.5 bg-blue-400" style={{ borderTop: '2px dashed #60a5fa' }} />
-              <span>Reference</span>
+            <div className="flex items-center gap-1 md:gap-2 ml-2 md:ml-4 pl-2 md:pl-4 border-l">
+              <div className="w-4 md:w-6 h-0.5 bg-blue-400" style={{ borderTop: '2px dashed #60a5fa' }} />
+              <span>Ref</span>
             </div>
           )}
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="hidden sm:flex items-center gap-2 ml-auto">
             <Info className="h-4 w-4 text-gray-500" />
             <span className="text-gray-500">Click events for details</span>
           </div>
