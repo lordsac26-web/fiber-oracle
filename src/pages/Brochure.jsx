@@ -310,15 +310,15 @@ const FEATURES = [
   },
   {
     icon: Sparkles,
-    title: 'Cleaning Procedures',
-    description: 'IEC 61300-3-35 compliant cleaning and inspection procedures with visual pass/fail criteria.',
-    color: 'from-cyan-500 to-blue-600'
+    title: 'AI OTDR Analysis',
+    description: 'Upload OTDR traces for AI-powered diagnostics, event identification, and troubleshooting recommendations.',
+    color: 'from-violet-500 to-purple-600'
   },
   {
     icon: BookOpen,
-    title: 'Complete Reference Library',
-    description: 'All the specs you need: attenuation, connectors, splices, standards, color codes, and glossary.',
-    color: 'from-amber-500 to-orange-600'
+    title: 'Education Center',
+    description: 'Fiber 101, 102, 103 courses with certifications. Master FTTH and PON technologies at your own pace.',
+    color: 'from-green-500 to-emerald-600'
   }
 ];
 
@@ -379,11 +379,11 @@ export default function Brochure() {
             </Badge>
             
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
-              FiberTech Pro
+              Fiber Oracle
             </h1>
             
             <p className="text-xl md:text-2xl text-white/90 mb-4 max-w-2xl mx-auto">
-              The Complete Field Reference Tool for Fiber Optic Professionals
+              When You Need to Know, Ask the Oracle
             </p>
             
             <p className="text-lg text-white/70 mb-10 max-w-xl mx-auto">
@@ -443,7 +443,7 @@ export default function Brochure() {
               Everything You Need in the Field
             </h2>
             <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              From quick power calculations to comprehensive testing wizards, FiberTech Pro has you covered.
+              From quick power calculations to comprehensive testing wizards, Fiber Oracle has you covered.
             </p>
           </div>
 
@@ -580,13 +580,13 @@ export default function Brochure() {
             Ready to Streamline Your Fiber Work?
           </h2>
           <p className="text-xl text-white/80 mb-10">
-            Start using FiberTech Pro today — it's free and works on any device.
+            Start using Fiber Oracle today — it's free and works on any device.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to={createPageUrl('Home')}>
               <Button size="lg" className="bg-white text-indigo-600 hover:bg-gray-100 shadow-xl">
                 <Zap className="h-5 w-5 mr-2" />
-                Launch FiberTech Pro
+                Launch Fiber Oracle
                 <ChevronRight className="h-5 w-5 ml-1" />
               </Button>
             </Link>
@@ -605,11 +605,13 @@ export default function Brochure() {
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center">
-                <Zap className="h-5 w-5 text-white" />
-              </div>
+              <img 
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
+                alt="Fiber Oracle" 
+                className="w-10 h-10 rounded-xl object-cover"
+              />
               <div>
-                <div className="font-bold">FiberTech Pro</div>
+                <div className="font-bold">Fiber Oracle</div>
                 <div className="text-xs text-gray-400">Field Reference Tool v2.0</div>
               </div>
             </div>
@@ -625,7 +627,7 @@ export default function Brochure() {
               </Link>
             </div>
             <div className="text-sm text-gray-400">
-              © 2025 FiberTech Pro
+              © 2025 Fiber Oracle
             </div>
           </div>
         </div>
