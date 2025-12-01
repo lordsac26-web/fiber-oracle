@@ -24,7 +24,7 @@ const FEATURES = [
 
 export default function Splash() {
   const handleLogin = () => {
-    base44.auth.redirectToLogin();
+    base44.auth.redirectToLogin('/Home');
   };
 
   return (
