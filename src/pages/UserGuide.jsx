@@ -825,13 +825,16 @@ Customize the app with your company identity.
 ### General Questions
 
 **Q: Does the app work offline?**
-A: Many features work offline including calculators, reference tables, and educational content. Some features like AI analysis require an internet connection.
+A: Yes! Once loaded, most features work without internet. Only external links and AI OTDR Analysis require connectivity.
 
 **Q: How do I save my work?**
 A: Job reports and LCP entries are automatically saved to your account. Calculation results can be exported as needed.
 
 **Q: Can I use this on my phone?**
-A: Yes! The app is fully responsive and works great on mobile devices, tablets, and desktops.
+A: Yes! The app is fully responsive and works great on mobile devices, tablets, and desktops. You can install it as a PWA using "Add to Home Screen."
+
+**Q: Where is my data stored?**
+A: All data (settings, LCP entries, custom impairments) is stored locally on your device. If you're logged in, preferences sync to your account.
 
 ### Technical Questions
 
@@ -843,6 +846,32 @@ A: Loss (dB) is power that doesn't make it through. Reflectance (dB) is power re
 
 **Q: Why do I get "gainers" on OTDR traces?**
 A: Apparent gainers occur at splices when testing single-direction due to different backscatter coefficients between fibers. Bidirectional averaging eliminates this artifact.
+
+**Q: Why is APC required for PON?**
+A: PON systems are sensitive to back-reflections which can cause laser instability. APC connectors have 8° angled end-faces that direct reflections away from the fiber core.
+
+**Q: What causes high FEC errors on a PON link?**
+A: High FEC errors typically indicate marginal optical power, dirty connectors, excessive bends, or a failing laser/receiver. Check power levels first, then clean and inspect connectors.
+
+**Q: How do I identify a macrobend vs microbend?**
+A: Macrobends show significantly higher loss at 1550nm compared to 1310nm. Microbends show smaller wavelength-dependent loss difference. Both are non-reflective events on OTDR.
+
+### Common Field Tasks
+
+**Q: How do I calculate if a new drop will work?**
+A: Use the Power Level Calculator. Enter OLT power, splitter ratio, fiber length, and connector/splice count. If the calculated ONT Rx is between -8 and -27 dBm, the link should work.
+
+**Q: What's the proper connector cleaning sequence?**
+A: Per FOA guidelines: 1) Inspect with scope, 2) Dry clean first, 3) Re-inspect, 4) If still dirty, wet clean with IPA, 5) Dry thoroughly, 6) Final inspection. Never connect without inspecting.
+
+**Q: What power level is "good enough" for GPON?**
+A: Aim for -15 to -22 dBm at the ONT. This provides margin for aging, temperature, and future repairs. Below -25 dBm is marginal; below -27 dBm will likely cause issues.
+
+**Q: My ONT won't register—where do I start?**
+A: Check PON light on ONT (should blink then go solid). Measure Rx power. If no light: trace back to splitter. If low light: clean connectors, check for bends. If good light but no register: check OLT provisioning.
+
+**Q: What's the #1 cause of failed fiber installations?**
+A: Connector contamination accounts for approximately 85% of fiber problems. Always inspect and clean before connecting—no exceptions.
 
 ### Account Questions
 
