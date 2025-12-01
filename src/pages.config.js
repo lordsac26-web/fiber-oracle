@@ -29,6 +29,7 @@ import Certifications from './pages/Certifications';
 import Contact from './pages/Contact';
 import OfflineDocuments from './pages/OfflineDocuments';
 import OpticalCalculator from './pages/OpticalCalculator';
+import UserGuide from './pages/UserGuide';
 import __Layout from './Layout.jsx';
 
 
@@ -64,6 +65,7 @@ export const PAGES = {
     "Contact": Contact,
     "OfflineDocuments": OfflineDocuments,
     "OpticalCalculator": OpticalCalculator,
+    "UserGuide": UserGuide,
 }
 
 export const pagesConfig = {
