@@ -75,6 +75,7 @@ export default function PONPMAnalysis() {
   const [portFilter, setPortFilter] = useState('all');
   const [expandedOlts, setExpandedOlts] = useState([]);
   const [expandedPorts, setExpandedPorts] = useState([]);
+  const [issueDetailView, setIssueDetailView] = useState(null); // { type: 'critical'|'warning', oltName?, portKey? }
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -305,8 +306,8 @@ export default function PONPMAnalysis() {
                 </CardContent>
               </Card>
               <Card 
-                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-red-300 ${statusFilter === 'critical' ? 'ring-2 ring-red-500' : ''}`}
-                onClick={() => setStatusFilter(statusFilter === 'critical' ? 'all' : 'critical')}
+                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-red-300 ${issueDetailView?.type === 'critical' && !issueDetailView?.oltName ? 'ring-2 ring-red-500' : ''}`}
+                onClick={() => setIssueDetailView(issueDetailView?.type === 'critical' && !issueDetailView?.oltName ? null : { type: 'critical' })}
               >
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-red-600">
@@ -316,8 +317,8 @@ export default function PONPMAnalysis() {
                 </CardContent>
               </Card>
               <Card 
-                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-amber-300 ${statusFilter === 'warning' ? 'ring-2 ring-amber-500' : ''}`}
-                onClick={() => setStatusFilter(statusFilter === 'warning' ? 'all' : 'warning')}
+                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-amber-300 ${issueDetailView?.type === 'warning' && !issueDetailView?.oltName ? 'ring-2 ring-amber-500' : ''}`}
+                onClick={() => setIssueDetailView(issueDetailView?.type === 'warning' && !issueDetailView?.oltName ? null : { type: 'warning' })}
               >
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-amber-600">
@@ -328,7 +329,7 @@ export default function PONPMAnalysis() {
               </Card>
               <Card 
                 className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-green-300 ${statusFilter === 'ok' ? 'ring-2 ring-green-500' : ''}`}
-                onClick={() => setStatusFilter(statusFilter === 'ok' ? 'all' : 'ok')}
+                onClick={() => { setStatusFilter(statusFilter === 'ok' ? 'all' : 'ok'); setIssueDetailView(null); }}
               >
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-green-600">
@@ -346,6 +347,71 @@ export default function PONPMAnalysis() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Issue Detail Panel */}
+            {issueDetailView && (
+              <Card className={`border-2 ${issueDetailView.type === 'critical' ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/20'}`}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className={`flex items-center gap-2 ${issueDetailView.type === 'critical' ? 'text-red-800' : 'text-amber-800'}`}>
+                      {issueDetailView.type === 'critical' ? <AlertCircle className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+                      {issueDetailView.type === 'critical' ? 'Critical Issues' : 'Warnings'}
+                      {issueDetailView.oltName && <span className="text-sm font-normal">— {issueDetailView.oltName}</span>}
+                      {issueDetailView.portKey && <span className="text-sm font-normal">/ {issueDetailView.portKey}</span>}
+                    </CardTitle>
+                    <Button variant="ghost" size="sm" onClick={() => setIssueDetailView(null)}>
+                      ✕
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {result.onts
+                      .filter(ont => {
+                        const matchesType = issueDetailView.type === 'critical' 
+                          ? ont._analysis.issues.length > 0 
+                          : ont._analysis.warnings.length > 0;
+                        const matchesOlt = !issueDetailView.oltName || ont._oltName === issueDetailView.oltName;
+                        const matchesPort = !issueDetailView.portKey || ont._port === issueDetailView.portKey;
+                        return matchesType && matchesOlt && matchesPort;
+                      })
+                      .map((ont, idx) => {
+                        const issues = issueDetailView.type === 'critical' ? ont._analysis.issues : ont._analysis.warnings;
+                        return (
+                          <div key={idx} className="p-3 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="font-semibold text-sm">
+                                <span className="text-gray-500">{ont._oltName} / {ont._port} /</span> ONT {ont.OntID}
+                              </div>
+                              <span className="font-mono text-xs text-gray-500">{ont.SerialNumber}</span>
+                            </div>
+                            <div className="space-y-1">
+                              {issues.map((issue, i) => (
+                                <div key={i} className={`text-sm p-2 rounded ${issueDetailView.type === 'critical' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
+                                  <span className="font-medium">{issue.field}:</span> {issue.message}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })
+                    }
+                    {result.onts.filter(ont => {
+                      const matchesType = issueDetailView.type === 'critical' 
+                        ? ont._analysis.issues.length > 0 
+                        : ont._analysis.warnings.length > 0;
+                      const matchesOlt = !issueDetailView.oltName || ont._oltName === issueDetailView.oltName;
+                      const matchesPort = !issueDetailView.portKey || ont._port === issueDetailView.portKey;
+                      return matchesType && matchesOlt && matchesPort;
+                    }).length === 0 && (
+                      <div className="text-center py-4 text-gray-500">
+                        No {issueDetailView.type === 'critical' ? 'critical issues' : 'warnings'} found
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Health Overview */}
             <Card className="border-0 shadow">
@@ -505,7 +571,7 @@ export default function PONPMAnalysis() {
                                 {oltCritical > 0 && (
                                   <Badge 
                                     className="bg-red-100 text-red-800 border-red-300 cursor-pointer hover:bg-red-200"
-                                    onClick={(e) => { e.stopPropagation(); setOltFilter(oltName); setStatusFilter('critical'); setExpandedOlts([oltName]); }}
+                                    onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'critical', oltName }); }}
                                   >
                                     <AlertCircle className="h-3 w-3 mr-1" />
                                     {oltCritical}
@@ -514,7 +580,7 @@ export default function PONPMAnalysis() {
                                 {oltWarning > 0 && (
                                   <Badge 
                                     className="bg-amber-100 text-amber-800 border-amber-300 cursor-pointer hover:bg-amber-200"
-                                    onClick={(e) => { e.stopPropagation(); setOltFilter(oltName); setStatusFilter('warning'); setExpandedOlts([oltName]); }}
+                                    onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'warning', oltName }); }}
                                   >
                                     <AlertTriangle className="h-3 w-3 mr-1" />
                                     {oltWarning}
@@ -575,7 +641,7 @@ export default function PONPMAnalysis() {
                                             {portCritical > 0 && (
                                               <Badge 
                                                 className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5 cursor-pointer hover:bg-red-200"
-                                                onClick={(e) => { e.stopPropagation(); setOltFilter(oltName); setPortFilter(portKey); setStatusFilter('critical'); setExpandedOlts([oltName]); setExpandedPorts([portId]); }}
+                                                onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'critical', oltName, portKey }); }}
                                               >
                                                 {portCritical}
                                               </Badge>
@@ -583,7 +649,7 @@ export default function PONPMAnalysis() {
                                             {portWarning > 0 && (
                                               <Badge 
                                                 className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5 cursor-pointer hover:bg-amber-200"
-                                                onClick={(e) => { e.stopPropagation(); setOltFilter(oltName); setPortFilter(portKey); setStatusFilter('warning'); setExpandedOlts([oltName]); setExpandedPorts([portId]); }}
+                                                onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'warning', oltName, portKey }); }}
                                               >
                                                 {portWarning}
                                               </Badge>
