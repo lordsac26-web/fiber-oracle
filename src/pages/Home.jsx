@@ -243,31 +243,30 @@ const QUICK_REFS = [
 ];
 
 const STANDARDS_LINKS = [
-  // TIA Standards
-  { name: 'TIA-568-D', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Generic Telecommunications Cabling for Customer Premises' },
-  { name: 'TIA-526-7', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Optical Power Loss - Single-Mode Fiber' },
-  { name: 'TIA-526-14-C', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Optical Power Loss - Multimode Fiber' },
-  { name: 'TIA-598-D', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Optical Fiber Cable Color Coding' },
-  { name: 'TIA-455 (FOTP)', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Fiber Optic Test Procedures' },
-  { name: 'TIA-758-B', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Customer-Owned Outside Plant' },
-  { name: 'TIA/EIA-568', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Ethernet Wiring Standards (T568A/T568B)' },
-  // IEC Standards
-  { name: 'IEC 61300-3-35', url: 'https://webstore.iec.ch/publication/5191', category: 'IEC', description: 'Connector End Face Visual Inspection' },
-  { name: 'IEC 61280', url: 'https://webstore.iec.ch/publication/5160', category: 'IEC', description: 'Fiber Optic Communication Test Procedures' },
-  { name: 'IEC 61073', url: 'https://webstore.iec.ch/publication/4420', category: 'IEC', description: 'Mechanical Splices and Fusion Splice Protectors' },
-  // IEEE Standards
-  { name: 'IEEE 802.3', url: 'https://standards.ieee.org/ieee/802.3/10422/', category: 'IEEE', description: 'Ethernet Standard (10M to 400G)' },
-  { name: 'IEEE 802.11', url: 'https://standards.ieee.org/ieee/802.11/7028/', category: 'IEEE', description: 'Wireless LAN (Wi-Fi) Standards' },
-  // ITU-T Standards
-  { name: 'ITU-T G.652', url: 'https://www.itu.int/rec/T-REC-G.652', category: 'ITU-T', description: 'Single-Mode Optical Fiber Characteristics' },
-  { name: 'ITU-T G.657', url: 'https://www.itu.int/rec/T-REC-G.657', category: 'ITU-T', description: 'Bend-Insensitive Single-Mode Fiber' },
-  { name: 'ITU-T G.984', url: 'https://www.itu.int/rec/T-REC-G.984.1', category: 'ITU-T', description: 'GPON (Gigabit PON) Standard' },
-  { name: 'ITU-T G.9807', url: 'https://www.itu.int/rec/T-REC-G.9807.1', category: 'ITU-T', description: 'XGS-PON (10G Symmetric PON)' },
-  { name: 'ITU-T G.9804', url: 'https://www.itu.int/rec/T-REC-G.9804.1', category: 'ITU-T', description: '25G/50G Higher Speed PON' },
-  // Telcordia Standards
-  { name: 'Telcordia GR-326', url: 'https://telecom-info.njdepot.ericsson.net/site-cgi/ido/docs.cgi?ID=SEARCH&DOCUMENT=GR-326', category: 'Telcordia', description: 'Single-Mode Optical Connectors & Jumpers' },
-  { name: 'Telcordia GR-20', url: 'https://telecom-info.njdepot.ericsson.net/site-cgi/ido/docs.cgi?ID=SEARCH&DOCUMENT=GR-20', category: 'Telcordia', description: 'Generic Requirements for Optical Fiber' },
-];
+    // TIA Standards
+    { name: 'TIA-568-D', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Generic Telecommunications Cabling for Customer Premises' },
+    { name: 'TIA-526-7', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Optical Power Loss - Single-Mode Fiber' },
+    { name: 'TIA-526-14-C', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Optical Power Loss - Multimode Fiber' },
+    { name: 'TIA-598-D', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Optical Fiber Cable Color Coding' },
+    { name: 'TIA-758-B', url: 'https://tiaonline.org/what-we-do/standards/', category: 'TIA', description: 'Customer-Owned Outside Plant' },
+    // IEC Standards
+    { name: 'IEC 61300-3-35', url: 'https://webstore.iec.ch/publication/5191', category: 'IEC', description: 'Connector End Face Visual Inspection' },
+    { name: 'IEC 61280', url: 'https://webstore.iec.ch/publication/5160', category: 'IEC', description: 'Fiber Optic Communication Test Procedures' },
+    { name: 'IEC 60794', url: 'https://webstore.iec.ch/publication/4420', category: 'IEC', description: 'Optical Fiber Cables - Generic Specification' },
+    // ITU-T Standards
+    { name: 'ITU-T G.652', url: 'https://www.itu.int/rec/T-REC-G.652', category: 'ITU-T', description: 'Single-Mode Optical Fiber Characteristics' },
+    { name: 'ITU-T G.657', url: 'https://www.itu.int/rec/T-REC-G.657', category: 'ITU-T', description: 'Bend-Insensitive Single-Mode Fiber' },
+    { name: 'ITU-T G.984', url: 'https://www.itu.int/rec/T-REC-G.984.1', category: 'ITU-T', description: 'GPON (Gigabit PON) Standard' },
+    { name: 'ITU-T G.9807', url: 'https://www.itu.int/rec/T-REC-G.9807.1', category: 'ITU-T', description: 'XGS-PON (10G Symmetric PON)' },
+    // FOA Guidelines
+    { name: 'FOA Reference', url: 'https://www.thefoa.org/tech/ref/contents.html', category: 'FOA', description: 'Comprehensive Technical Reference Guide' },
+    { name: 'FOA Testing', url: 'https://www.thefoa.org/tech/testing.htm', category: 'FOA', description: 'Testing Best Practices & Methods' },
+    { name: 'FOA Standards', url: 'https://www.thefoa.org/tech/standards.htm', category: 'FOA', description: 'Industry Standards Overview' },
+    // Other Standards
+    { name: 'Telcordia GR-326', url: 'https://telecom-info.njdepot.ericsson.net/', category: 'Other', description: 'Single-Mode Optical Connectors' },
+    { name: 'NEC Article 770', url: 'https://www.nfpa.org/', category: 'Other', description: 'Optical Fiber Cables & Raceways' },
+    { name: 'OSHA 1926', url: 'https://www.osha.gov/', category: 'Other', description: 'Construction Safety Standards' },
+  ];
 
 const CATEGORIES = [
   { id: 'all', label: 'All', icon: LayoutGrid },
@@ -612,7 +611,7 @@ export default function Home() {
               </div>
               
               <div className="grid grid-cols-5 gap-4">
-                {['TIA', 'IEC', 'IEEE', 'ITU-T', 'Telcordia'].map(category => (
+                {['TIA', 'IEC', 'ITU-T', 'FOA', 'Other'].map(category => (
                   <div key={category}>
                     <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{category}</p>
                     <div className="flex flex-col gap-1">
