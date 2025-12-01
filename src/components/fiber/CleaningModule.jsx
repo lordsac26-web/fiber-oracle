@@ -9,7 +9,6 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Droplets, 
   CheckCircle2, 
-  Camera, 
   AlertTriangle,
   Sparkles,
   Wind,
@@ -82,8 +81,7 @@ const CLEANING_CHECKLIST = {
 export default function CleaningModule() {
   const [activeTab, setActiveTab] = useState('dry_clean');
   const [completedSteps, setCompletedSteps] = useState({});
-  const [beforePhoto, setBeforePhoto] = useState(null);
-  const [afterPhoto, setAfterPhoto] = useState(null);
+
 
   const toggleStep = (stepId) => {
     setCompletedSteps(prev => ({
@@ -248,44 +246,6 @@ export default function CleaningModule() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Photo Documentation */}
-          <Card className="border-0 shadow-lg">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Camera className="h-4 w-4" />
-                Photo Documentation
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-sm text-gray-500 mb-2 block">Before Cleaning</Label>
-                <div className="aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 cursor-pointer hover:border-blue-400 transition-colors">
-                  {beforePhoto ? (
-                    <img src={beforePhoto} alt="Before" className="w-full h-full object-cover rounded-xl" />
-                  ) : (
-                    <>
-                      <Camera className="h-8 w-8 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-500">Tap to capture</span>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div>
-                <Label className="text-sm text-gray-500 mb-2 block">After Cleaning</Label>
-                <div className="aspect-square rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 cursor-pointer hover:border-emerald-400 transition-colors">
-                  {afterPhoto ? (
-                    <img src={afterPhoto} alt="After" className="w-full h-full object-cover rounded-xl" />
-                  ) : (
-                    <>
-                      <Camera className="h-8 w-8 text-gray-400 mb-2" />
-                      <span className="text-sm text-gray-500">Tap to capture</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Inspection Zones */}
           <Card className="border-0 shadow-lg">
             <CardHeader className="pb-2">
