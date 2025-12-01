@@ -1056,6 +1056,7 @@ export default function PONPMAnalysis() {
                                             <TableRow>
                                               <TableHead className="w-12">Status</TableHead>
                                               <TableHead>ONT ID</TableHead>
+                                              <TableHead>LCP/Splitter</TableHead>
                                               <TableHead>Serial</TableHead>
                                               <TableHead>Model</TableHead>
                                               <TableHead className="text-right">ONT Rx</TableHead>
@@ -1072,6 +1073,21 @@ export default function PONPMAnalysis() {
                                                   <div className={`w-3 h-3 rounded-full ${STATUS_COLORS[ont._analysis.status]}`} />
                                                 </TableCell>
                                                 <TableCell className="font-mono">{ont.OntID || '-'}</TableCell>
+                                                <TableCell className="text-xs">
+                                                  {ont._lcpNumber ? (
+                                                    <TooltipProvider>
+                                                      <Tooltip>
+                                                        <TooltipTrigger>
+                                                          <span className="text-blue-600 font-medium">{ont._lcpNumber}/{ont._splitterNumber}</span>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          {ont._lcpLocation && <div>{ont._lcpLocation}</div>}
+                                                          {ont._lcpAddress && <div className="text-gray-400">{ont._lcpAddress}</div>}
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    </TooltipProvider>
+                                                  ) : '-'}
+                                                </TableCell>
                                                 <TableCell className="font-mono text-xs">{ont.SerialNumber || '-'}</TableCell>
                                                 <TableCell className="text-xs">{ont.model || '-'}</TableCell>
                                                 <TableCell className="text-right font-mono">
