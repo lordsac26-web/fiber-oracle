@@ -28,6 +28,7 @@ import StudyGuide from './pages/StudyGuide';
 import Certifications from './pages/Certifications';
 import Contact from './pages/Contact';
 import OfflineDocuments from './pages/OfflineDocuments';
+import OpticalCalculator from './pages/OpticalCalculator';
 import __Layout from './Layout.jsx';
 
 
@@ -62,6 +63,7 @@ export const PAGES = {
     "Certifications": Certifications,
     "Contact": Contact,
     "OfflineDocuments": OfflineDocuments,
+    "OpticalCalculator": OpticalCalculator,
 }
 
 export const pagesConfig = {

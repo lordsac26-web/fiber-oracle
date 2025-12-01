@@ -49,6 +49,16 @@ const MODULES = [
   // CALCULATORS - Mathematical tools for planning and estimation
   // ═══════════════════════════════════════════════════════════════════════════
   {
+    id: 'opticalcalc',
+    title: 'Optical Calculator',
+    description: 'Link loss, PON power & dB converter',
+    icon: Calculator,
+    color: 'from-indigo-500 to-purple-600',
+    page: 'OpticalCalculator',
+    badge: 'Calculators',
+    isNew: true
+  },
+  {
     id: 'powercalc',
     title: 'Power Calculator',
     description: 'Estimate ONT Rx power for GPON & XGS-PON',
@@ -563,11 +573,16 @@ export default function Home() {
                     <h3 className="font-semibold text-sm md:text-base text-gray-900 dark:text-white leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {module.title}
                       {module.isBeta && (
-                        <Badge className="ml-1 bg-amber-500 text-[9px] px-1 py-0 align-middle">
-                          <FlaskConical className="h-2 w-2 mr-0.5 inline" />
-                          BETA
-                        </Badge>
-                      )}
+                            <Badge className="ml-1 bg-amber-500 text-[9px] px-1 py-0 align-middle">
+                              <FlaskConical className="h-2 w-2 mr-0.5 inline" />
+                              BETA
+                            </Badge>
+                          )}
+                          {module.isNew && (
+                            <Badge className="ml-1 bg-emerald-500 text-[9px] px-1 py-0 align-middle">
+                              NEW
+                            </Badge>
+                          )}
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden md:block line-clamp-2">
                       {module.description}
