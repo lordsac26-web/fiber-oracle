@@ -24,6 +24,9 @@ Deno.serve(async (req) => {
       case 'jobReport':
         pdfBytes = generateJobReportPDF(data);
         break;
+      case 'certificate':
+        pdfBytes = generateCertificatePDF(data);
+        break;
       default:
         return Response.json({ error: 'Invalid PDF type' }, { status: 400 });
     }
