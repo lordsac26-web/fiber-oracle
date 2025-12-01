@@ -99,64 +99,64 @@ export default function FeedbackPanel({ eventAnalysis, onFeedbackSubmit }) {
 
   return (
     <Card className="border-2 border-purple-200 bg-purple-50 dark:bg-purple-900/20">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-purple-600" />
+      <CardHeader className="pb-2 md:pb-3 px-3 md:px-6">
+        <CardTitle className="text-sm md:text-base flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
           Technician Feedback
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
-          <div className="text-sm text-gray-500 mb-1">AI Diagnosis:</div>
-          <div className="flex items-center justify-between">
-            <span className="font-medium">{eventAnalysis.identified_type}</span>
+      <CardContent className="space-y-3 md:space-y-4 px-3 md:px-6">
+        <div className="p-2 md:p-3 bg-white dark:bg-gray-800 rounded-lg">
+          <div className="text-xs md:text-sm text-gray-500 mb-0.5 md:mb-1">AI Diagnosis:</div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium text-sm md:text-base truncate">{eventAnalysis.identified_type}</span>
             {eventAnalysis.confidence_score && (
-              <Badge variant="outline">
-                {eventAnalysis.confidence_score}% confidence
+              <Badge variant="outline" className="text-[10px] md:text-xs flex-shrink-0">
+                {eventAnalysis.confidence_score}%
               </Badge>
             )}
           </div>
         </div>
 
         <div>
-          <Label className="text-sm mb-2 block">Was this diagnosis correct?</Label>
-          <div className="flex gap-2">
+          <Label className="text-xs md:text-sm mb-1.5 md:mb-2 block">Was this correct?</Label>
+          <div className="flex flex-wrap gap-1.5 md:gap-2">
             <Button
               variant={feedbackType === 'correct' ? 'default' : 'outline'}
               size="sm"
-              className={feedbackType === 'correct' ? 'bg-green-600 hover:bg-green-700' : ''}
+              className={`h-7 md:h-8 text-xs md:text-sm ${feedbackType === 'correct' ? 'bg-green-600 hover:bg-green-700' : ''}`}
               onClick={() => setFeedbackType('correct')}
             >
-              <ThumbsUp className="h-4 w-4 mr-1" />
-              Correct
+              <ThumbsUp className="h-3 w-3 md:h-4 md:w-4 mr-0.5 md:mr-1" />
+              Yes
             </Button>
             <Button
               variant={feedbackType === 'partial' ? 'default' : 'outline'}
               size="sm"
-              className={feedbackType === 'partial' ? 'bg-amber-500 hover:bg-amber-600' : ''}
+              className={`h-7 md:h-8 text-xs md:text-sm ${feedbackType === 'partial' ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
               onClick={() => setFeedbackType('partial')}
             >
-              <AlertTriangle className="h-4 w-4 mr-1" />
-              Partially
+              <AlertTriangle className="h-3 w-3 md:h-4 md:w-4 mr-0.5 md:mr-1" />
+              Partial
             </Button>
             <Button
               variant={feedbackType === 'incorrect' ? 'default' : 'outline'}
               size="sm"
-              className={feedbackType === 'incorrect' ? 'bg-red-600 hover:bg-red-700' : ''}
+              className={`h-7 md:h-8 text-xs md:text-sm ${feedbackType === 'incorrect' ? 'bg-red-600 hover:bg-red-700' : ''}`}
               onClick={() => setFeedbackType('incorrect')}
             >
-              <ThumbsDown className="h-4 w-4 mr-1" />
-              Incorrect
+              <ThumbsDown className="h-3 w-3 md:h-4 md:w-4 mr-0.5 md:mr-1" />
+              No
             </Button>
           </div>
         </div>
 
         {feedbackType === 'incorrect' && (
           <div>
-            <Label className="text-sm mb-2 block">What was the actual issue?</Label>
+            <Label className="text-xs md:text-sm mb-1.5 md:mb-2 block">Actual issue?</Label>
             <Select value={correctedType} onValueChange={setCorrectedType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select correct impairment type" />
+              <SelectTrigger className="h-8 md:h-9 text-sm">
+                <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
                 {IMPAIRMENT_TYPES.map(type => (
@@ -168,22 +168,23 @@ export default function FeedbackPanel({ eventAnalysis, onFeedbackSubmit }) {
         )}
 
         <div>
-          <Label className="text-sm mb-2 block">Additional notes (optional)</Label>
+          <Label className="text-xs md:text-sm mb-1.5 md:mb-2 block">Notes (optional)</Label>
           <Textarea
-            placeholder="Any additional context or observations..."
+            placeholder="Additional context..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
+            className="text-sm"
           />
         </div>
 
         <Button 
-          className="w-full" 
+          className="w-full h-8 md:h-9 text-sm" 
           onClick={handleSubmit}
           disabled={!feedbackType || (feedbackType === 'incorrect' && !correctedType)}
         >
-          <Send className="h-4 w-4 mr-2" />
-          Submit Feedback
+          <Send className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+          Submit
         </Button>
       </CardContent>
     </Card>

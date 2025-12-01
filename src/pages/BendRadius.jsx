@@ -78,22 +78,22 @@ export default function BendRadius() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
-        <div className="max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
+        <div className="max-w-4xl mx-auto px-3 md:px-4 py-3 md:py-4">
+          <div className="flex items-center gap-3 md:gap-4">
             <Link to={createPageUrl('Home')}>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <ArrowLeft className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 md:h-10 md:w-10">
+                <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
               </Button>
             </Link>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Macrobend Radius Guide</h1>
-              <p className="text-xs text-gray-500">Minimum bend radius by cable type</p>
+              <h1 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">Macrobend Radius</h1>
+              <p className="text-[10px] md:text-xs text-gray-500">Min bend radius by cable type</p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-4xl mx-auto px-3 md:px-4 py-4 md:py-6 space-y-4 md:space-y-6">
         <HiddenContentBanner 
           hiddenCount={hiddenSections.length} 
           moduleId="bendradius" 
@@ -101,13 +101,13 @@ export default function BendRadius() {
         />
 
         {/* Warning Banner */}
-        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <div className="p-3 md:p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
+          <div className="flex items-start gap-2 md:gap-3">
+            <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <div className="font-medium text-amber-800 dark:text-amber-200">Macrobends Cause Signal Loss</div>
-              <div className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                Bending fiber below minimum radius causes light to escape the core, resulting in increased attenuation and potential permanent damage.
+              <div className="font-medium text-amber-800 dark:text-amber-200 text-sm md:text-base">Macrobends Cause Signal Loss</div>
+              <div className="text-xs md:text-sm text-amber-700 dark:text-amber-300 mt-1">
+                Bending fiber below minimum radius causes light to escape the core, resulting in signal loss.
               </div>
             </div>
           </div>
@@ -115,24 +115,24 @@ export default function BendRadius() {
 
         {/* Cable Type Tabs */}
         {visibleTabs.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl">
-            <EyeOff className="h-8 w-8 mx-auto mb-3 text-gray-400" />
-            <p className="text-gray-500">All cable type sections are hidden.</p>
+          <div className="text-center py-8 md:py-12 bg-gray-50 dark:bg-gray-800 rounded-xl">
+            <EyeOff className="h-6 w-6 md:h-8 md:w-8 mx-auto mb-2 md:mb-3 text-gray-400" />
+            <p className="text-gray-500 text-sm">All cable type sections are hidden.</p>
             <Link to={createPageUrl('Settings') + '?tab=visibility'}>
-              <Button variant="outline" className="mt-4">Manage Visibility</Button>
+              <Button variant="outline" className="mt-3 md:mt-4 text-sm h-8">Manage Visibility</Button>
             </Link>
           </div>
         ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className={`grid w-full grid-cols-${visibleTabs.length} bg-white dark:bg-gray-800 shadow-lg`}>
-            {!hiddenSections.includes('drop') && <TabsTrigger value="drop" className="text-xs md:text-sm">Drop</TabsTrigger>}
-            {!hiddenSections.includes('indoor') && <TabsTrigger value="indoor" className="text-xs md:text-sm">Indoor</TabsTrigger>}
-            {!hiddenSections.includes('outdoor') && <TabsTrigger value="outdoor" className="text-xs md:text-sm">Outdoor</TabsTrigger>}
-            {!hiddenSections.includes('patchcord') && <TabsTrigger value="patchcord" className="text-xs md:text-sm">Patch</TabsTrigger>}
+          <TabsList className={`grid w-full grid-cols-${visibleTabs.length} bg-white dark:bg-gray-800 shadow-lg h-auto p-0.5 md:p-1`}>
+            {!hiddenSections.includes('drop') && <TabsTrigger value="drop" className="text-[10px] md:text-sm py-1.5 md:py-2">Drop</TabsTrigger>}
+            {!hiddenSections.includes('indoor') && <TabsTrigger value="indoor" className="text-[10px] md:text-sm py-1.5 md:py-2">Indoor</TabsTrigger>}
+            {!hiddenSections.includes('outdoor') && <TabsTrigger value="outdoor" className="text-[10px] md:text-sm py-1.5 md:py-2">Outdoor</TabsTrigger>}
+            {!hiddenSections.includes('patchcord') && <TabsTrigger value="patchcord" className="text-[10px] md:text-sm py-1.5 md:py-2">Patch</TabsTrigger>}
           </TabsList>
 
           {Object.entries(CABLE_TYPES).filter(([type]) => !hiddenSections.includes(type)).map(([type, cables]) => (
-            <TabsContent key={type} value={type} className="mt-4 space-y-3">
+            <TabsContent key={type} value={type} className="mt-3 md:mt-4 space-y-2 md:space-y-3">
               {cables.map((cable) => {
                 const visual = renderSizeVisual(cable.minBend);
                 const isSelected = selectedCable?.name === cable.name;
@@ -141,27 +141,27 @@ export default function BendRadius() {
                   <button
                     key={cable.name}
                     onClick={() => setSelectedCable(isSelected ? null : cable)}
-                    className={`w-full text-left p-4 rounded-xl transition-all ${
+                    className={`w-full text-left p-3 md:p-4 rounded-xl transition-all active:scale-[0.99] ${
                       isSelected 
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25' 
                         : 'bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold">{cable.name}</div>
-                        <div className={`text-sm ${isSelected ? 'text-blue-100' : 'text-gray-500'}`}>
-                          Fiber: {cable.fiber}
+                      <div className="min-w-0 flex-1 pr-2">
+                        <div className="font-semibold text-sm md:text-base truncate">{cable.name}</div>
+                        <div className={`text-xs md:text-sm ${isSelected ? 'text-blue-100' : 'text-gray-500'}`}>
+                          {cable.fiber}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl">{visual.emoji}</span>
+                      <div className="text-right flex-shrink-0">
+                        <div className="flex items-center gap-1.5 md:gap-2">
+                          <span className="text-xl md:text-2xl">{visual.emoji}</span>
                           <div>
-                            <div className={`text-2xl font-bold font-mono ${isSelected ? 'text-white' : 'text-blue-600'}`}>
+                            <div className={`text-lg md:text-2xl font-bold font-mono ${isSelected ? 'text-white' : 'text-blue-600'}`}>
                               {cable.minBend}mm
                             </div>
-                            <div className={`text-xs ${isSelected ? 'text-blue-100' : 'text-gray-400'}`}>
+                            <div className={`text-[10px] md:text-xs ${isSelected ? 'text-blue-100' : 'text-gray-400'}`}>
                               min radius
                             </div>
                           </div>
@@ -170,10 +170,10 @@ export default function BendRadius() {
                     </div>
                     
                     {isSelected && (
-                      <div className="mt-4 pt-4 border-t border-blue-400/30 space-y-4">
+                      <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t border-blue-400/30 space-y-3 md:space-y-4">
                         {/* Visual Bend Radius Diagram */}
                         <div className="flex justify-center">
-                          <svg width="200" height="120" viewBox="0 0 200 120" className="drop-shadow-lg">
+                          <svg width="160" height="100" viewBox="0 0 200 120" className="drop-shadow-lg md:w-[200px] md:h-[120px]">
                             {/* Cable path showing bend */}
                             <path
                               d={`M 20 100 L 20 ${60 - Math.min(cable.minBend / 5, 30)} Q 20 20 ${50 + Math.min(cable.minBend / 3, 40)} 20 L 180 20`}
@@ -213,32 +213,32 @@ export default function BendRadius() {
                           </svg>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3 md:gap-4">
                           <div>
-                            <div className="text-blue-100 text-xs">Unloaded (no tension)</div>
-                            <div className="font-mono font-bold text-xl">{cable.minBend}mm</div>
+                            <div className="text-blue-100 text-[10px] md:text-xs">Unloaded</div>
+                            <div className="font-mono font-bold text-base md:text-xl">{cable.minBend}mm</div>
                           </div>
                           <div>
-                            <div className="text-blue-100 text-xs">Under Load (pulling)</div>
-                            <div className="font-mono font-bold text-xl">{cable.loadedBend}mm</div>
+                            <div className="text-blue-100 text-[10px] md:text-xs">Under Load</div>
+                            <div className="font-mono font-bold text-base md:text-xl">{cable.loadedBend}mm</div>
                           </div>
                         </div>
 
                         {/* Size comparison visual */}
-                        <div className="flex items-center justify-center gap-3 p-3 bg-blue-500/30 rounded-lg">
-                          <span className="text-3xl">{visual.emoji}</span>
-                          <div className="text-sm text-blue-100">
+                        <div className="flex items-center justify-center gap-2 md:gap-3 p-2 md:p-3 bg-blue-500/30 rounded-lg">
+                          <span className="text-2xl md:text-3xl">{visual.emoji}</span>
+                          <div className="text-xs md:text-sm text-blue-100">
                             <span className="font-medium">{visual.object}</span> — {visual.desc}
                           </div>
                         </div>
 
                         {/* Danger zone visual */}
-                        <div className="flex items-center gap-3 p-2 bg-red-500/20 rounded-lg text-sm">
-                          <svg width="40" height="30" viewBox="0 0 40 30">
+                        <div className="flex items-center gap-2 md:gap-3 p-2 bg-red-500/20 rounded-lg text-xs md:text-sm">
+                          <svg width="32" height="24" viewBox="0 0 40 30" className="flex-shrink-0">
                             <path d="M 5 25 L 5 10 Q 5 5 15 5 L 35 5" fill="none" stroke="#ef4444" strokeWidth="4" strokeLinecap="round" />
                             <text x="10" y="18" fill="#fca5a5" fontSize="8">⚠</text>
                           </svg>
-                          <span className="text-red-200">Tighter than {cable.minBend}mm = signal loss & damage</span>
+                          <span className="text-red-200">Tighter = signal loss</span>
                         </div>
                       </div>
                     )}
@@ -254,23 +254,23 @@ export default function BendRadius() {
         {visibleTabs.length > 0 && (
         <>
         <Card className="border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-base">Fiber Type Bend Tolerance</CardTitle>
+          <CardHeader className="px-3 md:px-6">
+            <CardTitle className="text-sm md:text-base">Fiber Type Bend Tolerance</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
+          <CardContent className="px-3 md:px-6">
+            <div className="space-y-2 md:space-y-3">
               {FIBER_SPECS.map((fiber) => (
-                <div key={fiber.type} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="font-mono">{fiber.type}</Badge>
-                      <span className="font-medium">{fiber.name}</span>
+                <div key={fiber.type} className="flex items-center justify-between p-2 md:p-3 bg-gray-50 dark:bg-gray-800 rounded-lg gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1 md:gap-2 flex-wrap">
+                      <Badge variant="outline" className="font-mono text-[10px] md:text-xs">{fiber.type}</Badge>
+                      <span className="font-medium text-xs md:text-sm">{fiber.name}</span>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{fiber.notes}</div>
+                    <div className="text-[10px] md:text-xs text-gray-500 mt-0.5 md:mt-1 truncate">{fiber.notes}</div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xl font-bold font-mono text-blue-600">{fiber.minBend}mm</div>
-                    <div className="text-xs text-gray-400">min radius</div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-base md:text-xl font-bold font-mono text-blue-600">{fiber.minBend}mm</div>
+                    <div className="text-[10px] md:text-xs text-gray-400">min</div>
                   </div>
                 </div>
               ))}
@@ -280,21 +280,21 @@ export default function BendRadius() {
 
         {/* Visual Size Guide */}
         <Card className="border-0 shadow-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-          <CardHeader>
-            <CardTitle className="text-base">Quick Size Reference</CardTitle>
+          <CardHeader className="px-3 md:px-6">
+            <CardTitle className="text-sm md:text-base">Quick Size Reference</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <CardContent className="px-3 md:px-6">
+            <div className="grid grid-cols-4 gap-2 md:gap-4">
               {[
                 { size: 5, object: '✏️ Pencil', label: '5mm' },
                 { size: 10, object: '🪙 Quarter', label: '10mm' },
                 { size: 30, object: '⚾ Baseball', label: '30mm' },
                 { size: 100, object: '🥎 Softball', label: '100mm' },
               ].map((ref) => (
-                <div key={ref.size} className="text-center p-4 bg-white dark:bg-gray-700 rounded-xl">
-                  <div className="text-3xl mb-2">{ref.object.split(' ')[0]}</div>
-                  <div className="text-xl font-bold font-mono text-blue-600">{ref.label}</div>
-                  <div className="text-xs text-gray-500">{ref.object.split(' ')[1]}</div>
+                <div key={ref.size} className="text-center p-2 md:p-4 bg-white dark:bg-gray-700 rounded-xl">
+                  <div className="text-xl md:text-3xl mb-1 md:mb-2">{ref.object.split(' ')[0]}</div>
+                  <div className="text-sm md:text-xl font-bold font-mono text-blue-600">{ref.label}</div>
+                  <div className="text-[9px] md:text-xs text-gray-500 hidden sm:block">{ref.object.split(' ')[1]}</div>
                 </div>
               ))}
             </div>
@@ -303,37 +303,37 @@ export default function BendRadius() {
 
         {/* Best Practices */}
         <Card className="border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+          <CardHeader className="px-3 md:px-6">
+            <CardTitle className="flex items-center gap-2 text-sm md:text-base">
+              <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-emerald-600" />
               Best Practices
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
+          <CardContent className="px-3 md:px-6">
+            <ul className="space-y-1.5 md:space-y-2 text-xs md:text-sm">
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5">✓</span>
-                <span>Always use bend-limiting boots on connectors</span>
+                <span>Use bend-limiting boots on connectors</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5">✓</span>
-                <span>Use G.657.A1/A2 fiber for indoor/FTTH installations</span>
+                <span>Use G.657 fiber for indoor/FTTH</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5">✓</span>
-                <span>Double the minimum radius when cable is under tension</span>
+                <span>Double min radius under tension</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-500 mt-0.5">✓</span>
-                <span>Route cables in smooth arcs, avoid sharp corners</span>
+                <span>Route cables in smooth arcs</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-red-500 mt-0.5">✗</span>
-                <span>Never kink or crush fiber cable</span>
+                <span>Never kink or crush fiber</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-red-500 mt-0.5">✗</span>
-                <span>Avoid cable ties that pinch the cable</span>
+                <span>Avoid pinching cable ties</span>
               </li>
             </ul>
           </CardContent>
