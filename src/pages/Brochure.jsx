@@ -21,10 +21,267 @@ import {
   ChevronRight,
   Target,
   Layers,
-  Stethoscope
+  Stethoscope,
+  Download,
+  ArrowLeft
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+
+const downloadBrochurePDF = () => {
+  const pdfWindow = window.open('', '_blank');
+  pdfWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Fiber Oracle - Product Brochure</title>
+      <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; color: #1e293b; line-height: 1.6; }
+        
+        .page { 
+          width: 8.5in; 
+          min-height: 11in; 
+          padding: 0.5in; 
+          margin: 0 auto;
+          page-break-after: always;
+        }
+        .page:last-child { page-break-after: auto; }
+        
+        /* Page 1 - Cover */
+        .cover {
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);
+          color: white;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          text-align: center;
+        }
+        .cover-logo { width: 100px; height: 100px; border-radius: 24px; margin-bottom: 30px; }
+        .cover h1 { font-size: 48px; font-weight: 800; margin-bottom: 10px; }
+        .cover .tagline { font-size: 22px; opacity: 0.9; margin-bottom: 20px; }
+        .cover .subtitle { font-size: 16px; opacity: 0.8; max-width: 500px; }
+        .cover .version { margin-top: 40px; padding: 8px 20px; background: rgba(255,255,255,0.2); border-radius: 20px; font-size: 14px; }
+        
+        /* Page 2 - Features */
+        .content-page { background: white; }
+        .section-title { font-size: 28px; font-weight: 700; color: #1e293b; margin-bottom: 8px; }
+        .section-subtitle { font-size: 14px; color: #64748b; margin-bottom: 30px; }
+        
+        .features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .feature-card { 
+          padding: 20px; 
+          border: 1px solid #e2e8f0; 
+          border-radius: 12px;
+          background: #f8fafc;
+        }
+        .feature-icon { 
+          width: 40px; height: 40px; 
+          border-radius: 10px; 
+          display: flex; align-items: center; justify-content: center;
+          margin-bottom: 12px;
+          font-size: 20px;
+        }
+        .feature-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+        .feature-card p { font-size: 12px; color: #64748b; }
+        
+        .stats-bar { 
+          display: flex; 
+          justify-content: space-around; 
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
+          border-radius: 12px;
+          padding: 25px;
+          margin-top: 30px;
+          color: white;
+        }
+        .stat { text-align: center; }
+        .stat-value { font-size: 28px; font-weight: 700; }
+        .stat-label { font-size: 11px; opacity: 0.8; }
+        
+        /* Page 3 - Benefits & Contact */
+        .benefits-list { margin-bottom: 30px; }
+        .benefit-item { 
+          display: flex; 
+          align-items: flex-start; 
+          gap: 12px; 
+          padding: 12px 0;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        .benefit-icon { 
+          width: 32px; height: 32px; 
+          background: #eef2ff; 
+          border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+        }
+        .benefit-title { font-weight: 600; font-size: 14px; }
+        .benefit-desc { font-size: 12px; color: #64748b; }
+        
+        .testimonial {
+          background: #f8fafc;
+          border-radius: 12px;
+          padding: 20px;
+          margin-bottom: 15px;
+        }
+        .testimonial-quote { font-style: italic; color: #475569; margin-bottom: 10px; font-size: 13px; }
+        .testimonial-author { font-weight: 600; font-size: 12px; }
+        .testimonial-company { font-size: 11px; color: #64748b; }
+        
+        .cta-box {
+          background: linear-gradient(135deg, #4f46e5, #7c3aed);
+          border-radius: 12px;
+          padding: 30px;
+          text-align: center;
+          color: white;
+          margin-top: 30px;
+        }
+        .cta-box h3 { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+        .cta-box p { opacity: 0.9; margin-bottom: 15px; font-size: 14px; }
+        .cta-box .url { 
+          display: inline-block;
+          background: white; 
+          color: #4f46e5; 
+          padding: 10px 25px; 
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 16px;
+        }
+        
+        .footer {
+          margin-top: 40px;
+          padding-top: 20px;
+          border-top: 1px solid #e2e8f0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 11px;
+          color: #64748b;
+        }
+        
+        @media print {
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .page { margin: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <!-- Page 1: Cover -->
+      <div class="page cover">
+        <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" alt="Fiber Oracle" class="cover-logo" />
+        <h1>Fiber Oracle</h1>
+        <p class="tagline">The Complete Field Reference Tool for Fiber Optic Professionals</p>
+        <p class="subtitle">Power calculations, fiber identification, testing wizards, and comprehensive references — all in one offline-capable app.</p>
+        <div class="version">Version 2.0 • Built for Professionals</div>
+      </div>
+      
+      <!-- Page 2: Features -->
+      <div class="page content-page">
+        <h2 class="section-title">Everything You Need in the Field</h2>
+        <p class="section-subtitle">From quick power calculations to comprehensive testing wizards, Fiber Oracle has you covered.</p>
+        
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #10b981, #14b8a6);">⚡</div>
+            <h3>Power Level Calculator</h3>
+            <p>Instantly estimate ONT receive power for GPON and XGS-PON networks with accurate loss calculations.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);">📊</div>
+            <h3>Advanced Fiber Locator</h3>
+            <p>Identify any fiber from 12 to 3,456 count cables using TIA-598 color codes. Supports loose tube and ribbon.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #3b82f6, #6366f1);">📈</div>
+            <h3>OLTS & OTDR Wizards</h3>
+            <p>Step-by-step guided testing for Tier-1 and Tier-2 certification with automatic pass/fail analysis.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #f43f5e, #ec4899);">🩺</div>
+            <h3>Fiber Doctor</h3>
+            <p>Interactive troubleshooting flowchart to diagnose and resolve fiber issues quickly in the field.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #06b6d4, #3b82f6);">✨</div>
+            <h3>Cleaning Procedures</h3>
+            <p>IEC 61300-3-35 compliant cleaning and inspection procedures with visual pass/fail criteria.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: linear-gradient(135deg, #f59e0b, #f97316);">📚</div>
+            <h3>Complete Reference Library</h3>
+            <p>All the specs you need: attenuation, connectors, splices, standards, color codes, and glossary.</p>
+          </div>
+        </div>
+        
+        <div class="stats-bar">
+          <div class="stat"><div class="stat-value">15+</div><div class="stat-label">Professional Tools</div></div>
+          <div class="stat"><div class="stat-value">3456</div><div class="stat-label">Max Fiber Count</div></div>
+          <div class="stat"><div class="stat-value">100%</div><div class="stat-label">Offline Capable</div></div>
+          <div class="stat"><div class="stat-value">2025</div><div class="stat-label">Standards Updated</div></div>
+        </div>
+      </div>
+      
+      <!-- Page 3: Benefits & CTA -->
+      <div class="page content-page">
+        <h2 class="section-title">Built by Fiber Techs, For Fiber Techs</h2>
+        <p class="section-subtitle">Why professionals choose Fiber Oracle for their daily field work.</p>
+        
+        <div class="benefits-list">
+          <div class="benefit-item">
+            <div class="benefit-icon">📴</div>
+            <div><div class="benefit-title">Works Offline</div><div class="benefit-desc">Full functionality without internet connection — perfect for remote sites.</div></div>
+          </div>
+          <div class="benefit-item">
+            <div class="benefit-icon">📱</div>
+            <div><div class="benefit-title">Mobile-First Design</div><div class="benefit-desc">Optimized for field use on any device — phone, tablet, or laptop.</div></div>
+          </div>
+          <div class="benefit-item">
+            <div class="benefit-icon">⏱️</div>
+            <div><div class="benefit-title">Save Time</div><div class="benefit-desc">No more flipping through reference books or searching online.</div></div>
+          </div>
+          <div class="benefit-item">
+            <div class="benefit-icon">🛡️</div>
+            <div><div class="benefit-title">Industry Standards</div><div class="benefit-desc">TIA, IEEE, ITU-T, and IEC compliant values you can trust.</div></div>
+          </div>
+          <div class="benefit-item">
+            <div class="benefit-icon">🎯</div>
+            <div><div class="benefit-title">Accurate Calculations</div><div class="benefit-desc">Current 2025 specifications and standards built-in.</div></div>
+          </div>
+        </div>
+        
+        <h3 style="font-size: 18px; margin-bottom: 15px;">What Professionals Say</h3>
+        
+        <div class="testimonial">
+          <div class="testimonial-quote">"Finally, all my fiber reference tools in one place. The fiber locator alone saves me 10 minutes per job."</div>
+          <div class="testimonial-author">Field Technician</div>
+          <div class="testimonial-company">Regional ISP</div>
+        </div>
+        
+        <div class="testimonial">
+          <div class="testimonial-quote">"The loss budget calculator with built-in standards makes pre-job planning a breeze."</div>
+          <div class="testimonial-author">Network Engineer</div>
+          <div class="testimonial-company">Data Center Operator</div>
+        </div>
+        
+        <div class="cta-box">
+          <h3>Ready to Streamline Your Fiber Work?</h3>
+          <p>Start using Fiber Oracle today — it's free and works on any device.</p>
+          <div class="url">www.fiberoracle.com</div>
+        </div>
+        
+        <div class="footer">
+          <div>© 2025 Fiber Oracle • When you need to know, ask the Oracle.</div>
+          <div>Standards: TIA-568-D • IEC 61300 • IEEE 802.3 • ITU-T G.984/G.9807</div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+  pdfWindow.document.close();
+  setTimeout(() => pdfWindow.print(), 500);
+};
 
 const FEATURES = [
   {
@@ -93,8 +350,24 @@ const TESTIMONIALS = [
 export default function Brochure() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
+      {/* Fixed Header with Back & Download */}
+      <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border-b border-gray-200/50">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <Link to={createPageUrl('Splash')}>
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+          <Button onClick={downloadBrochurePDF} className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-600">
+            <Download className="h-4 w-4" />
+            Download PDF
+          </Button>
+        </div>
+      </header>
+
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
+      <section className="relative overflow-hidden pt-16">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500"></div>
         <div className="absolute inset-0 opacity-30" style={{backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")"}}></div>
         
