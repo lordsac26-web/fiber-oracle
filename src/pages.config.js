@@ -16,7 +16,6 @@ import BendRadius from './pages/BendRadius';
 import OTDRTest from './pages/OTDRTest';
 import LCPMap from './pages/LCPMap';
 import Fiber101 from './pages/Fiber101';
-import Manual from './pages/Manual';
 import Brochure from './pages/Brochure';
 import Education from './pages/Education';
 import Fiber102 from './pages/Fiber102';
@@ -52,7 +51,6 @@ export const PAGES = {
     "OTDRTest": OTDRTest,
     "LCPMap": LCPMap,
     "Fiber101": Fiber101,
-    "Manual": Manual,
     "Brochure": Brochure,
     "Education": Education,
     "Fiber102": Fiber102,

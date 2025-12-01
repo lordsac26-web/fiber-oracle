@@ -220,20 +220,11 @@ const MODULES = [
     badge: 'Learn'
   },
   {
-    id: 'manual',
-    title: 'User Manual',
-    description: 'App documentation & help',
-    icon: FileText,
-    color: 'from-blue-500 to-indigo-600',
-    page: 'Manual',
-    badge: 'Learn'
-  },
-  {
     id: 'userguide',
     title: 'User Guide',
     description: 'Complete how-to documentation',
     icon: BookOpen,
-    color: 'from-amber-500 to-orange-600',
+    color: 'from-blue-500 to-indigo-600',
     page: 'UserGuide',
     badge: 'Learn'
   },
