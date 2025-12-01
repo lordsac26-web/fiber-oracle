@@ -1301,7 +1301,7 @@ export default function Manual() {
               <Link to={createPageUrl('Fiber101')}>
                 <Button variant="outline" size="sm">
                   <Lightbulb className="h-4 w-4 mr-2" />
-                  Quick Start
+                  Education Quick Start
                 </Button>
               </Link>
             </div>
