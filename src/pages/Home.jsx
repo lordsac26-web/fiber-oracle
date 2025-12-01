@@ -28,8 +28,10 @@ import {
   FileSearch,
   FlaskConical,
   ClipboardList,
-  Info
+  Info,
+  HelpCircle
 } from 'lucide-react';
+import OnboardingTour from '@/components/OnboardingTour';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import BottomNavigationBar from '@/components/BottomNavigationBar';
@@ -280,11 +282,31 @@ export default function Home() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showCustomizeDialog, setShowCustomizeDialog] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   
   // Use user preferences context
   const { preferences, updatePreferences } = useUserPreferences();
   const darkMode = preferences.darkMode;
   const hiddenModules = preferences.hiddenModules || [];
+  const hasSeenTour = preferences.hasSeenTour || false;
+
+  // Show tour for first-time users
+  useEffect(() => {
+    if (!hasSeenTour) {
+      const timer = setTimeout(() => setShowTour(true), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [hasSeenTour]);
+
+  const handleTourComplete = () => {
+    setShowTour(false);
+    updatePreferences({ hasSeenTour: true });
+  };
+
+  const handleTourClose = () => {
+    setShowTour(false);
+    updatePreferences({ hasSeenTour: true });
+  };
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -295,6 +317,15 @@ export default function Home() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
+  }, []);
+
+  // Check for tour param from settings
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('tour') === '1') {
+      setShowTour(true);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, []);
 
   const toggleModuleVisibility = (moduleId) => {
@@ -421,13 +452,23 @@ export default function Home() {
                 {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               </Button>
               
-              <Link to={createPageUrl('Brochure')} className="hidden md:block">
-                <Button variant="ghost" size="icon" className="rounded-full h-9 w-9" title="About Fiber Oracle">
-                  <Info className="h-5 w-5" />
-                </Button>
-              </Link>
-              
-              <Link to={createPageUrl('Settings')} className="hidden md:block">
+              <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="rounded-full h-9 w-9 hidden md:flex"
+                                    title="Start Tour"
+                                    onClick={() => setShowTour(true)}
+                                  >
+                                    <HelpCircle className="h-5 w-5" />
+                                  </Button>
+
+                                  <Link to={createPageUrl('Brochure')} className="hidden md:block">
+                                    <Button variant="ghost" size="icon" className="rounded-full h-9 w-9" title="About Fiber Oracle">
+                                      <Info className="h-5 w-5" />
+                                    </Button>
+                                  </Link>
+
+                                  <Link to={createPageUrl('Settings')} className="hidden md:block">
                 <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
                   <Settings className="h-5 w-5" />
                 </Button>
@@ -604,10 +645,17 @@ export default function Home() {
       </main>
 
       {/* Bottom Navigation - Mobile only */}
-      <BottomNavigationBar 
-        selectedCategory={selectedCategory} 
-        onCategoryChange={setSelectedCategory} 
-      />
-    </div>
-  );
-}
+              <BottomNavigationBar 
+                selectedCategory={selectedCategory} 
+                onCategoryChange={setSelectedCategory} 
+              />
+
+              {/* Onboarding Tour */}
+              <OnboardingTour 
+                isOpen={showTour} 
+                onClose={handleTourClose} 
+                onComplete={handleTourComplete} 
+              />
+            </div>
+          );
+        }
