@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,8 @@ import {
   Calendar,
   CheckCircle2,
   Trophy,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -23,124 +24,45 @@ const COURSE_INFO = {
 };
 
 export default function Certifications() {
+  const [downloadingId, setDownloadingId] = useState(null);
+  
   const { data: certifications = [], isLoading } = useQuery({
     queryKey: ['certifications'],
     queryFn: () => base44.entities.Certification.list('-created_date'),
   });
 
-  const downloadCertificate = (cert) => {
+  const downloadCertificate = async (cert) => {
     const courseInfo = COURSE_INFO[cert.course_id] || { title: cert.course_title, subtitle: '' };
-    const certWindow = window.open('', '_blank');
-    certWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Certificate of Completion</title>
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Open+Sans:wght@400;600&display=swap');
-          
-          body { 
-            font-family: 'Open Sans', sans-serif; 
-            margin: 0; 
-            padding: 40px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: #f5f5f5;
-          }
-          
-          .certificate {
-            width: 900px;
-            padding: 60px;
-            background: white;
-            border: 3px solid #1e3a8a;
-            position: relative;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-          }
-          
-          .certificate::before {
-            content: '';
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            bottom: 10px;
-            border: 2px solid #3b82f6;
-          }
-          
-          .header { text-align: center; margin-bottom: 30px; }
-          .logo { font-size: 28px; font-weight: bold; color: #1e3a8a; margin-bottom: 10px; }
-          .title { font-family: 'Playfair Display', serif; font-size: 48px; color: #1e3a8a; margin: 20px 0; }
-          .subtitle { font-size: 18px; color: #64748b; margin-bottom: 30px; }
-          .recipient { font-family: 'Playfair Display', serif; font-size: 36px; color: #1e40af; margin: 30px 0; padding: 10px 0; border-bottom: 2px solid #3b82f6; display: inline-block; }
-          .course-title { font-size: 24px; color: #1e3a8a; font-weight: 600; margin: 20px 0; }
-          .details { font-size: 16px; color: #475569; line-height: 1.8; margin: 30px 0; }
-          .score { font-size: 20px; color: #059669; font-weight: 600; }
-          .footer { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 30px; border-top: 1px solid #e2e8f0; }
-          .signature { text-align: center; }
-          .signature-line { width: 200px; border-bottom: 1px solid #1e3a8a; margin: 10px auto; }
-          .cert-id { font-size: 12px; color: #94a3b8; margin-top: 20px; }
-          .seal { width: 100px; height: 100px; border: 3px solid #f59e0b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; text-align: center; color: #f59e0b; font-weight: bold; }
-          
-          @media print { body { background: white; padding: 0; } .certificate { box-shadow: none; } }
-        </style>
-      </head>
-      <body>
-        <div class="certificate">
-          <div class="header">
-            <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" alt="Fiber Oracle" style="width: 80px; height: 80px; border-radius: 16px; margin: 0 auto 10px;" />
-            <div class="logo">FIBER ORACLE</div>
-            <div class="subtitle">Education & Certification Center</div>
-            <div class="title">Certificate of Completion</div>
-          </div>
-          
-          <div style="text-align: center;">
-            <p style="font-size: 16px; color: #64748b;">This is to certify that</p>
-            <div class="recipient">${cert.learner_name}</div>
-            <p style="font-size: 16px; color: #64748b; margin-top: 20px;">has successfully completed</p>
-            <div class="course-title">${courseInfo.title}</div>
-            <p style="font-size: 14px; color: #64748b;">${courseInfo.subtitle}</p>
-            
-            <div class="details">
-              <p>This certifies that the above-named individual has successfully demonstrated 
-              knowledge and understanding of fiber optic technology, PON networks, and FTTH 
-              installation and troubleshooting by achieving a passing score on the final assessment.</p>
-              <p class="score">Final Score: ${cert.score}%</p>
-            </div>
-          </div>
-          
-          <div class="footer">
-            <div class="signature">
-              <div class="signature-line"></div>
-              <p>Fiber Oracle</p>
-              <p style="font-size: 12px; color: #64748b;">Certification Authority</p>
-            </div>
-            
-            <div class="seal">
-              CERTIFIED<br/>
-              ${cert.course_id?.toUpperCase() || 'FIBER'}
-            </div>
-            
-            <div class="signature">
-              <div class="signature-line"></div>
-              <p>${cert.completion_date ? new Date(cert.completion_date).toLocaleDateString() : 'N/A'}</p>
-              <p style="font-size: 12px; color: #64748b;">Date of Completion</p>
-            </div>
-          </div>
-          
-          <div class="cert-id">
-            Certificate ID: ${cert.certificate_id} | Verify at fiberoracle.com/verify
-          </div>
-        </div>
-        
-        <script>
-          window.onload = function() { window.print(); }
-        </script>
-      </body>
-      </html>
-    `);
-    certWindow.document.close();
+    setDownloadingId(cert.id);
+    
+    try {
+      const response = await base44.functions.invoke('generatePDF', { 
+        type: 'certificate',
+        data: {
+          learnerName: cert.learner_name,
+          courseTitle: courseInfo.title,
+          courseSubtitle: courseInfo.subtitle,
+          score: cert.score,
+          certificateId: cert.certificate_id,
+          completionDate: cert.completion_date,
+          courseId: cert.course_id
+        }
+      }, { responseType: 'arraybuffer' });
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Certificate-${courseInfo.title}-${cert.learner_name}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } catch (error) {
+      console.error('Certificate download failed:', error);
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
@@ -246,10 +168,15 @@ export default function Certifications() {
                     
                     <Button 
                       onClick={() => downloadCertificate(cert)}
+                      disabled={downloadingId === cert.id}
                       className="w-full bg-gradient-to-r from-indigo-500 to-purple-600"
                     >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Certificate
+                      {downloadingId === cert.id ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      {downloadingId === cert.id ? 'Generating...' : 'Download Certificate'}
                     </Button>
                   </CardContent>
                 </Card>
