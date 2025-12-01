@@ -248,6 +248,7 @@ export default function BendRadius() {
             </TabsContent>
           ))}
         </Tabs>
+        )}
 
         {/* Fiber Type Reference */}
         <Card className="border-0 shadow-lg">
