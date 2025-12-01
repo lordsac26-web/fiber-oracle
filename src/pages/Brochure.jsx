@@ -389,8 +389,8 @@ export default function Brochure() {
             </div>
             <div className="flex items-center gap-6 text-sm text-gray-400">
               <Link to={createPageUrl('Fiber101')} className="hover:text-white transition-colors">
-                Quick Start
-              </Link>
+                                    Education Quick Start
+                                  </Link>
               <Link to={createPageUrl('Manual')} className="hover:text-white transition-colors">
                 Manual
               </Link>
