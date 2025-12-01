@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Cable, Palette, Hash, ArrowRight, Layers, Settings2, Info } from 'lucide-react';
+import { ArrowLeft, Cable, Palette, Hash, ArrowRight, Layers, Settings2, Info, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useUserPreferences } from '@/components/UserPreferencesContext';
+import HiddenContentBanner from '@/components/HiddenContentBanner';
 
 // TIA-598 Color Code Standard
 const TIA_COLORS = [
@@ -44,7 +46,23 @@ const CABLE_STRUCTURES = [
 ];
 
 export default function FiberLocator() {
-  const [mode, setMode] = useState('standard'); // 'standard' or 'highcount'
+  const { preferences, updatePreferences } = useUserPreferences();
+  const hiddenSections = preferences.hiddenSections?.fiberlocator || [];
+
+  const handleShowAll = () => {
+    updatePreferences({
+      hiddenSections: {
+        ...preferences.hiddenSections,
+        fiberlocator: []
+      }
+    });
+  };
+
+  // Map section IDs to modes
+  const isLooseTubeHidden = hiddenSections.includes('loosetube');
+  const isRibbonHidden = hiddenSections.includes('ribbon');
+  
+  const [mode, setMode] = useState(!isLooseTubeHidden ? 'standard' : (!isRibbonHidden ? 'highcount' : 'standard'));
   const [cableStructure, setCableStructure] = useState('144');
   
   // Standard mode state
@@ -274,6 +292,12 @@ export default function FiberLocator() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <HiddenContentBanner 
+          hiddenCount={hiddenSections.length} 
+          moduleId="fiberlocator" 
+          onShowAll={handleShowAll}
+        />
+
         {/* Mode Selector */}
         <Tabs value={mode} onValueChange={setMode} className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-12">
