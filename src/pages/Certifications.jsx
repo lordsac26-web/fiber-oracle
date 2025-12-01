@@ -10,12 +10,15 @@ import {
   CheckCircle2,
   Trophy,
   FileText,
-  Loader2
+  Loader2,
+  WifiOff
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
+import { saveDocumentOffline, isDocumentSavedOffline } from '@/components/OfflineDocumentService';
+import { toast } from 'sonner';
 
 const COURSE_INFO = {
   fiber101: { title: 'Fiber 101', subtitle: 'Foundations of Fiber Optics', color: 'from-green-500 to-emerald-600' },
@@ -25,11 +28,26 @@ const COURSE_INFO = {
 
 export default function Certifications() {
   const [downloadingId, setDownloadingId] = useState(null);
+  const [offlineCerts, setOfflineCerts] = useState({});
   
   const { data: certifications = [], isLoading } = useQuery({
     queryKey: ['certifications'],
     queryFn: () => base44.entities.Certification.list('-created_date'),
   });
+
+  // Check which certificates are saved offline
+  React.useEffect(() => {
+    const checkOffline = async () => {
+      const status = {};
+      for (const cert of certifications) {
+        status[cert.id] = await isDocumentSavedOffline(`certificate-${cert.id}`);
+      }
+      setOfflineCerts(status);
+    };
+    if (certifications.length > 0) {
+      checkOffline();
+    }
+  }, [certifications]);
 
   const downloadCertificate = async (cert) => {
     const courseInfo = COURSE_INFO[cert.course_id] || { title: cert.course_title, subtitle: '' };
@@ -49,6 +67,22 @@ export default function Certifications() {
         }
       }, { responseType: 'arraybuffer' });
       
+      // Save for offline access
+      await saveDocumentOffline(
+        `certificate-${cert.id}`,
+        'certificate',
+        `${courseInfo.title} Certificate - ${cert.learner_name}`,
+        response.data,
+        { 
+          courseId: cert.course_id, 
+          learnerName: cert.learner_name,
+          certificateId: cert.certificate_id,
+          score: cert.score
+        }
+      );
+      setOfflineCerts(prev => ({ ...prev, [cert.id]: true }));
+      toast.success('Certificate saved for offline access');
+      
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -60,6 +94,7 @@ export default function Certifications() {
       a.remove();
     } catch (error) {
       console.error('Certificate download failed:', error);
+      toast.error('Failed to download certificate');
     } finally {
       setDownloadingId(null);
     }
@@ -134,12 +169,20 @@ export default function Certifications() {
                           <p className="text-white/80 text-sm">{courseInfo.subtitle}</p>
                         </div>
                       </div>
-                      {cert.passed && (
-                        <Badge className="bg-white/20 text-white border-0">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Passed
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {offlineCerts[cert.id] && (
+                          <Badge className="bg-emerald-500/80 text-white border-0">
+                            <WifiOff className="h-3 w-3 mr-1" />
+                            Offline
+                          </Badge>
+                        )}
+                        {cert.passed && (
+                          <Badge className="bg-white/20 text-white border-0">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Passed
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
                   

@@ -220,6 +220,19 @@ const MODULES = [
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // REFERENCE - Offline Documents (added)
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: 'offline',
+    title: 'Offline Documents',
+    description: 'Saved PDFs for offline access',
+    icon: FileText,
+    color: 'from-slate-500 to-gray-600',
+    page: 'OfflineDocuments',
+    badge: 'Reference'
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // TESTING - Job Reports (added to Testing category)
   // ═══════════════════════════════════════════════════════════════════════════
   {
