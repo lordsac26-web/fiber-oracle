@@ -27,6 +27,7 @@ import CertificationExam from './pages/CertificationExam';
 import StudyGuide from './pages/StudyGuide';
 import Certifications from './pages/Certifications';
 import Contact from './pages/Contact';
+import OfflineDocuments from './pages/OfflineDocuments';
 import __Layout from './Layout.jsx';
 
 
@@ -60,6 +61,7 @@ export const PAGES = {
     "StudyGuide": StudyGuide,
     "Certifications": Certifications,
     "Contact": Contact,
+    "OfflineDocuments": OfflineDocuments,
 }
 
 export const pagesConfig = {
