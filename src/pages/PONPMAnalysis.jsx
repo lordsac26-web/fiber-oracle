@@ -388,7 +388,13 @@ export default function PONPMAnalysis() {
                             <div className="space-y-1">
                               {issues.map((issue, i) => (
                                 <div key={i} className={`text-sm p-2 rounded ${issueDetailView.type === 'critical' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
-                                  <span className="font-medium">{issue.field}:</span> {issue.message}
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium">{issue.field}:</span>
+                                    <span className="font-mono text-xs bg-white/50 px-1.5 py-0.5 rounded">
+                                      {issue.value !== undefined ? issue.value : ont[issue.field]}
+                                    </span>
+                                  </div>
+                                  <div className="text-xs mt-0.5 opacity-80">{issue.message}</div>
                                 </div>
                               ))}
                             </div>
