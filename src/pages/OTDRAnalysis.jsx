@@ -157,7 +157,8 @@ export default function OTDRAnalysis() {
       if (isSorFile) {
         updateTraceData('inputMethod', 'sor');
         setSorFileData({ fileName: file.name, url: file_url });
-        toast.success('.SOR file uploaded - AI will extract trace data');
+        // Parse .SOR file to auto-fill form fields
+        await parseIOLMReport(file_url, file.name);
       } else if (isIOLMFile || file.type === 'application/pdf') {
         // Try to parse as iOLM report
         await parseIOLMReport(file_url, file.name);
