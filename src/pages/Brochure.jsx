@@ -173,7 +173,7 @@ export default function Brochure() {
               <Link to={createPageUrl('Fiber101')}>
                 <Button size="lg" variant="outline" className="border-white/50 text-white hover:bg-white/10">
                   <BookOpen className="h-5 w-5 mr-2" />
-                  Quick Start Guide
+                  Education Quick Start
                 </Button>
               </Link>
             </div>
