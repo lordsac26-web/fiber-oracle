@@ -99,6 +99,16 @@ const MODULES = [
   // TESTING - Test procedures and wizards
   // ═══════════════════════════════════════════════════════════════════════════
   {
+    id: 'ponpm',
+    title: 'PON PM Analysis',
+    description: 'Parse & analyze SMx PM exports',
+    icon: FileText,
+    color: 'from-cyan-500 to-blue-600',
+    page: 'PONPMAnalysis',
+    badge: 'Testing',
+    isNew: true
+  },
+  {
     id: 'olts',
     title: 'OLTS Tier-1',
     description: 'Method B bidirectional power testing',

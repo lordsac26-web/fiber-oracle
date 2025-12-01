@@ -29,6 +29,7 @@ import Contact from './pages/Contact';
 import OfflineDocuments from './pages/OfflineDocuments';
 import OpticalCalculator from './pages/OpticalCalculator';
 import UserGuide from './pages/UserGuide';
+import PONPMAnalysis from './pages/PONPMAnalysis';
 import __Layout from './Layout.jsx';
 
 
@@ -64,6 +65,7 @@ export const PAGES = {
     "OfflineDocuments": OfflineDocuments,
     "OpticalCalculator": OpticalCalculator,
     "UserGuide": UserGuide,
+    "PONPMAnalysis": PONPMAnalysis,
 }
 
 export const pagesConfig = {
