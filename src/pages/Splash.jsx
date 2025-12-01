@@ -78,14 +78,27 @@ export default function Splash() {
             When you need to know, ask the Oracle.
           </motion.p>
 
-          <motion.p
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.5 }}
-            className="text-gray-400 mb-8 max-w-md mx-auto"
+            className="text-gray-400 mb-8 max-w-xl mx-auto space-y-4"
           >
-            The complete FTTH & PON technician toolkit — calculators, diagnostics, testing guides, and certification training.
-          </motion.p>
+            <p>
+              The complete FTTH & PON technician toolkit — calculators, diagnostics, testing guides, and certification training.
+            </p>
+            <div className="text-left bg-white/5 rounded-xl p-5 border border-white/10 text-sm space-y-3">
+              <p className="text-gray-300">
+                <span className="text-blue-400 font-semibold">Purpose:</span> A comprehensive field reference and training platform for fiber optic installation, testing, and troubleshooting.
+              </p>
+              <p className="text-gray-300">
+                <span className="text-blue-400 font-semibold">Audience:</span> FTTH technicians, network installers, field engineers, and anyone working with GPON/XGS-PON systems.
+              </p>
+              <p className="text-gray-300">
+                <span className="text-blue-400 font-semibold">Built From:</span> Industry standards including TIA-568-D, TIA-526-14-C, IEC 61300-3-35, ITU-T G.984/G.9807, and real-world technician workflows.
+              </p>
+            </div>
+          </motion.div>
 
           {/* CTA Button */}
           <motion.div
