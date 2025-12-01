@@ -14,7 +14,8 @@ import {
   Wrench,
   Stethoscope,
   FileText,
-  ClipboardCheck
+  ClipboardCheck,
+  Trophy
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
