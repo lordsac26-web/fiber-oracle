@@ -353,7 +353,7 @@ export default function Brochure() {
       {/* Fixed Header with Back & Download */}
       <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border-b border-gray-200/50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to={createPageUrl('Splash')}>
+          <Link to={createPageUrl('Home')}>
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               Back

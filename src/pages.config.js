@@ -25,7 +25,6 @@ import OTDRAnalysis from './pages/OTDRAnalysis';
 import JobReports from './pages/JobReports';
 import CertificationExam from './pages/CertificationExam';
 import StudyGuide from './pages/StudyGuide';
-import Splash from './pages/Splash';
 import Certifications from './pages/Certifications';
 import __Layout from './Layout.jsx';
 
@@ -58,7 +57,6 @@ export const PAGES = {
     "JobReports": JobReports,
     "CertificationExam": CertificationExam,
     "StudyGuide": StudyGuide,
-    "Splash": Splash,
     "Certifications": Certifications,
 }
 
