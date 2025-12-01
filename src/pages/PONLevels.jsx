@@ -5,9 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Radio, Zap, AlertTriangle, CheckCircle2, Info, XCircle, Activity } from 'lucide-react';
+import { ArrowLeft, Radio, Zap, AlertTriangle, CheckCircle2, Info, XCircle, Activity, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useUserPreferences } from '@/components/UserPreferencesContext';
+import HiddenContentBanner from '@/components/HiddenContentBanner';
 
 const GPON_SPECS = {
   standard: 'ITU-T G.984',
@@ -273,7 +275,22 @@ const PON_ERRORS = {
 };
 
 export default function PONLevels() {
-  const [activeTab, setActiveTab] = useState('gpon');
+  const { preferences, updatePreferences } = useUserPreferences();
+  const hiddenSections = preferences.hiddenSections?.pon || [];
+  
+  const allTabs = ['gpon', 'xgspon', 'splitters', 'errors'];
+  const visibleTabs = allTabs.filter(t => !hiddenSections.includes(t));
+  
+  const [activeTab, setActiveTab] = useState(visibleTabs[0] || 'gpon');
+
+  const handleShowAll = () => {
+    updatePreferences({
+      hiddenSections: {
+        ...preferences.hiddenSections,
+        pon: []
+      }
+    });
+  };
 
   const renderPowerTable = (specs, type) => (
     <div className="space-y-6">
@@ -372,6 +389,12 @@ export default function PONLevels() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        <HiddenContentBanner 
+          hiddenCount={hiddenSections.length} 
+          moduleId="pon" 
+          onShowAll={handleShowAll}
+        />
+
         <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
           <Info className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-blue-800 dark:text-blue-200">
@@ -380,43 +403,65 @@ export default function PONLevels() {
           </AlertDescription>
         </Alert>
 
+        {visibleTabs.length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-xl">
+            <EyeOff className="h-8 w-8 mx-auto mb-3 text-gray-400" />
+            <p className="text-gray-500">All PON sections are hidden.</p>
+            <Link to={createPageUrl('Settings') + '?tab=visibility'}>
+              <Button variant="outline" className="mt-4">Manage Visibility</Button>
+            </Link>
+          </div>
+        ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="bg-white dark:bg-gray-800 shadow-lg p-1 rounded-xl flex-wrap h-auto gap-1">
-            <TabsTrigger value="gpon" className="rounded-lg">
-              <Radio className="h-4 w-4 mr-2" />
-              GPON
-            </TabsTrigger>
-            <TabsTrigger value="xgspon" className="rounded-lg">
-              <Zap className="h-4 w-4 mr-2" />
-              XGS-PON
-            </TabsTrigger>
-            <TabsTrigger value="splitters" className="rounded-lg">
-              Splitters
-            </TabsTrigger>
-            <TabsTrigger value="errors" className="rounded-lg">
-              <Activity className="h-4 w-4 mr-2" />
-              BIP/FEC/GEM
-            </TabsTrigger>
+            {!hiddenSections.includes('gpon') && (
+              <TabsTrigger value="gpon" className="rounded-lg">
+                <Radio className="h-4 w-4 mr-2" />
+                GPON
+              </TabsTrigger>
+            )}
+            {!hiddenSections.includes('xgspon') && (
+              <TabsTrigger value="xgspon" className="rounded-lg">
+                <Zap className="h-4 w-4 mr-2" />
+                XGS-PON
+              </TabsTrigger>
+            )}
+            {!hiddenSections.includes('splitters') && (
+              <TabsTrigger value="splitters" className="rounded-lg">
+                Splitters
+              </TabsTrigger>
+            )}
+            {!hiddenSections.includes('errors') && (
+              <TabsTrigger value="errors" className="rounded-lg">
+                <Activity className="h-4 w-4 mr-2" />
+                BIP/FEC/GEM
+              </TabsTrigger>
+            )}
           </TabsList>
 
-          <TabsContent value="gpon">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold">GPON Power Levels</h2>
-              <p className="text-sm text-gray-500">Per ITU-T G.984.2 specification</p>
-            </div>
-            {renderPowerTable(GPON_SPECS, 'gpon')}
-          </TabsContent>
+          {!hiddenSections.includes('gpon') && (
+            <TabsContent value="gpon">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold">GPON Power Levels</h2>
+                <p className="text-sm text-gray-500">Per ITU-T G.984.2 specification</p>
+              </div>
+              {renderPowerTable(GPON_SPECS, 'gpon')}
+            </TabsContent>
+          )}
 
-          <TabsContent value="xgspon">
-            <div className="mb-4">
-              <h2 className="text-xl font-semibold">XGS-PON Power Levels</h2>
-              <p className="text-sm text-gray-500">Per ITU-T G.9807.1 specification</p>
-            </div>
-            {renderPowerTable(XGSPON_SPECS, 'xgspon')}
-          </TabsContent>
+          {!hiddenSections.includes('xgspon') && (
+            <TabsContent value="xgspon">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold">XGS-PON Power Levels</h2>
+                <p className="text-sm text-gray-500">Per ITU-T G.9807.1 specification</p>
+              </div>
+              {renderPowerTable(XGSPON_SPECS, 'xgspon')}
+            </TabsContent>
+          )}
 
-          <TabsContent value="splitters">
-            <Card className="border-0 shadow-lg">
+          {!hiddenSections.includes('splitters') && (
+            <TabsContent value="splitters">
+              <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle>Optical Splitter Insertion Loss</CardTitle>
                 <p className="text-sm text-gray-500">Typical values for PLC splitters</p>
@@ -452,7 +497,9 @@ export default function PONLevels() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
 
+          {!hiddenSections.includes('errors') && (
           <TabsContent value="errors">
             <div className="space-y-6">
               <div className="mb-4">
@@ -643,7 +690,9 @@ export default function PONLevels() {
               </Card>
             </div>
           </TabsContent>
+          )}
         </Tabs>
+        )}
 
         {/* Quick Reference */}
         <Card className="border-0 shadow-lg bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
