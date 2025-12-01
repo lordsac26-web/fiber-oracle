@@ -236,6 +236,29 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'No file URL provided' }, { status: 400 });
     }
 
+    // Fetch LCP entries for integration
+    let lcpEntries = [];
+    try {
+      lcpEntries = await base44.entities.LCPEntry.list();
+    } catch (e) {
+      // LCP data not available, continue without it
+      console.log('LCP data not available:', e.message);
+    }
+
+    // Build LCP lookup map by OLT name + shelf/slot/port
+    const lcpLookup = {};
+    for (const lcp of lcpEntries) {
+      if (lcp.olt_name && lcp.olt_shelf && lcp.olt_slot && lcp.olt_port) {
+        const key = `${lcp.olt_name}|${lcp.olt_shelf}/${lcp.olt_slot}/${lcp.olt_port}`.toLowerCase();
+        lcpLookup[key] = {
+          lcp_number: lcp.lcp_number,
+          splitter_number: lcp.splitter_number,
+          location: lcp.location,
+          address: lcp.address,
+        };
+      }
+    }
+
     // Fetch the CSV file
     const fileResponse = await fetch(file_url);
     if (!fileResponse.ok) {
@@ -264,6 +287,19 @@ Deno.serve(async (req) => {
         const value = record[field] || record[field.toLowerCase()] || record[field.toUpperCase()] || null;
         ont[field] = value;
       }
+      
+      // Try to match LCP data
+      const oltName = ont.OLTName || '';
+      const port = ont['Shelf/Slot/Port'] || '';
+      const lcpKey = `${oltName}|${port}`.toLowerCase();
+      const lcpMatch = lcpLookup[lcpKey];
+      if (lcpMatch) {
+        ont._lcpNumber = lcpMatch.lcp_number;
+        ont._splitterNumber = lcpMatch.splitter_number;
+        ont._lcpLocation = lcpMatch.location;
+        ont._lcpAddress = lcpMatch.address;
+      }
+      
       return ont;
     });
 
