@@ -159,13 +159,13 @@ function calculateSegmentStats(onts) {
     olts[oltName].ports[portKey].onts.push(ont);
     
     const ontRx = parseNumeric(ont.OntRxOptPwr);
-    if (ontRx !== null) {
+    if (ontRx !== null && ontRx !== 0) {
       olts[oltName].ports[portKey].ontRxValues.push(ontRx);
       olts[oltName].ontRxValues.push(ontRx);
     }
     
     const oltRx = parseNumeric(ont.OLTRXOptPwr);
-    if (oltRx !== null) {
+    if (oltRx !== null && oltRx !== 0) {
       olts[oltName].ports[portKey].oltRxValues.push(oltRx);
       olts[oltName].oltRxValues.push(oltRx);
     }
