@@ -293,11 +293,11 @@ const STANDARDS_LINKS = [
 
 const CATEGORIES = [
   { id: 'all', label: 'All', icon: LayoutGrid },
-  { id: 'Calculators', label: 'Calculate', icon: Calculator },
-  { id: 'Testing', label: 'Test', icon: Activity },
-  { id: 'Troubleshoot', label: 'Troubleshoot', icon: Stethoscope },
-  { id: 'Reference', label: 'Reference', icon: BookOpen },
-  { id: 'Learn', label: 'Learn', icon: GraduationCap },
+  { id: 'Calculators', label: 'Calculate', icon: Calculator, description: 'Loss budgets, power levels & conversions' },
+  { id: 'Testing', label: 'Test', icon: Activity, description: 'OLTS, OTDR & inspection procedures' },
+  { id: 'Troubleshoot', label: 'Troubleshoot', icon: Stethoscope, description: 'Diagnostics & problem solving' },
+  { id: 'Reference', label: 'Reference', icon: BookOpen, description: 'Standards, specs & lookup tables' },
+  { id: 'Learn', label: 'Learn', icon: GraduationCap, description: 'Courses & documentation' },
 ];
 
 export default function Home() {
@@ -362,10 +362,16 @@ export default function Home() {
   };
 
   const visibleModules = MODULES.filter(m => !hiddenModules.includes(m.id));
-  
+
   const filteredModules = selectedCategory === 'all'
     ? visibleModules
     : visibleModules.filter(m => m.badge === selectedCategory);
+
+  // Group modules by category for sectioned view
+  const groupedModules = CATEGORIES.filter(c => c.id !== 'all').reduce((acc, cat) => {
+    acc[cat.id] = visibleModules.filter(m => m.badge === cat.id);
+    return acc;
+  }, {});
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -547,39 +553,98 @@ export default function Home() {
           )}
         </div>
 
-        {/* Mobile: Quick Reference Bar */}
-        <div className="md:hidden overflow-x-auto pb-2 -mx-4 px-4">
-          <div className="flex gap-2 min-w-max">
-            {QUICK_REFS.map((ref, i) => (
-              <div 
-                key={i}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700"
-              >
-                <span className="text-xs text-gray-500">{ref.label}</span>
-                <span className="text-xs font-mono font-semibold text-gray-900 dark:text-white">{ref.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        {/* Module Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-          {filteredModules.map((module) => (
-            <Link key={module.id} to={createPageUrl(module.page)}>
-              <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer bg-white dark:bg-gray-800 h-full">
-                {/* Hover gradient overlay */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${module.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-                
-                <CardContent className="p-3 md:p-5">
-                  {/* Mobile: Compact layout */}
-                  <div className="flex flex-col items-center text-center md:items-start md:text-left">
-                    <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl bg-gradient-to-br ${module.color} flex items-center justify-center shadow-lg mb-2 md:mb-3 group-hover:scale-110 transition-transform duration-300`}>
-                      <module.icon className="h-5 w-5 md:h-7 md:w-7 text-white" />
+
+        {/* Sectioned View (All categories) */}
+        {selectedCategory === 'all' ? (
+          <div className="space-y-6 md:space-y-8">
+            {CATEGORIES.filter(c => c.id !== 'all').map((category) => {
+              const categoryModules = groupedModules[category.id];
+              if (!categoryModules || categoryModules.length === 0) return null;
+
+              return (
+                <section key={category.id} className="scroll-mt-20" id={`section-${category.id}`}>
+                  {/* Category Header */}
+                  <div className="flex items-center gap-3 mb-3 md:mb-4">
+                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br ${
+                      category.id === 'Calculators' ? 'from-blue-500 to-indigo-600' :
+                      category.id === 'Testing' ? 'from-emerald-500 to-teal-600' :
+                      category.id === 'Troubleshoot' ? 'from-rose-500 to-pink-600' :
+                      category.id === 'Reference' ? 'from-slate-500 to-gray-600' :
+                      'from-green-500 to-emerald-600'
+                    } flex items-center justify-center shadow-md`}>
+                      <category.icon className="h-4 w-4 md:h-5 md:w-5 text-white" />
                     </div>
-                    
-                    <h3 className="font-semibold text-sm md:text-base text-gray-900 dark:text-white leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                      {module.title}
-                      {module.isBeta && (
+                    <div>
+                      <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{category.label}</h2>
+                      <p className="text-xs text-gray-500 hidden sm:block">{category.description}</p>
+                    </div>
+                    <Badge variant="outline" className="ml-auto text-xs">
+                      {categoryModules.length}
+                    </Badge>
+                  </div>
+
+                  {/* Module Grid for this category */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-3">
+                    {categoryModules.map((module) => (
+                      <Link key={module.id} to={createPageUrl(module.page)}>
+                        <Card className="group relative overflow-hidden border-0 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer bg-white dark:bg-gray-800 h-full">
+                          <CardContent className="p-2.5 md:p-4">
+                            <div className="flex items-start gap-2 md:gap-3">
+                              <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br ${module.color} flex items-center justify-center shadow flex-shrink-0 group-hover:scale-105 transition-transform`}>
+                                <module.icon className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h3 className="font-medium text-xs md:text-sm text-gray-900 dark:text-white leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                                  {module.title}
+                                </h3>
+                                <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1 md:line-clamp-2">
+                                  {module.description}
+                                </p>
+                                {(module.isBeta || module.isNew) && (
+                                  <div className="mt-1">
+                                    {module.isBeta && (
+                                      <Badge className="bg-amber-500 text-[8px] md:text-[9px] px-1 py-0">
+                                        <FlaskConical className="h-2 w-2 mr-0.5 inline" />
+                                        BETA
+                                      </Badge>
+                                    )}
+                                    {module.isNew && (
+                                      <Badge className="bg-emerald-500 text-[8px] md:text-[9px] px-1 py-0">
+                                        NEW
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          /* Filtered View (Single category) */
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+              {filteredModules.map((module) => (
+                <Link key={module.id} to={createPageUrl(module.page)}>
+                  <Card className="group relative overflow-hidden border-0 shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer bg-white dark:bg-gray-800 h-full">
+                    <div className={`absolute inset-0 bg-gradient-to-br ${module.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+
+                    <CardContent className="p-3 md:p-5">
+                      <div className="flex flex-col items-center text-center md:items-start md:text-left">
+                        <div className={`w-10 h-10 md:w-14 md:h-14 rounded-xl bg-gradient-to-br ${module.color} flex items-center justify-center shadow-lg mb-2 md:mb-3 group-hover:scale-110 transition-transform duration-300`}>
+                          <module.icon className="h-5 w-5 md:h-7 md:w-7 text-white" />
+                        </div>
+
+                        <h3 className="font-semibold text-sm md:text-base text-gray-900 dark:text-white leading-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {module.title}
+                          {module.isBeta && (
                             <Badge className="ml-1 bg-amber-500 text-[9px] px-1 py-0 align-middle">
                               <FlaskConical className="h-2 w-2 mr-0.5 inline" />
                               BETA
@@ -590,79 +655,62 @@ export default function Home() {
                               NEW
                             </Badge>
                           )}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden md:block line-clamp-2">
-                      {module.description}
-                    </p>
-                    
-                    {/* Desktop: Show category badge */}
-                    <Badge variant="outline" className="mt-3 text-[10px] hidden md:inline-flex opacity-60 group-hover:opacity-100 transition-opacity">
-                      {module.badge}
-                    </Badge>
-                  </div>
-                </CardContent>
-                
-                {/* Hover arrow indicator - desktop only */}
-                <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
-                  <ChevronRight className="h-5 w-5 text-blue-500" />
-                </div>
-              </Card>
-            </Link>
-          ))}
-        </div>
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 hidden md:block line-clamp-2">
+                          {module.description}
+                        </p>
+                      </div>
+                    </CardContent>
 
-        {/* Empty state if all modules hidden */}
-        {filteredModules.length === 0 && (
-          <div className="text-center py-12">
-            <EyeOff className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400">No modules visible</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              {hiddenModules.length > 0 
-                ? "All modules in this category are hidden." 
-                : "No modules match this category."}
-            </p>
-            {hiddenModules.length > 0 && (
-              <Link to={createPageUrl('Settings') + '?tab=visibility'}>
-                <Button variant="outline" className="mt-4">
-                  <Eye className="h-4 w-4 mr-2" />
-                  Manage Hidden Content
-                </Button>
-              </Link>
+                    <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
+                      <ChevronRight className="h-5 w-5 text-blue-500" />
+                    </div>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+
+            {filteredModules.length === 0 && (
+              <div className="text-center py-12">
+                <EyeOff className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-600 dark:text-gray-400">No modules visible</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {hiddenModules.length > 0 
+                    ? "All modules in this category are hidden." 
+                    : "No modules match this category."}
+                </p>
+                {hiddenModules.length > 0 && (
+                  <Link to={createPageUrl('Settings') + '?tab=visibility'}>
+                    <Button variant="outline" className="mt-4">
+                      <Eye className="h-4 w-4 mr-2" />
+                      Manage Hidden Content
+                    </Button>
+                  </Link>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
 
-        {/* Standards Footer - Desktop only, more compact */}
-        <div className="hidden lg:block mt-8">
-          <Card className="border-0 shadow-lg bg-white/70 dark:bg-gray-800/70 backdrop-blur">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Reference Standards</h3>
-                <Badge variant="outline" className="text-xs">
-                  {STANDARDS_LINKS.length} standards
-                </Badge>
-              </div>
-              
-              <div className="grid grid-cols-5 gap-4">
-                {['TIA', 'IEC', 'ITU-T', 'FOA', 'Other'].map(category => (
-                  <div key={category}>
-                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">{category}</p>
-                    <div className="flex flex-col gap-1">
-                      {STANDARDS_LINKS.filter(s => s.category === category).map((std) => (
-                        <a 
-                          key={std.name} 
-                          href={std.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          title={std.description}
-                          className="text-xs text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate"
-                        >
-                          {std.name}
-                        </a>
-                      ))}
+        {/* Quick Reference Card - Compact */}
+        <div className="hidden lg:block mt-6">
+          <Card className="border-0 shadow-md bg-white/70 dark:bg-gray-800/70 backdrop-blur">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                  <span className="text-xs font-semibold text-gray-500 uppercase">Quick Ref:</span>
+                  {QUICK_REFS.map((ref, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-500">{ref.label}</span>
+                      <span className="text-xs font-mono font-bold text-gray-900 dark:text-white">{ref.value}</span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <Link to={createPageUrl('ReferenceTables')}>
+                  <Button variant="ghost" size="sm" className="text-xs h-7">
+                    All Standards <ChevronRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </Link>
               </div>
             </CardContent>
           </Card>
