@@ -110,6 +110,7 @@ export default function PONPMAnalysis() {
   const [expandedPorts, setExpandedPorts] = useState([]);
   const [issueDetailView, setIssueDetailView] = useState(null); // { type: 'critical'|'warning', oltName?, portKey? }
   const [showThresholdSettings, setShowThresholdSettings] = useState(false);
+  const [hideOntStatus, setHideOntStatus] = useState({ ok: false, warning: false, critical: false });
   const [customThresholds, setCustomThresholds] = useState(() => {
     const saved = localStorage.getItem('ponPmThresholds');
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
@@ -1018,6 +1019,37 @@ export default function PONPMAnalysis() {
                                   
                                   <CollapsibleContent>
                                     <div className="border-t">
+                                      {/* ONT Status Filter */}
+                                      <div className="p-2 bg-gray-100 dark:bg-gray-800 border-b flex items-center gap-3 flex-wrap">
+                                        <span className="text-xs text-gray-500 font-medium">Show:</span>
+                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={!hideOntStatus.critical}
+                                            onChange={() => setHideOntStatus(prev => ({ ...prev, critical: !prev.critical }))}
+                                            className="rounded border-gray-300"
+                                          />
+                                          <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">Critical</Badge>
+                                        </label>
+                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={!hideOntStatus.warning}
+                                            onChange={() => setHideOntStatus(prev => ({ ...prev, warning: !prev.warning }))}
+                                            className="rounded border-gray-300"
+                                          />
+                                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">Warning</Badge>
+                                        </label>
+                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            checked={!hideOntStatus.ok}
+                                            onChange={() => setHideOntStatus(prev => ({ ...prev, ok: !prev.ok }))}
+                                            className="rounded border-gray-300"
+                                          />
+                                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">OK</Badge>
+                                        </label>
+                                      </div>
                                       <div className="overflow-x-auto">
                                         <Table>
                                           <TableHeader>
@@ -1034,7 +1066,7 @@ export default function PONPMAnalysis() {
                                             </TableRow>
                                           </TableHeader>
                                           <TableBody>
-                                            {portOnts.map((ont, idx) => (
+                                            {portOnts.filter(ont => !hideOntStatus[ont._analysis.status]).map((ont, idx) => (
                                               <TableRow key={idx} className={ont._analysis.status === 'critical' ? 'bg-red-50 dark:bg-red-900/10' : ont._analysis.status === 'warning' ? 'bg-amber-50 dark:bg-amber-900/10' : ''}>
                                                 <TableCell>
                                                   <div className={`w-3 h-3 rounded-full ${STATUS_COLORS[ont._analysis.status]}`} />
