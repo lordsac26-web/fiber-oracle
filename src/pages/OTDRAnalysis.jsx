@@ -173,50 +173,61 @@ export default function OTDRAnalysis() {
   const runAnalysis = async () => {
     setIsAnalyzing(true);
     
+    // Pre-calculate expected values for faster AI context
+    const fiberAttenuation = {
+      'smf_g652': { '1310': 0.35, '1550': 0.25, '1625': 0.25 },
+      'smf_g657a1': { '1310': 0.35, '1550': 0.25, '1625': 0.25 },
+      'smf_g657a2': { '1310': 0.35, '1550': 0.25, '1625': 0.25 },
+      'smf_g657b3': { '1310': 0.35, '1550': 0.25, '1625': 0.25 },
+      'mmf_om3': { '850': 3.0, '1300': 1.0 },
+      'mmf_om4': { '850': 3.0, '1300': 1.0 },
+    };
+    
+    const expectedAtten = fiberAttenuation[traceData.fiberType]?.[traceData.wavelength] || 0.35;
+    const totalLength = parseFloat(traceData.totalLength) || 0;
+    const totalLoss = parseFloat(traceData.totalLoss) || 0;
+    const expectedFiberLoss = totalLength * expectedAtten;
+    const excessLoss = totalLoss - expectedFiberLoss;
+    
+    // Format events concisely for faster processing
+    const eventsFormatted = traceData.events
+      .filter(e => e.distance || e.loss || e.reflectance)
+      .map((e, i) => `E${i+1}:${e.distance}m/${e.loss}dB/${e.reflectance}dB/${e.type}${e.notes ? '/' + e.notes : ''}`)
+      .join('|');
+    
     try {
-      const prompt = `You are an expert fiber optic OTDR trace analyst with deep knowledge of FTTH/PON networks. Analyze the following OTDR trace data and provide detailed diagnostic insights with CONFIDENCE SCORES for each diagnosis.
+      const prompt = `EXPERT OTDR FIBER ANALYST - Analyze trace data against TIA-568-D/IEC 61300/ITU-T standards.
 
-**REFERENCE STANDARDS:**
-- TIA-568-D: SMF attenuation ≤0.35 dB/km @1310nm, ≤0.25 dB/km @1550nm
-- TIA-568-D: Elite connector loss ≤0.15 dB, Standard ≤0.50 dB
-- TIA-568-D: Fusion splice loss ≤0.10 dB
-- IEC 61300-3-35: Connector end-face inspection criteria
-- ITU-T G.652/G.657: Single-mode fiber specifications
-- Reflectance thresholds: UPC <-50 dB, APC <-60 dB, Dirty >-35 dB
+=== QUICK REFERENCE THRESHOLDS ===
+Attenuation: SMF 0.35dB/km@1310, 0.25dB/km@1550 | MMF 3.0dB/km@850
+Connectors: Elite≤0.15dB, Standard≤0.50dB | Reflectance: UPC<-50dB, APC<-60dB, Dirty>-35dB
+Splices: Fusion≤0.10dB, Mechanical≤0.30dB
 
-**ADVANCED IMPAIRMENT SIGNATURES:**
-- Microbend: Small non-reflective loss, often distributed, sensitive to 1550nm
-- Macrobend: Larger non-reflective loss, much higher at 1550nm than 1310nm (>0.5dB difference)
-- Poor fusion splice: Non-reflective 0.1-0.3dB loss, may show slight gainer in opposite direction
-- Contaminated connector: Reflective event >-35dB with 0.3-1.0dB loss
-- Cracked fiber: High reflectance spike, may show intermittent behavior
-- Ghost event: Appears at exactly 2x distance of a real reflective event
+=== IMPAIRMENT SIGNATURES (KEY DIFFERENTIATORS) ===
+MACROBEND: Non-reflective, 1550nm loss >>1310nm loss (ratio>2:1), localized
+MICROBEND: Non-reflective, slight wavelength sensitivity, often distributed over distance
+DIRTY CONNECTOR: Reflectance >-35dB WITH loss 0.3-1.5dB, localized
+CRACKED CONNECTOR: Very high reflectance >-20dB, high loss >1dB
+POOR FUSION SPLICE: Non-reflective, 0.1-0.3dB, may show "gainer" in reverse direction
+MECHANICAL SPLICE: Non-reflective OR slight reflectance, 0.2-0.5dB typical
+GHOST EVENT: Distance = 2× real reflective event distance, no physical cause
+FIBER BREAK: Very high reflectance spike, total signal loss after
 
-**OTDR TRACE DATA:**
-- OTDR Brand: ${traceData.otdrBrand || 'Not specified'}
-- Fiber Type: ${traceData.fiberType}
-- Wavelength: ${traceData.wavelength} nm
-- Pulse Width: ${traceData.pulseWidth || 'Not specified'}
-- Total Fiber Length: ${traceData.totalLength} km
-- Total Link Loss: ${traceData.totalLoss} dB
+=== TRACE DATA ===
+OTDR: ${traceData.otdrBrand || 'Unknown'} | Fiber: ${traceData.fiberType} | λ: ${traceData.wavelength}nm | Pulse: ${traceData.pulseWidth || 'N/A'}ns
+Length: ${totalLength}km | Total Loss: ${totalLoss}dB | Expected Fiber Loss: ${expectedFiberLoss.toFixed(2)}dB | Excess: ${excessLoss.toFixed(2)}dB
 
-**EVENTS DETECTED:**
-${traceData.events.map((e, i) => `Event ${i + 1}: Distance: ${e.distance}m, Loss: ${e.loss}dB, Reflectance: ${e.reflectance}dB, Type: ${e.type}, Notes: ${e.notes}`).join('\n')}
+EVENTS: ${eventsFormatted || 'None entered'}
 
-**REPORTED SYMPTOM:** ${traceData.symptom || 'Not specified'}
+SYMPTOM: ${traceData.symptom || 'None'} | NOTES: ${traceData.additionalNotes || 'None'}
+${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data from this standard OTDR file.` : ''}
 
-**ADDITIONAL NOTES:** ${traceData.additionalNotes || 'None'}
-
-${traceData.fileUrl ? `**UPLOADED TRACE FILE:** ${traceData.fileUrl}` : ''}
-${sorFileData ? `**SOR FILE UPLOADED:** ${sorFileData.fileName} - Extract and analyze all event data from this standard OTDR trace file.` : ''}
-
-Provide detailed analysis with:
-1. Overall link health assessment (Pass/Marginal/Fail)
-2. For EACH event, provide a CONFIDENCE SCORE (0-100%) for your diagnosis
-3. Distinguish between subtle impairments (microbend vs macrobend, poor splice vs dirty connector)
-4. Identify any ghost events or measurement artifacts
-5. Prioritized troubleshooting actions with expected improvement
-6. Required tools for each remediation`;
+=== ANALYSIS REQUIREMENTS ===
+1. Status: pass (within spec) / marginal (within 1dB of limit) / fail (exceeds spec)
+2. Per-event: Identify type, severity, confidence% (based on how well data matches signature), distinguish similar impairments
+3. Ghost detection: Flag any event at 2× distance of reflective event
+4. Actions: Prioritize by dB improvement potential
+5. Be CONCISE but ACCURATE`;
 
       const result = await base44.integrations.Core.InvokeLLM({
         prompt,
