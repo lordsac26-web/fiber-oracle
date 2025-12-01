@@ -87,6 +87,8 @@ export default function OTDRAnalysis() {
   const [selectedEventForFeedback, setSelectedEventForFeedback] = useState(null);
   const [feedbackHistory, setFeedbackHistory] = useState([]);
   const [sorFileData, setSorFileData] = useState(null);
+  const [isParsingIOLM, setIsParsingIOLM] = useState(false);
+  const [iolmData, setIolmData] = useState(null);
   
   // Form data
   const [traceData, setTraceData] = useState({
@@ -143,6 +145,9 @@ export default function OTDRAnalysis() {
     if (!file) return;
     
     const isSorFile = file.name.toLowerCase().endsWith('.sor');
+    const isIOLMFile = file.name.toLowerCase().includes('iolm') || 
+                       file.name.toLowerCase().includes('exfo') ||
+                       (file.type === 'application/pdf' && file.name.toLowerCase().includes('report'));
     
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
@@ -153,11 +158,75 @@ export default function OTDRAnalysis() {
         updateTraceData('inputMethod', 'sor');
         setSorFileData({ fileName: file.name, url: file_url });
         toast.success('.SOR file uploaded - AI will extract trace data');
+      } else if (isIOLMFile || file.type === 'application/pdf') {
+        // Try to parse as iOLM report
+        await parseIOLMReport(file_url, file.name);
       } else {
         toast.success('File uploaded successfully');
       }
     } catch (error) {
       toast.error('Failed to upload file');
+    }
+  };
+
+  const parseIOLMReport = async (fileUrl, fileName) => {
+    setIsParsingIOLM(true);
+    toast.loading('Parsing EXFO iOLM report...', { id: 'iolm-parse' });
+    
+    try {
+      const response = await base44.functions.invoke('parseIOLM', { file_url: fileUrl });
+      
+      if (response.data?.success && response.data?.data) {
+        const parsed = response.data.data;
+        setIolmData(parsed);
+        
+        // Auto-fill test setup
+        if (parsed.test_setup) {
+          if (parsed.test_setup.otdr_brand) {
+            updateTraceData('otdrBrand', parsed.test_setup.otdr_brand.toLowerCase());
+          }
+          if (parsed.test_setup.fiber_type) {
+            updateTraceData('fiberType', parsed.test_setup.fiber_type);
+          }
+          if (parsed.test_setup.wavelength) {
+            updateTraceData('wavelength', parsed.test_setup.wavelength.replace('nm', '').trim());
+          }
+          if (parsed.test_setup.pulse_width) {
+            updateTraceData('pulseWidth', parsed.test_setup.pulse_width.replace('ns', '').trim());
+          }
+        }
+        
+        // Auto-fill link summary
+        if (parsed.link_summary) {
+          if (parsed.link_summary.total_length_km) {
+            updateTraceData('totalLength', parsed.link_summary.total_length_km.toString());
+          }
+          if (parsed.link_summary.total_loss_db) {
+            updateTraceData('totalLoss', parsed.link_summary.total_loss_db.toString());
+          }
+        }
+        
+        // Auto-fill events
+        if (parsed.events && parsed.events.length > 0) {
+          const formattedEvents = parsed.events.map(ev => ({
+            distance: ev.distance_m?.toString() || '',
+            loss: ev.loss_db?.toString() || '',
+            reflectance: ev.reflectance_db?.toString() || '',
+            type: ev.event_type || 'unknown',
+            notes: ev.notes || ''
+          }));
+          setTraceData(prev => ({ ...prev, events: formattedEvents }));
+        }
+        
+        toast.success('iOLM report parsed! Data pre-filled.', { id: 'iolm-parse' });
+      } else {
+        toast.error('Could not extract data from this file', { id: 'iolm-parse' });
+      }
+    } catch (error) {
+      console.error('iOLM parse error:', error);
+      toast.error('Failed to parse iOLM report', { id: 'iolm-parse' });
+    } finally {
+      setIsParsingIOLM(false);
     }
   };
 
@@ -498,16 +567,25 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
                 </div>
 
                 <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl space-y-3">
-                  <Label className="mb-2 block">Upload OTDR Trace</Label>
+                  <Label className="mb-2 block">Upload OTDR Trace / iOLM Report</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       type="file"
                       accept=".sor,.pdf,.png,.jpg,.jpeg"
                       onChange={handleFileUpload}
                       className="flex-1"
+                      disabled={isParsingIOLM}
                     />
                   </div>
-                  {traceData.uploadedFile && (
+                  {isParsingIOLM && (
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                      <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Parsing iOLM report...
+                      </p>
+                    </div>
+                  )}
+                  {traceData.uploadedFile && !isParsingIOLM && (
                     <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
                       <p className="text-sm text-green-700 dark:text-green-300 flex items-center gap-1">
                         <CheckCircle2 className="h-4 w-4" />
@@ -519,15 +597,21 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
                           .SOR file detected - Full trace data will be extracted
                         </p>
                       )}
+                      {iolmData && (
+                        <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          iOLM data extracted - {iolmData.events?.length || 0} events found
+                        </p>
+                      )}
                     </div>
                   )}
                   <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
                     <p className="text-xs text-purple-700 dark:text-purple-300 flex items-center gap-1">
                       <Info className="h-3 w-3" />
-                      <strong>.SOR files</strong> provide the richest data for AI analysis
+                      <strong>EXFO iOLM PDFs</strong> auto-fill all fields!
                     </p>
                   </div>
-                  <p className="text-xs text-gray-500">Accepts .sor (recommended), .pdf, or image files</p>
+                  <p className="text-xs text-gray-500">Accepts .sor, EXFO iOLM PDF, or image files</p>
                 </div>
               </div>
             </div>
