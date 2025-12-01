@@ -242,7 +242,9 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
                 summary: { type: "string" },
                 total_excess_loss: { type: "number" },
                 standards_compliance: { type: "string" },
-                overall_confidence: { type: "number" }
+                overall_confidence: { type: "number" },
+                calculated_fiber_loss: { type: "number" },
+                calculated_event_loss: { type: "number" }
               }
             },
             events_analysis: {
@@ -252,14 +254,18 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
                 properties: {
                   event_number: { type: "number" },
                   distance: { type: "string" },
+                  measured_loss: { type: "number" },
+                  measured_reflectance: { type: "number" },
                   identified_type: { type: "string" },
-                  impairment_category: { type: "string", enum: ["connector", "splice", "macrobend", "microbend", "break", "end", "splitter", "unknown"] },
+                  impairment_category: { type: "string", enum: ["connector", "splice", "macrobend", "microbend", "break", "end", "splitter", "ghost", "unknown"] },
                   severity: { type: "string", enum: ["critical", "warning", "info", "ok"] },
                   confidence_score: { type: "number" },
                   description: { type: "string" },
                   distinguishing_factors: { type: "array", items: { type: "string" } },
+                  differential_diagnosis: { type: "string" },
                   probable_causes: { type: "array", items: { type: "string" } },
                   troubleshooting_steps: { type: "array", items: { type: "string" } },
+                  expected_improvement_db: { type: "number" },
                   is_artifact: { type: "boolean" }
                 }
               }
@@ -273,13 +279,16 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
                   action: { type: "string" },
                   location: { type: "string" },
                   expected_improvement: { type: "string" },
-                  confidence: { type: "number" }
+                  expected_improvement_db: { type: "number" },
+                  confidence: { type: "number" },
+                  effort_level: { type: "string", enum: ["quick", "moderate", "significant"] }
                 }
               }
             },
             tools_needed: { type: "array", items: { type: "string" } },
             additional_recommendations: { type: "array", items: { type: "string" } },
             ghost_events_detected: { type: "array", items: { type: "string" } },
+            wavelength_comparison_note: { type: "string" },
             sor_file_extracted_data: {
               type: "object",
               properties: {
