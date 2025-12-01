@@ -304,7 +304,10 @@ export default function PONPMAnalysis() {
                   <div className="text-xs text-gray-500">Total ONTs</div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow">
+              <Card 
+                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-red-300 ${statusFilter === 'critical' ? 'ring-2 ring-red-500' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === 'critical' ? 'all' : 'critical')}
+              >
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-red-600">
                     {result.summary.criticalCount}
@@ -312,7 +315,10 @@ export default function PONPMAnalysis() {
                   <div className="text-xs text-gray-500">Critical Issues</div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow">
+              <Card 
+                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-amber-300 ${statusFilter === 'warning' ? 'ring-2 ring-amber-500' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === 'warning' ? 'all' : 'warning')}
+              >
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-amber-600">
                     {result.summary.warningCount}
@@ -320,7 +326,10 @@ export default function PONPMAnalysis() {
                   <div className="text-xs text-gray-500">Warnings</div>
                 </CardContent>
               </Card>
-              <Card className="border-0 shadow">
+              <Card 
+                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-green-300 ${statusFilter === 'ok' ? 'ring-2 ring-green-500' : ''}`}
+                onClick={() => setStatusFilter(statusFilter === 'ok' ? 'all' : 'ok')}
+              >
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-green-600">
                     {result.summary.okCount}
@@ -494,13 +503,19 @@ export default function PONPMAnalysis() {
                               </div>
                               <div className="flex items-center gap-2">
                                 {oltCritical > 0 && (
-                                  <Badge className="bg-red-100 text-red-800 border-red-300">
+                                  <Badge 
+                                    className="bg-red-100 text-red-800 border-red-300 cursor-pointer hover:bg-red-200"
+                                    onClick={(e) => { e.stopPropagation(); setOltFilter(oltName); setStatusFilter('critical'); setExpandedOlts([oltName]); }}
+                                  >
                                     <AlertCircle className="h-3 w-3 mr-1" />
                                     {oltCritical}
                                   </Badge>
                                 )}
                                 {oltWarning > 0 && (
-                                  <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                                  <Badge 
+                                    className="bg-amber-100 text-amber-800 border-amber-300 cursor-pointer hover:bg-amber-200"
+                                    onClick={(e) => { e.stopPropagation(); setOltFilter(oltName); setStatusFilter('warning'); setExpandedOlts([oltName]); }}
+                                  >
                                     <AlertTriangle className="h-3 w-3 mr-1" />
                                     {oltWarning}
                                   </Badge>
@@ -558,12 +573,18 @@ export default function PONPMAnalysis() {
 
                                           <div className="flex items-center gap-1">
                                             {portCritical > 0 && (
-                                              <Badge className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5">
+                                              <Badge 
+                                                className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5 cursor-pointer hover:bg-red-200"
+                                                onClick={(e) => { e.stopPropagation(); setOltFilter(oltName); setPortFilter(portKey); setStatusFilter('critical'); setExpandedOlts([oltName]); setExpandedPorts([portId]); }}
+                                              >
                                                 {portCritical}
                                               </Badge>
                                             )}
                                             {portWarning > 0 && (
-                                              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5">
+                                              <Badge 
+                                                className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5 cursor-pointer hover:bg-amber-200"
+                                                onClick={(e) => { e.stopPropagation(); setOltFilter(oltName); setPortFilter(portKey); setStatusFilter('warning'); setExpandedOlts([oltName]); setExpandedPorts([portId]); }}
+                                              >
                                                 {portWarning}
                                               </Badge>
                                             )}
