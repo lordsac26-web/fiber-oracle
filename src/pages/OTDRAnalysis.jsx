@@ -772,18 +772,39 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
                         {action.priority}
                       </div>
                       <div className="flex-1">
-                        <div className="font-medium">{action.action}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{action.action}</span>
+                          {action.effort_level && (
+                            <Badge variant="outline" className={`text-xs ${
+                              action.effort_level === 'quick' ? 'border-green-300 text-green-700' :
+                              action.effort_level === 'moderate' ? 'border-amber-300 text-amber-700' :
+                              'border-red-300 text-red-700'
+                            }`}>
+                              {action.effort_level}
+                            </Badge>
+                          )}
+                        </div>
                         {action.location && (
                           <div className="text-sm text-gray-500 flex items-center gap-1 mt-1">
                             <MapPin className="h-3 w-3" />
                             {action.location}
                           </div>
                         )}
-                        {action.expected_improvement && (
-                          <div className="text-sm text-green-600 mt-1">
-                            Expected: {action.expected_improvement}
-                          </div>
-                        )}
+                        <div className="flex items-center gap-3 mt-1">
+                          {action.expected_improvement && (
+                            <div className="text-sm text-green-600">
+                              Expected: {action.expected_improvement}
+                            </div>
+                          )}
+                          {action.expected_improvement_db && (
+                            <Badge className="bg-green-100 text-green-700 text-xs">
+                              ~{action.expected_improvement_db} dB
+                            </Badge>
+                          )}
+                          {action.confidence && (
+                            <span className="text-xs text-gray-400">{action.confidence}% confident</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
