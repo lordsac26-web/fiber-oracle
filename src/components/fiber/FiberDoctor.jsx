@@ -1078,65 +1078,62 @@ export default function FiberDoctor() {
                   </div>
                 )}
 
-                {/* Reference Images */}
+                {/* Reference Diagrams */}
                 {node.images && node.images.length > 0 && (
                   <div>
                     <h4 className="font-semibold mb-2 md:mb-3 flex items-center gap-2 text-sm md:text-base">
                       <Image className="h-4 w-4 text-purple-500" />
-                      Reference Images
+                      Reference Diagrams
                     </h4>
-                    <div className="grid grid-cols-1 gap-3">
-                      {node.images.map((img, i) => (
-                        <Dialog key={i}>
-                          <DialogTrigger asChild>
-                            <div 
-                              className={`p-2 rounded-lg border-2 cursor-pointer transition-all hover:shadow-lg ${
-                                img.type === 'good' 
-                                  ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20' 
-                                  : 'border-red-300 bg-red-50 dark:bg-red-900/20'
-                              }`}
-                            >
-                              <div className="aspect-video bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center mb-2 overflow-hidden">
-                                <img 
-                                  src={img.url} 
-                                  alt={img.caption} 
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                    e.target.parentElement.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-400"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg><span class="text-xs mt-1">Image</span></div>`;
-                                  }}
-                                />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {node.images.map((img, i) => {
+                        const renderDiagram = () => {
+                          if (img.diagram === 'dirty') return <ConnectorDiagram type="dirty" />;
+                          if (img.diagram === 'clean') return <ConnectorDiagram type="clean" />;
+                          if (img.diagram === 'scratched') return <ConnectorDiagram type="scratched" />;
+                          if (img.diagram === 'fiber_break') return <OTDRTraceDiagram type="fiber_break" />;
+                          if (img.diagram === 'macrobend') return <OTDRTraceDiagram type="macrobend" />;
+                          if (img.diagram === 'good_splice') return <OTDRTraceDiagram type="good_splice" />;
+                          return null;
+                        };
+                        
+                        return (
+                          <Dialog key={i}>
+                            <DialogTrigger asChild>
+                              <div 
+                                className={`p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-lg ${
+                                  img.type === 'good' 
+                                    ? 'border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20' 
+                                    : 'border-red-300 bg-red-50 dark:bg-red-900/20'
+                                }`}
+                              >
+                                <div className="aspect-square bg-white dark:bg-gray-800 rounded flex items-center justify-center mb-2 p-2">
+                                  {renderDiagram()}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge className={img.type === 'good' ? 'bg-emerald-500' : 'bg-red-500'}>
+                                    {img.type === 'good' ? 'PASS' : 'FAIL'}
+                                  </Badge>
+                                  <span className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{img.caption}</span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Badge className={img.type === 'good' ? 'bg-emerald-500' : 'bg-red-500'}>
-                                  {img.type === 'good' ? 'PASS' : 'FAIL'}
-                                </Badge>
-                                <span className="text-xs text-gray-600 dark:text-gray-400">{img.caption}</span>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-lg">
+                              <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2">
+                                  <Badge className={img.type === 'good' ? 'bg-emerald-500' : 'bg-red-500'}>
+                                    {img.type === 'good' ? 'PASS' : 'FAIL'}
+                                  </Badge>
+                                  {img.caption}
+                                </DialogTitle>
+                              </DialogHeader>
+                              <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg p-4">
+                                {renderDiagram()}
                               </div>
-                            </div>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle className="flex items-center gap-2">
-                                <Badge className={img.type === 'good' ? 'bg-emerald-500' : 'bg-red-500'}>
-                                  {img.type === 'good' ? 'PASS' : 'FAIL'}
-                                </Badge>
-                                {img.caption}
-                              </DialogTitle>
-                            </DialogHeader>
-                            <div className="mt-4">
-                              <img 
-                                src={img.url} 
-                                alt={img.caption} 
-                                className="w-full rounded-lg"
-                                onError={(e) => {
-                                  e.target.parentElement.innerHTML = '<div class="p-8 text-center text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg">Reference image - view in field documentation</div>';
-                                }}
-                              />
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      ))}
+                            </DialogContent>
+                          </Dialog>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
