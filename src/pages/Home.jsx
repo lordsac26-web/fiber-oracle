@@ -208,6 +208,16 @@ const MODULES = [
     badge: 'Reference'
   },
   {
+    id: 'kmlparser',
+    title: 'KML/KMZ Parser',
+    description: 'Extract GPS coordinates from Google Earth',
+    icon: FileText,
+    color: 'from-emerald-500 to-teal-600',
+    page: 'KMLParser',
+    badge: 'Reference',
+    isNew: true
+  },
+  {
     id: 'links',
     title: 'Industry Links',
     description: 'Vendors, standards & resources',
