@@ -423,7 +423,11 @@ const DIAGNOSTIC_TREE = {
       "If splice: Consider re-splicing",
       "Document before/after loss values",
     ],
-    tools: ["OTDR", "400x scope", "Cleaning supplies", "Fusion splicer"]
+    tools: ["OTDR", "400x scope", "Cleaning supplies", "Fusion splicer"],
+    images: [
+      { diagram: 'dirty', caption: "Dirty connector causing high loss", type: "bad" },
+      { diagram: 'clean', caption: "Clean connector - target condition", type: "good" }
+    ]
   },
   distributed_loss: {
     diagnosis: true,
@@ -626,7 +630,11 @@ const DIAGNOSTIC_TREE = {
       "Check for APC connector mated to PC",
       "Re-test after cleaning",
     ],
-    tools: ["400x scope", "Cleaning supplies", "OTDR"]
+    tools: ["400x scope", "Cleaning supplies", "OTDR"],
+    images: [
+      { diagram: 'fiber_break', caption: "High reflectance spike on OTDR trace", type: "bad" },
+      { diagram: 'dirty', caption: "Contaminated connector causing reflection", type: "bad" }
+    ]
   },
   non_reflective: {
     diagnosis: true,
@@ -647,7 +655,11 @@ const DIAGNOSTIC_TREE = {
       "If at known splice, consider re-splicing",
       "For microbend, relieve cable stress",
     ],
-    tools: ["OTDR (dual wavelength)", "Physical inspection"]
+    tools: ["OTDR (dual wavelength)", "Physical inspection"],
+    images: [
+      { diagram: 'macrobend', caption: "Macrobend shows higher loss at 1550nm", type: "bad" },
+      { diagram: 'good_splice', caption: "Good fusion splice - minimal loss", type: "good" }
+    ]
   },
   gainer: {
     diagnosis: true,
@@ -759,7 +771,11 @@ const DIAGNOSTIC_TREE = {
       acceptable: { min: -25, max: -8, unit: "dBm" },
       marginal: { min: -27, max: -25, unit: "dBm" },
       fail: { below: -28, unit: "dBm" }
-    }
+    },
+    images: [
+      { diagram: 'dirty', caption: "Dirty connector - common cause of loss", type: "bad" },
+      { diagram: 'macrobend', caption: "Macrobend causing excess loss", type: "bad" }
+    ]
   },
   high_olt_rx: {
     diagnosis: true,
