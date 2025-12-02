@@ -526,58 +526,89 @@ export default function KMLParser() {
                         <TableHead className="text-right">Latitude</TableHead>
                         <TableHead className="text-right">Longitude</TableHead>
                         <TableHead className="text-right">Altitude</TableHead>
+                        <TableHead className="w-20">Status</TableHead>
                         <TableHead className="w-24">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredPlacemarks.map((p, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="text-gray-500">{idx + 1}</TableCell>
-                          <TableCell>
-                            <div className="font-medium">{p.name}</div>
-                            {p.description && (
-                              <div className="text-xs text-gray-500 truncate max-w-xs">
-                                {p.description}
+                      <TooltipProvider>
+                        {filteredPlacemarks.map((p, idx) => (
+                          <TableRow key={idx} className={p.hasWarnings ? 'bg-amber-50 dark:bg-amber-900/10' : ''}>
+                            <TableCell className="text-gray-500">{idx + 1}</TableCell>
+                            <TableCell>
+                              <div className="font-medium">{p.name}</div>
+                              {p.description && (
+                                <div className="text-xs text-gray-500 truncate max-w-xs">
+                                  {p.description}
+                                </div>
+                              )}
+                              {p.geometryType && p.geometryType !== 'Point' && (
+                                <Badge variant="outline" className="text-[10px] mt-1">
+                                  {p.geometryType}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">
+                              {p.latitude.toFixed(6)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">
+                              {p.longitude.toFixed(6)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm text-gray-500">
+                              {p.altitude ? `${p.altitude.toFixed(1)}m` : '-'}
+                            </TableCell>
+                            <TableCell>
+                              {p.hasWarnings ? (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                                      <AlertTriangle className="h-3 w-3 mr-1" />
+                                      {p.warnings.length}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs">
+                                    <ul className="text-xs space-y-1">
+                                      {p.warnings.map((w, i) => (
+                                        <li key={i}>• {w}</li>
+                                      ))}
+                                    </ul>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <Badge className="bg-green-100 text-green-800 border-green-300">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => copyCoordinates(p, idx)}
+                                  title="Copy coordinates"
+                                >
+                                  {copiedIndex === idx ? (
+                                    <Check className="h-4 w-4 text-green-500" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => openInGoogleMaps(p)}
+                                  title="Open in Google Maps"
+                                >
+                                  <MapPin className="h-4 w-4" />
+                                </Button>
                               </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm">
-                            {p.latitude.toFixed(6)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm">
-                            {p.longitude.toFixed(6)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-sm text-gray-500">
-                            {p.altitude ? `${p.altitude.toFixed(1)}m` : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => copyCoordinates(p, idx)}
-                                title="Copy coordinates"
-                              >
-                                {copiedIndex === idx ? (
-                                  <Check className="h-4 w-4 text-green-500" />
-                                ) : (
-                                  <Copy className="h-4 w-4" />
-                                )}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => openInGoogleMaps(p)}
-                                title="Open in Google Maps"
-                              >
-                                <MapPin className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TooltipProvider>
                     </TableBody>
                   </Table>
                 </div>
