@@ -617,10 +617,7 @@ export default function KMLParser() {
 
             {/* New Upload */}
             <div className="text-center pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => { setPlacemarks([]); setFileName(''); setSearchTerm(''); }}
-              >
+              <Button variant="outline" onClick={resetParser}>
                 <Upload className="h-4 w-4 mr-2" />
                 Upload New File
               </Button>
