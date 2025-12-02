@@ -48,9 +48,14 @@ import { toast } from 'sonner';
 export default function KMLParser() {
   const [isLoading, setIsLoading] = useState(false);
   const [placemarks, setPlacemarks] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [skippedPlacemarks, setSkippedPlacemarks] = useState([]);
+  const [parseError, setParseError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [fileName, setFileName] = useState('');
   const [copiedIndex, setCopiedIndex] = useState(null);
+  const [showSkipped, setShowSkipped] = useState(false);
+  const [showWarningsOnly, setShowWarningsOnly] = useState(false);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -64,6 +69,9 @@ export default function KMLParser() {
 
     setIsLoading(true);
     setFileName(file.name);
+    setParseError(null);
+    setSummary(null);
+    setSkippedPlacemarks([]);
     toast.loading('Parsing coordinates...', { id: 'kml-parse' });
 
     try {
@@ -72,16 +80,46 @@ export default function KMLParser() {
 
       if (response.data?.success) {
         setPlacemarks(response.data.placemarks);
-        toast.success(`Found ${response.data.count} placemarks`, { id: 'kml-parse' });
+        setSummary(response.data.summary);
+        setSkippedPlacemarks(response.data.skippedPlacemarks || []);
+        
+        const warningCount = response.data.summary?.withWarnings || 0;
+        const skippedCount = response.data.summary?.skippedPlacemarks || 0;
+        
+        if (skippedCount > 0 || warningCount > 0) {
+          toast.success(
+            `Found ${response.data.count} placemarks (${warningCount} with warnings, ${skippedCount} skipped)`, 
+            { id: 'kml-parse' }
+          );
+        } else {
+          toast.success(`Found ${response.data.count} placemarks`, { id: 'kml-parse' });
+        }
       } else {
+        setParseError({
+          error: response.data?.error,
+          details: response.data?.details,
+          skippedPlacemarks: response.data?.skippedPlacemarks,
+          structureIssues: response.data?.structureIssues
+        });
         toast.error(response.data?.error || 'Failed to parse file', { id: 'kml-parse' });
       }
     } catch (error) {
       console.error('Upload error:', error);
+      setParseError({ error: 'Failed to process file', details: error.message });
       toast.error('Failed to process file', { id: 'kml-parse' });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const resetParser = () => {
+    setPlacemarks([]);
+    setSummary(null);
+    setSkippedPlacemarks([]);
+    setParseError(null);
+    setFileName('');
+    setSearchTerm('');
+    setShowWarningsOnly(false);
   };
 
   const filteredPlacemarks = placemarks.filter(p =>
