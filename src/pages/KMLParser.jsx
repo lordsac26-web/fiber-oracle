@@ -370,31 +370,107 @@ export default function KMLParser() {
         {/* Results Section */}
         {placemarks.length > 0 && (
           <>
-            {/* Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Card className="border-0 shadow">
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {placemarks.length}
-                  </div>
-                  <div className="text-xs text-gray-500">Placemarks Found</div>
-                </CardContent>
-              </Card>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <Card className="border-0 shadow">
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-emerald-600">
-                    {filteredPlacemarks.length}
+                    {placemarks.length}
                   </div>
-                  <div className="text-xs text-gray-500">Showing</div>
+                  <div className="text-xs text-gray-500">Valid Placemarks</div>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`border-0 shadow cursor-pointer transition-all ${showWarningsOnly ? 'ring-2 ring-amber-400' : ''}`}
+                onClick={() => setShowWarningsOnly(!showWarningsOnly)}
+              >
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-amber-600">
+                    {summary?.withWarnings || 0}
+                  </div>
+                  <div className="text-xs text-gray-500">With Warnings</div>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`border-0 shadow cursor-pointer transition-all ${showSkipped ? 'ring-2 ring-red-400' : ''}`}
+                onClick={() => setShowSkipped(!showSkipped)}
+              >
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-red-600">
+                    {summary?.skippedPlacemarks || 0}
+                  </div>
+                  <div className="text-xs text-gray-500">Skipped</div>
                 </CardContent>
               </Card>
               <Card className="border-0 shadow col-span-2">
                 <CardContent className="p-4">
                   <div className="text-xs text-gray-500 mb-1">Source File</div>
                   <div className="font-medium text-sm truncate">{fileName}</div>
+                  {summary?.byGeometryType && (
+                    <div className="flex gap-1 mt-1 flex-wrap">
+                      {Object.entries(summary.byGeometryType).map(([type, count]) => (
+                        <Badge key={type} variant="outline" className="text-[10px]">
+                          {type}: {count}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
+
+            {/* Structure Issues Warning */}
+            {summary?.structureIssues?.length > 0 && (
+              <Card className="border-amber-300 bg-amber-50 dark:bg-amber-900/20">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-amber-800 dark:text-amber-200">File Structure Notes</h4>
+                      <ul className="text-sm text-amber-700 dark:text-amber-300 mt-1 space-y-1">
+                        {summary.structureIssues.map((issue, i) => (
+                          <li key={i}>• {issue}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Skipped Placemarks Panel */}
+            {showSkipped && skippedPlacemarks.length > 0 && (
+              <Card className="border-red-200 bg-red-50 dark:bg-red-900/20">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-red-700">
+                      <AlertCircle className="h-4 w-4" />
+                      Skipped Placemarks ({skippedPlacemarks.length})
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => setShowSkipped(false)}>
+                      Close
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {skippedPlacemarks.map((p, i) => (
+                      <div key={i} className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-red-200">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="font-medium text-sm">{p.name}</div>
+                            <div className="text-xs text-red-600">{p.reason}</div>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] text-red-600">
+                            #{p.index}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Search */}
             <Card className="border-0 shadow">
