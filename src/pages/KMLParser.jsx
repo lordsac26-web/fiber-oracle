@@ -472,18 +472,45 @@ export default function KMLParser() {
               </Card>
             )}
 
-            {/* Search */}
+            {/* Search & Filters */}
             <Card className="border-0 shadow">
               <CardContent className="p-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search placemarks..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+                <div className="flex flex-col md:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search placemarks..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={showWarningsOnly ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setShowWarningsOnly(!showWarningsOnly)}
+                      className={showWarningsOnly ? "bg-amber-500 hover:bg-amber-600" : ""}
+                    >
+                      <AlertTriangle className="h-4 w-4 mr-1" />
+                      Warnings Only
+                    </Button>
+                    {(searchTerm || showWarningsOnly) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setSearchTerm(''); setShowWarningsOnly(false); }}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
                 </div>
+                {filteredPlacemarks.length !== placemarks.length && (
+                  <div className="text-xs text-gray-500 mt-2">
+                    Showing {filteredPlacemarks.length} of {placemarks.length} placemarks
+                  </div>
+                )}
               </CardContent>
             </Card>
 
