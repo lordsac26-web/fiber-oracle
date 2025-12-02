@@ -122,11 +122,13 @@ export default function KMLParser() {
     setShowWarningsOnly(false);
   };
 
-  const filteredPlacemarks = placemarks.filter(p =>
-    !searchTerm || 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPlacemarks = placemarks.filter(p => {
+    const matchesSearch = !searchTerm || 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesWarningFilter = !showWarningsOnly || p.hasWarnings;
+    return matchesSearch && matchesWarningFilter;
+  });
 
   const exportData = (format) => {
     if (placemarks.length === 0) return;
