@@ -26,14 +26,232 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { BookOpen } from 'lucide-react';
 
-// Reference images for diagnostics
+// SVG Diagram Components for inline rendering
+const ConnectorDiagram = ({ type }) => {
+  if (type === 'dirty') {
+    return (
+      <svg viewBox="0 0 200 200" className="w-full h-full">
+        <defs>
+          <radialGradient id="coreDirty" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#1e40af" />
+          </radialGradient>
+        </defs>
+        {/* Ferrule background */}
+        <circle cx="100" cy="100" r="85" fill="#e5e7eb" stroke="#9ca3af" strokeWidth="2"/>
+        {/* Core area */}
+        <circle cx="100" cy="100" r="5" fill="url(#coreDirty)" stroke="#1e40af" strokeWidth="1"/>
+        {/* Cladding ring */}
+        <circle cx="100" cy="100" r="60" fill="none" stroke="#d1d5db" strokeWidth="1" strokeDasharray="4 2"/>
+        {/* Contamination particles */}
+        <circle cx="85" cy="95" r="8" fill="#78350f" opacity="0.7"/>
+        <circle cx="110" cy="85" r="6" fill="#451a03" opacity="0.8"/>
+        <circle cx="95" cy="115" r="10" fill="#78350f" opacity="0.6"/>
+        <circle cx="120" cy="105" r="7" fill="#451a03" opacity="0.7"/>
+        <circle cx="75" cy="110" r="5" fill="#78350f" opacity="0.8"/>
+        <circle cx="130" cy="90" r="4" fill="#451a03" opacity="0.6"/>
+        {/* Fiber debris */}
+        <path d="M70 80 Q75 90 85 85" stroke="#78350f" strokeWidth="2" fill="none"/>
+        <path d="M125 115 Q130 120 140 115" stroke="#451a03" strokeWidth="2" fill="none"/>
+        {/* Labels */}
+        <text x="100" y="185" textAnchor="middle" className="text-xs fill-gray-600 font-medium">DIRTY - FAIL</text>
+      </svg>
+    );
+  }
+  if (type === 'clean') {
+    return (
+      <svg viewBox="0 0 200 200" className="w-full h-full">
+        <defs>
+          <radialGradient id="coreClean" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#1e40af" />
+          </radialGradient>
+        </defs>
+        {/* Ferrule background */}
+        <circle cx="100" cy="100" r="85" fill="#f3f4f6" stroke="#9ca3af" strokeWidth="2"/>
+        {/* Core area - bright and clean */}
+        <circle cx="100" cy="100" r="5" fill="url(#coreClean)" stroke="#1e40af" strokeWidth="1"/>
+        {/* Cladding ring */}
+        <circle cx="100" cy="100" r="60" fill="none" stroke="#d1d5db" strokeWidth="1" strokeDasharray="4 2"/>
+        {/* Zone A indicator */}
+        <circle cx="100" cy="100" r="12" fill="none" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="3 2"/>
+        {/* Zone B indicator */}
+        <circle cx="100" cy="100" r="30" fill="none" stroke="#22c55e" strokeWidth="1" strokeDasharray="3 2"/>
+        {/* Labels */}
+        <text x="100" y="185" textAnchor="middle" className="text-xs fill-green-600 font-medium">CLEAN - PASS</text>
+      </svg>
+    );
+  }
+  if (type === 'scratched') {
+    return (
+      <svg viewBox="0 0 200 200" className="w-full h-full">
+        <defs>
+          <radialGradient id="coreScratched" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="100%" stopColor="#1e40af" />
+          </radialGradient>
+        </defs>
+        {/* Ferrule background */}
+        <circle cx="100" cy="100" r="85" fill="#fef2f2" stroke="#9ca3af" strokeWidth="2"/>
+        {/* Core area */}
+        <circle cx="100" cy="100" r="5" fill="url(#coreScratched)" stroke="#1e40af" strokeWidth="1"/>
+        {/* Cladding ring */}
+        <circle cx="100" cy="100" r="60" fill="none" stroke="#d1d5db" strokeWidth="1" strokeDasharray="4 2"/>
+        {/* Scratches */}
+        <path d="M40 60 L160 140" stroke="#dc2626" strokeWidth="2" opacity="0.8"/>
+        <path d="M50 120 L150 80" stroke="#dc2626" strokeWidth="1.5" opacity="0.7"/>
+        <path d="M80 40 L120 160" stroke="#dc2626" strokeWidth="1.5" opacity="0.6"/>
+        <path d="M95 90 L105 110" stroke="#dc2626" strokeWidth="2.5" opacity="0.9"/>
+        {/* Labels */}
+        <text x="100" y="185" textAnchor="middle" className="text-xs fill-red-600 font-medium">SCRATCHED - REPLACE</text>
+      </svg>
+    );
+  }
+  return null;
+};
+
+const OTDRTraceDiagram = ({ type }) => {
+  if (type === 'fiber_break') {
+    return (
+      <svg viewBox="0 0 400 150" className="w-full h-full">
+        {/* Background */}
+        <rect x="0" y="0" width="400" height="150" fill="#f8fafc"/>
+        {/* Grid lines */}
+        {[...Array(8)].map((_, i) => (
+          <line key={`h${i}`} x1="40" y1={20 + i * 15} x2="380" y2={20 + i * 15} stroke="#e2e8f0" strokeWidth="1"/>
+        ))}
+        {[...Array(9)].map((_, i) => (
+          <line key={`v${i}`} x1={40 + i * 40} y1="20" x2={40 + i * 40} y2="125" stroke="#e2e8f0" strokeWidth="1"/>
+        ))}
+        {/* Axis labels */}
+        <text x="210" y="145" textAnchor="middle" className="text-xs fill-gray-500">Distance (km)</text>
+        <text x="15" y="75" textAnchor="middle" className="text-xs fill-gray-500" transform="rotate(-90 15 75)">dB</text>
+        {/* Normal trace before break */}
+        <polyline 
+          points="40,35 100,40 160,45 200,50" 
+          fill="none" 
+          stroke="#3b82f6" 
+          strokeWidth="2"
+        />
+        {/* Break spike - high reflectance */}
+        <polyline 
+          points="200,50 200,20 205,55" 
+          fill="none" 
+          stroke="#dc2626" 
+          strokeWidth="2.5"
+        />
+        {/* Noise floor after break */}
+        <polyline 
+          points="205,110 240,112 280,113 320,114 360,115" 
+          fill="none" 
+          stroke="#3b82f6" 
+          strokeWidth="2"
+          strokeDasharray="4 2"
+        />
+        {/* Break annotation */}
+        <circle cx="200" cy="50" r="8" fill="none" stroke="#dc2626" strokeWidth="2"/>
+        <text x="200" y="10" textAnchor="middle" className="text-xs fill-red-600 font-bold">BREAK</text>
+        {/* Labels */}
+        <text x="80" y="60" className="text-xs fill-blue-600">Normal Trace</text>
+        <text x="280" y="105" className="text-xs fill-gray-400">Noise Floor</text>
+      </svg>
+    );
+  }
+  if (type === 'macrobend') {
+    return (
+      <svg viewBox="0 0 400 150" className="w-full h-full">
+        {/* Background */}
+        <rect x="0" y="0" width="400" height="150" fill="#f8fafc"/>
+        {/* Grid lines */}
+        {[...Array(8)].map((_, i) => (
+          <line key={`h${i}`} x1="40" y1={20 + i * 15} x2="380" y2={20 + i * 15} stroke="#e2e8f0" strokeWidth="1"/>
+        ))}
+        {[...Array(9)].map((_, i) => (
+          <line key={`v${i}`} x1={40 + i * 40} y1="20" x2={40 + i * 40} y2="125" stroke="#e2e8f0" strokeWidth="1"/>
+        ))}
+        {/* Axis labels */}
+        <text x="210" y="145" textAnchor="middle" className="text-xs fill-gray-500">Distance (km)</text>
+        <text x="15" y="75" textAnchor="middle" className="text-xs fill-gray-500" transform="rotate(-90 15 75)">dB</text>
+        {/* 1310nm trace (less affected by bend) */}
+        <polyline 
+          points="40,40 100,42 160,44 180,44 200,48 220,50 280,52 340,54 380,56" 
+          fill="none" 
+          stroke="#22c55e" 
+          strokeWidth="2"
+        />
+        {/* 1550nm trace (more affected by bend) */}
+        <polyline 
+          points="40,35 100,38 160,41 180,42 200,60 220,65 280,68 340,71 380,74" 
+          fill="none" 
+          stroke="#f59e0b" 
+          strokeWidth="2"
+        />
+        {/* Bend location indicator */}
+        <circle cx="200" cy="54" r="15" fill="none" stroke="#dc2626" strokeWidth="2" strokeDasharray="4 2"/>
+        <text x="200" y="10" textAnchor="middle" className="text-xs fill-red-600 font-bold">MACROBEND</text>
+        {/* Legend */}
+        <rect x="280" y="25" width="100" height="35" fill="white" stroke="#e2e8f0" rx="4"/>
+        <line x1="290" y1="38" x2="310" y2="38" stroke="#22c55e" strokeWidth="2"/>
+        <text x="315" y="42" className="text-xs fill-gray-600">1310nm</text>
+        <line x1="290" y1="52" x2="310" y2="52" stroke="#f59e0b" strokeWidth="2"/>
+        <text x="315" y="56" className="text-xs fill-gray-600">1550nm</text>
+      </svg>
+    );
+  }
+  if (type === 'good_splice') {
+    return (
+      <svg viewBox="0 0 400 150" className="w-full h-full">
+        {/* Background */}
+        <rect x="0" y="0" width="400" height="150" fill="#f8fafc"/>
+        {/* Grid lines */}
+        {[...Array(8)].map((_, i) => (
+          <line key={`h${i}`} x1="40" y1={20 + i * 15} x2="380" y2={20 + i * 15} stroke="#e2e8f0" strokeWidth="1"/>
+        ))}
+        {[...Array(9)].map((_, i) => (
+          <line key={`v${i}`} x1={40 + i * 40} y1="20" x2={40 + i * 40} y2="125" stroke="#e2e8f0" strokeWidth="1"/>
+        ))}
+        {/* Axis labels */}
+        <text x="210" y="145" textAnchor="middle" className="text-xs fill-gray-500">Distance (km)</text>
+        <text x="15" y="75" textAnchor="middle" className="text-xs fill-gray-500" transform="rotate(-90 15 75)">dB</text>
+        {/* Normal trace with good splice */}
+        <polyline 
+          points="40,35 80,38 120,41 160,44 199,47" 
+          fill="none" 
+          stroke="#3b82f6" 
+          strokeWidth="2"
+        />
+        {/* Small splice event (non-reflective, low loss) */}
+        <polyline 
+          points="199,47 201,49 203,49" 
+          fill="none" 
+          stroke="#22c55e" 
+          strokeWidth="2"
+        />
+        {/* Continue after splice */}
+        <polyline 
+          points="203,49 240,52 280,55 320,58 360,61 380,63" 
+          fill="none" 
+          stroke="#3b82f6" 
+          strokeWidth="2"
+        />
+        {/* Splice annotation */}
+        <circle cx="200" cy="48" r="6" fill="none" stroke="#22c55e" strokeWidth="2"/>
+        <text x="200" y="75" textAnchor="middle" className="text-xs fill-green-600 font-medium">Good Splice</text>
+        <text x="200" y="88" textAnchor="middle" className="text-xs fill-green-600">≤0.1 dB loss</text>
+      </svg>
+    );
+  }
+  return null;
+};
+
+// Reference images for diagnostics - using inline diagrams as primary
 const DIAGNOSTIC_IMAGES = {
-  dirty_connector: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/dirty_connector_scope.png',
-  clean_connector: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/clean_connector_scope.png',
-  scratched_connector: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/scratched_connector.png',
-  macrobend_trace: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/macrobend_otdr.png',
-  good_splice_trace: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/good_splice_otdr.png',
-  fiber_break_trace: 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/fiber_break_otdr.png',
+  dirty_connector: { component: 'ConnectorDiagram', props: { type: 'dirty' } },
+  clean_connector: { component: 'ConnectorDiagram', props: { type: 'clean' } },
+  scratched_connector: { component: 'ConnectorDiagram', props: { type: 'scratched' } },
+  macrobend_trace: { component: 'OTDRTraceDiagram', props: { type: 'macrobend' } },
+  good_splice_trace: { component: 'OTDRTraceDiagram', props: { type: 'good_splice' } },
+  fiber_break_trace: { component: 'OTDRTraceDiagram', props: { type: 'fiber_break' } },
 };
 
 const DIAGNOSTIC_TREE = {
