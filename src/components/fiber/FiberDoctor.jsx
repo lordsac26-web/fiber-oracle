@@ -320,9 +320,9 @@ const DIAGNOSTIC_TREE = {
     ],
     tools: ["400x Fiber scope", "IPA cleaning supplies", "VFL"],
     images: [
-      { url: DIAGNOSTIC_IMAGES.dirty_connector, caption: "Dirty connector - requires cleaning", type: "bad" },
-      { url: DIAGNOSTIC_IMAGES.clean_connector, caption: "Clean connector - pass", type: "good" },
-      { url: DIAGNOSTIC_IMAGES.scratched_connector, caption: "Scratched ferrule - replace connector", type: "bad" }
+      { diagram: 'dirty', caption: "Dirty connector - requires cleaning", type: "bad" },
+      { diagram: 'clean', caption: "Clean connector - pass", type: "good" },
+      { diagram: 'scratched', caption: "Scratched ferrule - replace connector", type: "bad" }
     ]
   },
   mid_span_break: {
@@ -347,7 +347,7 @@ const DIAGNOSTIC_TREE = {
     ],
     tools: ["OTDR", "Fusion splicer", "Cable locator", "VFL"],
     images: [
-      { url: DIAGNOSTIC_IMAGES.fiber_break_trace, caption: "OTDR trace showing fiber break - high reflectance spike then no signal", type: "bad" }
+      { diagram: 'fiber_break', caption: "OTDR trace showing fiber break - high reflectance spike then no signal", type: "bad" }
     ]
   },
   far_end: {
@@ -470,7 +470,7 @@ const DIAGNOSTIC_TREE = {
     ],
     tools: ["OTDR (dual wavelength)", "VFL", "Cable inspection"],
     images: [
-      { url: DIAGNOSTIC_IMAGES.macrobend_trace, caption: "OTDR showing macrobend - localized loss, higher at 1550nm than 1310nm", type: "bad" }
+      { diagram: 'macrobend', caption: "OTDR showing macrobend - localized loss, higher at 1550nm than 1310nm", type: "bad" }
     ]
   },
   degrading_loss: {
