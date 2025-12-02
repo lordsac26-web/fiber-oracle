@@ -12,12 +12,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { 
   ArrowLeft, 
   Upload, 
@@ -28,7 +32,13 @@ import {
   Search,
   Globe,
   Copy,
-  Check
+  Check,
+  AlertTriangle,
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+  CheckCircle2,
+  Info
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
