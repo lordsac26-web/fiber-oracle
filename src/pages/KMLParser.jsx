@@ -226,8 +226,66 @@ export default function KMLParser() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Error Display */}
+        {parseError && (
+          <Card className="border-2 border-red-300 bg-red-50 dark:bg-red-900/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                <AlertCircle className="h-5 w-5" />
+                {parseError.error}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {parseError.details && (
+                <p className="text-sm text-red-600 dark:text-red-400">{parseError.details}</p>
+              )}
+              
+              {parseError.structureIssues?.length > 0 && (
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                  <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    File Structure Issues
+                  </h4>
+                  <ul className="text-sm space-y-1">
+                    {parseError.structureIssues.map((issue, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-red-500">•</span>
+                        {issue}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {parseError.skippedPlacemarks?.length > 0 && (
+                <Collapsible>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium text-red-700">
+                    <ChevronRight className="h-4 w-4" />
+                    {parseError.skippedPlacemarks.length} Placemark(s) Could Not Be Parsed
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    <div className="space-y-2">
+                      {parseError.skippedPlacemarks.map((p, i) => (
+                        <div key={i} className="p-2 bg-white dark:bg-gray-800 rounded text-sm">
+                          <div className="font-medium">{p.name}</div>
+                          <div className="text-xs text-gray-500">{p.reason}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+              
+              <Button variant="outline" onClick={resetParser}>
+                <Upload className="h-4 w-4 mr-2" />
+                Try Another File
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Upload Section */}
-        {placemarks.length === 0 && (
+        {placemarks.length === 0 && !parseError && (
           <Card className="border-0 shadow-lg">
             <CardContent className="p-8">
               <div className="text-center space-y-6">
