@@ -30,6 +30,7 @@ import OfflineDocuments from './pages/OfflineDocuments';
 import OpticalCalculator from './pages/OpticalCalculator';
 import UserGuide from './pages/UserGuide';
 import PONPMAnalysis from './pages/PONPMAnalysis';
+import KMLParser from './pages/KMLParser';
 import __Layout from './Layout.jsx';
 
 
@@ -66,6 +67,7 @@ export const PAGES = {
     "OpticalCalculator": OpticalCalculator,
     "UserGuide": UserGuide,
     "PONPMAnalysis": PONPMAnalysis,
+    "KMLParser": KMLParser,
 }
 
 export const pagesConfig = {
