@@ -365,17 +365,62 @@ export default function LCPInfo() {
     }
   };
 
-  // Parse GPS coordinate - handles decimal degrees directly, no DMS conversion
+  // Parse GPS coordinate - handles decimal degrees and DMS formats
   const parseGpsCoordinate = (value) => {
     if (!value) return null;
     
     const str = value.toString().trim();
     if (!str) return null;
     
-    // Parse as a simple number (decimal degrees)
+    // First try: Parse as a simple decimal number
     const num = parseFloat(str);
-    if (!isNaN(num)) {
+    if (!isNaN(num) && /^-?\d+\.?\d*$/.test(str)) {
       return num;
+    }
+    
+    // Second try: Parse DMS format manually
+    // Patterns: 42°28'40.25"N, 42°28'40.25", 42 28 40.25 N, N42 28 40.25
+    const cleanStr = str.replace(/\s+/g, ' ').trim();
+    
+    // Check for direction indicator (N, S, E, W)
+    const directionMatch = cleanStr.match(/[NSEW]/i);
+    const direction = directionMatch ? directionMatch[0].toUpperCase() : null;
+    
+    // Remove direction from string for parsing
+    const numericStr = cleanStr.replace(/[NSEW]/gi, '').trim();
+    
+    // Try DMS: degrees minutes seconds
+    // Match: 42°28'40.25" or 42 28 40.25 or 42-28-40.25
+    const dmsMatch = numericStr.match(/(-?\d+)[°\s\-]+(\d+)['\s\-]+(\d+\.?\d*)/);
+    if (dmsMatch) {
+      const degrees = Math.abs(parseFloat(dmsMatch[1]));
+      const minutes = parseFloat(dmsMatch[2]);
+      const seconds = parseFloat(dmsMatch[3]);
+      
+      let decimal = degrees + (minutes / 60) + (seconds / 3600);
+      
+      // Apply negative for S or W, or if original had negative sign
+      if (direction === 'S' || direction === 'W' || dmsMatch[1].startsWith('-')) {
+        decimal = -decimal;
+      }
+      
+      return parseFloat(decimal.toFixed(6));
+    }
+    
+    // Try DM: degrees decimal-minutes
+    // Match: 42°28.671' or 42 28.671
+    const dmMatch = numericStr.match(/(-?\d+)[°\s\-]+(\d+\.?\d*)/);
+    if (dmMatch) {
+      const degrees = Math.abs(parseFloat(dmMatch[1]));
+      const minutes = parseFloat(dmMatch[2]);
+      
+      let decimal = degrees + (minutes / 60);
+      
+      if (direction === 'S' || direction === 'W' || dmMatch[1].startsWith('-')) {
+        decimal = -decimal;
+      }
+      
+      return parseFloat(decimal.toFixed(6));
     }
     
     return null;
@@ -545,22 +590,32 @@ export default function LCPInfo() {
               }
             }
 
-            // Parse GPS coordinates as decimal degrees
+            // Parse GPS coordinates (supports decimal degrees and DMS)
             if (entry.latitude) {
+              const originalLat = entry.latitude;
               const parsedLat = parseGpsCoordinate(entry.latitude);
               if (parsedLat !== null) {
+                // Mark if converted from DMS
+                if (originalLat !== parsedLat.toString() && !/^-?\d+\.?\d*$/.test(originalLat)) {
+                  entry._latOriginal = originalLat;
+                }
                 entry.latitude = parsedLat.toString();
               } else {
-                warnings.push({ row: i + 1, message: `Invalid latitude "${entry.latitude}" - must be a decimal number (e.g., 42.4778)` });
+                warnings.push({ row: i + 1, message: `Invalid latitude "${entry.latitude}" - use decimal (42.4778) or DMS (42°28'40"N)` });
                 entry.latitude = '';
               }
             }
             if (entry.longitude) {
+              const originalLng = entry.longitude;
               const parsedLng = parseGpsCoordinate(entry.longitude);
               if (parsedLng !== null) {
+                // Mark if converted from DMS
+                if (originalLng !== parsedLng.toString() && !/^-?\d+\.?\d*$/.test(originalLng)) {
+                  entry._lngOriginal = originalLng;
+                }
                 entry.longitude = parsedLng.toString();
               } else {
-                warnings.push({ row: i + 1, message: `Invalid longitude "${entry.longitude}" - must be a decimal number (e.g., -73.7667)` });
+                warnings.push({ row: i + 1, message: `Invalid longitude "${entry.longitude}" - use decimal (-73.7667) or DMS (73°46'0"W)` });
                 entry.longitude = '';
               }
             }
