@@ -192,11 +192,15 @@ export default function LCPInfo() {
     if (!lcpNumber || !lcpNumber.trim()) {
       return { valid: false, error: `${entryType} Number is required` };
     }
-    // Check format - should be like LCP-001, CLCP-002, LCP001, etc.
-    const lcpPattern = /^(LCP|CLCP)[-_]?\d{1,5}$/i;
-    const genericPattern = /^[A-Z0-9][-_A-Z0-9]{1,20}$/i;
-    if (!lcpPattern.test(lcpNumber.trim()) && !genericPattern.test(lcpNumber.trim())) {
-      return { valid: false, error: `${entryType} Number format invalid. Use format like ${entryType}-001` };
+    const trimmed = lcpNumber.trim();
+    // Allow alphanumeric with optional dashes, underscores, spaces
+    const pattern = /^[A-Z0-9][A-Z0-9\-_\s]{0,30}$/i;
+    if (!pattern.test(trimmed)) {
+      const invalidChars = trimmed.match(/[^A-Z0-9\-_\s]/gi);
+      if (invalidChars) {
+        return { valid: false, error: `${entryType} Number contains invalid characters: "${[...new Set(invalidChars)].join('')}". Only letters, numbers, dashes, underscores allowed.` };
+      }
+      return { valid: false, error: `${entryType} Number format invalid. Use alphanumeric characters (e.g., LCP-001, CLCP02, Cabinet-A1)` };
     }
     return { valid: true };
   };
@@ -205,10 +209,15 @@ export default function LCPInfo() {
     if (!splitterNumber || !splitterNumber.trim()) {
       return { valid: false, error: 'Splitter Number is required' };
     }
-    // Allow various formats: SPL-001, 1, S1, Splitter-1, etc.
-    const pattern = /^[A-Z0-9][-_A-Z0-9]{0,20}$/i;
-    if (!pattern.test(splitterNumber.trim())) {
-      return { valid: false, error: 'Splitter Number format invalid' };
+    const trimmed = splitterNumber.trim();
+    // Allow alphanumeric with optional dashes, underscores, spaces
+    const pattern = /^[A-Z0-9][A-Z0-9\-_\s]{0,30}$/i;
+    if (!pattern.test(trimmed)) {
+      const invalidChars = trimmed.match(/[^A-Z0-9\-_\s]/gi);
+      if (invalidChars) {
+        return { valid: false, error: `Splitter Number contains invalid characters: "${[...new Set(invalidChars)].join('')}". Only letters, numbers, dashes, underscores allowed.` };
+      }
+      return { valid: false, error: `Splitter Number format invalid. Use alphanumeric characters (e.g., SPL-001, 1, Splitter-A)` };
     }
     return { valid: true };
   };
@@ -553,12 +562,31 @@ export default function LCPInfo() {
               continue;
             }
             
-            // Validate LCP number format (warning, not skip)
+            // Validate LCP number format (warning with details, not skip)
             if (entry.lcpNumber) {
-              const lcpPattern = /^(LCP|CLCP)[-_]?\d{1,5}$/i;
-              const genericPattern = /^[A-Z0-9][-_A-Z0-9]{1,20}$/i;
-              if (!lcpPattern.test(entry.lcpNumber.trim()) && !genericPattern.test(entry.lcpNumber.trim())) {
-                warnings.push({ row: i + 1, message: `LCP number "${entry.lcpNumber}" may have invalid format` });
+              const trimmed = entry.lcpNumber.trim();
+              const pattern = /^[A-Z0-9][A-Z0-9\-_\s]{0,30}$/i;
+              if (!pattern.test(trimmed)) {
+                const invalidChars = trimmed.match(/[^A-Z0-9\-_\s]/gi);
+                if (invalidChars) {
+                  warnings.push({ row: i + 1, message: `LCP "${trimmed}" has invalid chars: "${[...new Set(invalidChars)].join('')}". Use only letters, numbers, dashes, underscores.` });
+                } else {
+                  warnings.push({ row: i + 1, message: `LCP "${trimmed}" format invalid. Must start with letter/number.` });
+                }
+              }
+            }
+            
+            // Validate Splitter number format
+            if (entry.splitterNumber) {
+              const trimmed = entry.splitterNumber.trim();
+              const pattern = /^[A-Z0-9][A-Z0-9\-_\s]{0,30}$/i;
+              if (!pattern.test(trimmed)) {
+                const invalidChars = trimmed.match(/[^A-Z0-9\-_\s]/gi);
+                if (invalidChars) {
+                  warnings.push({ row: i + 1, message: `Splitter "${trimmed}" has invalid chars: "${[...new Set(invalidChars)].join('')}". Use only letters, numbers, dashes, underscores.` });
+                } else {
+                  warnings.push({ row: i + 1, message: `Splitter "${trimmed}" format invalid. Must start with letter/number.` });
+                }
               }
             }
 
