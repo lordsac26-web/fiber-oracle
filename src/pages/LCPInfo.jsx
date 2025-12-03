@@ -110,12 +110,10 @@ export default function LCPInfo() {
     onError: () => toast.error('Failed to delete entry'),
   });
 
-  // Bulk delete mutation
+  // Bulk delete mutation - parallel deletion for speed
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids) => {
-      for (const id of ids) {
-        await base44.entities.LCPEntry.delete(id);
-      }
+      await Promise.all(ids.map(id => base44.entities.LCPEntry.delete(id)));
     },
     onSuccess: (_, ids) => {
       queryClient.invalidateQueries({ queryKey: ['lcpEntries'] });
