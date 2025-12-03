@@ -50,6 +50,7 @@ export default function LCPInfo() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importPreview, setImportPreview] = useState([]);
   const [importError, setImportError] = useState('');
+  const [importWarnings, setImportWarnings] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -313,26 +314,71 @@ export default function LCPInfo() {
     return null;
   };
 
+  // Parse CSV with proper quote handling
+  const parseCSVLine = (line, delimiter) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === delimiter && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    const fileName = file.name.toLowerCase();
+    
+    // Check for unsupported file types
+    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      setImportError('Excel files (.xlsx/.xls) are not directly supported. Please save your Excel file as CSV first (File → Save As → CSV).');
+      return;
+    }
+
+    if (!fileName.endsWith('.csv') && !fileName.endsWith('.txt')) {
+      setImportError('Please upload a CSV or TXT file. For Excel files, save as CSV first.');
+      return;
+    }
+
     setImportError('');
     setImportPreview([]);
+    setImportWarnings([]);
 
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target.result;
       try {
-        const lines = text.split('\n').filter(line => line.trim());
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
         if (lines.length < 2) {
           setImportError('File must have a header row and at least one data row');
           return;
         }
 
+        // Detect delimiter
+        const firstLine = lines[0];
+        let delimiter = ',';
+        if (firstLine.includes('\t')) delimiter = '\t';
+        else if ((firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length) delimiter = ';';
+
         // Parse header
-        const delimiter = lines[0].includes('\t') ? '\t' : ',';
-        const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+        const headers = parseCSVLine(firstLine, delimiter).map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
         
         // Map common header variations
         const headerMap = {
@@ -352,44 +398,86 @@ export default function LCPInfo() {
         };
 
         const mappedHeaders = headers.map(h => headerMap[h] || h);
+        
+        // Check if we have required columns
+        const hasLcp = mappedHeaders.includes('lcpNumber');
+        const hasSplitter = mappedHeaders.includes('splitterNumber');
+        if (!hasLcp && !hasSplitter) {
+          setImportError(`Could not find LCP or Splitter columns. Found headers: ${headers.join(', ')}`);
+          return;
+        }
 
         // Parse data rows
         const entries = [];
+        const warnings = [];
+        
         for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(delimiter).map(v => v.trim().replace(/^["']|["']$/g, ''));
-          if (values.length < 2) continue;
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          try {
+            const values = parseCSVLine(line, delimiter);
+            
+            // Check for malformed row
+            if (values.length < 2) {
+              warnings.push({ row: i + 1, message: 'Row has fewer than 2 columns, skipped' });
+              continue;
+            }
 
-          const entry = { id: Date.now() + i };
-          mappedHeaders.forEach((header, idx) => {
-            if (values[idx]) entry[header] = values[idx];
-          });
+            const entry = { id: Date.now() + i, _rowNum: i + 1 };
+            mappedHeaders.forEach((header, idx) => {
+              if (values[idx] !== undefined && values[idx] !== '') {
+                entry[header] = values[idx].replace(/^["']|["']$/g, '');
+              }
+            });
 
-          // Convert DMS coordinates to decimal if present
-          if (entry.latitude) {
-            const parsedLat = parseDMSToDecimal(entry.latitude);
-            entry.latitude = parsedLat !== null ? parsedLat.toString() : entry.latitude;
-            entry._latOriginal = values[mappedHeaders.indexOf('latitude')]; // Keep original for preview
-          }
-          if (entry.longitude) {
-            const parsedLng = parseDMSToDecimal(entry.longitude);
-            entry.longitude = parsedLng !== null ? parsedLng.toString() : entry.longitude;
-            entry._lngOriginal = values[mappedHeaders.indexOf('longitude')]; // Keep original for preview
-          }
+            // Validate required fields
+            if (!entry.lcpNumber && !entry.splitterNumber) {
+              warnings.push({ row: i + 1, message: 'Missing both LCP and Splitter values, skipped' });
+              continue;
+            }
 
-          if (entry.lcpNumber || entry.splitterNumber) {
+            // Convert DMS coordinates to decimal if present
+            if (entry.latitude) {
+              const parsedLat = parseDMSToDecimal(entry.latitude);
+              if (parsedLat !== null) {
+                entry._latOriginal = entry.latitude;
+                entry.latitude = parsedLat.toString();
+              } else if (isNaN(parseFloat(entry.latitude))) {
+                warnings.push({ row: i + 1, message: `Invalid latitude format: ${entry.latitude}` });
+                entry.latitude = '';
+              }
+            }
+            if (entry.longitude) {
+              const parsedLng = parseDMSToDecimal(entry.longitude);
+              if (parsedLng !== null) {
+                entry._lngOriginal = entry.longitude;
+                entry.longitude = parsedLng.toString();
+              } else if (isNaN(parseFloat(entry.longitude))) {
+                warnings.push({ row: i + 1, message: `Invalid longitude format: ${entry.longitude}` });
+                entry.longitude = '';
+              }
+            }
+
             entries.push(entry);
+          } catch (rowErr) {
+            warnings.push({ row: i + 1, message: `Failed to parse row: ${rowErr.message}` });
           }
         }
 
         if (entries.length === 0) {
-          setImportError('No valid entries found. Ensure file has LCP and Splitter columns.');
+          setImportError('No valid entries found. Ensure file has LCP and Splitter columns with data.');
           return;
         }
 
         setImportPreview(entries);
+        setImportWarnings(warnings);
       } catch (err) {
-        setImportError('Failed to parse file. Please check the format.');
+        setImportError(`Failed to parse file: ${err.message}`);
       }
+    };
+    reader.onerror = () => {
+      setImportError('Failed to read file. Please try again.');
     };
     reader.readAsText(file);
   };
@@ -421,6 +509,44 @@ export default function LCPInfo() {
     a.download = 'lcp_template.csv';
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const exportToCSV = () => {
+    if (lcpEntries.length === 0) {
+      toast.error('No entries to export');
+      return;
+    }
+
+    const headers = ['LCP', 'Splitter', 'Location', 'Latitude', 'Longitude', 'OLT', 'Shelf', 'Slot', 'Port', 'Optic_Make', 'Optic_Model', 'Optic_Serial', 'Notes'];
+    const rows = lcpEntries.map(entry => [
+      entry.lcp_number || '',
+      entry.splitter_number || '',
+      entry.location || '',
+      entry.gps_lat || '',
+      entry.gps_lng || '',
+      entry.olt_name || '',
+      entry.olt_shelf || '',
+      entry.olt_slot || '',
+      entry.olt_port || '',
+      entry.optic_make || '',
+      entry.optic_model || '',
+      entry.optic_serial || '',
+      entry.notes || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lcp_entries_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${lcpEntries.length} entries`);
   };
 
   const filteredEntries = lcpEntries
@@ -504,6 +630,10 @@ export default function LCPInfo() {
                   <Button variant="outline" onClick={() => setShowImportDialog(true)}>
                     <Upload className="h-4 w-4 mr-2" />
                     Import
+                  </Button>
+                  <Button variant="outline" onClick={exportToCSV} disabled={lcpEntries.length === 0}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
                   </Button>
                 </>
               )}
@@ -678,7 +808,7 @@ export default function LCPInfo() {
               </Dialog>
 
               {/* Import Dialog */}
-              <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) { setImportPreview([]); setImportError(''); } }}>
+              <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) { setImportPreview([]); setImportError(''); setImportWarnings([]); } }}>
                 <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Import LCP Entries</DialogTitle>
@@ -688,9 +818,10 @@ export default function LCPInfo() {
                       <div className="flex items-start gap-2 text-sm text-blue-800 dark:text-blue-200">
                         <FileText className="h-4 w-4 mt-0.5 shrink-0" />
                         <div>
-                          <p className="font-medium">Supported formats: CSV or TXT (tab/comma separated)</p>
+                          <p className="font-medium">Supported formats: CSV or TXT (comma, tab, or semicolon separated)</p>
                           <p className="mt-1">Required columns: LCP, Splitter</p>
-                          <p>Optional: Location, OLT, Shelf, Slot, Port, Optic_Make, Optic_Model, Optic_Serial, Notes</p>
+                          <p>Optional: Location, Latitude, Longitude, OLT, Shelf, Slot, Port, Notes</p>
+                          <p className="mt-1 text-xs text-blue-600">💡 Coordinates can be decimal (40.7128) or DMS (42°28'40.25"N)</p>
                         </div>
                       </div>
                     </div>
@@ -713,6 +844,7 @@ export default function LCPInfo() {
                       <label htmlFor="file-upload" className="cursor-pointer">
                         <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
                         <p className="text-sm text-gray-600 dark:text-gray-400">Click to upload CSV or TXT file</p>
+                        <p className="text-xs text-gray-400 mt-1">For Excel files, save as CSV first</p>
                       </label>
                     </div>
 
@@ -774,6 +906,25 @@ export default function LCPInfo() {
                             DMS coordinates (like 42°28'40.25"N) have been converted to decimal format
                           </div>
                         )}
+                        
+                        {/* Import warnings */}
+                        {importWarnings.length > 0 && (
+                          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                            <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
+                              <Info className="h-4 w-4" />
+                              {importWarnings.length} row(s) had issues
+                            </div>
+                            <div className="max-h-24 overflow-y-auto text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                              {importWarnings.slice(0, 5).map((w, i) => (
+                                <div key={i}>Row {w.row}: {w.message}</div>
+                              ))}
+                              {importWarnings.length > 5 && (
+                                <div className="text-amber-600">... and {importWarnings.length - 5} more</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="flex gap-2">
                           <Button variant="outline" onClick={() => { setImportPreview([]); setImportError(''); }} className="flex-1">
                             Cancel
