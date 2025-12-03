@@ -365,62 +365,17 @@ export default function LCPInfo() {
     }
   };
 
-  // Convert DMS (Degrees Minutes Seconds) to decimal degrees
-  // Supports formats like: 42°28'40.25"N, 42°28'40.25", 42 28 40.25 N, etc.
-  const parseDMSToDecimal = (dmsString) => {
-    if (!dmsString) return null;
+  // Parse GPS coordinate - handles decimal degrees directly, no DMS conversion
+  const parseGpsCoordinate = (value) => {
+    if (!value) return null;
     
-    const str = dmsString.toString().trim();
+    const str = value.toString().trim();
+    if (!str) return null;
     
-    // If it's already a decimal number (with or without decimal point), return it
-    // Match patterns like: 40.7128, -74.0060, 40, -74
-    const decimalPattern = /^-?\d+\.?\d*$/;
-    if (decimalPattern.test(str)) {
-      const num = parseFloat(str);
-      if (!isNaN(num) && Math.abs(num) <= 180) {
-        return num;
-      }
-    }
-    
-    // Check for direction indicator (N, S, E, W)
-    const directionMatch = str.match(/[NSEW]/i);
-    const direction = directionMatch ? directionMatch[0].toUpperCase() : null;
-    
-    // Try to parse DMS format
-    // Patterns: 42°28'40.25"N, 42°28'40.25", 42 28 40.25, 42-28-40.25
-    const dmsRegex = /(-?\d+)[°\s\-]+(\d+)['\s\-]+(\d+\.?\d*)["\s]*/;
-    const match = str.match(dmsRegex);
-    
-    if (match) {
-      const degrees = parseFloat(match[1]);
-      const minutes = parseFloat(match[2]);
-      const seconds = parseFloat(match[3]);
-      
-      let decimal = Math.abs(degrees) + (minutes / 60) + (seconds / 3600);
-      
-      // Apply negative for S or W directions, or if original degrees were negative
-      if (direction === 'S' || direction === 'W' || degrees < 0) {
-        decimal = -decimal;
-      }
-      
-      return parseFloat(decimal.toFixed(6));
-    }
-    
-    // Try degrees and decimal minutes format: 42°28.671'N or 42 28.671
-    const dmRegex = /(-?\d+)[°\s\-]+(\d+\.?\d*)['\s]*/;
-    const dmMatch = str.match(dmRegex);
-    
-    if (dmMatch) {
-      const degrees = parseFloat(dmMatch[1]);
-      const minutes = parseFloat(dmMatch[2]);
-      
-      let decimal = Math.abs(degrees) + (minutes / 60);
-      
-      if (direction === 'S' || direction === 'W' || degrees < 0) {
-        decimal = -decimal;
-      }
-      
-      return parseFloat(decimal.toFixed(6));
+    // Parse as a simple number (decimal degrees)
+    const num = parseFloat(str);
+    if (!isNaN(num)) {
+      return num;
     }
     
     return null;
@@ -590,32 +545,22 @@ export default function LCPInfo() {
               }
             }
 
-            // Convert DMS coordinates to decimal if present
+            // Parse GPS coordinates as decimal degrees
             if (entry.latitude) {
-              const originalLat = entry.latitude;
-              const parsedLat = parseDMSToDecimal(entry.latitude);
+              const parsedLat = parseGpsCoordinate(entry.latitude);
               if (parsedLat !== null) {
-                // Only mark as converted if the format was actually changed (DMS to decimal)
-                if (originalLat.includes('°') || originalLat.includes("'") || originalLat.includes('"')) {
-                  entry._latOriginal = originalLat;
-                }
                 entry.latitude = parsedLat.toString();
               } else {
-                warnings.push({ row: i + 1, message: `Invalid latitude format: ${entry.latitude}` });
+                warnings.push({ row: i + 1, message: `Invalid latitude "${entry.latitude}" - must be a decimal number (e.g., 42.4778)` });
                 entry.latitude = '';
               }
             }
             if (entry.longitude) {
-              const originalLng = entry.longitude;
-              const parsedLng = parseDMSToDecimal(entry.longitude);
+              const parsedLng = parseGpsCoordinate(entry.longitude);
               if (parsedLng !== null) {
-                // Only mark as converted if the format was actually changed (DMS to decimal)
-                if (originalLng.includes('°') || originalLng.includes("'") || originalLng.includes('"')) {
-                  entry._lngOriginal = originalLng;
-                }
                 entry.longitude = parsedLng.toString();
               } else {
-                warnings.push({ row: i + 1, message: `Invalid longitude format: ${entry.longitude}` });
+                warnings.push({ row: i + 1, message: `Invalid longitude "${entry.longitude}" - must be a decimal number (e.g., -73.7667)` });
                 entry.longitude = '';
               }
             }
