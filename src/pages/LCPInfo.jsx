@@ -663,13 +663,14 @@ export default function LCPInfo() {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-sm">Preview ({importPreview.length} entries)</span>
                         </div>
-                        <div className="max-h-48 overflow-y-auto border rounded-lg">
+                        <div className="max-h-64 overflow-y-auto border rounded-lg">
                           <Table>
                             <TableHeader>
                               <TableRow>
                                 <TableHead>LCP</TableHead>
                                 <TableHead>Splitter</TableHead>
                                 <TableHead>Location</TableHead>
+                                <TableHead>Coordinates</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -677,7 +678,20 @@ export default function LCPInfo() {
                                 <TableRow key={i}>
                                   <TableCell className="font-mono text-sm">{entry.lcpNumber || '-'}</TableCell>
                                   <TableCell className="font-mono text-sm">{entry.splitterNumber || '-'}</TableCell>
-                                  <TableCell className="text-sm truncate max-w-[150px]">{entry.physicalLocation || '-'}</TableCell>
+                                  <TableCell className="text-sm truncate max-w-[120px]">{entry.physicalLocation || '-'}</TableCell>
+                                  <TableCell className="text-xs">
+                                    {entry.latitude && entry.longitude ? (
+                                      <div>
+                                        <div className="font-mono text-green-600">{entry.latitude}, {entry.longitude}</div>
+                                        {(entry._latOriginal || entry._lngOriginal) && 
+                                         (entry._latOriginal !== entry.latitude || entry._lngOriginal !== entry.longitude) && (
+                                          <div className="text-gray-400 text-[10px]">
+                                            from: {entry._latOriginal}, {entry._lngOriginal}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : '-'}
+                                  </TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
@@ -688,6 +702,14 @@ export default function LCPInfo() {
                             </div>
                           )}
                         </div>
+                        
+                        {/* Coordinate conversion notice */}
+                        {importPreview.some(e => e._latOriginal || e._lngOriginal) && (
+                          <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded-lg text-xs text-green-700 dark:text-green-300 flex items-center gap-2">
+                            <MapPin className="h-3 w-3" />
+                            DMS coordinates (like 42°28'40.25"N) have been converted to decimal format
+                          </div>
+                        )}
                         <div className="flex gap-2">
                           <Button variant="outline" onClick={() => { setImportPreview([]); setImportError(''); }} className="flex-1">
                             Cancel
