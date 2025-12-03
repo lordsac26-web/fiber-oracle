@@ -111,10 +111,14 @@ export default function LCPInfo() {
     onError: () => toast.error('Failed to delete entry'),
   });
 
-  // Bulk delete mutation - parallel deletion for speed
+  // Bulk delete mutation - batch in chunks to avoid rate limits
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids) => {
-      await Promise.all(ids.map(id => base44.entities.LCPEntry.delete(id)));
+      const chunkSize = 10;
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(id => base44.entities.LCPEntry.delete(id)));
+      }
     },
     onSuccess: (_, ids) => {
       queryClient.invalidateQueries({ queryKey: ['lcpEntries'] });
@@ -122,7 +126,10 @@ export default function LCPInfo() {
       setSelectedIds([]);
       setSelectionMode(false);
     },
-    onError: () => toast.error('Failed to delete some entries'),
+    onError: (err) => {
+      queryClient.invalidateQueries({ queryKey: ['lcpEntries'] });
+      toast.error('Some entries may not have been deleted. Please try again.');
+    },
   });
 
   // Bulk create mutation for imports
