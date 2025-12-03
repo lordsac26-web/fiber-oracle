@@ -380,20 +380,33 @@ export default function LCPInfo() {
         // Parse header
         const headers = parseCSVLine(firstLine, delimiter).map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
         
-        // Map common header variations
+        // Map common header variations - Updated to match user specification
         const headerMap = {
-          'lcp': 'lcpNumber', 'lcp_number': 'lcpNumber', 'lcpnumber': 'lcpNumber', 'lcp number': 'lcpNumber', 'clcp': 'lcpNumber',
+          // TYPE column - LCP or CLCP
+          'type': 'entryType',
+          // LCP = LCP or CLCP number
+          'lcp': 'lcpNumber', 'lcp_number': 'lcpNumber', 'lcpnumber': 'lcpNumber', 'lcp number': 'lcpNumber', 'clcp': 'lcpNumber', 'clcp_number': 'lcpNumber',
+          // SPLITTER = splitter number
           'splitter': 'splitterNumber', 'splitter_number': 'splitterNumber', 'splitternumber': 'splitterNumber', 'splitter number': 'splitterNumber',
+          // LOCATION = physical location
           'location': 'physicalLocation', 'physical_location': 'physicalLocation', 'address': 'physicalLocation',
-          'latitude': 'latitude', 'lat': 'latitude', 'gps_lat': 'latitude',
-          'longitude': 'longitude', 'lon': 'longitude', 'lng': 'longitude', 'gps_lon': 'longitude', 'gps_lng': 'longitude',
+          // LAT = gps latitude (all formats)
+          'lat': 'latitude', 'latitude': 'latitude', 'gps_lat': 'latitude',
+          // LONG = gps longitude (all formats)
+          'long': 'longitude', 'longitude': 'longitude', 'lon': 'longitude', 'lng': 'longitude', 'gps_lon': 'longitude', 'gps_lng': 'longitude',
+          // OLT = OLT name
           'olt': 'oltName', 'olt_name': 'oltName', 'oltname': 'oltName',
+          // SHELF = shelf number
           'shelf': 'oltShelf', 'olt_shelf': 'oltShelf',
-          'slot': 'oltSlot', 'olt_slot': 'oltSlot',
-          'port': 'oltPort', 'olt_port': 'oltPort', 'ports': 'oltPort',
-          'optic_make': 'opticMake', 'opticmake': 'opticMake', 'make': 'opticMake',
-          'optic_model': 'opticModel', 'opticmodel': 'opticModel', 'model': 'opticModel',
-          'optic_serial': 'opticSerial', 'opticserial': 'opticSerial', 'serial': 'opticSerial',
+          // SLOT = slot/card number
+          'slot': 'oltSlot', 'olt_slot': 'oltSlot', 'card': 'oltSlot',
+          // PORT = PON port
+          'port': 'oltPort', 'olt_port': 'oltPort', 'ports': 'oltPort', 'pon_port': 'oltPort',
+          // Optional: optic info
+          'optic_make': 'opticMake', 'opticmake': 'opticMake', 'optic-make': 'opticMake', 'make': 'opticMake',
+          'optic_model': 'opticModel', 'opticmodel': 'opticModel', 'optic-model': 'opticModel', 'model': 'opticModel',
+          'optic_serial': 'opticSerial', 'opticserial': 'opticSerial', 'optic-serial': 'opticSerial', 'serial': 'opticSerial',
+          // Notes
           'notes': 'notes', 'note': 'notes', 'comments': 'notes'
         };
 
@@ -489,6 +502,7 @@ export default function LCPInfo() {
       location: entry.physicalLocation || '',
       gps_lat: entry.latitude ? parseFloat(entry.latitude) : null,
       gps_lng: entry.longitude ? parseFloat(entry.longitude) : null,
+      olt_name: entry.oltName || '',
       olt_shelf: entry.oltShelf || '',
       olt_slot: entry.oltSlot || '',
       olt_port: entry.oltPort || '',
@@ -501,12 +515,12 @@ export default function LCPInfo() {
   };
 
   const downloadTemplate = () => {
-    const template = 'LCP,Splitter,Location,Latitude,Longitude,OLT,Shelf,Slot,Port,Optic_Make,Optic_Model,Optic_Serial,Notes\nLCP-001,SPL-001,"123 Main St",40.7128,-74.0060,OLT-01,0,1,1-4,Finisar,FTLX1475D3BCL,ABC123,Sample entry';
+    const template = 'Type,LCP,Splitter,Location,Lat,Long,OLT,Shelf,Slot,Port,Optic-Make,Optic-Model,Optic-Serial,Notes\nLCP,LCP-001,SPL-001,"123 Main St",40.7128,-74.0060,OLT-01,0,1,1-4,Finisar,FTLX1475D3BCL,ABC123,Sample entry\nCLCP,CLCP-002,SPL-002,"456 Oak Ave",40.7200,-74.0100,OLT-02,0,2,5-8,,,,Second sample';
     const blob = new Blob([template], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'lcp_template.csv';
+    a.download = 'lcp_clcp_template.csv';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -517,22 +531,27 @@ export default function LCPInfo() {
       return;
     }
 
-    const headers = ['LCP', 'Splitter', 'Location', 'Latitude', 'Longitude', 'OLT', 'Shelf', 'Slot', 'Port', 'Optic_Make', 'Optic_Model', 'Optic_Serial', 'Notes'];
-    const rows = lcpEntries.map(entry => [
-      entry.lcp_number || '',
-      entry.splitter_number || '',
-      entry.location || '',
-      entry.gps_lat || '',
-      entry.gps_lng || '',
-      entry.olt_name || '',
-      entry.olt_shelf || '',
-      entry.olt_slot || '',
-      entry.olt_port || '',
-      entry.optic_make || '',
-      entry.optic_model || '',
-      entry.optic_serial || '',
-      entry.notes || ''
-    ]);
+    const headers = ['Type', 'LCP', 'Splitter', 'Location', 'Lat', 'Long', 'OLT', 'Shelf', 'Slot', 'Port', 'Optic-Make', 'Optic-Model', 'Optic-Serial', 'Notes'];
+    const rows = lcpEntries.map(entry => {
+      // Determine type from lcp_number prefix
+      const entryType = (entry.lcp_number || '').toUpperCase().startsWith('CLCP') ? 'CLCP' : 'LCP';
+      return [
+        entryType,
+        entry.lcp_number || '',
+        entry.splitter_number || '',
+        entry.location || '',
+        entry.gps_lat || '',
+        entry.gps_lng || '',
+        entry.olt_name || '',
+        entry.olt_shelf || '',
+        entry.olt_slot || '',
+        entry.olt_port || '',
+        entry.optic_make || '',
+        entry.optic_model || '',
+        entry.optic_serial || '',
+        entry.notes || ''
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
@@ -819,9 +838,19 @@ export default function LCPInfo() {
                         <FileText className="h-4 w-4 mt-0.5 shrink-0" />
                         <div>
                           <p className="font-medium">Supported formats: CSV or TXT (comma, tab, or semicolon separated)</p>
-                          <p className="mt-1">Required columns: LCP, Splitter</p>
-                          <p>Optional: Location, Latitude, Longitude, OLT, Shelf, Slot, Port, Notes</p>
-                          <p className="mt-1 text-xs text-blue-600">💡 Coordinates can be decimal (40.7128) or DMS (42°28'40.25"N)</p>
+                          <p className="mt-2 font-medium">Column names:</p>
+                          <ul className="text-xs mt-1 space-y-0.5">
+                            <li><strong>Type</strong> – LCP or CLCP (optional)</li>
+                            <li><strong>LCP</strong> – LCP/CLCP number *</li>
+                            <li><strong>Splitter</strong> – Splitter number *</li>
+                            <li><strong>Location</strong> – Physical location</li>
+                            <li><strong>Lat</strong> – GPS latitude (decimal or DMS)</li>
+                            <li><strong>Long</strong> – GPS longitude (decimal or DMS)</li>
+                            <li><strong>OLT</strong> – OLT name</li>
+                            <li><strong>Shelf, Slot, Port</strong> – OLT location</li>
+                            <li><strong>Optic-Make, Optic-Model, Optic-Serial, Notes</strong> – Optional</li>
+                          </ul>
+                          <p className="mt-1 text-xs text-blue-600">💡 Coordinates: decimal (40.7128) or DMS (42°28'40.25"N)</p>
                         </div>
                       </div>
                     </div>
@@ -863,18 +892,35 @@ export default function LCPInfo() {
                           <Table>
                             <TableHeader>
                               <TableRow>
-                                <TableHead>LCP</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>LCP/CLCP</TableHead>
                                 <TableHead>Splitter</TableHead>
                                 <TableHead>Location</TableHead>
+                                <TableHead>OLT</TableHead>
                                 <TableHead>Coordinates</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {importPreview.slice(0, 10).map((entry, i) => (
                                 <TableRow key={i}>
+                                  <TableCell>
+                                    <Badge variant="outline" className="text-xs">
+                                      {entry.entryType || (entry.lcpNumber?.toUpperCase().startsWith('CLCP') ? 'CLCP' : 'LCP')}
+                                    </Badge>
+                                  </TableCell>
                                   <TableCell className="font-mono text-sm">{entry.lcpNumber || '-'}</TableCell>
                                   <TableCell className="font-mono text-sm">{entry.splitterNumber || '-'}</TableCell>
-                                  <TableCell className="text-sm truncate max-w-[120px]">{entry.physicalLocation || '-'}</TableCell>
+                                  <TableCell className="text-sm truncate max-w-[100px]">{entry.physicalLocation || '-'}</TableCell>
+                                  <TableCell className="text-xs font-mono">
+                                    {entry.oltName ? (
+                                      <div>
+                                        <div>{entry.oltName}</div>
+                                        {(entry.oltShelf || entry.oltSlot || entry.oltPort) && (
+                                          <div className="text-gray-500">{entry.oltShelf || '-'}/{entry.oltSlot || '-'}/{entry.oltPort || '-'}</div>
+                                        )}
+                                      </div>
+                                    ) : '-'}
+                                  </TableCell>
                                   <TableCell className="text-xs">
                                     {entry.latitude && entry.longitude ? (
                                       <div>
