@@ -356,10 +356,14 @@ export default function LCPInfo() {
     
     const str = dmsString.toString().trim();
     
-    // If it's already a decimal number, return it
-    const simpleNum = parseFloat(str);
-    if (!isNaN(simpleNum) && !str.includes('°') && !str.includes("'") && !str.includes('"') && Math.abs(simpleNum) <= 180) {
-      return simpleNum;
+    // If it's already a decimal number (with or without decimal point), return it
+    // Match patterns like: 40.7128, -74.0060, 40, -74
+    const decimalPattern = /^-?\d+\.?\d*$/;
+    if (decimalPattern.test(str)) {
+      const num = parseFloat(str);
+      if (!isNaN(num) && Math.abs(num) <= 180) {
+        return num;
+      }
     }
     
     // Check for direction indicator (N, S, E, W)
@@ -553,21 +557,29 @@ export default function LCPInfo() {
 
             // Convert DMS coordinates to decimal if present
             if (entry.latitude) {
+              const originalLat = entry.latitude;
               const parsedLat = parseDMSToDecimal(entry.latitude);
               if (parsedLat !== null) {
-                entry._latOriginal = entry.latitude;
+                // Only mark as converted if the format was actually changed (DMS to decimal)
+                if (originalLat.includes('°') || originalLat.includes("'") || originalLat.includes('"')) {
+                  entry._latOriginal = originalLat;
+                }
                 entry.latitude = parsedLat.toString();
-              } else if (isNaN(parseFloat(entry.latitude))) {
+              } else {
                 warnings.push({ row: i + 1, message: `Invalid latitude format: ${entry.latitude}` });
                 entry.latitude = '';
               }
             }
             if (entry.longitude) {
+              const originalLng = entry.longitude;
               const parsedLng = parseDMSToDecimal(entry.longitude);
               if (parsedLng !== null) {
-                entry._lngOriginal = entry.longitude;
+                // Only mark as converted if the format was actually changed (DMS to decimal)
+                if (originalLng.includes('°') || originalLng.includes("'") || originalLng.includes('"')) {
+                  entry._lngOriginal = originalLng;
+                }
                 entry.longitude = parsedLng.toString();
-              } else if (isNaN(parseFloat(entry.longitude))) {
+              } else {
                 warnings.push({ row: i + 1, message: `Invalid longitude format: ${entry.longitude}` });
                 entry.longitude = '';
               }
@@ -878,38 +890,40 @@ export default function LCPInfo() {
 
                   <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-3">
                     <Label className="text-sm font-medium">OLT Location (Logical)</Label>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="space-y-3">
                       <div className="space-y-1">
-                        <Label className="text-xs text-gray-500">OLT</Label>
+                        <Label className="text-xs text-gray-500">OLT Name</Label>
                         <Input
-                          placeholder="OLT-01"
+                          placeholder="e.g., Copake, OLT-Main, etc."
                           value={formData.oltName}
                           onChange={(e) => setFormData({ ...formData, oltName: e.target.value })}
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-gray-500">Shelf</Label>
-                        <Input
-                          placeholder="0"
-                          value={formData.oltShelf}
-                          onChange={(e) => setFormData({ ...formData, oltShelf: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-gray-500">Slot</Label>
-                        <Input
-                          placeholder="1"
-                          value={formData.oltSlot}
-                          onChange={(e) => setFormData({ ...formData, oltSlot: e.target.value })}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-gray-500">Port(s)</Label>
-                        <Input
-                          placeholder="1-4"
-                          value={formData.oltPort}
-                          onChange={(e) => setFormData({ ...formData, oltPort: e.target.value })}
-                        />
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-gray-500">Shelf</Label>
+                          <Input
+                            placeholder="0"
+                            value={formData.oltShelf}
+                            onChange={(e) => setFormData({ ...formData, oltShelf: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-gray-500">Slot/Card</Label>
+                          <Input
+                            placeholder="1"
+                            value={formData.oltSlot}
+                            onChange={(e) => setFormData({ ...formData, oltSlot: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-gray-500">PON Port(s)</Label>
+                          <Input
+                            placeholder="1-4"
+                            value={formData.oltPort}
+                            onChange={(e) => setFormData({ ...formData, oltPort: e.target.value })}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1255,10 +1269,15 @@ export default function LCPInfo() {
                       </TableCell>
                       <TableCell className="font-mono text-sm">{entry.splitter_number}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{entry.location || '-'}</TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {entry.olt_name || entry.olt_shelf || entry.olt_slot || entry.olt_port 
-                          ? `${entry.olt_name ? entry.olt_name + ' ' : ''}${entry.olt_shelf || '-'}/${entry.olt_slot || '-'}/${entry.olt_port || '-'}`
-                          : '-'}
+                      <TableCell className="text-sm max-w-[200px]">
+                        {entry.olt_name || entry.olt_shelf || entry.olt_slot || entry.olt_port ? (
+                          <div>
+                            {entry.olt_name && <div className="font-semibold truncate">{entry.olt_name}</div>}
+                            <div className="font-mono text-xs text-gray-500">
+                              {entry.olt_shelf || '-'}/{entry.olt_slot || '-'}/{entry.olt_port || '-'}
+                            </div>
+                          </div>
+                        ) : '-'}
                       </TableCell>
                       <TableCell>
                         {entry.gps_lat && entry.gps_lng ? (
@@ -1326,10 +1345,12 @@ export default function LCPInfo() {
                         {(entry.olt_name || entry.olt_shelf || entry.olt_slot || entry.olt_port) && (
                           <div className="flex items-start gap-2">
                             <Server className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                            <div>
+                            <div className="min-w-0">
                               <div className="text-xs text-gray-500">OLT Location</div>
-                              <div className="text-sm font-mono">
-                                {entry.olt_name && <span className="font-semibold">{entry.olt_name} </span>}
+                              {entry.olt_name && (
+                                <div className="text-sm font-semibold truncate">{entry.olt_name}</div>
+                              )}
+                              <div className="text-sm font-mono text-gray-600">
                                 Shelf {entry.olt_shelf || '-'} / Slot {entry.olt_slot || '-'} / Port {entry.olt_port || '-'}
                               </div>
                             </div>
