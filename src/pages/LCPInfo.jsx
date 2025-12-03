@@ -180,26 +180,118 @@ export default function LCPInfo() {
 
   const entriesWithCoords = lcpEntries.filter(e => e.gps_lat && e.gps_lng);
 
+  // Validation functions
+  const validateLcpNumber = (lcpNumber, entryType) => {
+    if (!lcpNumber || !lcpNumber.trim()) {
+      return { valid: false, error: `${entryType} Number is required` };
+    }
+    // Check format - should be like LCP-001, CLCP-002, LCP001, etc.
+    const lcpPattern = /^(LCP|CLCP)[-_]?\d{1,5}$/i;
+    const genericPattern = /^[A-Z0-9][-_A-Z0-9]{1,20}$/i;
+    if (!lcpPattern.test(lcpNumber.trim()) && !genericPattern.test(lcpNumber.trim())) {
+      return { valid: false, error: `${entryType} Number format invalid. Use format like ${entryType}-001` };
+    }
+    return { valid: true };
+  };
+
+  const validateSplitterNumber = (splitterNumber) => {
+    if (!splitterNumber || !splitterNumber.trim()) {
+      return { valid: false, error: 'Splitter Number is required' };
+    }
+    // Allow various formats: SPL-001, 1, S1, Splitter-1, etc.
+    const pattern = /^[A-Z0-9][-_A-Z0-9]{0,20}$/i;
+    if (!pattern.test(splitterNumber.trim())) {
+      return { valid: false, error: 'Splitter Number format invalid' };
+    }
+    return { valid: true };
+  };
+
+  const validateGpsCoordinates = (lat, lng) => {
+    const errors = [];
+    
+    if (lat && lat.trim()) {
+      const latNum = parseFloat(lat);
+      if (isNaN(latNum)) {
+        errors.push('Latitude must be a valid number');
+      } else if (latNum < -90 || latNum > 90) {
+        errors.push('Latitude must be between -90 and 90');
+      }
+    }
+    
+    if (lng && lng.trim()) {
+      const lngNum = parseFloat(lng);
+      if (isNaN(lngNum)) {
+        errors.push('Longitude must be a valid number');
+      } else if (lngNum < -180 || lngNum > 180) {
+        errors.push('Longitude must be between -180 and 180');
+      }
+    }
+    
+    // If one is provided, both should be provided
+    if ((lat && lat.trim() && (!lng || !lng.trim())) || (lng && lng.trim() && (!lat || !lat.trim()))) {
+      errors.push('Both latitude and longitude are required if providing coordinates');
+    }
+    
+    return errors.length > 0 ? { valid: false, errors } : { valid: true };
+  };
+
+  const checkDuplicateLcp = (lcpNumber, splitterNumber, excludeId = null) => {
+    const normalizedLcp = lcpNumber.trim().toUpperCase();
+    const normalizedSplitter = splitterNumber.trim().toUpperCase();
+    
+    const duplicate = lcpEntries.find(entry => {
+      if (excludeId && entry.id === excludeId) return false;
+      const entryLcp = (entry.lcp_number || '').toUpperCase();
+      const entrySplitter = (entry.splitter_number || '').toUpperCase();
+      return entryLcp === normalizedLcp && entrySplitter === normalizedSplitter;
+    });
+    
+    return duplicate;
+  };
+
   const handleSubmit = () => {
-    if (!formData.lcpNumber || !formData.splitterNumber) {
-      toast.error('LCP Number and Splitter Number are required');
+    // Validate LCP Number
+    const lcpValidation = validateLcpNumber(formData.lcpNumber, formData.entryType);
+    if (!lcpValidation.valid) {
+      toast.error(lcpValidation.error);
+      return;
+    }
+
+    // Validate Splitter Number
+    const splitterValidation = validateSplitterNumber(formData.splitterNumber);
+    if (!splitterValidation.valid) {
+      toast.error(splitterValidation.error);
+      return;
+    }
+
+    // Validate GPS Coordinates
+    const gpsValidation = validateGpsCoordinates(formData.latitude, formData.longitude);
+    if (!gpsValidation.valid) {
+      toast.error(gpsValidation.errors[0]);
+      return;
+    }
+
+    // Check for duplicates
+    const duplicate = checkDuplicateLcp(formData.lcpNumber, formData.splitterNumber, editingId);
+    if (duplicate) {
+      toast.error(`An entry with ${formData.lcpNumber} / ${formData.splitterNumber} already exists`);
       return;
     }
 
     const entryData = {
-      lcp_number: formData.lcpNumber,
-      splitter_number: formData.splitterNumber,
-      location: formData.physicalLocation,
+      lcp_number: formData.lcpNumber.trim(),
+      splitter_number: formData.splitterNumber.trim(),
+      location: formData.physicalLocation?.trim() || '',
       gps_lat: formData.latitude ? parseFloat(formData.latitude) : null,
       gps_lng: formData.longitude ? parseFloat(formData.longitude) : null,
-      olt_name: formData.oltName,
-      olt_shelf: formData.oltShelf,
-      olt_slot: formData.oltSlot,
-      olt_port: formData.oltPort,
-      optic_make: formData.opticMake,
-      optic_model: formData.opticModel,
-      optic_serial: formData.opticSerial,
-      notes: formData.notes,
+      olt_name: formData.oltName?.trim() || '',
+      olt_shelf: formData.oltShelf?.trim() || '',
+      olt_slot: formData.oltSlot?.trim() || '',
+      olt_port: formData.oltPort?.trim() || '',
+      optic_make: formData.opticMake?.trim() || '',
+      optic_model: formData.opticModel?.trim() || '',
+      optic_serial: formData.opticSerial?.trim() || '',
+      notes: formData.notes?.trim() || '',
     };
 
     if (editingId) {
@@ -449,6 +541,15 @@ export default function LCPInfo() {
               warnings.push({ row: i + 1, message: 'Missing both LCP and Splitter values, skipped' });
               continue;
             }
+            
+            // Validate LCP number format (warning, not skip)
+            if (entry.lcpNumber) {
+              const lcpPattern = /^(LCP|CLCP)[-_]?\d{1,5}$/i;
+              const genericPattern = /^[A-Z0-9][-_A-Z0-9]{1,20}$/i;
+              if (!lcpPattern.test(entry.lcpNumber.trim()) && !genericPattern.test(entry.lcpNumber.trim())) {
+                warnings.push({ row: i + 1, message: `LCP number "${entry.lcpNumber}" may have invalid format` });
+              }
+            }
 
             // Convert DMS coordinates to decimal if present
             if (entry.latitude) {
@@ -471,6 +572,22 @@ export default function LCPInfo() {
                 entry.longitude = '';
               }
             }
+            
+            // Validate GPS coordinate ranges
+            if (entry.latitude) {
+              const lat = parseFloat(entry.latitude);
+              if (!isNaN(lat) && (lat < -90 || lat > 90)) {
+                warnings.push({ row: i + 1, message: `Latitude ${lat} out of range (-90 to 90)` });
+                entry.latitude = '';
+              }
+            }
+            if (entry.longitude) {
+              const lng = parseFloat(entry.longitude);
+              if (!isNaN(lng) && (lng < -180 || lng > 180)) {
+                warnings.push({ row: i + 1, message: `Longitude ${lng} out of range (-180 to 180)` });
+                entry.longitude = '';
+              }
+            }
 
             entries.push(entry);
           } catch (rowErr) {
@@ -483,8 +600,31 @@ export default function LCPInfo() {
           return;
         }
 
+        // Check for duplicates within import file
+        const seenKeys = new Set();
+        const importDuplicates = [];
+        entries.forEach((entry, idx) => {
+          const key = `${(entry.lcpNumber || '').toUpperCase()}|${(entry.splitterNumber || '').toUpperCase()}`;
+          if (seenKeys.has(key)) {
+            importDuplicates.push({ row: entry._rowNum, message: `Duplicate entry: ${entry.lcpNumber}/${entry.splitterNumber}` });
+          }
+          seenKeys.add(key);
+        });
+        
+        // Check for duplicates against existing entries
+        const existingDuplicates = [];
+        entries.forEach(entry => {
+          const exists = lcpEntries.find(existing => 
+            (existing.lcp_number || '').toUpperCase() === (entry.lcpNumber || '').toUpperCase() &&
+            (existing.splitter_number || '').toUpperCase() === (entry.splitterNumber || '').toUpperCase()
+          );
+          if (exists) {
+            existingDuplicates.push({ row: entry._rowNum, message: `Already exists: ${entry.lcpNumber}/${entry.splitterNumber}` });
+          }
+        });
+
         setImportPreview(entries);
-        setImportWarnings(warnings);
+        setImportWarnings([...warnings, ...importDuplicates, ...existingDuplicates]);
       } catch (err) {
         setImportError(`Failed to parse file: ${err.message}`);
       }
