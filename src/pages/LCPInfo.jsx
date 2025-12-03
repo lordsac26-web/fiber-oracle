@@ -219,6 +219,63 @@ export default function LCPInfo() {
     deleteMutation.mutate(id);
   };
 
+  // Convert DMS (Degrees Minutes Seconds) to decimal degrees
+  // Supports formats like: 42°28'40.25"N, 42°28'40.25", 42 28 40.25 N, etc.
+  const parseDMSToDecimal = (dmsString) => {
+    if (!dmsString) return null;
+    
+    const str = dmsString.toString().trim();
+    
+    // If it's already a decimal number, return it
+    const simpleNum = parseFloat(str);
+    if (!isNaN(simpleNum) && !str.includes('°') && !str.includes("'") && !str.includes('"') && Math.abs(simpleNum) <= 180) {
+      return simpleNum;
+    }
+    
+    // Check for direction indicator (N, S, E, W)
+    const directionMatch = str.match(/[NSEW]/i);
+    const direction = directionMatch ? directionMatch[0].toUpperCase() : null;
+    
+    // Try to parse DMS format
+    // Patterns: 42°28'40.25"N, 42°28'40.25", 42 28 40.25, 42-28-40.25
+    const dmsRegex = /(-?\d+)[°\s\-]+(\d+)['\s\-]+(\d+\.?\d*)["\s]*/;
+    const match = str.match(dmsRegex);
+    
+    if (match) {
+      const degrees = parseFloat(match[1]);
+      const minutes = parseFloat(match[2]);
+      const seconds = parseFloat(match[3]);
+      
+      let decimal = Math.abs(degrees) + (minutes / 60) + (seconds / 3600);
+      
+      // Apply negative for S or W directions, or if original degrees were negative
+      if (direction === 'S' || direction === 'W' || degrees < 0) {
+        decimal = -decimal;
+      }
+      
+      return parseFloat(decimal.toFixed(6));
+    }
+    
+    // Try degrees and decimal minutes format: 42°28.671'N or 42 28.671
+    const dmRegex = /(-?\d+)[°\s\-]+(\d+\.?\d*)['\s]*/;
+    const dmMatch = str.match(dmRegex);
+    
+    if (dmMatch) {
+      const degrees = parseFloat(dmMatch[1]);
+      const minutes = parseFloat(dmMatch[2]);
+      
+      let decimal = Math.abs(degrees) + (minutes / 60);
+      
+      if (direction === 'S' || direction === 'W' || degrees < 0) {
+        decimal = -decimal;
+      }
+      
+      return parseFloat(decimal.toFixed(6));
+    }
+    
+    return null;
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -269,6 +326,18 @@ export default function LCPInfo() {
           mappedHeaders.forEach((header, idx) => {
             if (values[idx]) entry[header] = values[idx];
           });
+
+          // Convert DMS coordinates to decimal if present
+          if (entry.latitude) {
+            const parsedLat = parseDMSToDecimal(entry.latitude);
+            entry.latitude = parsedLat !== null ? parsedLat.toString() : entry.latitude;
+            entry._latOriginal = values[mappedHeaders.indexOf('latitude')]; // Keep original for preview
+          }
+          if (entry.longitude) {
+            const parsedLng = parseDMSToDecimal(entry.longitude);
+            entry.longitude = parsedLng !== null ? parsedLng.toString() : entry.longitude;
+            entry._lngOriginal = values[mappedHeaders.indexOf('longitude')]; // Keep original for preview
+          }
 
           if (entry.lcpNumber || entry.splitterNumber) {
             entries.push(entry);
