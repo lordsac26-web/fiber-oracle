@@ -51,6 +51,8 @@ export default function LCPInfo() {
   const [importPreview, setImportPreview] = useState([]);
   const [importError, setImportError] = useState('');
   const [editingId, setEditingId] = useState(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [formData, setFormData] = useState({
     entryType: 'LCP',
     lcpNumber: '',
@@ -106,6 +108,22 @@ export default function LCPInfo() {
       toast.success('LCP entry deleted');
     },
     onError: () => toast.error('Failed to delete entry'),
+  });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids) => {
+      for (const id of ids) {
+        await base44.entities.LCPEntry.delete(id);
+      }
+    },
+    onSuccess: (_, ids) => {
+      queryClient.invalidateQueries({ queryKey: ['lcpEntries'] });
+      toast.success(`Deleted ${ids.length} entries`);
+      setSelectedIds([]);
+      setSelectionMode(false);
+    },
+    onError: () => toast.error('Failed to delete some entries'),
   });
 
   // Bulk create mutation for imports
@@ -217,6 +235,27 @@ export default function LCPInfo() {
 
   const handleDelete = (id) => {
     deleteMutation.mutate(id);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredEntries.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredEntries.map(e => e.id));
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+    if (confirm(`Are you sure you want to delete ${selectedIds.length} entries? This cannot be undone.`)) {
+      bulkDeleteMutation.mutate(selectedIds);
+    }
   };
 
   // Convert DMS (Degrees Minutes Seconds) to decimal degrees
@@ -430,19 +469,46 @@ export default function LCPInfo() {
               </div>
             </div>
             <div className="flex gap-2">
-              <Link to={createPageUrl('LCPMap')}>
-                <Button variant="outline" className="relative">
-                  <Map className="h-4 w-4 mr-2" />
-                  Map View
-                  {entriesWithCoords.length === 0 && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full" title="Add GPS coordinates to use map view" />
+              {selectionMode ? (
+                <>
+                  <Button variant="outline" size="sm" onClick={toggleSelectAll}>
+                    {selectedIds.length === filteredEntries.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={handleBulkDelete}
+                    disabled={selectedIds.length === 0 || bulkDeleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete ({selectedIds.length})
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setSelectionMode(false); setSelectedIds([]); }}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {lcpEntries.length > 0 && (
+                    <Button variant="outline" onClick={() => setSelectionMode(true)}>
+                      Select
+                    </Button>
                   )}
-                </Button>
-              </Link>
-              <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Import
-              </Button>
+                  <Link to={createPageUrl('LCPMap')}>
+                    <Button variant="outline" className="relative">
+                      <Map className="h-4 w-4 mr-2" />
+                      Map View
+                      {entriesWithCoords.length === 0 && (
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full" title="Add GPS coordinates to use map view" />
+                      )}
+                    </Button>
+                  </Link>
+                  <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import
+                  </Button>
+                </>
+              )}
               <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) resetForm(); }}>
                 <DialogTrigger asChild>
                   <Button>
@@ -827,6 +893,7 @@ export default function LCPInfo() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50 dark:bg-gray-800">
+                    {selectionMode && <TableHead className="w-10"></TableHead>}
                     <TableHead>LCP/CLCP</TableHead>
                     <TableHead>Splitter</TableHead>
                     <TableHead>Location</TableHead>
@@ -837,7 +904,17 @@ export default function LCPInfo() {
                 </TableHeader>
                 <TableBody>
                   {filteredEntries.map((entry) => (
-                    <TableRow key={entry.id}>
+                    <TableRow key={entry.id} className={selectedIds.includes(entry.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
+                      {selectionMode && (
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(entry.id)}
+                            onChange={() => toggleSelect(entry.id)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>
                         <Badge className="bg-indigo-600">{entry.lcp_number}</Badge>
                       </TableCell>
@@ -875,9 +952,17 @@ export default function LCPInfo() {
           /* List View */
           <div className="space-y-4">
             {filteredEntries.map((entry) => (
-              <Card key={entry.id} className="border-0 shadow-lg">
+              <Card key={entry.id} className={`border-0 shadow-lg ${selectedIds.includes(entry.id) ? 'ring-2 ring-blue-500' : ''}`}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
+                    {selectionMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(entry.id)}
+                        onChange={() => toggleSelect(entry.id)}
+                        className="h-5 w-5 rounded border-gray-300 mr-3 mt-1"
+                      />
+                    )}
                     <div className="space-y-3 flex-1">
                       <div className="flex items-center gap-3 flex-wrap">
                         <Badge className="bg-indigo-600 text-lg px-3 py-1">{entry.lcp_number}</Badge>
