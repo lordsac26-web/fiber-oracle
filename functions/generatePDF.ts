@@ -618,6 +618,12 @@ function generateCertificatePDF(data) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
+  // Sanitize all input data
+  const safeLearnerName = sanitizeText(learnerName) || 'Learner Name';
+  const safeCourseTitle = sanitizeText(courseTitle) || 'Fiber Optics Course';
+  const safeCourseSubtitle = sanitizeText(courseSubtitle) || 'Professional Training';
+  const safeCertificateId = sanitizeText(certificateId) || 'FO-CERT-000000';
+
   // Course colors
   const courseColors = {
     fiber101: { r: 34, g: 197, b: 94 },   // Green
@@ -687,10 +693,10 @@ function generateCertificatePDF(data) {
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(32);
   doc.setFont('helvetica', 'bold');
-  doc.text(learnerName || 'Learner Name', pageWidth / 2, 105, { align: 'center' });
+  doc.text(safeLearnerName, pageWidth / 2, 105, { align: 'center' });
 
   // Underline for name
-  const nameWidth = doc.getTextWidth(learnerName || 'Learner Name');
+  const nameWidth = doc.getTextWidth(safeLearnerName);
   doc.setDrawColor(color.r, color.g, color.b);
   doc.setLineWidth(0.5);
   doc.line(pageWidth / 2 - nameWidth / 2 - 10, 110, pageWidth / 2 + nameWidth / 2 + 10, 110);
@@ -705,13 +711,13 @@ function generateCertificatePDF(data) {
   doc.setTextColor(color.r, color.g, color.b);
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text(courseTitle || 'Fiber Optics Course', pageWidth / 2, 138, { align: 'center' });
+  doc.text(safeCourseTitle, pageWidth / 2, 138, { align: 'center' });
 
   // Course Subtitle
   doc.setTextColor(71, 85, 105);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text(courseSubtitle || 'Professional Training', pageWidth / 2, 148, { align: 'center' });
+  doc.text(safeCourseSubtitle, pageWidth / 2, 148, { align: 'center' });
 
   // Score badge
   const scoreX = pageWidth / 2;
@@ -747,7 +753,7 @@ function generateCertificatePDF(data) {
   doc.setTextColor(30, 41, 59);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.text(certificateId || 'FO-CERT-000000', pageWidth - 50, footerY + 8, { align: 'right' });
+  doc.text(safeCertificateId, pageWidth - 50, footerY + 8, { align: 'right' });
 
   // Bottom accent bar
   doc.setFillColor(color.r, color.g, color.b);
