@@ -409,18 +409,48 @@ Be specific with serial numbers, locations, and timeframes.`,
     }
   };
 
-  // Chart data for selected ONT
+  // Anomalies for selected ONT
+  const selectedOntAnomalies = useMemo(() => {
+    if (!selectedOnt) return [];
+    return detectAnomalies(selectedOnt.dataPoints, 'OntRxOptPwr');
+  }, [selectedOnt]);
+
+  // Prediction for selected ONT
+  const selectedOntPrediction = useMemo(() => {
+    if (!selectedOnt) return null;
+    return predictFutureValue(selectedOnt.dataPoints, 'OntRxOptPwr', 30);
+  }, [selectedOnt]);
+
+  // Chart data for selected ONT with anomaly markers
   const chartData = useMemo(() => {
     if (!selectedOnt) return [];
-    return selectedOnt.dataPoints.map(d => ({
+    const anomalyDates = new Set(selectedOntAnomalies.map(a => a.date));
+    return selectedOnt.dataPoints.map((d, idx) => ({
       date: moment(d.date).format('MM/DD'),
       fullDate: moment(d.date).format('YYYY-MM-DD HH:mm'),
       'ONT Rx (dBm)': d.OntRxOptPwr,
       'OLT Rx (dBm)': d.OLTRXOptPwr,
       'US BIP Errors': d.UpstreamBipErrors,
       'DS BIP Errors': d.DownstreamBipErrors,
+      isAnomaly: anomalyDates.has(d.date),
+      anomalyType: selectedOntAnomalies.find(a => a.date === d.date)?.type,
     }));
-  }, [selectedOnt]);
+  }, [selectedOnt, selectedOntAnomalies]);
+
+  // Add prediction point to chart
+  const chartDataWithPrediction = useMemo(() => {
+    if (!selectedOntPrediction || !chartData.length) return chartData;
+    return [
+      ...chartData,
+      {
+        date: '+30d',
+        fullDate: 'Predicted (30 days)',
+        'ONT Rx (dBm)': null,
+        'Predicted Rx': selectedOntPrediction.predicted,
+        isPrediction: true,
+      }
+    ];
+  }, [chartData, selectedOntPrediction]);
 
   const getSeverityColor = (severity) => {
     switch (severity?.toLowerCase()) {
@@ -499,6 +529,70 @@ Be specific with serial numbers, locations, and timeframes.`,
             </Card>
           </div>
 
+          {/* Correlated Issues Alert */}
+          {correlatedIssues.length > 0 && (
+            <Card className="border-2 border-orange-300 bg-orange-50 dark:bg-orange-900/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-orange-800">
+                  <AlertTriangle className="h-4 w-4" />
+                  Correlated Degradation Detected
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {correlatedIssues.slice(0, 5).map((issue, idx) => (
+                    <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{issue.olt} / {issue.port}</span>
+                        <Badge className="bg-orange-100 text-orange-800">
+                          {issue.affectedCount}/{issue.totalOnts} ONTs degrading
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Avg degradation: {issue.avgDegradation?.toFixed(1)} dB • 
+                        Likely upstream issue (splitter/feeder)
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Predictive Alerts */}
+          {predictions.filter(p => p.riskLevel === 'critical' || p.riskLevel === 'high').length > 0 && (
+            <Card className="border-2 border-red-300 bg-red-50 dark:bg-red-900/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-red-800">
+                  <TrendingDown className="h-4 w-4" />
+                  Failure Predictions
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                  {predictions.filter(p => p.riskLevel === 'critical' || p.riskLevel === 'high').slice(0, 8).map((pred, idx) => (
+                    <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg text-xs flex items-center justify-between">
+                      <div>
+                        <span className="font-mono font-bold">{pred.serial}</span>
+                        <span className="text-gray-500 ml-2">{pred.olt}/{pred.port}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono">
+                          {pred.currentRx?.toFixed(1)} → {pred.predicted30Day?.toFixed(1)} dBm
+                        </span>
+                        {pred.daysToFailure && pred.daysToFailure < 90 && (
+                          <Badge className="bg-red-100 text-red-800 text-[10px]">
+                            ~{Math.round(pred.daysToFailure)} days to fail
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* AI Analysis Results */}
           {aiAnalysis && (
             <Card className="border-2 border-purple-300 bg-purple-50 dark:bg-purple-900/20">
@@ -509,46 +603,98 @@ Be specific with serial numbers, locations, and timeframes.`,
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
-                  <Label className="text-xs text-gray-500">Overall Assessment</Label>
-                  <p className="text-sm mt-1">{aiAnalysis.overall_assessment}</p>
-                </div>
+                {/* Overall Health Score */}
+                {aiAnalysis.overall_health && (
+                  <div className="p-3 bg-white dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-xs text-gray-500">Network Health</Label>
+                      <Badge className={
+                        aiAnalysis.overall_health.score >= 80 ? 'bg-green-100 text-green-800' :
+                        aiAnalysis.overall_health.score >= 60 ? 'bg-amber-100 text-amber-800' :
+                        'bg-red-100 text-red-800'
+                      }>
+                        {aiAnalysis.overall_health.score}/100 - {aiAnalysis.overall_health.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm">{aiAnalysis.overall_health.summary}</p>
+                  </div>
+                )}
 
-                {aiAnalysis.systemic_issues?.length > 0 && (
+                {/* Correlated Issues from AI */}
+                {aiAnalysis.correlated_issues?.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-xs text-gray-500">Systemic Issues Detected</Label>
-                    {aiAnalysis.systemic_issues.map((issue, idx) => (
-                      <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg border-l-4 border-amber-500">
+                    <Label className="text-xs text-gray-500">Correlated Issue Analysis</Label>
+                    {aiAnalysis.correlated_issues.map((issue, idx) => (
+                      <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg border-l-4 border-orange-500">
                         <div className="flex items-center gap-2 mb-1">
-                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <span className="font-medium text-sm">{issue.location}</span>
                           <Badge className={getSeverityColor(issue.severity)}>{issue.severity}</Badge>
                         </div>
-                        <p className="text-sm">{issue.description}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          <strong>Recommendation:</strong> {issue.recommendation}
-                        </p>
+                        <p className="text-xs"><strong>Cause:</strong> {issue.likely_cause}</p>
+                        <p className="text-xs text-gray-500">{issue.evidence}</p>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {aiAnalysis.ont_findings?.length > 0 && (
+                {/* Predictive Alerts from AI */}
+                {aiAnalysis.predictive_alerts?.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-xs text-gray-500">Individual ONT Findings</Label>
-                    <div className="max-h-40 overflow-y-auto space-y-1">
-                      {aiAnalysis.ont_findings.map((finding, idx) => (
-                        <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded text-xs">
+                    <Label className="text-xs text-gray-500">Predictive Maintenance Alerts</Label>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {aiAnalysis.predictive_alerts.map((alert, idx) => (
+                        <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded text-xs border-l-4 border-red-400">
                           <div className="flex items-center justify-between">
-                            <span className="font-mono font-bold">{finding.serial}</span>
-                            <Badge className={getSeverityColor(finding.severity)} variant="outline">
-                              {finding.severity}
-                            </Badge>
+                            <span className="font-mono font-bold">{alert.serial}</span>
+                            <Badge className={getSeverityColor(alert.priority)}>{alert.priority}</Badge>
                           </div>
-                          <div className="text-gray-600 mt-1">
-                            <span className="font-medium">Pattern:</span> {finding.pattern} | 
-                            <span className="font-medium ml-1">Cause:</span> {finding.likely_cause}
+                          <div className="text-gray-600">
+                            {alert.current_rx?.toFixed(1)} → {alert.predicted_rx?.toFixed(1)} dBm in ~{alert.days_to_failure} days
                           </div>
-                          <div className="text-blue-600 mt-0.5">{finding.recommendation}</div>
+                          <div className="text-blue-600 mt-0.5"><strong>Action:</strong> {alert.action}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Anomaly Explanations */}
+                {aiAnalysis.anomaly_explanations?.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-gray-500">Anomaly Explanations</Label>
+                    <div className="max-h-24 overflow-y-auto space-y-1">
+                      {aiAnalysis.anomaly_explanations.map((anomaly, idx) => (
+                        <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded text-xs">
+                          <span className="font-mono">{anomaly.serial}</span>
+                          <span className="text-gray-500 mx-1">•</span>
+                          <span>{anomaly.date}</span>
+                          <span className="text-gray-500 mx-1">•</span>
+                          <Badge variant="outline" className="text-[10px]">{anomaly.type}</Badge>
+                          <p className="text-gray-600 mt-1">{anomaly.explanation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Plan */}
+                {aiAnalysis.action_plan?.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-gray-500">Prioritized Action Plan</Label>
+                    <div className="space-y-1">
+                      {aiAnalysis.action_plan.slice(0, 5).map((action, idx) => (
+                        <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded text-xs flex items-start gap-2">
+                          <Badge className={
+                            action.urgency === 'immediate' ? 'bg-red-100 text-red-800' :
+                            action.urgency === 'soon' ? 'bg-amber-100 text-amber-800' :
+                            'bg-blue-100 text-blue-800'
+                          }>
+                            #{action.priority}
+                          </Badge>
+                          <div>
+                            <p className="font-medium">{action.action}</p>
+                            <p className="text-gray-500">{action.location} • {action.expected_impact}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -636,15 +782,62 @@ Be specific with serial numbers, locations, and timeframes.`,
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Prediction & Anomaly Summary */}
+                <div className="flex gap-2 mb-3 flex-wrap">
+                  {selectedOntPrediction && (
+                    <Badge variant="outline" className={
+                      selectedOntPrediction.predicted < -27 ? 'bg-red-50 border-red-300 text-red-700' :
+                      selectedOntPrediction.predicted < -25 ? 'bg-amber-50 border-amber-300 text-amber-700' :
+                      'bg-blue-50 border-blue-300 text-blue-700'
+                    }>
+                      <TrendingDown className="h-3 w-3 mr-1" />
+                      30-day prediction: {selectedOntPrediction.predicted?.toFixed(1)} dBm
+                      ({selectedOntPrediction.confidence} confidence)
+                    </Badge>
+                  )}
+                  {selectedOntPrediction?.daysToThreshold && selectedOntPrediction.daysToThreshold < 90 && (
+                    <Badge className="bg-red-100 text-red-800">
+                      ⚠️ Est. failure in ~{Math.round(selectedOntPrediction.daysToThreshold)} days
+                    </Badge>
+                  )}
+                  {selectedOntAnomalies.length > 0 && (
+                    <Badge variant="outline" className="bg-purple-50 border-purple-300 text-purple-700">
+                      {selectedOntAnomalies.length} anomalies detected
+                    </Badge>
+                  )}
+                </div>
+
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
+                    <LineChart data={chartDataWithPrediction}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       <YAxis yAxisId="power" domain={[-35, -5]} tick={{ fontSize: 10 }} />
                       <YAxis yAxisId="errors" orientation="right" tick={{ fontSize: 10 }} />
                       <Tooltip 
                         labelFormatter={(label, payload) => payload[0]?.payload?.fullDate || label}
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null;
+                          const data = payload[0]?.payload;
+                          return (
+                            <div className="bg-white dark:bg-gray-800 p-2 rounded shadow-lg border text-xs">
+                              <p className="font-medium">{data?.fullDate || label}</p>
+                              {data?.isAnomaly && (
+                                <p className="text-purple-600 font-bold">
+                                  ⚡ Anomaly: {data.anomalyType === 'sudden_drop' ? 'Sudden Drop' : 'Sudden Improvement'}
+                                </p>
+                              )}
+                              {data?.isPrediction && (
+                                <p className="text-blue-600 font-bold">📈 Predicted Value</p>
+                              )}
+                              {payload.map((p, i) => (
+                                <p key={i} style={{ color: p.color }}>
+                                  {p.name}: {p.value?.toFixed(2)}
+                                </p>
+                              ))}
+                            </div>
+                          );
+                        }}
                       />
                       <Legend wrapperStyle={{ fontSize: 10 }} />
                       <ReferenceLine yAxisId="power" y={-27} stroke="red" strokeDasharray="5 5" label={{ value: 'Critical', fontSize: 8 }} />
@@ -655,7 +848,27 @@ Be specific with serial numbers, locations, and timeframes.`,
                         dataKey="ONT Rx (dBm)" 
                         stroke="#3b82f6" 
                         strokeWidth={2}
-                        dot={{ r: 3 }}
+                        dot={(props) => {
+                          const { cx, cy, payload } = props;
+                          if (payload?.isAnomaly) {
+                            return (
+                              <g key={`anomaly-${cx}`}>
+                                <circle cx={cx} cy={cy} r={6} fill={payload.anomalyType === 'sudden_drop' ? '#ef4444' : '#22c55e'} />
+                                <circle cx={cx} cy={cy} r={3} fill="white" />
+                              </g>
+                            );
+                          }
+                          return <circle cx={cx} cy={cy} r={3} fill="#3b82f6" />;
+                        }}
+                      />
+                      <Line 
+                        yAxisId="power"
+                        type="monotone" 
+                        dataKey="Predicted Rx" 
+                        stroke="#8b5cf6" 
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={{ r: 5, fill: '#8b5cf6' }}
                       />
                       <Line 
                         yAxisId="power"
@@ -676,6 +889,19 @@ Be specific with serial numbers, locations, and timeframes.`,
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+
+                {/* Anomaly Legend */}
+                {selectedOntAnomalies.length > 0 && (
+                  <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded text-xs">
+                    <span className="font-medium text-purple-800">Anomalies: </span>
+                    {selectedOntAnomalies.map((a, i) => (
+                      <span key={i} className="inline-flex items-center mr-3">
+                        <span className={`w-2 h-2 rounded-full mr-1 ${a.type === 'sudden_drop' ? 'bg-red-500' : 'bg-green-500'}`} />
+                        {moment(a.date).format('MM/DD')} ({a.change > 0 ? '+' : ''}{a.change.toFixed(1)} dB)
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 {/* Data points table */}
                 <div className="mt-4 max-h-32 overflow-y-auto">
