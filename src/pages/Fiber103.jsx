@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,10 +29,12 @@ import {
   GitBranch,
   Clock,
   BarChart3,
-  Stethoscope
+  Stethoscope,
+  Loader2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useCourseProgress } from '@/components/education/useCourseProgress';
 
 const SLIDES = [
   {
@@ -792,26 +794,55 @@ const SLIDES = [
 ];
 
 export default function Fiber103() {
+  const { initialSlide, isLoading, saveProgress, isAuthenticated } = useCourseProgress('fiber103', SLIDES.length);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [initialized, setInitialized] = useState(false);
   
+  useEffect(() => {
+    if (!isLoading && !initialized) {
+      setCurrentSlide(initialSlide);
+      setInitialized(true);
+    }
+  }, [isLoading, initialSlide, initialized]);
+
   const slide = SLIDES[currentSlide];
   const progress = ((currentSlide + 1) / SLIDES.length) * 100;
   
   const goNext = () => {
     if (currentSlide < SLIDES.length - 1) {
-      setCurrentSlide(currentSlide + 1);
+      const newSlide = currentSlide + 1;
+      setCurrentSlide(newSlide);
+      const isComplete = newSlide === SLIDES.length - 1;
+      saveProgress(newSlide, isComplete);
     }
   };
   
   const goPrev = () => {
     if (currentSlide > 0) {
-      setCurrentSlide(currentSlide - 1);
+      const newSlide = currentSlide - 1;
+      setCurrentSlide(newSlide);
+      saveProgress(newSlide, false);
     }
   };
   
   const restart = () => {
     setCurrentSlide(0);
+    saveProgress(0, false);
   };
+
+  const jumpToSlide = (index) => {
+    setCurrentSlide(index);
+    const isComplete = index === SLIDES.length - 1;
+    saveProgress(index, isComplete);
+  };
+
+  if (isLoading && isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -872,7 +903,7 @@ export default function Fiber103() {
               {SLIDES.map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => setCurrentSlide(i)}
+                  onClick={() => jumpToSlide(i)}
                   className={`w-2 h-2 rounded-full transition-all ${
                     i === currentSlide 
                       ? 'bg-purple-600 w-6' 
