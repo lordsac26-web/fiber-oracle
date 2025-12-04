@@ -16,6 +16,29 @@ const THRESHOLDS = {
   DownstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
 };
 
+// Detect combo port and determine technology type
+// Combo ports have format like "0/1/xp3-4" where odd port = XGS-PON, even port = GPON
+function detectComboPort(shelfSlotPort) {
+  if (!shelfSlotPort) return { isCombo: false, techType: null };
+  
+  // Match patterns like "0/1/xp3-4" or "xp3-4" or "3-4"
+  const comboMatch = shelfSlotPort.match(/(?:xp)?(\d+)-(\d+)$/i);
+  if (comboMatch) {
+    const port1 = parseInt(comboMatch[1]);
+    const port2 = parseInt(comboMatch[2]);
+    // Odd port = XGS-PON, Even port = GPON
+    return {
+      isCombo: true,
+      port1,
+      port2,
+      techType: port1 % 2 === 1 ? 'XGS-PON (odd)' : 'GPON (even)',
+      comboLabel: `Combo ${comboMatch[1]}-${comboMatch[2]}`
+    };
+  }
+  
+  return { isCombo: false, techType: null };
+}
+
 // Fields to extract from CSV
 const FIELDS = [
   'OLTName',
@@ -193,6 +216,12 @@ function calculateSegmentStats(onts) {
       const port = olt.ports[portKey];
       port.count = port.onts.length;
       
+      // Detect combo port
+      const comboInfo = detectComboPort(portKey);
+      port.isCombo = comboInfo.isCombo;
+      port.techType = comboInfo.techType;
+      port.comboLabel = comboInfo.comboLabel;
+      
       if (port.ontRxValues.length > 0) {
         port.avgOntRxOptPwr = port.ontRxValues.reduce((a, b) => a + b, 0) / port.ontRxValues.length;
         port.minOntRxOptPwr = Math.min(...port.ontRxValues);
@@ -246,16 +275,46 @@ Deno.serve(async (req) => {
     }
 
     // Build LCP lookup map by OLT name + shelf/slot/port
+    // Support multiple port formats: exact match and range matching
     const lcpLookup = {};
     for (const lcp of lcpEntries) {
       if (lcp.olt_name && lcp.olt_shelf && lcp.olt_slot && lcp.olt_port) {
-        const key = `${lcp.olt_name}|${lcp.olt_shelf}/${lcp.olt_slot}/${lcp.olt_port}`.toLowerCase();
-        lcpLookup[key] = {
+        // Store with normalized key
+        const baseKey = `${lcp.olt_name}|${lcp.olt_shelf}/${lcp.olt_slot}/${lcp.olt_port}`.toLowerCase();
+        lcpLookup[baseKey] = {
           lcp_number: lcp.lcp_number,
           splitter_number: lcp.splitter_number,
           location: lcp.location,
           address: lcp.address,
         };
+        
+        // If port contains a range (e.g., "1-4"), also index individual ports
+        const portRange = lcp.olt_port.match(/(\d+)-(\d+)/);
+        if (portRange) {
+          const start = parseInt(portRange[1]);
+          const end = parseInt(portRange[2]);
+          for (let p = start; p <= end; p++) {
+            const rangeKey = `${lcp.olt_name}|${lcp.olt_shelf}/${lcp.olt_slot}/${p}`.toLowerCase();
+            if (!lcpLookup[rangeKey]) {
+              lcpLookup[rangeKey] = {
+                lcp_number: lcp.lcp_number,
+                splitter_number: lcp.splitter_number,
+                location: lcp.location,
+                address: lcp.address,
+              };
+            }
+            // Also handle xp prefix format
+            const xpKey = `${lcp.olt_name}|${lcp.olt_shelf}/${lcp.olt_slot}/xp${p}`.toLowerCase();
+            if (!lcpLookup[xpKey]) {
+              lcpLookup[xpKey] = {
+                lcp_number: lcp.lcp_number,
+                splitter_number: lcp.splitter_number,
+                location: lcp.location,
+                address: lcp.address,
+              };
+            }
+          }
+        }
       }
     }
 
@@ -292,13 +351,30 @@ Deno.serve(async (req) => {
       const oltName = ont.OLTName || '';
       const port = ont['Shelf/Slot/Port'] || '';
       const lcpKey = `${oltName}|${port}`.toLowerCase();
-      const lcpMatch = lcpLookup[lcpKey];
+      let lcpMatch = lcpLookup[lcpKey];
+      
+      // If no direct match, try extracting individual port number for combo ports
+      if (!lcpMatch && port) {
+        // Handle combo port format like "0/1/xp3-4" - extract first port number
+        const comboMatch = port.match(/(\d+)\/(\d+)\/(?:xp)?(\d+)/i);
+        if (comboMatch) {
+          const altKey = `${oltName}|${comboMatch[1]}/${comboMatch[2]}/${comboMatch[3]}`.toLowerCase();
+          lcpMatch = lcpLookup[altKey];
+        }
+      }
+      
       if (lcpMatch) {
         ont._lcpNumber = lcpMatch.lcp_number;
         ont._splitterNumber = lcpMatch.splitter_number;
         ont._lcpLocation = lcpMatch.location;
         ont._lcpAddress = lcpMatch.address;
       }
+      
+      // Add combo port detection info
+      const comboInfo = detectComboPort(port);
+      ont._isCombo = comboInfo.isCombo;
+      ont._techType = comboInfo.techType;
+      ont._comboLabel = comboInfo.comboLabel;
       
       return ont;
     });
