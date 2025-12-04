@@ -299,26 +299,49 @@ export default function HistoricalTrends({ reports, onClose }) {
       };
 
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a fiber optic network performance analyst. Analyze this comprehensive ONT performance data and provide actionable insights.
+        prompt: `You are an expert fiber optic network performance analyst with deep knowledge of PON/FTTH infrastructure. Analyze this comprehensive ONT performance data and provide detailed root cause analysis with confidence scores.
 
 DATA:
 ${JSON.stringify(analysisData, null, 2)}
 
-Analyze and provide:
+ANALYSIS REQUIREMENTS:
 
-1. OVERALL NETWORK HEALTH: Assessment of the fiber network's health based on degradation patterns.
+1. OVERALL NETWORK HEALTH: Score 0-100 with status and summary.
 
-2. CORRELATED ISSUES: When multiple ONTs on the same port/OLT are degrading, identify the likely upstream cause (feeder fiber issue, splitter problem, OLT port issue, environmental factors affecting a cabinet).
+2. ROOT CAUSE ANALYSIS FOR CORRELATED ISSUES:
+When multiple ONTs on the same port/OLT degrade together, provide detailed root cause analysis:
+- For each correlated issue, suggest 2-3 possible root causes with confidence percentages (must sum to ~100%)
+- Consider these specific causes:
+  * Feeder fiber degradation (macrobend, stress point, rodent damage)
+  * Splitter degradation or failure (optical splitter aging, water ingress)
+  * OLT optic degradation (laser aging, dirty OLT port)
+  * LCP/cabinet environmental issues (moisture, temperature extremes, flooding)
+  * Upstream connector contamination (dirty SC/APC at splitter input)
+  * Splice degradation (fusion splice aging, mechanical splice failure)
 
-3. PREDICTIVE MAINTENANCE: Based on current degradation rates, identify which ONTs will likely fail within 30/60/90 days and prioritize maintenance actions.
+3. ROOT CAUSE ANALYSIS FOR INDIVIDUAL ONT DEGRADATION:
+For each degrading ONT, suggest specific causes with confidence:
+- Dirty drop connector (SC/APC at ONT or at LCP)
+- Drop fiber damage (macrobend in drop cable, staple through cable)
+- Drop splice issue (if applicable)
+- ONT optic degradation
+- Patch cord issue at customer premise
 
-4. ANOMALY ANALYSIS: For sudden drops or improvements detected, suggest what might have caused them (connector cleaning, splice repair, new damage, etc.).
+4. ANOMALY ROOT CAUSES:
+For sudden drops (>2dB change), suggest:
+- New physical damage (construction hit, storm damage)
+- Connector disturbance (someone unplugged/replugged)
+- Environmental event (flooding, extreme temperature)
+For sudden improvements:
+- Recent maintenance (cleaning, splice repair)
+- Environmental recovery (temperature normalization)
 
-5. ROOT CAUSE CORRELATION: Look for patterns across OLTs/ports that might indicate systemic issues (bad batch of splitters, environmental issues in an area, etc.).
+5. PREDICTIVE MAINTENANCE with root cause context:
+Include what likely needs to be fixed based on degradation pattern.
 
-6. PRIORITIZED ACTION PLAN: List specific maintenance actions in priority order with expected impact.
+6. PRIORITIZED ACTION PLAN with specific tools/procedures needed.
 
-Be specific with serial numbers, locations, and timeframes.`,
+Be very specific with serial numbers, locations, confidence percentages, and recommended test equipment.`,
         response_json_schema: {
           type: "object",
           properties: {
@@ -337,9 +360,43 @@ Be specific with serial numbers, locations, and timeframes.`,
                 properties: {
                   location: { type: "string" },
                   affected_onts: { type: "array", items: { type: "string" } },
-                  likely_cause: { type: "string" },
                   severity: { type: "string" },
-                  evidence: { type: "string" }
+                  evidence: { type: "string" },
+                  root_causes: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        cause: { type: "string" },
+                        confidence: { type: "number" },
+                        explanation: { type: "string" },
+                        test_to_confirm: { type: "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            ont_root_causes: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  serial: { type: "string" },
+                  location: { type: "string" },
+                  degradation_pattern: { type: "string" },
+                  root_causes: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        cause: { type: "string" },
+                        confidence: { type: "number" },
+                        explanation: { type: "string" },
+                        fix_procedure: { type: "string" }
+                      }
+                    }
+                  }
                 }
               }
             },
@@ -354,6 +411,7 @@ Be specific with serial numbers, locations, and timeframes.`,
                   current_rx: { type: "number" },
                   predicted_rx: { type: "number" },
                   priority: { type: "string" },
+                  likely_fix: { type: "string" },
                   action: { type: "string" }
                 }
               }
@@ -366,7 +424,18 @@ Be specific with serial numbers, locations, and timeframes.`,
                   serial: { type: "string" },
                   date: { type: "string" },
                   type: { type: "string" },
-                  explanation: { type: "string" }
+                  change_db: { type: "number" },
+                  root_causes: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        cause: { type: "string" },
+                        confidence: { type: "number" },
+                        explanation: { type: "string" }
+                      }
+                    }
+                  }
                 }
               }
             },
@@ -378,6 +447,8 @@ Be specific with serial numbers, locations, and timeframes.`,
                   pattern: { type: "string" },
                   affected_area: { type: "string" },
                   evidence: { type: "string" },
+                  root_cause: { type: "string" },
+                  confidence: { type: "number" },
                   recommendation: { type: "string" }
                 }
               }
@@ -390,6 +461,8 @@ Be specific with serial numbers, locations, and timeframes.`,
                   priority: { type: "number" },
                   action: { type: "string" },
                   location: { type: "string" },
+                  root_cause_addressed: { type: "string" },
+                  tools_needed: { type: "string" },
                   expected_impact: { type: "string" },
                   urgency: { type: "string" }
                 }
@@ -620,20 +693,80 @@ Be specific with serial numbers, locations, and timeframes.`,
                   </div>
                 )}
 
-                {/* Correlated Issues from AI */}
+                {/* Correlated Issues from AI with Root Causes */}
                 {aiAnalysis.correlated_issues?.length > 0 && (
                   <div className="space-y-2">
                     <Label className="text-xs text-gray-500">Correlated Issue Analysis</Label>
                     {aiAnalysis.correlated_issues.map((issue, idx) => (
-                      <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg border-l-4 border-orange-500">
-                        <div className="flex items-center gap-2 mb-1">
+                      <div key={idx} className="p-3 bg-white dark:bg-gray-800 rounded-lg border-l-4 border-orange-500">
+                        <div className="flex items-center gap-2 mb-2">
                           <span className="font-medium text-sm">{issue.location}</span>
                           <Badge className={getSeverityColor(issue.severity)}>{issue.severity}</Badge>
                         </div>
-                        <p className="text-xs"><strong>Cause:</strong> {issue.likely_cause}</p>
-                        <p className="text-xs text-gray-500">{issue.evidence}</p>
+                        <p className="text-xs text-gray-500 mb-2">{issue.evidence}</p>
+                        {issue.root_causes?.length > 0 && (
+                          <div className="space-y-1.5 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                            <Label className="text-[10px] text-gray-400 uppercase">Possible Root Causes</Label>
+                            {issue.root_causes.map((rc, rcIdx) => (
+                              <div key={rcIdx} className="flex items-start gap-2 text-xs">
+                                <div className="flex items-center gap-1 min-w-[60px]">
+                                  <div 
+                                    className="h-2 rounded-full bg-gradient-to-r from-orange-400 to-orange-600"
+                                    style={{ width: `${rc.confidence * 0.5}px` }}
+                                  />
+                                  <span className="font-bold text-orange-700">{rc.confidence}%</span>
+                                </div>
+                                <div className="flex-1">
+                                  <span className="font-medium">{rc.cause}</span>
+                                  <p className="text-gray-500 text-[10px]">{rc.explanation}</p>
+                                  {rc.test_to_confirm && (
+                                    <p className="text-blue-600 text-[10px]">🔍 Test: {rc.test_to_confirm}</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Individual ONT Root Causes */}
+                {aiAnalysis.ont_root_causes?.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-gray-500">Individual ONT Root Cause Analysis</Label>
+                    <div className="max-h-48 overflow-y-auto space-y-2">
+                      {aiAnalysis.ont_root_causes.map((ont, idx) => (
+                        <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg border">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-mono font-bold text-sm">{ont.serial}</span>
+                            <span className="text-xs text-gray-500">{ont.location}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-2">Pattern: {ont.degradation_pattern}</p>
+                          {ont.root_causes?.map((rc, rcIdx) => (
+                            <div key={rcIdx} className="flex items-start gap-2 text-xs mb-1 pl-2 border-l-2 border-blue-300">
+                              <Badge 
+                                variant="outline" 
+                                className={`text-[10px] min-w-[45px] justify-center ${
+                                  rc.confidence >= 70 ? 'bg-green-50 border-green-400 text-green-700' :
+                                  rc.confidence >= 40 ? 'bg-amber-50 border-amber-400 text-amber-700' :
+                                  'bg-gray-50 border-gray-400 text-gray-700'
+                                }`}
+                              >
+                                {rc.confidence}%
+                              </Badge>
+                              <div className="flex-1">
+                                <span className="font-medium">{rc.cause}</span>
+                                {rc.fix_procedure && (
+                                  <p className="text-green-600 text-[10px]">✓ Fix: {rc.fix_procedure}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -658,42 +791,101 @@ Be specific with serial numbers, locations, and timeframes.`,
                   </div>
                 )}
 
-                {/* Anomaly Explanations */}
+                {/* Anomaly Explanations with Root Causes */}
                 {aiAnalysis.anomaly_explanations?.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-xs text-gray-500">Anomaly Explanations</Label>
-                    <div className="max-h-24 overflow-y-auto space-y-1">
+                    <Label className="text-xs text-gray-500">Anomaly Root Cause Analysis</Label>
+                    <div className="max-h-40 overflow-y-auto space-y-2">
                       {aiAnalysis.anomaly_explanations.map((anomaly, idx) => (
-                        <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded text-xs">
-                          <span className="font-mono">{anomaly.serial}</span>
-                          <span className="text-gray-500 mx-1">•</span>
-                          <span>{anomaly.date}</span>
-                          <span className="text-gray-500 mx-1">•</span>
-                          <Badge variant="outline" className="text-[10px]">{anomaly.type}</Badge>
-                          <p className="text-gray-600 mt-1">{anomaly.explanation}</p>
+                        <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg border">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono font-bold">{anomaly.serial}</span>
+                            <span className="text-gray-500 text-xs">{anomaly.date}</span>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[10px] ${
+                                anomaly.type === 'sudden_drop' ? 'bg-red-50 border-red-300 text-red-700' : 
+                                'bg-green-50 border-green-300 text-green-700'
+                              }`}
+                            >
+                              {anomaly.type === 'sudden_drop' ? '↓' : '↑'} {anomaly.change_db?.toFixed(1) || ''} dB
+                            </Badge>
+                          </div>
+                          {anomaly.root_causes?.length > 0 && (
+                            <div className="space-y-1 mt-1">
+                              {anomaly.root_causes.map((rc, rcIdx) => (
+                                <div key={rcIdx} className="flex items-center gap-2 text-xs pl-2">
+                                  <div 
+                                    className={`h-1.5 rounded-full ${
+                                      anomaly.type === 'sudden_drop' ? 'bg-red-400' : 'bg-green-400'
+                                    }`}
+                                    style={{ width: `${rc.confidence * 0.4}px` }}
+                                  />
+                                  <span className="font-medium text-gray-700">{rc.confidence}%</span>
+                                  <span>{rc.cause}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Action Plan */}
+                {/* Systemic Patterns */}
+                {aiAnalysis.systemic_patterns?.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-gray-500">Systemic Patterns Detected</Label>
+                    {aiAnalysis.systemic_patterns.map((pattern, idx) => (
+                      <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg border-l-4 border-purple-500 text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium">{pattern.pattern}</span>
+                          <Badge variant="outline" className="bg-purple-50 border-purple-300 text-purple-700">
+                            {pattern.confidence}% confidence
+                          </Badge>
+                        </div>
+                        <p className="text-gray-500">Area: {pattern.affected_area}</p>
+                        <p className="text-gray-600">{pattern.evidence}</p>
+                        <p className="text-purple-700 mt-1"><strong>Root Cause:</strong> {pattern.root_cause}</p>
+                        <p className="text-blue-600"><strong>Action:</strong> {pattern.recommendation}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Action Plan with Tools */}
                 {aiAnalysis.action_plan?.length > 0 && (
                   <div className="space-y-2">
                     <Label className="text-xs text-gray-500">Prioritized Action Plan</Label>
-                    <div className="space-y-1">
-                      {aiAnalysis.action_plan.slice(0, 5).map((action, idx) => (
-                        <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded text-xs flex items-start gap-2">
-                          <Badge className={
-                            action.urgency === 'immediate' ? 'bg-red-100 text-red-800' :
-                            action.urgency === 'soon' ? 'bg-amber-100 text-amber-800' :
-                            'bg-blue-100 text-blue-800'
-                          }>
-                            #{action.priority}
-                          </Badge>
-                          <div>
-                            <p className="font-medium">{action.action}</p>
-                            <p className="text-gray-500">{action.location} • {action.expected_impact}</p>
+                    <div className="space-y-1.5">
+                      {aiAnalysis.action_plan.slice(0, 6).map((action, idx) => (
+                        <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg border text-xs">
+                          <div className="flex items-start gap-2">
+                            <Badge className={
+                              action.urgency === 'immediate' ? 'bg-red-100 text-red-800' :
+                              action.urgency === 'soon' ? 'bg-amber-100 text-amber-800' :
+                              'bg-blue-100 text-blue-800'
+                            }>
+                              #{action.priority}
+                            </Badge>
+                            <div className="flex-1">
+                              <p className="font-medium">{action.action}</p>
+                              <p className="text-gray-500">{action.location}</p>
+                              {action.root_cause_addressed && (
+                                <p className="text-orange-600 text-[10px]">
+                                  🎯 Addresses: {action.root_cause_addressed}
+                                </p>
+                              )}
+                              {action.tools_needed && (
+                                <p className="text-blue-600 text-[10px]">
+                                  🛠️ Tools: {action.tools_needed}
+                                </p>
+                              )}
+                              <p className="text-green-600 text-[10px]">
+                                📈 Impact: {action.expected_impact}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       ))}
