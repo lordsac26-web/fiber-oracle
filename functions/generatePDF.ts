@@ -350,7 +350,7 @@ function generateBrochurePDF() {
     ['GPON Budget (C+)', '32 dB', 'G.984.2'],
     ['XGS-PON Budget (N1)', '29 dB', 'G.9807.1'],
     ['XGS-PON Budget (N2)', '31 dB', 'G.9807.1'],
-  ];
+  ].map(row => row.map(cell => sanitizeText(cell)));
 
   doc.setTextColor(...colors.dark);
   refValues.forEach((row, idx) => {
