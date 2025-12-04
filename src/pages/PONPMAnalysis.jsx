@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,12 +65,19 @@ import {
   Filter,
   Settings,
   FileText,
-  RotateCcw
+  RotateCcw,
+  History,
+  Database,
+  Trash2,
+  Calendar
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import moment from 'moment';
+import HistoricalTrends from '@/components/ponpm/HistoricalTrends';
 
 const STATUS_COLORS = {
   critical: 'bg-red-500',
@@ -100,6 +107,7 @@ const DEFAULT_THRESHOLDS = {
 };
 
 export default function PONPMAnalysis() {
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -108,12 +116,40 @@ export default function PONPMAnalysis() {
   const [portFilter, setPortFilter] = useState('all');
   const [expandedOlts, setExpandedOlts] = useState([]);
   const [expandedPorts, setExpandedPorts] = useState([]);
-  const [issueDetailView, setIssueDetailView] = useState(null); // { type: 'critical'|'warning', oltName?, portKey? }
+  const [issueDetailView, setIssueDetailView] = useState(null);
   const [showThresholdSettings, setShowThresholdSettings] = useState(false);
   const [hideOntStatus, setHideOntStatus] = useState({ ok: false, warning: false, critical: false });
+  const [showHistoricalReports, setShowHistoricalReports] = useState(false);
+  const [showTrends, setShowTrends] = useState(false);
   const [customThresholds, setCustomThresholds] = useState(() => {
     const saved = localStorage.getItem('ponPmThresholds');
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
+  });
+
+  // Fetch saved reports
+  const { data: savedReports = [], isLoading: loadingReports } = useQuery({
+    queryKey: ['ponPmReports'],
+    queryFn: () => base44.entities.PONPMReport.list('-upload_date'),
+  });
+
+  // Save report mutation
+  const saveReportMutation = useMutation({
+    mutationFn: (reportData) => base44.entities.PONPMReport.create(reportData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
+      toast.success('Report saved to history');
+    },
+    onError: () => toast.error('Failed to save report'),
+  });
+
+  // Delete report mutation
+  const deleteReportMutation = useMutation({
+    mutationFn: (id) => base44.entities.PONPMReport.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
+      toast.success('Report deleted');
+    },
+    onError: () => toast.error('Failed to delete report'),
   });
 
   const handleFileUpload = async (e) => {
@@ -137,10 +173,37 @@ export default function PONPMAnalysis() {
 
       if (response.data?.success) {
         setResult(response.data);
-        // Start collapsed
         setExpandedOlts([]);
         setExpandedPorts([]);
         toast.success(`Parsed ${response.data.summary.totalOnts} ONTs successfully`, { id: 'pon-parse' });
+
+        // Auto-save the report to database
+        const reportName = file.name.replace('.csv', '') + ' - ' + moment().format('MM/DD/YY HH:mm');
+        saveReportMutation.mutate({
+          report_name: reportName,
+          upload_date: new Date().toISOString(),
+          file_url: file_url,
+          summary: response.data.summary,
+          ont_count: response.data.summary.totalOnts,
+          critical_count: response.data.summary.criticalCount,
+          warning_count: response.data.summary.warningCount,
+          olts: Object.keys(response.data.olts || {}),
+          ont_data: response.data.onts.map(ont => ({
+            SerialNumber: ont.SerialNumber,
+            OntID: ont.OntID,
+            _oltName: ont._oltName,
+            _port: ont._port,
+            model: ont.model,
+            OntRxOptPwr: ont.OntRxOptPwr,
+            OLTRXOptPwr: ont.OLTRXOptPwr,
+            OntTxPwr: ont.OntTxPwr,
+            UpstreamBipErrors: ont.UpstreamBipErrors,
+            DownstreamBipErrors: ont.DownstreamBipErrors,
+            _analysis: ont._analysis,
+            _lcpNumber: ont._lcpNumber,
+            _splitterNumber: ont._splitterNumber,
+          })),
+        });
       } else {
         toast.error(response.data?.error || 'Failed to parse file', { id: 'pon-parse' });
       }
@@ -341,6 +404,27 @@ export default function PONPMAnalysis() {
             </div>
             {result && (
               <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowTrends(true)}
+                  disabled={savedReports.length < 2}
+                  title={savedReports.length < 2 ? 'Need at least 2 reports for trends' : 'View historical trends'}
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  Trends
+                  {savedReports.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 text-xs">{savedReports.length}</Badge>
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowHistoricalReports(true)}
+                >
+                  <Database className="h-4 w-4 mr-2" />
+                  History
+                </Button>
                 <Dialog open={showThresholdSettings} onOpenChange={setShowThresholdSettings}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -1192,6 +1276,98 @@ export default function PONPMAnalysis() {
               </Button>
             </div>
           </>
+        )}
+
+        {/* Historical Reports Dialog */}
+        <Dialog open={showHistoricalReports} onOpenChange={setShowHistoricalReports}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-blue-500" />
+                Saved Reports
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              {loadingReports ? (
+                <div className="text-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-500" />
+                </div>
+              ) : savedReports.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Database className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                  <p>No saved reports yet.</p>
+                  <p className="text-sm">Upload a PON PM CSV to get started.</p>
+                </div>
+              ) : (
+                savedReports.map((report) => (
+                  <Card key={report.id} className="border">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-sm">{report.report_name}</div>
+                          <div className="text-xs text-gray-500 flex items-center gap-2">
+                            <Calendar className="h-3 w-3" />
+                            {moment(report.upload_date).format('MMM D, YYYY h:mm A')}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="text-sm font-mono">{report.ont_count || 0} ONTs</div>
+                            <div className="flex items-center gap-1 justify-end">
+                              {report.critical_count > 0 && (
+                                <Badge className="bg-red-100 text-red-800 text-[10px] px-1">
+                                  {report.critical_count} critical
+                                </Badge>
+                              )}
+                              {report.warning_count > 0 && (
+                                <Badge className="bg-amber-100 text-amber-800 text-[10px] px-1">
+                                  {report.warning_count} warn
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-red-500 hover:text-red-700 h-8 w-8"
+                            onClick={() => {
+                              if (confirm('Delete this report?')) {
+                                deleteReportMutation.mutate(report.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+            {savedReports.length >= 2 && (
+              <div className="pt-2 border-t">
+                <Button 
+                  className="w-full"
+                  onClick={() => {
+                    setShowHistoricalReports(false);
+                    setShowTrends(true);
+                  }}
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  View Historical Trends
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Historical Trends Component */}
+        {showTrends && savedReports.length >= 2 && (
+          <HistoricalTrends 
+            reports={savedReports} 
+            onClose={() => setShowTrends(false)} 
+          />
         )}
       </main>
     </div>
