@@ -42,7 +42,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import { Heart } from 'lucide-react';
 
 const MODULES = [
   // ═══════════════════════════════════════════════════════════════════════════
@@ -736,8 +738,40 @@ export default function Home() {
           </Card>
         </div>
 
-        {/* App Info - Minimal */}
-        <div className="text-center py-4">
+        {/* App Info & Donate */}
+        <div className="text-center py-4 space-y-3">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 text-pink-600 border-pink-200 hover:bg-pink-50 hover:border-pink-300">
+                <Heart className="h-4 w-4" />
+                Support Development
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm text-center">
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-center gap-2">
+                  <Heart className="h-5 w-5 text-pink-500" />
+                  Support Fiber Oracle
+                </DialogTitle>
+                <DialogDescription>
+                  Help fund new features and tools
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <img 
+                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/fb30f73c2_qrcode.png" 
+                  alt="PayPal QR Code" 
+                  className="w-48 h-48 mx-auto rounded-lg shadow-md"
+                />
+                <p className="text-sm text-gray-600 mt-4">
+                  Scan with your phone to donate via PayPal
+                </p>
+                <p className="text-xs text-gray-400 mt-2">
+                  Thank you for your support! 💙
+                </p>
+              </div>
+            </DialogContent>
+          </Dialog>
           <p className="text-xs text-gray-400">
             Fiber Oracle © 2025
           </p>
