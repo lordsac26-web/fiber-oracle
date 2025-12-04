@@ -79,6 +79,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import moment from 'moment';
 import HistoricalTrends from '@/components/ponpm/HistoricalTrends';
 import OLTPortSummary from '@/components/ponpm/OLTPortSummary';
+import HistoricalDataManager from '@/components/ponpm/HistoricalDataManager';
 
 const STATUS_COLORS = {
   critical: 'bg-red-500',
@@ -134,9 +135,43 @@ export default function PONPMAnalysis() {
     queryFn: () => base44.entities.PONPMReport.list('-upload_date'),
   });
 
-  // Save report mutation
+  // Save report mutation - now saves summary only, then triggers ONT records save
   const saveReportMutation = useMutation({
-    mutationFn: (reportData) => base44.entities.PONPMReport.create(reportData),
+    mutationFn: async (reportData) => {
+      // First create the report record
+      const report = await base44.entities.PONPMReport.create({
+        report_name: reportData.report_name,
+        upload_date: reportData.upload_date,
+        file_url: reportData.file_url,
+        ont_count: reportData.ont_count,
+        critical_count: reportData.critical_count,
+        warning_count: reportData.warning_count,
+        ok_count: reportData.ok_count,
+        olt_count: reportData.olt_count,
+        olts: reportData.olts,
+        avg_ont_rx: reportData.avg_ont_rx,
+        min_ont_rx: reportData.min_ont_rx,
+        max_ont_rx: reportData.max_ont_rx,
+      });
+      
+      // Then save ONT records in background
+      if (reportData.onts && reportData.onts.length > 0) {
+        toast.loading(`Saving ${reportData.onts.length} ONT records...`, { id: 'save-onts' });
+        try {
+          await base44.functions.invoke('saveOntRecords', {
+            report_id: report.id,
+            report_date: reportData.upload_date,
+            onts: reportData.onts,
+          });
+          toast.success(`Saved ${reportData.onts.length} ONT records`, { id: 'save-onts' });
+        } catch (err) {
+          console.error('Failed to save ONT records:', err);
+          toast.error('Failed to save ONT records', { id: 'save-onts' });
+        }
+      }
+      
+      return report;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
       toast.success('Report saved to history');
@@ -147,15 +182,7 @@ export default function PONPMAnalysis() {
     },
   });
 
-  // Delete report mutation
-  const deleteReportMutation = useMutation({
-    mutationFn: (id) => base44.entities.PONPMReport.delete(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
-      toast.success('Report deleted');
-    },
-    onError: () => toast.error('Failed to delete report'),
-  });
+
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -182,38 +209,31 @@ export default function PONPMAnalysis() {
         setExpandedPorts([]);
         toast.success(`Parsed ${response.data.summary.totalOnts} ONTs successfully`, { id: 'pon-parse' });
 
-        // Auto-save the report to database (limit ont_data to avoid payload size issues)
+        // Auto-save the report to database with all ONT records
         const reportName = file.name.replace('.csv', '') + ' - ' + moment().format('MM/DD/YY HH:mm');
-        const ontDataToSave = response.data.onts.slice(0, 500).map(ont => ({
-          SerialNumber: ont.SerialNumber,
-          OntID: ont.OntID,
-          _oltName: ont._oltName,
-          _port: ont._port,
-          model: ont.model,
-          OntRxOptPwr: ont.OntRxOptPwr,
-          OLTRXOptPwr: ont.OLTRXOptPwr,
-          OntTxPwr: ont.OntTxPwr,
-          UpstreamBipErrors: ont.UpstreamBipErrors,
-          DownstreamBipErrors: ont.DownstreamBipErrors,
-          _analysis: ont._analysis ? { status: ont._analysis.status } : null,
-        }));
+        
+        // Calculate Rx power stats
+        const rxValues = response.data.onts
+          .map(o => parseFloat(o.OntRxOptPwr))
+          .filter(v => !isNaN(v));
+        const avgRx = rxValues.length > 0 ? rxValues.reduce((a, b) => a + b, 0) / rxValues.length : null;
+        const minRx = rxValues.length > 0 ? Math.min(...rxValues) : null;
+        const maxRx = rxValues.length > 0 ? Math.max(...rxValues) : null;
         
         saveReportMutation.mutate({
           report_name: reportName,
           upload_date: new Date().toISOString(),
           file_url: file_url,
-          summary: {
-            totalOnts: response.data.summary.totalOnts,
-            criticalCount: response.data.summary.criticalCount,
-            warningCount: response.data.summary.warningCount,
-            okCount: response.data.summary.okCount,
-            oltCount: response.data.summary.oltCount,
-          },
           ont_count: response.data.summary.totalOnts,
           critical_count: response.data.summary.criticalCount,
           warning_count: response.data.summary.warningCount,
-          olts: Object.keys(response.data.olts || {}).slice(0, 50),
-          ont_data: ontDataToSave,
+          ok_count: response.data.summary.okCount,
+          olt_count: response.data.summary.oltCount,
+          olts: Object.keys(response.data.olts || {}),
+          avg_ont_rx: avgRx,
+          min_ont_rx: minRx,
+          max_ont_rx: maxRx,
+          onts: response.data.onts, // Pass all ONTs to be saved via backend function
         });
       } else {
         toast.error(response.data?.error || 'Failed to parse file', { id: 'pon-parse' });
@@ -1329,89 +1349,15 @@ export default function PONPMAnalysis() {
           </>
         )}
 
-        {/* Historical Reports Dialog */}
-        <Dialog open={showHistoricalReports} onOpenChange={setShowHistoricalReports}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-blue-500" />
-                Saved Reports
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-2">
-              {loadingReports ? (
-                <div className="text-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-500" />
-                </div>
-              ) : savedReports.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Database className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                  <p>No saved reports yet.</p>
-                  <p className="text-sm">Upload a PON PM CSV to get started.</p>
-                </div>
-              ) : (
-                savedReports.map((report) => (
-                  <Card key={report.id} className="border">
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-sm">{report.report_name}</div>
-                          <div className="text-xs text-gray-500 flex items-center gap-2">
-                            <Calendar className="h-3 w-3" />
-                            {moment(report.upload_date).format('MMM D, YYYY h:mm A')}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <div className="text-sm font-mono">{report.ont_count || 0} ONTs</div>
-                            <div className="flex items-center gap-1 justify-end">
-                              {report.critical_count > 0 && (
-                                <Badge className="bg-red-100 text-red-800 text-[10px] px-1">
-                                  {report.critical_count} critical
-                                </Badge>
-                              )}
-                              {report.warning_count > 0 && (
-                                <Badge className="bg-amber-100 text-amber-800 text-[10px] px-1">
-                                  {report.warning_count} warn
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-red-500 hover:text-red-700 h-8 w-8"
-                            onClick={() => {
-                              if (confirm('Delete this report?')) {
-                                deleteReportMutation.mutate(report.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-            {savedReports.length >= 2 && (
-              <div className="pt-2 border-t">
-                <Button 
-                  className="w-full"
-                  onClick={() => {
-                    setShowHistoricalReports(false);
-                    setShowTrends(true);
-                  }}
-                >
-                  <History className="h-4 w-4 mr-2" />
-                  View Historical Trends
-                </Button>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        {/* Historical Data Manager */}
+        {showHistoricalReports && (
+          <HistoricalDataManager
+            reports={savedReports}
+            isLoading={loadingReports}
+            onReportDeleted={() => queryClient.invalidateQueries({ queryKey: ['ponPmReports'] })}
+            onClose={() => setShowHistoricalReports(false)}
+          />
+        )}
 
         {/* Historical Trends Component */}
         {showTrends && savedReports.length >= 2 && (
