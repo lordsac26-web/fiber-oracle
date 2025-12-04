@@ -141,7 +141,10 @@ export default function PONPMAnalysis() {
       queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
       toast.success('Report saved to history');
     },
-    onError: () => toast.error('Failed to save report'),
+    onError: (error) => {
+      console.error('Save report error:', error);
+      toast.error('Failed to save report to history');
+    },
   });
 
   // Delete report mutation
@@ -179,32 +182,38 @@ export default function PONPMAnalysis() {
         setExpandedPorts([]);
         toast.success(`Parsed ${response.data.summary.totalOnts} ONTs successfully`, { id: 'pon-parse' });
 
-        // Auto-save the report to database
+        // Auto-save the report to database (limit ont_data to avoid payload size issues)
         const reportName = file.name.replace('.csv', '') + ' - ' + moment().format('MM/DD/YY HH:mm');
+        const ontDataToSave = response.data.onts.slice(0, 500).map(ont => ({
+          SerialNumber: ont.SerialNumber,
+          OntID: ont.OntID,
+          _oltName: ont._oltName,
+          _port: ont._port,
+          model: ont.model,
+          OntRxOptPwr: ont.OntRxOptPwr,
+          OLTRXOptPwr: ont.OLTRXOptPwr,
+          OntTxPwr: ont.OntTxPwr,
+          UpstreamBipErrors: ont.UpstreamBipErrors,
+          DownstreamBipErrors: ont.DownstreamBipErrors,
+          _analysis: ont._analysis ? { status: ont._analysis.status } : null,
+        }));
+        
         saveReportMutation.mutate({
           report_name: reportName,
           upload_date: new Date().toISOString(),
           file_url: file_url,
-          summary: response.data.summary,
+          summary: {
+            totalOnts: response.data.summary.totalOnts,
+            criticalCount: response.data.summary.criticalCount,
+            warningCount: response.data.summary.warningCount,
+            okCount: response.data.summary.okCount,
+            oltCount: response.data.summary.oltCount,
+          },
           ont_count: response.data.summary.totalOnts,
           critical_count: response.data.summary.criticalCount,
           warning_count: response.data.summary.warningCount,
-          olts: Object.keys(response.data.olts || {}),
-          ont_data: response.data.onts.map(ont => ({
-            SerialNumber: ont.SerialNumber,
-            OntID: ont.OntID,
-            _oltName: ont._oltName,
-            _port: ont._port,
-            model: ont.model,
-            OntRxOptPwr: ont.OntRxOptPwr,
-            OLTRXOptPwr: ont.OLTRXOptPwr,
-            OntTxPwr: ont.OntTxPwr,
-            UpstreamBipErrors: ont.UpstreamBipErrors,
-            DownstreamBipErrors: ont.DownstreamBipErrors,
-            _analysis: ont._analysis,
-            _lcpNumber: ont._lcpNumber,
-            _splitterNumber: ont._splitterNumber,
-          })),
+          olts: Object.keys(response.data.olts || {}).slice(0, 50),
+          ont_data: ontDataToSave,
         });
       } else {
         toast.error(response.data?.error || 'Failed to parse file', { id: 'pon-parse' });
