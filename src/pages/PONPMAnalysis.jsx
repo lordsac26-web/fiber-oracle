@@ -961,17 +961,32 @@ export default function PONPMAnalysis() {
 
                             return (
                               <Collapsible key={portKey} open={isPortExpanded} onOpenChange={() => togglePort(portId)}>
-                                <Card className={`border shadow-sm ${portCritical > 0 ? 'border-red-300' : portWarning > 0 ? 'border-amber-300' : 'border-gray-200'}`}>
-                                  <CollapsibleTrigger className="w-full">
-                                    <CardContent className="p-3">
-                                      <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                          {isPortExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                          <div className="text-left">
-                                            <div className="font-semibold text-sm">{portKey}</div>
-                                            <div className="text-xs text-gray-500">{portStats.count} ONTs</div>
+                              <Card className={`border shadow-sm ${portCritical > 0 ? 'border-red-300' : portWarning > 0 ? 'border-amber-300' : 'border-gray-200'}`}>
+                                <CollapsibleTrigger className="w-full">
+                                  <CardContent className="p-3">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-3">
+                                        {isPortExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                        <div className="text-left">
+                                          <div className="font-semibold text-sm flex items-center gap-2">
+                                            {portKey}
+                                            {portStats.isCombo && (
+                                              <Badge variant="outline" className="text-[10px] bg-purple-50 border-purple-300 text-purple-700">
+                                                {portStats.techType}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          <div className="text-xs text-gray-500 flex items-center gap-2">
+                                            <span>{portStats.count} ONTs</span>
+                                            {/* Show LCP info if any ONT on this port has it */}
+                                            {portOnts.find(o => o._lcpNumber) && (
+                                              <span className="text-blue-600">
+                                                • LCP: {portOnts.find(o => o._lcpNumber)?._lcpNumber}
+                                              </span>
+                                            )}
                                           </div>
                                         </div>
+                                      </div>
                                         
                                         <div className="flex items-center gap-4">
                                           <div className="hidden md:flex items-center gap-4 text-sm">
