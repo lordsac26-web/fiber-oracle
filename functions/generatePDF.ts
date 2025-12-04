@@ -625,9 +625,14 @@ function generateJobReportPDF(data) {
 
 function generateCertificatePDF(data) {
   const { learnerName, courseTitle, courseSubtitle, score, certificateId, completionDate, courseId } = data;
-  const doc = new jsPDF('landscape');
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+  // Use letter size (8.5x11 inches) in landscape orientation
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: 'letter' });
+  // Convert to points for positioning (72 points per inch)
+  const pageWidth = 11 * 72; // 11 inches
+  const pageHeight = 8.5 * 72; // 8.5 inches
+  // Set unit back to points for drawing
+  doc.internal.pageSize.width = pageWidth;
+  doc.internal.pageSize.height = pageHeight;
 
   // Sanitize all input data
   const safeLearnerName = sanitizeText(learnerName) || 'Learner Name';
