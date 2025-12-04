@@ -1,6 +1,25 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
+// Helper function to sanitize text for PDF (remove problematic characters)
+function sanitizeText(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/['']/g, "'")
+    .replace(/[""]/g, '"')
+    .replace(/[–—]/g, '-')
+    .replace(/…/g, '...')
+    .replace(/•/g, '*')
+    .replace(/≤/g, '<=')
+    .replace(/≥/g, '>=')
+    .replace(/±/g, '+/-')
+    .replace(/×/g, 'x')
+    .replace(/÷/g, '/')
+    .replace(/°/g, ' deg')
+    .replace(/µ/g, 'u')
+    .replace(/[^\x00-\x7F]/g, ''); // Remove any remaining non-ASCII characters
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
