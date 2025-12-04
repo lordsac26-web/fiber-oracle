@@ -143,67 +143,255 @@ export default function HistoricalTrends({ reports, onClose }) {
     });
   }, [filteredOnts]);
 
-  // AI Analysis
-  const runAiAnalysis = async () => {
-    if (degradingOnts.length === 0) {
-      toast.info('No degrading ONTs to analyze');
-      return;
-    }
+  // Group ONTs by port for correlation analysis
+  const ontsByPort = useMemo(() => {
+    const portMap = new Map();
+    filteredOnts.forEach(ont => {
+      const key = `${ont.olt}|${ont.port}`;
+      if (!portMap.has(key)) {
+        portMap.set(key, { olt: ont.olt, port: ont.port, onts: [] });
+      }
+      portMap.get(key).onts.push(ont);
+    });
+    return Array.from(portMap.values());
+  }, [filteredOnts]);
 
-    setIsAnalyzing(true);
-    try {
-      const analysisData = degradingOnts.slice(0, 20).map(ont => ({
+  // Detect correlated degradation (multiple ONTs on same port/OLT degrading)
+  const correlatedIssues = useMemo(() => {
+    const issues = [];
+    ontsByPort.forEach(portGroup => {
+      const degradingInPort = portGroup.onts.filter(ont => {
+        const rxTrend = calculateTrend(ont.dataPoints, 'OntRxOptPwr');
+        return rxTrend && rxTrend.change < -1;
+      });
+      if (degradingInPort.length >= 2) {
+        issues.push({
+          type: 'port_correlation',
+          olt: portGroup.olt,
+          port: portGroup.port,
+          affectedCount: degradingInPort.length,
+          totalOnts: portGroup.onts.length,
+          onts: degradingInPort.map(o => o.serial),
+          avgDegradation: degradingInPort.reduce((sum, ont) => {
+            const trend = calculateTrend(ont.dataPoints, 'OntRxOptPwr');
+            return sum + (trend?.change || 0);
+          }, 0) / degradingInPort.length
+        });
+      }
+    });
+    return issues;
+  }, [ontsByPort]);
+
+  // Predict future performance based on linear regression
+  const predictFutureValue = (dataPoints, field, daysAhead = 30) => {
+    const validPoints = dataPoints.filter(d => d[field] !== null);
+    if (validPoints.length < 2) return null;
+    
+    // Simple linear regression
+    const n = validPoints.length;
+    const xValues = validPoints.map((_, i) => i);
+    const yValues = validPoints.map(d => d[field]);
+    
+    const sumX = xValues.reduce((a, b) => a + b, 0);
+    const sumY = yValues.reduce((a, b) => a + b, 0);
+    const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
+    const sumX2 = xValues.reduce((sum, x) => sum + x * x, 0);
+    
+    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intercept = (sumY - slope * sumX) / n;
+    
+    // Estimate days between data points
+    const firstDate = new Date(validPoints[0].date);
+    const lastDate = new Date(validPoints[validPoints.length - 1].date);
+    const daysBetween = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+    const avgDaysPerPoint = daysBetween / (n - 1) || 1;
+    
+    // Predict future point
+    const futureIndex = n + (daysAhead / avgDaysPerPoint);
+    const predictedValue = slope * futureIndex + intercept;
+    
+    return {
+      predicted: predictedValue,
+      slope,
+      daysToThreshold: slope < 0 ? ((-27 - intercept) / slope - n) * avgDaysPerPoint : null,
+      confidence: n >= 4 ? 'high' : n >= 3 ? 'medium' : 'low'
+    };
+  };
+
+  // Calculate predictions for degrading ONTs
+  const predictions = useMemo(() => {
+    return degradingOnts.map(ont => {
+      const prediction = predictFutureValue(ont.dataPoints, 'OntRxOptPwr', 30);
+      return {
         serial: ont.serial,
         olt: ont.olt,
         port: ont.port,
-        dataPoints: ont.dataPoints.map(d => ({
-          date: moment(d.date).format('YYYY-MM-DD'),
-          ontRx: d.OntRxOptPwr,
-          oltRx: d.OLTRXOptPwr,
-          usBip: d.UpstreamBipErrors,
-          dsBip: d.DownstreamBipErrors
-        }))
-      }));
+        currentRx: ont.dataPoints[ont.dataPoints.length - 1]?.OntRxOptPwr,
+        predicted30Day: prediction?.predicted,
+        daysToFailure: prediction?.daysToThreshold,
+        confidence: prediction?.confidence,
+        riskLevel: prediction?.predicted < -27 ? 'critical' : 
+                   prediction?.predicted < -25 ? 'high' : 
+                   prediction?.daysToThreshold && prediction.daysToThreshold < 60 ? 'medium' : 'low'
+      };
+    }).filter(p => p.predicted30Day !== null);
+  }, [degradingOnts]);
+
+  // Detect anomalies (sudden changes)
+  const detectAnomalies = (dataPoints, field) => {
+    const anomalies = [];
+    const validPoints = dataPoints.filter(d => d[field] !== null);
+    if (validPoints.length < 3) return anomalies;
+    
+    for (let i = 1; i < validPoints.length; i++) {
+      const change = validPoints[i][field] - validPoints[i-1][field];
+      // Sudden drop of more than 2 dB
+      if (change < -2) {
+        anomalies.push({
+          index: i,
+          date: validPoints[i].date,
+          value: validPoints[i][field],
+          change,
+          type: 'sudden_drop'
+        });
+      }
+      // Sudden improvement (possible maintenance)
+      if (change > 2) {
+        anomalies.push({
+          index: i,
+          date: validPoints[i].date,
+          value: validPoints[i][field],
+          change,
+          type: 'sudden_improvement'
+        });
+      }
+    }
+    return anomalies;
+  };
+
+  // AI Analysis
+  const runAiAnalysis = async () => {
+    setIsAnalyzing(true);
+    try {
+      // Prepare comprehensive analysis data
+      const analysisData = {
+        degradingOnts: degradingOnts.slice(0, 15).map(ont => ({
+          serial: ont.serial,
+          olt: ont.olt,
+          port: ont.port,
+          dataPoints: ont.dataPoints.map(d => ({
+            date: moment(d.date).format('YYYY-MM-DD'),
+            ontRx: d.OntRxOptPwr,
+            oltRx: d.OLTRXOptPwr,
+            usBip: d.UpstreamBipErrors,
+            dsBip: d.DownstreamBipErrors
+          })),
+          anomalies: detectAnomalies(ont.dataPoints, 'OntRxOptPwr')
+        })),
+        correlatedIssues: correlatedIssues.slice(0, 10),
+        predictions: predictions.slice(0, 15),
+        networkStats: {
+          totalOntsTracked: allOnts.length,
+          degradingCount: degradingOnts.length,
+          correlatedPortCount: correlatedIssues.length,
+          criticalPredictions: predictions.filter(p => p.riskLevel === 'critical').length
+        }
+      };
 
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `Analyze these fiber optic ONT performance trends and identify significant patterns, anomalies, or potential issues.
+        prompt: `You are a fiber optic network performance analyst. Analyze this comprehensive ONT performance data and provide actionable insights.
 
-ONT Historical Data:
+DATA:
 ${JSON.stringify(analysisData, null, 2)}
 
-For each ONT with notable findings, provide:
-1. The type of degradation pattern (gradual decline, sudden drop, intermittent, seasonal)
-2. Likely root cause (dirty connector, fiber bend, splice degradation, splitter issue, environmental)
-3. Severity (low, medium, high, critical)
-4. Recommended action
+Analyze and provide:
 
-Also provide an overall network health assessment and any systemic issues you identify (e.g., multiple ONTs on same port degrading = possible feeder issue).`,
+1. OVERALL NETWORK HEALTH: Assessment of the fiber network's health based on degradation patterns.
+
+2. CORRELATED ISSUES: When multiple ONTs on the same port/OLT are degrading, identify the likely upstream cause (feeder fiber issue, splitter problem, OLT port issue, environmental factors affecting a cabinet).
+
+3. PREDICTIVE MAINTENANCE: Based on current degradation rates, identify which ONTs will likely fail within 30/60/90 days and prioritize maintenance actions.
+
+4. ANOMALY ANALYSIS: For sudden drops or improvements detected, suggest what might have caused them (connector cleaning, splice repair, new damage, etc.).
+
+5. ROOT CAUSE CORRELATION: Look for patterns across OLTs/ports that might indicate systemic issues (bad batch of splitters, environmental issues in an area, etc.).
+
+6. PRIORITIZED ACTION PLAN: List specific maintenance actions in priority order with expected impact.
+
+Be specific with serial numbers, locations, and timeframes.`,
         response_json_schema: {
           type: "object",
           properties: {
-            overall_assessment: { type: "string" },
-            systemic_issues: {
+            overall_health: {
+              type: "object",
+              properties: {
+                score: { type: "number" },
+                status: { type: "string" },
+                summary: { type: "string" }
+              }
+            },
+            correlated_issues: {
               type: "array",
               items: {
                 type: "object",
                 properties: {
-                  description: { type: "string" },
+                  location: { type: "string" },
                   affected_onts: { type: "array", items: { type: "string" } },
+                  likely_cause: { type: "string" },
                   severity: { type: "string" },
-                  recommendation: { type: "string" }
+                  evidence: { type: "string" }
                 }
               }
             },
-            ont_findings: {
+            predictive_alerts: {
               type: "array",
               items: {
                 type: "object",
                 properties: {
                   serial: { type: "string" },
+                  location: { type: "string" },
+                  days_to_failure: { type: "number" },
+                  current_rx: { type: "number" },
+                  predicted_rx: { type: "number" },
+                  priority: { type: "string" },
+                  action: { type: "string" }
+                }
+              }
+            },
+            anomaly_explanations: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  serial: { type: "string" },
+                  date: { type: "string" },
+                  type: { type: "string" },
+                  explanation: { type: "string" }
+                }
+              }
+            },
+            systemic_patterns: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
                   pattern: { type: "string" },
-                  likely_cause: { type: "string" },
-                  severity: { type: "string" },
+                  affected_area: { type: "string" },
+                  evidence: { type: "string" },
                   recommendation: { type: "string" }
+                }
+              }
+            },
+            action_plan: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  priority: { type: "number" },
+                  action: { type: "string" },
+                  location: { type: "string" },
+                  expected_impact: { type: "string" },
+                  urgency: { type: "string" }
                 }
               }
             }
