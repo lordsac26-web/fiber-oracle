@@ -447,11 +447,11 @@ function generateStudyGuidePDF(data) {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text(title, margin, 25);
+  doc.text(sanitizeText(title), margin, 25);
   
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${subtitle} | Passing Score: ${passingScore}%`, margin, 37);
+  doc.text(sanitizeText(subtitle + ' | Passing Score: ' + passingScore + '%'), margin, 37);
 
   y = 60;
   doc.setTextColor(0, 0, 0);
@@ -467,7 +467,7 @@ function generateStudyGuidePDF(data) {
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(16, 185, 129);
-    doc.text(`${sectionIndex + 1}. ${section.title}`, margin, y);
+    doc.text(sanitizeText((sectionIndex + 1) + '. ' + section.title), margin, y);
     y += 10;
 
     doc.setTextColor(0, 0, 0);
@@ -480,12 +480,12 @@ function generateStudyGuidePDF(data) {
       }
 
       doc.setFont('helvetica', 'bold');
-      const termLines = doc.splitTextToSize(item.term, pageWidth - 2 * margin);
+      const termLines = doc.splitTextToSize(sanitizeText(item.term), pageWidth - 2 * margin);
       doc.text(termLines, margin, y);
       y += termLines.length * 5;
 
       doc.setFont('helvetica', 'normal');
-      const defLines = doc.splitTextToSize(item.definition, pageWidth - 2 * margin);
+      const defLines = doc.splitTextToSize(sanitizeText(item.definition), pageWidth - 2 * margin);
       doc.text(defLines, margin, y);
       y += defLines.length * 5 + 6;
     });
