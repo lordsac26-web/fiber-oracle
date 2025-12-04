@@ -113,7 +113,7 @@ function generateBrochurePDF() {
   // Intro paragraph
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  const intro = 'Fiber Oracle consolidates everything a fiber technician needs into one powerful, offline-capable app. From PON power calculations to AI-powered OTDR analysis, from comprehensive glossaries to certification courses - it\'s all here, designed by fiber professionals for fiber professionals.';
+  const intro = sanitizeText('Fiber Oracle consolidates everything a fiber technician needs into one powerful, offline-capable app. From PON power calculations to AI-powered OTDR analysis, from comprehensive glossaries to certification courses - it\'s all here, designed by fiber professionals for fiber professionals.');
   const introLines = doc.splitTextToSize(intro, pageWidth - 2 * margin);
   doc.text(introLines, margin, y);
   y += introLines.length * 6 + 12;
