@@ -78,6 +78,7 @@ import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import moment from 'moment';
 import HistoricalTrends from '@/components/ponpm/HistoricalTrends';
+import OLTPortSummary from '@/components/ponpm/OLTPortSummary';
 
 const STATUS_COLORS = {
   critical: 'bg-red-500',
@@ -121,6 +122,7 @@ export default function PONPMAnalysis() {
   const [hideOntStatus, setHideOntStatus] = useState({ ok: false, warning: false, critical: false });
   const [showHistoricalReports, setShowHistoricalReports] = useState(false);
   const [showTrends, setShowTrends] = useState(false);
+  const [viewMode, setViewMode] = useState('hierarchy'); // 'hierarchy' or 'summary'
   const [customThresholds, setCustomThresholds] = useState(() => {
     const saved = localStorage.getItem('ponPmThresholds');
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
@@ -938,44 +940,84 @@ export default function PONPMAnalysis() {
               </CardContent>
             </Card>
 
-            {/* OLT / Port Hierarchy */}
+            {/* View Mode Toggle and OLT / Port Section */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   <Router className="h-5 w-5 text-blue-500" />
                   OLT &amp; PON Port Overview
                 </h2>
                 <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setExpandedOlts(Object.keys(result.olts));
-                      const allPorts = [];
-                      Object.entries(result.olts).forEach(([oltName, olt]) => {
-                        Object.keys(olt.ports).forEach(port => allPorts.push(`${oltName}|${port}`));
-                      });
-                      setExpandedPorts(allPorts);
-                    }}
-                  >
-                    <ChevronDown className="h-4 w-4 mr-1" />
-                    Expand All
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      setExpandedOlts([]);
-                      setExpandedPorts([]);
-                    }}
-                  >
-                    <ChevronRight className="h-4 w-4 mr-1" />
-                    Collapse All
-                  </Button>
+                  {/* View Mode Toggle */}
+                  <div className="flex border rounded-lg overflow-hidden">
+                    <Button 
+                      variant={viewMode === 'summary' ? 'default' : 'ghost'} 
+                      size="sm"
+                      className="rounded-none"
+                      onClick={() => setViewMode('summary')}
+                    >
+                      <Activity className="h-4 w-4 mr-1" />
+                      Summary
+                    </Button>
+                    <Button 
+                      variant={viewMode === 'hierarchy' ? 'default' : 'ghost'} 
+                      size="sm"
+                      className="rounded-none"
+                      onClick={() => setViewMode('hierarchy')}
+                    >
+                      <Router className="h-4 w-4 mr-1" />
+                      Hierarchy
+                    </Button>
+                  </div>
+                  {viewMode === 'hierarchy' && (
+                    <>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setExpandedOlts(Object.keys(result.olts));
+                          const allPorts = [];
+                          Object.entries(result.olts).forEach(([oltName, olt]) => {
+                            Object.keys(olt.ports).forEach(port => allPorts.push(`${oltName}|${port}`));
+                          });
+                          setExpandedPorts(allPorts);
+                        }}
+                      >
+                        <ChevronDown className="h-4 w-4 mr-1" />
+                        Expand All
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setExpandedOlts([]);
+                          setExpandedPorts([]);
+                        }}
+                      >
+                        <ChevronRight className="h-4 w-4 mr-1" />
+                        Collapse All
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
+
+              {/* OLT/Port Summary View */}
+              {viewMode === 'summary' && (
+                <OLTPortSummary 
+                  result={result} 
+                  onDrillDown={(oltName, portKey) => {
+                    setViewMode('hierarchy');
+                    setOltFilter(oltName);
+                    setPortFilter(portKey);
+                    setExpandedOlts([oltName]);
+                    setExpandedPorts([`${oltName}|${portKey}`]);
+                  }}
+                />
+              )}
               
-              {Object.entries(result.olts).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([oltName, oltStats]) => {
+              {/* Hierarchy View */}
+              {viewMode === 'hierarchy' && Object.entries(result.olts).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([oltName, oltStats]) => {
                 const oltOnts = result.onts.filter(o => o._oltName === oltName);
                 const oltCritical = oltOnts.filter(o => o._analysis.status === 'critical').length;
                 const oltWarning = oltOnts.filter(o => o._analysis.status === 'warning').length;
