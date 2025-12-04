@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { 
   ArrowLeft, 
   GraduationCap, 
@@ -15,10 +16,13 @@ import {
   Stethoscope,
   FileText,
   ClipboardCheck,
-  Trophy
+  Trophy,
+  CheckCircle2,
+  Play
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { useAllCourseProgress } from '@/components/education/useCourseProgress';
 
 const COURSES = [
   {
@@ -65,7 +69,23 @@ const COURSES = [
   },
 ];
 
+const TOTAL_SLIDES = {
+  fiber101: 15,
+  fiber102: 14,
+  fiber103: 16,
+};
+
 export default function Education() {
+  const { getProgressForCourse, isAuthenticated } = useAllCourseProgress();
+
+  const getCourseStatus = (courseId) => {
+    const progress = getProgressForCourse(courseId);
+    if (!progress) return { status: 'not-started', percent: 0 };
+    if (progress.completed) return { status: 'completed', percent: 100 };
+    const percent = Math.round(((progress.current_slide + 1) / (progress.total_slides || TOTAL_SLIDES[courseId])) * 100);
+    return { status: 'in-progress', percent };
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
@@ -103,14 +123,28 @@ export default function Education() {
 
         {/* Course Cards */}
         <div className="grid md:grid-cols-2 gap-6">
-          {COURSES.map((course) => (
+          {COURSES.map((course) => {
+            const courseStatus = getCourseStatus(course.id);
+            return (
             <Link key={course.id} to={createPageUrl(course.page)}>
               <Card className="group h-full border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer">
                 {/* Header Gradient */}
                 <div className={`bg-gradient-to-r ${course.color} p-6 text-white relative`}>
-                  <Badge className={`absolute top-4 right-4 ${course.badge.color} text-white border-0`}>
-                    {course.badge.text}
-                  </Badge>
+                  {courseStatus.status === 'completed' ? (
+                    <Badge className="absolute top-4 right-4 bg-white text-green-600 border-0">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Completed
+                    </Badge>
+                  ) : courseStatus.status === 'in-progress' ? (
+                    <Badge className="absolute top-4 right-4 bg-white/90 text-gray-800 border-0">
+                      <Play className="h-3 w-3 mr-1" />
+                      {courseStatus.percent}%
+                    </Badge>
+                  ) : (
+                    <Badge className={`absolute top-4 right-4 ${course.badge.color} text-white border-0`}>
+                      {course.badge.text}
+                    </Badge>
+                  )}
                   <div className="flex items-center gap-4">
                     <div className="p-3 bg-white/20 rounded-xl">
                       <course.icon className="h-8 w-8" />
@@ -158,17 +192,30 @@ export default function Education() {
                     </div>
                   </div>
 
+                  {/* Progress Bar (if in progress) */}
+                  {isAuthenticated && courseStatus.status === 'in-progress' && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                        <span>Progress</span>
+                        <span>{courseStatus.percent}%</span>
+                      </div>
+                      <Progress value={courseStatus.percent} className="h-2" />
+                    </div>
+                  )}
+
                   {/* CTA */}
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-sm font-medium text-blue-600 dark:text-blue-400 group-hover:underline">
-                      Start Course
+                      {courseStatus.status === 'completed' ? 'Review Course' : 
+                       courseStatus.status === 'in-progress' ? 'Continue' : 'Start Course'}
                     </span>
                     <ChevronRight className="h-5 w-5 text-blue-600 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </CardContent>
               </Card>
             </Link>
-          ))}
+          );
+          })}
 
           {/* Certification & Resources Card */}
           <Card className="md:col-span-2 border-0 shadow-lg bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
