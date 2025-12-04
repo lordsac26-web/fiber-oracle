@@ -625,14 +625,10 @@ function generateJobReportPDF(data) {
 
 function generateCertificatePDF(data) {
   const { learnerName, courseTitle, courseSubtitle, score, certificateId, completionDate, courseId } = data;
-  // Use letter size (8.5x11 inches) in landscape orientation
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: 'letter' });
-  // Convert to points for positioning (72 points per inch)
-  const pageWidth = 11 * 72; // 11 inches
-  const pageHeight = 8.5 * 72; // 8.5 inches
-  // Set unit back to points for drawing
-  doc.internal.pageSize.width = pageWidth;
-  doc.internal.pageSize.height = pageHeight;
+  // Use letter size (8.5x11 inches) in landscape orientation with mm units
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
+  const pageWidth = doc.internal.pageSize.getWidth();   // 279.4mm (11 inches)
+  const pageHeight = doc.internal.pageSize.getHeight(); // 215.9mm (8.5 inches)
 
   // Sanitize all input data
   const safeLearnerName = sanitizeText(learnerName) || 'Learner Name';
@@ -654,133 +650,133 @@ function generateCertificatePDF(data) {
 
   // Decorative fiber optic lines (top left corner)
   doc.setDrawColor(color.r, color.g, color.b);
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.4);
   for (let i = 0; i < 5; i++) {
-    doc.line(0, 15 + i * 4, 40 + i * 8, 0);
+    doc.line(0, 12 + i * 3, 30 + i * 6, 0);
   }
 
   // Decorative fiber optic lines (bottom right corner)
   for (let i = 0; i < 5; i++) {
-    doc.line(pageWidth - 40 - i * 8, pageHeight, pageWidth, pageHeight - 15 - i * 4);
+    doc.line(pageWidth - 30 - i * 6, pageHeight, pageWidth, pageHeight - 12 - i * 3);
   }
 
   // Main border
   doc.setDrawColor(color.r, color.g, color.b);
-  doc.setLineWidth(2);
-  doc.roundedRect(12, 12, pageWidth - 24, pageHeight - 24, 3, 3, 'S');
+  doc.setLineWidth(1.5);
+  doc.roundedRect(8, 8, pageWidth - 16, pageHeight - 16, 3, 3, 'S');
 
   // Inner border
-  doc.setLineWidth(0.5);
+  doc.setLineWidth(0.3);
   doc.setDrawColor(200, 200, 200);
-  doc.roundedRect(18, 18, pageWidth - 36, pageHeight - 36, 2, 2, 'S');
+  doc.roundedRect(12, 12, pageWidth - 24, pageHeight - 24, 2, 2, 'S');
 
   // Header accent bar
   doc.setFillColor(color.r, color.g, color.b);
-  doc.rect(20, 20, pageWidth - 40, 8, 'F');
+  doc.rect(14, 14, pageWidth - 28, 6, 'F');
 
   // "CERTIFICATE OF COMPLETION" header
   doc.setTextColor(color.r, color.g, color.b);
-  doc.setFontSize(14);
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'normal');
-  doc.text('CERTIFICATE OF COMPLETION', pageWidth / 2, 45, { align: 'center' });
+  doc.text('CERTIFICATE OF COMPLETION', pageWidth / 2, 35, { align: 'center' });
 
   // Fiber Oracle branding
   doc.setTextColor(30, 41, 59);
-  doc.setFontSize(24);
+  doc.setFontSize(28);
   doc.setFont('helvetica', 'bold');
-  doc.text('Fiber Oracle', pageWidth / 2, 60, { align: 'center' });
+  doc.text('Fiber Oracle', pageWidth / 2, 50, { align: 'center' });
 
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 116, 139);
-  doc.text('Education Center', pageWidth / 2, 68, { align: 'center' });
+  doc.text('Education Center', pageWidth / 2, 58, { align: 'center' });
 
   // Decorative line
   doc.setDrawColor(color.r, color.g, color.b);
-  doc.setLineWidth(1);
-  doc.line(pageWidth / 2 - 60, 75, pageWidth / 2 + 60, 75);
+  doc.setLineWidth(0.8);
+  doc.line(pageWidth / 2 - 50, 65, pageWidth / 2 + 50, 65);
 
   // "This certifies that"
   doc.setTextColor(100, 116, 139);
-  doc.setFontSize(11);
-  doc.text('This is to certify that', pageWidth / 2, 88, { align: 'center' });
+  doc.setFontSize(12);
+  doc.text('This is to certify that', pageWidth / 2, 78, { align: 'center' });
 
   // Learner Name (prominent)
   doc.setTextColor(30, 41, 59);
-  doc.setFontSize(32);
+  doc.setFontSize(36);
   doc.setFont('helvetica', 'bold');
-  doc.text(safeLearnerName, pageWidth / 2, 105, { align: 'center' });
+  doc.text(safeLearnerName, pageWidth / 2, 95, { align: 'center' });
 
   // Underline for name
   const nameWidth = doc.getTextWidth(safeLearnerName);
   doc.setDrawColor(color.r, color.g, color.b);
-  doc.setLineWidth(0.5);
-  doc.line(pageWidth / 2 - nameWidth / 2 - 10, 110, pageWidth / 2 + nameWidth / 2 + 10, 110);
+  doc.setLineWidth(0.4);
+  doc.line(pageWidth / 2 - nameWidth / 2 - 8, 100, pageWidth / 2 + nameWidth / 2 + 8, 100);
 
   // "has successfully completed"
   doc.setTextColor(100, 116, 139);
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text('has successfully completed the certification exam for', pageWidth / 2, 123, { align: 'center' });
+  doc.text('has successfully completed the certification exam for', pageWidth / 2, 112, { align: 'center' });
 
   // Course Title
   doc.setTextColor(color.r, color.g, color.b);
-  doc.setFontSize(22);
+  doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
-  doc.text(safeCourseTitle, pageWidth / 2, 138, { align: 'center' });
+  doc.text(safeCourseTitle, pageWidth / 2, 128, { align: 'center' });
 
   // Course Subtitle
   doc.setTextColor(71, 85, 105);
-  doc.setFontSize(12);
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text(safeCourseSubtitle, pageWidth / 2, 148, { align: 'center' });
+  doc.text(safeCourseSubtitle, pageWidth / 2, 138, { align: 'center' });
 
   // Score badge
   const scoreX = pageWidth / 2;
-  const scoreY = 165;
+  const scoreY = 155;
   doc.setFillColor(color.r, color.g, color.b);
-  doc.roundedRect(scoreX - 30, scoreY - 8, 60, 16, 8, 8, 'F');
+  doc.roundedRect(scoreX - 25, scoreY - 6, 50, 12, 6, 6, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(12);
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.text('Score: ' + score + '%', scoreX, scoreY + 2, { align: 'center' });
 
   // Footer section with two columns
-  const footerY = pageHeight - 45;
+  const footerY = pageHeight - 38;
 
   // Left: Date
   doc.setTextColor(100, 116, 139);
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text('Date of Completion', 50, footerY);
+  doc.text('Date of Completion', 35, footerY);
   doc.setTextColor(30, 41, 59);
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   const formattedDate = completionDate ? new Date(completionDate).toLocaleDateString('en-US', { 
     year: 'numeric', month: 'long', day: 'numeric' 
   }) : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  doc.text(formattedDate, 50, footerY + 8);
+  doc.text(formattedDate, 35, footerY + 7);
 
   // Right: Certificate ID
   doc.setTextColor(100, 116, 139);
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text('Certificate ID', pageWidth - 50, footerY, { align: 'right' });
+  doc.text('Certificate ID', pageWidth - 35, footerY, { align: 'right' });
   doc.setTextColor(30, 41, 59);
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text(safeCertificateId, pageWidth - 50, footerY + 8, { align: 'right' });
+  doc.text(safeCertificateId, pageWidth - 35, footerY + 7, { align: 'right' });
 
   // Bottom accent bar
   doc.setFillColor(color.r, color.g, color.b);
-  doc.rect(20, pageHeight - 28, pageWidth - 40, 8, 'F');
+  doc.rect(14, pageHeight - 20, pageWidth - 28, 6, 'F');
 
   // Standards footer
   doc.setTextColor(148, 163, 184);
-  doc.setFontSize(7);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text('Standards: TIA-568-D | IEC 61300 | ITU-T G.984/G.9807 | IEEE 802.3', pageWidth / 2, pageHeight - 16, { align: 'center' });
-  doc.text('fiberoracle.com', pageWidth / 2, pageHeight - 10, { align: 'center' });
+  doc.text('Standards: TIA-568-D | IEC 61300 | ITU-T G.984/G.9807 | IEEE 802.3', pageWidth / 2, pageHeight - 10, { align: 'center' });
+  doc.text('fiberoracle.com', pageWidth / 2, pageHeight - 5, { align: 'center' });
 
   return doc.output('arraybuffer');
 }
