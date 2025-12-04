@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
-// Helper function to sanitize text for PDF (remove problematic characters)
+// Helper function to sanitize text for PDF (handle special characters)
 function sanitizeText(text) {
   if (!text) return '';
   return String(text)
@@ -15,9 +15,20 @@ function sanitizeText(text) {
     .replace(/±/g, '+/-')
     .replace(/×/g, 'x')
     .replace(/÷/g, '/')
-    .replace(/°/g, ' deg')
-    .replace(/µ/g, 'u')
+    .replace(/°/g, 'deg')
+    .replace(/µm/g, 'um')  // micrometer - preserve as "um" for readability
+    .replace(/µ/g, 'u')   // standalone micro symbol
     .replace(/[^\x00-\x7F]/g, ''); // Remove any remaining non-ASCII characters
+}
+
+// Format measurements with proper unit notation
+function formatMeasurement(text) {
+  if (!text) return '';
+  // Convert common fiber measurements to readable format
+  return String(text)
+    .replace(/(\d+)\s*µm/g, '$1um')      // 9µm -> 9um
+    .replace(/(\d+)\s*um/g, '$1um')       // already formatted
+    .replace(/(\d+\.?\d*)\s*micron/gi, '$1um'); // micron -> um
 }
 
 Deno.serve(async (req) => {
