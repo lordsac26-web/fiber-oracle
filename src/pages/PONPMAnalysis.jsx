@@ -154,19 +154,33 @@ export default function PONPMAnalysis() {
         max_ont_rx: reportData.max_ont_rx,
       });
       
-      // Then save ONT records in background
+      // Then save ONT records in batches to avoid payload size limits
       if (reportData.onts && reportData.onts.length > 0) {
-        toast.loading(`Saving ${reportData.onts.length} ONT records...`, { id: 'save-onts' });
+        const batchSize = 500; // Send 500 ONTs per request
+        const totalBatches = Math.ceil(reportData.onts.length / batchSize);
+        let savedTotal = 0;
+        
+        toast.loading(`Saving ${reportData.onts.length} ONT records (0/${totalBatches} batches)...`, { id: 'save-onts' });
+        
         try {
-          await base44.functions.invoke('saveOntRecords', {
-            report_id: report.id,
-            report_date: reportData.upload_date,
-            onts: reportData.onts,
-          });
-          toast.success(`Saved ${reportData.onts.length} ONT records`, { id: 'save-onts' });
+          for (let i = 0; i < reportData.onts.length; i += batchSize) {
+            const batch = reportData.onts.slice(i, i + batchSize);
+            const batchNum = Math.floor(i / batchSize) + 1;
+            
+            toast.loading(`Saving ONT records (${batchNum}/${totalBatches} batches)...`, { id: 'save-onts' });
+            
+            await base44.functions.invoke('saveOntRecords', {
+              report_id: report.id,
+              report_date: reportData.upload_date,
+              onts: batch,
+            });
+            
+            savedTotal += batch.length;
+          }
+          toast.success(`Saved ${savedTotal} ONT records`, { id: 'save-onts' });
         } catch (err) {
           console.error('Failed to save ONT records:', err);
-          toast.error('Failed to save ONT records', { id: 'save-onts' });
+          toast.error(`Saved ${savedTotal}/${reportData.onts.length} ONT records - some failed`, { id: 'save-onts' });
         }
       }
       
