@@ -111,13 +111,8 @@ const DEFAULT_THRESHOLDS = {
 export default function PONPMAnalysis() {
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState(() => {
-    const saved = sessionStorage.getItem('ponPmCurrentReport');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [selectedReportId, setSelectedReportId] = useState(() => {
-    return sessionStorage.getItem('ponPmSelectedReportId') || null;
-  });
+  const [result, setResult] = useState(null);
+  const [selectedReportId, setSelectedReportId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [oltFilter, setOltFilter] = useState('all');
@@ -135,15 +130,7 @@ export default function PONPMAnalysis() {
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
   });
 
-  // Save current report to session storage
-  useEffect(() => {
-    if (result) {
-      sessionStorage.setItem('ponPmCurrentReport', JSON.stringify(result));
-      if (selectedReportId) {
-        sessionStorage.setItem('ponPmSelectedReportId', selectedReportId);
-      }
-    }
-  }, [result, selectedReportId]);
+
 
   // Fetch saved reports
   const { data: savedReports = [], isLoading: loadingReports } = useQuery({
@@ -1399,8 +1386,6 @@ export default function PONPMAnalysis() {
                 onClick={() => {
                   setResult(null);
                   setSelectedReportId(null);
-                  sessionStorage.removeItem('ponPmCurrentReport');
-                  sessionStorage.removeItem('ponPmSelectedReportId');
                 }}
               >
                 <Upload className="h-4 w-4 mr-2" />
@@ -1422,20 +1407,18 @@ export default function PONPMAnalysis() {
               setIsLoading(true);
               toast.loading('Loading report...', { id: 'load-report' });
               try {
-                // Re-parse the saved file to get full analysis
+                // Re-parse the saved file to get full analysis (doesn't save to sessionStorage anymore)
                 const response = await base44.functions.invoke('parsePonPm', { file_url: report.file_url });
-                
-                console.log('Parse response:', response);
                 
                 if (response.data?.success && response.data?.onts && response.data?.summary) {
                   setResult(response.data);
                   setSelectedReportId(report.id);
                   setExpandedOlts([]);
                   setExpandedPorts([]);
+                  setIsLoading(false);
                   toast.success('Report loaded', { id: 'load-report' });
                 } else {
-                  console.error('Invalid response structure:', response);
-                  toast.error(response.data?.error || 'Failed to parse report - invalid data structure', { id: 'load-report' });
+                  toast.error(response.data?.error || 'Failed to parse report', { id: 'load-report' });
                   setIsLoading(false);
                 }
               } catch (error) {
