@@ -1417,6 +1417,8 @@ export default function PONPMAnalysis() {
             isLoading={loadingReports}
             onReportDeleted={() => queryClient.invalidateQueries({ queryKey: ['ponPmReports'] })}
             onReportSelected={async (report) => {
+              // Close dialog immediately so loading state is visible
+              setShowHistoricalReports(false);
               setIsLoading(true);
               toast.loading('Loading report...', { id: 'load-report' });
               try {
@@ -1425,8 +1427,9 @@ export default function PONPMAnalysis() {
                 if (response.data?.success) {
                   setResult(response.data);
                   setSelectedReportId(report.id);
-                  setShowHistoricalReports(false);
                   toast.success('Report loaded', { id: 'load-report' });
+                } else {
+                  toast.error('Failed to parse report', { id: 'load-report' });
                 }
               } catch (error) {
                 console.error('Load report error:', error);
