@@ -688,8 +688,27 @@ export default function PONPMAnalysis() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Loading State */}
+        {isLoading && !result && (
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-12">
+              <div className="text-center space-y-4">
+                <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto" />
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Loading Report...
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Parsing PON PM data
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Upload Section */}
-        {!result && (
+        {!result && !isLoading && (
           <Card className="border-0 shadow-lg">
             <CardContent className="p-8">
               <div className="text-center space-y-6">
@@ -707,29 +726,19 @@ export default function PONPMAnalysis() {
 
                 <div className="max-w-md mx-auto space-y-4">
                   <label className="block">
-                    <div className={`border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer ${
-                      isLoading ? 'border-blue-300 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'
-                    }`}>
-                      {isLoading ? (
-                        <div className="flex flex-col items-center gap-3">
-                          <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
-                          <span className="text-sm text-gray-600">Processing...</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-3">
-                          <Upload className="h-10 w-10 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            Click to upload or drag and drop
-                          </span>
-                          <span className="text-xs text-gray-400">CSV files only</span>
-                        </div>
-                      )}
+                    <div className="border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer border-gray-300 hover:border-blue-400 hover:bg-blue-50/50">
+                      <div className="flex flex-col items-center gap-3">
+                        <Upload className="h-10 w-10 text-gray-400" />
+                        <span className="text-sm text-gray-600">
+                          Click to upload or drag and drop
+                        </span>
+                        <span className="text-xs text-gray-400">CSV files only</span>
+                      </div>
                     </div>
                     <Input
                       type="file"
                       accept=".csv"
                       onChange={handleFileUpload}
-                      disabled={isLoading}
                       className="hidden"
                     />
                   </label>
