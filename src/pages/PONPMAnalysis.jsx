@@ -1410,7 +1410,7 @@ export default function PONPMAnalysis() {
         )}
 
         {/* Historical Trends Component */}
-        {showTrends && savedReports.length >= 2 && (
+        {showTrends && savedReports.length >= 1 && (
           <HistoricalTrends 
             reports={savedReports} 
             onClose={() => setShowTrends(false)} 

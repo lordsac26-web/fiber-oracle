@@ -57,35 +57,65 @@ export default function HistoricalTrends({ reports, onClose }) {
   const [selectedOlt, setSelectedOlt] = useState('all');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [ontRecords, setOntRecords] = useState([]);
 
-  // Get all unique ONT serials across all reports
+  // Load all ONT records for these reports
+  useEffect(() => {
+    const loadOntRecords = async () => {
+      if (reports.length === 0) {
+        setIsLoadingData(false);
+        return;
+      }
+
+      setIsLoadingData(true);
+      try {
+        const reportIds = reports.map(r => r.id);
+        // Fetch ONT records for all reports
+        const allRecords = await base44.entities.ONTPerformanceRecord.filter({
+          report_id: { $in: reportIds }
+        });
+        setOntRecords(allRecords);
+      } catch (error) {
+        console.error('Failed to load ONT records:', error);
+        toast.error('Failed to load historical data');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadOntRecords();
+  }, [reports]);
+
+  // Get all unique ONT serials across all records
   const allOnts = useMemo(() => {
+    if (isLoadingData || ontRecords.length === 0) return [];
+
     const ontMap = new Map();
-    reports.forEach(report => {
-      (report.ont_data || []).forEach(ont => {
-        if (ont.SerialNumber) {
-          if (!ontMap.has(ont.SerialNumber)) {
-            ontMap.set(ont.SerialNumber, {
-              serial: ont.SerialNumber,
-              ontId: ont.OntID,
-              olt: ont._oltName,
-              port: ont._port,
-              model: ont.model,
-              dataPoints: []
-            });
-          }
-          ontMap.get(ont.SerialNumber).dataPoints.push({
-            date: report.upload_date,
-            reportName: report.report_name,
-            OntRxOptPwr: parseFloat(ont.OntRxOptPwr) || null,
-            OLTRXOptPwr: parseFloat(ont.OLTRXOptPwr) || null,
-            OntTxPwr: parseFloat(ont.OntTxPwr) || null,
-            UpstreamBipErrors: parseInt(ont.UpstreamBipErrors) || 0,
-            DownstreamBipErrors: parseInt(ont.DownstreamBipErrors) || 0,
-            status: ont._analysis?.status || 'ok'
+    ontRecords.forEach(record => {
+      if (record.serial_number) {
+        if (!ontMap.has(record.serial_number)) {
+          ontMap.set(record.serial_number, {
+            serial: record.serial_number,
+            ontId: record.ont_id,
+            olt: record.olt_name,
+            port: record.shelf_slot_port,
+            model: record.model,
+            dataPoints: []
           });
         }
-      });
+        const report = reports.find(r => r.id === record.report_id);
+        ontMap.get(record.serial_number).dataPoints.push({
+          date: record.report_date || report?.upload_date,
+          reportName: report?.report_name,
+          OntRxOptPwr: record.ont_rx_power,
+          OLTRXOptPwr: record.olt_rx_power,
+          OntTxPwr: record.ont_tx_power,
+          UpstreamBipErrors: record.us_bip_errors || 0,
+          DownstreamBipErrors: record.ds_bip_errors || 0,
+          status: record.status || 'ok'
+        });
+      }
     });
     
     // Sort data points by date for each ONT
@@ -94,7 +124,7 @@ export default function HistoricalTrends({ reports, onClose }) {
     });
     
     return Array.from(ontMap.values());
-  }, [reports]);
+  }, [reports, ontRecords, isLoadingData]);
 
   // Get unique OLTs
   const olts = useMemo(() => {
@@ -1134,12 +1164,24 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
             </Card>
           )}
 
+          {/* Loading state */}
+          {isLoadingData && (
+            <div className="text-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-3" />
+              <p className="text-gray-500">Loading historical data...</p>
+            </div>
+          )}
+
           {/* No data message */}
-          {filteredOnts.length === 0 && (
+          {!isLoadingData && filteredOnts.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <History className="h-12 w-12 mx-auto mb-2 opacity-30" />
               <p>No ONTs with multiple data points found.</p>
-              <p className="text-sm">Upload more reports to see trends.</p>
+              <p className="text-sm">
+                {allOnts.length === 0 
+                  ? 'No historical ONT records found. Make sure reports are fully saved.'
+                  : 'Upload more reports to see trends for these ONTs.'}
+              </p>
             </div>
           )}
         </div>
