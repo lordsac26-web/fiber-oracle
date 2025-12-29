@@ -111,7 +111,13 @@ const DEFAULT_THRESHOLDS = {
 export default function PONPMAnalysis() {
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(() => {
+    const saved = sessionStorage.getItem('ponPmCurrentReport');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [selectedReportId, setSelectedReportId] = useState(() => {
+    return sessionStorage.getItem('ponPmSelectedReportId') || null;
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [oltFilter, setOltFilter] = useState('all');
@@ -129,13 +135,23 @@ export default function PONPMAnalysis() {
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
   });
 
+  // Save current report to session storage
+  useEffect(() => {
+    if (result) {
+      sessionStorage.setItem('ponPmCurrentReport', JSON.stringify(result));
+      if (selectedReportId) {
+        sessionStorage.setItem('ponPmSelectedReportId', selectedReportId);
+      }
+    }
+  }, [result, selectedReportId]);
+
   // Fetch saved reports
   const { data: savedReports = [], isLoading: loadingReports } = useQuery({
     queryKey: ['ponPmReports'],
     queryFn: () => base44.entities.PONPMReport.list('-upload_date'),
   });
 
-  // Save report mutation - now saves summary only, then triggers ONT records save
+  // Save report mutation - saves summary, then ONT records via backend
   const saveReportMutation = useMutation({
     mutationFn: async (reportData) => {
       // First create the report record
@@ -154,33 +170,22 @@ export default function PONPMAnalysis() {
         max_ont_rx: reportData.max_ont_rx,
       });
       
-      // Then save ONT records in batches to avoid payload size limits
+      // Save all ONT records via backend (handles large datasets up to 50k+)
       if (reportData.onts && reportData.onts.length > 0) {
-        const batchSize = 500; // Send 500 ONTs per request
-        const totalBatches = Math.ceil(reportData.onts.length / batchSize);
-        let savedTotal = 0;
-        
-        toast.loading(`Saving ${reportData.onts.length} ONT records (0/${totalBatches} batches)...`, { id: 'save-onts' });
+        toast.loading(`Saving ${reportData.onts.length.toLocaleString()} ONT records...`, { id: 'save-onts' });
         
         try {
-          for (let i = 0; i < reportData.onts.length; i += batchSize) {
-            const batch = reportData.onts.slice(i, i + batchSize);
-            const batchNum = Math.floor(i / batchSize) + 1;
-            
-            toast.loading(`Saving ONT records (${batchNum}/${totalBatches} batches)...`, { id: 'save-onts' });
-            
-            await base44.functions.invoke('saveOntRecords', {
-              report_id: report.id,
-              report_date: reportData.upload_date,
-              onts: batch,
-            });
-            
-            savedTotal += batch.length;
-          }
-          toast.success(`Saved ${savedTotal} ONT records`, { id: 'save-onts' });
+          // Send all ONTs to backend - it handles batching internally
+          await base44.functions.invoke('saveOntRecords', {
+            report_id: report.id,
+            report_date: reportData.upload_date,
+            onts: reportData.onts,
+          });
+          
+          toast.success(`Saved ${reportData.onts.length.toLocaleString()} ONT records`, { id: 'save-onts' });
         } catch (err) {
           console.error('Failed to save ONT records:', err);
-          toast.error(`Saved ${savedTotal}/${reportData.onts.length} ONT records - some failed`, { id: 'save-onts' });
+          toast.error(`Failed to save ONT records: ${err.message}`, { id: 'save-onts' });
         }
       }
       
@@ -221,11 +226,12 @@ export default function PONPMAnalysis() {
         setResult(response.data);
         setExpandedOlts([]);
         setExpandedPorts([]);
-        toast.success(`Parsed ${response.data.summary.totalOnts} ONTs successfully`, { id: 'pon-parse' });
+        setSelectedReportId(null); // Clear selection for new upload
+        toast.success(`Parsed ${response.data.summary.totalOnts.toLocaleString()} ONTs successfully`, { id: 'pon-parse' });
 
         // Auto-save the report to database with all ONT records
         const reportName = file.name.replace('.csv', '') + ' - ' + moment().format('MM/DD/YY HH:mm');
-        
+
         // Calculate Rx power stats
         const rxValues = response.data.onts
           .map(o => parseFloat(o.OntRxOptPwr))
@@ -233,7 +239,7 @@ export default function PONPMAnalysis() {
         const avgRx = rxValues.length > 0 ? rxValues.reduce((a, b) => a + b, 0) / rxValues.length : null;
         const minRx = rxValues.length > 0 ? Math.min(...rxValues) : null;
         const maxRx = rxValues.length > 0 ? Math.max(...rxValues) : null;
-        
+
         saveReportMutation.mutate({
           report_name: reportName,
           upload_date: new Date().toISOString(),
@@ -247,7 +253,7 @@ export default function PONPMAnalysis() {
           avg_ont_rx: avgRx,
           min_ont_rx: minRx,
           max_ont_rx: maxRx,
-          onts: response.data.onts, // Pass all ONTs to be saved via backend function
+          onts: response.data.onts, // All ONTs - backend handles large datasets
         });
       } else {
         toast.error(response.data?.error || 'Failed to parse file', { id: 'pon-parse' });
@@ -449,27 +455,33 @@ export default function PONPMAnalysis() {
             </div>
             {result && (
               <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowTrends(true)}
-                  disabled={savedReports.length < 2}
-                  title={savedReports.length < 2 ? 'Need at least 2 reports for trends' : 'View historical trends'}
-                >
-                  <History className="h-4 w-4 mr-2" />
-                  Trends
-                  {savedReports.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-xs">{savedReports.length}</Badge>
+                  {selectedReportId && (
+                    <Badge variant="outline" className="text-xs">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      Viewing saved report
+                    </Badge>
                   )}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowHistoricalReports(true)}
-                >
-                  <Database className="h-4 w-4 mr-2" />
-                  History
-                </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowTrends(true)}
+                    disabled={savedReports.length < 1}
+                    title={savedReports.length < 1 ? 'Need at least 1 report for trends' : 'View historical trends'}
+                  >
+                    <History className="h-4 w-4 mr-2" />
+                    Trends
+                    {savedReports.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 text-xs">{savedReports.length}</Badge>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowHistoricalReports(true)}
+                  >
+                    <Database className="h-4 w-4 mr-2" />
+                    History
+                  </Button>
                 <Dialog open={showThresholdSettings} onOpenChange={setShowThresholdSettings}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -1354,7 +1366,12 @@ export default function PONPMAnalysis() {
             <div className="text-center pt-4">
               <Button 
                 variant="outline" 
-                onClick={() => setResult(null)}
+                onClick={() => {
+                  setResult(null);
+                  setSelectedReportId(null);
+                  sessionStorage.removeItem('ponPmCurrentReport');
+                  sessionStorage.removeItem('ponPmSelectedReportId');
+                }}
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload New File
@@ -1369,6 +1386,25 @@ export default function PONPMAnalysis() {
             reports={savedReports}
             isLoading={loadingReports}
             onReportDeleted={() => queryClient.invalidateQueries({ queryKey: ['ponPmReports'] })}
+            onReportSelected={async (report) => {
+              setIsLoading(true);
+              toast.loading('Loading report...', { id: 'load-report' });
+              try {
+                // Re-parse the saved file to get full analysis
+                const response = await base44.functions.invoke('parsePonPm', { file_url: report.file_url });
+                if (response.data?.success) {
+                  setResult(response.data);
+                  setSelectedReportId(report.id);
+                  setShowHistoricalReports(false);
+                  toast.success('Report loaded', { id: 'load-report' });
+                }
+              } catch (error) {
+                console.error('Load report error:', error);
+                toast.error('Failed to load report', { id: 'load-report' });
+              } finally {
+                setIsLoading(false);
+              }
+            }}
             onClose={() => setShowHistoricalReports(false)}
           />
         )}

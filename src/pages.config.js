@@ -1,73 +1,73 @@
-import Home from './pages/Home';
-import LossBudget from './pages/LossBudget';
-import OLTSTest from './pages/OLTSTest';
-import FiberDoctor from './pages/FiberDoctor';
-import Cleaning from './pages/Cleaning';
-import Impairments from './pages/Impairments';
-import ReferenceTables from './pages/ReferenceTables';
-import Settings from './pages/Settings';
-import IndustryLinks from './pages/IndustryLinks';
-import FiberLocator from './pages/FiberLocator';
-import PONLevels from './pages/PONLevels';
-import LCPInfo from './pages/LCPInfo';
-import PowerLevelCalc from './pages/PowerLevelCalc';
-import SplitterLoss from './pages/SplitterLoss';
 import BendRadius from './pages/BendRadius';
-import OTDRTest from './pages/OTDRTest';
-import LCPMap from './pages/LCPMap';
-import Fiber101 from './pages/Fiber101';
 import Brochure from './pages/Brochure';
+import CertificationExam from './pages/CertificationExam';
+import Certifications from './pages/Certifications';
+import Cleaning from './pages/Cleaning';
+import Contact from './pages/Contact';
 import Education from './pages/Education';
+import Fiber101 from './pages/Fiber101';
 import Fiber102 from './pages/Fiber102';
 import Fiber103 from './pages/Fiber103';
-import OTDRAnalysis from './pages/OTDRAnalysis';
+import FiberDoctor from './pages/FiberDoctor';
+import FiberLocator from './pages/FiberLocator';
+import Home from './pages/Home';
+import Impairments from './pages/Impairments';
+import IndustryLinks from './pages/IndustryLinks';
 import JobReports from './pages/JobReports';
-import CertificationExam from './pages/CertificationExam';
-import StudyGuide from './pages/StudyGuide';
-import Certifications from './pages/Certifications';
-import Contact from './pages/Contact';
+import KMLParser from './pages/KMLParser';
+import LCPInfo from './pages/LCPInfo';
+import LCPMap from './pages/LCPMap';
+import LossBudget from './pages/LossBudget';
+import OLTSTest from './pages/OLTSTest';
+import OTDRAnalysis from './pages/OTDRAnalysis';
+import OTDRTest from './pages/OTDRTest';
 import OfflineDocuments from './pages/OfflineDocuments';
 import OpticalCalculator from './pages/OpticalCalculator';
-import UserGuide from './pages/UserGuide';
+import PONLevels from './pages/PONLevels';
 import PONPMAnalysis from './pages/PONPMAnalysis';
-import KMLParser from './pages/KMLParser';
+import PowerLevelCalc from './pages/PowerLevelCalc';
+import ReferenceTables from './pages/ReferenceTables';
+import Settings from './pages/Settings';
+import SplitterLoss from './pages/SplitterLoss';
+import StudyGuide from './pages/StudyGuide';
+import UserGuide from './pages/UserGuide';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
-    "Home": Home,
-    "LossBudget": LossBudget,
-    "OLTSTest": OLTSTest,
-    "FiberDoctor": FiberDoctor,
-    "Cleaning": Cleaning,
-    "Impairments": Impairments,
-    "ReferenceTables": ReferenceTables,
-    "Settings": Settings,
-    "IndustryLinks": IndustryLinks,
-    "FiberLocator": FiberLocator,
-    "PONLevels": PONLevels,
-    "LCPInfo": LCPInfo,
-    "PowerLevelCalc": PowerLevelCalc,
-    "SplitterLoss": SplitterLoss,
     "BendRadius": BendRadius,
-    "OTDRTest": OTDRTest,
-    "LCPMap": LCPMap,
-    "Fiber101": Fiber101,
     "Brochure": Brochure,
+    "CertificationExam": CertificationExam,
+    "Certifications": Certifications,
+    "Cleaning": Cleaning,
+    "Contact": Contact,
     "Education": Education,
+    "Fiber101": Fiber101,
     "Fiber102": Fiber102,
     "Fiber103": Fiber103,
-    "OTDRAnalysis": OTDRAnalysis,
+    "FiberDoctor": FiberDoctor,
+    "FiberLocator": FiberLocator,
+    "Home": Home,
+    "Impairments": Impairments,
+    "IndustryLinks": IndustryLinks,
     "JobReports": JobReports,
-    "CertificationExam": CertificationExam,
-    "StudyGuide": StudyGuide,
-    "Certifications": Certifications,
-    "Contact": Contact,
+    "KMLParser": KMLParser,
+    "LCPInfo": LCPInfo,
+    "LCPMap": LCPMap,
+    "LossBudget": LossBudget,
+    "OLTSTest": OLTSTest,
+    "OTDRAnalysis": OTDRAnalysis,
+    "OTDRTest": OTDRTest,
     "OfflineDocuments": OfflineDocuments,
     "OpticalCalculator": OpticalCalculator,
-    "UserGuide": UserGuide,
+    "PONLevels": PONLevels,
     "PONPMAnalysis": PONPMAnalysis,
-    "KMLParser": KMLParser,
+    "PowerLevelCalc": PowerLevelCalc,
+    "ReferenceTables": ReferenceTables,
+    "Settings": Settings,
+    "SplitterLoss": SplitterLoss,
+    "StudyGuide": StudyGuide,
+    "UserGuide": UserGuide,
 }
 
 export const pagesConfig = {

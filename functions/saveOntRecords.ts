@@ -15,13 +15,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing report_id or onts array' }, { status: 400 });
     }
 
-    // Process ONTs in chunks to avoid timeouts
-    const chunkSize = 100;
+    // Process all ONTs - no limit, handle large datasets
+    const chunkSize = 500; // Larger chunks for efficiency
     let savedCount = 0;
 
     for (let i = 0; i < onts.length; i += chunkSize) {
       const chunk = onts.slice(i, i + chunkSize);
-      
+
       const records = chunk.map(ont => ({
         report_id: report_id,
         report_date: report_date,
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
         lcp_number: ont._lcpNumber || '',
       }));
 
-      await base44.entities.ONTPerformanceRecord.bulkCreate(records);
+      await base44.asServiceRole.entities.ONTPerformanceRecord.bulkCreate(records);
       savedCount += chunk.length;
     }
 
