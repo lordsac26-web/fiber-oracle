@@ -698,15 +698,14 @@ export default function PONPMAnalysis() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Upload PON PM Export
+                    PON PM Analysis
                   </h2>
                   <p className="text-gray-500 mt-2 max-w-lg mx-auto">
-                    Upload a CSV export from your SMx PON Performance Monitoring system. 
-                    The tool will automatically parse and analyze all ONT data for power levels and error rates.
+                    Upload a new CSV export or work with previously saved reports
                   </p>
                 </div>
 
-                <div className="max-w-md mx-auto">
+                <div className="max-w-md mx-auto space-y-4">
                   <label className="block">
                     <div className={`border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer ${
                       isLoading ? 'border-blue-300 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'
@@ -734,6 +733,28 @@ export default function PONPMAnalysis() {
                       className="hidden"
                     />
                   </label>
+
+                  {savedReports.length > 0 && (
+                    <>
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-300"></div>
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">Or</span>
+                        </div>
+                      </div>
+
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => setShowHistoricalReports(true)}
+                      >
+                        <Database className="h-4 w-4 mr-2" />
+                        Load Saved Report ({savedReports.length})
+                      </Button>
+                    </>
+                  )}
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto mt-8">
