@@ -1424,17 +1424,23 @@ export default function PONPMAnalysis() {
               try {
                 // Re-parse the saved file to get full analysis
                 const response = await base44.functions.invoke('parsePonPm', { file_url: report.file_url });
-                if (response.data?.success) {
+                
+                console.log('Parse response:', response);
+                
+                if (response.data?.success && response.data?.onts && response.data?.summary) {
                   setResult(response.data);
                   setSelectedReportId(report.id);
+                  setExpandedOlts([]);
+                  setExpandedPorts([]);
                   toast.success('Report loaded', { id: 'load-report' });
                 } else {
-                  toast.error('Failed to parse report', { id: 'load-report' });
+                  console.error('Invalid response structure:', response);
+                  toast.error(response.data?.error || 'Failed to parse report - invalid data structure', { id: 'load-report' });
+                  setIsLoading(false);
                 }
               } catch (error) {
                 console.error('Load report error:', error);
-                toast.error('Failed to load report', { id: 'load-report' });
-              } finally {
+                toast.error(`Failed to load report: ${error.message}`, { id: 'load-report' });
                 setIsLoading(false);
               }
             }}
