@@ -53,6 +53,7 @@ import {
   Router,
   Activity,
   X,
+  Eye,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -60,7 +61,8 @@ import moment from 'moment';
 
 export default function HistoricalDataManager({ 
   reports, 
-  onReportDeleted, 
+  onReportDeleted,
+  onReportSelected,
   onClose,
   isLoading 
 }) {
@@ -248,6 +250,17 @@ export default function HistoricalDataManager({
                                 </Badge>
                               )}
                             </div>
+                            {onReportSelected && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-8"
+                                onClick={() => onReportSelected(report)}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                            )}
                             <Button 
                               variant="ghost" 
                               size="icon" 
