@@ -63,7 +63,7 @@ export const EXAM_QUESTIONS = {
       {
         id: 6,
         type: 'single',
-        difficulty: 'medium',
+        difficulty: 'easy',
         domain: 'Fiber Fundamentals',
         question: 'What is the typical cladding diameter for both SMF and MMF?',
         options: ['9 μm', '50 μm', '62.5 μm', '125 μm'],
@@ -73,7 +73,7 @@ export const EXAM_QUESTIONS = {
       {
         id: 7,
         type: 'single',
-        difficulty: 'medium',
+        difficulty: 'easy',
         domain: 'GPON',
         question: 'What is the downstream wavelength for GPON?',
         options: ['1270 nm', '1310 nm', '1490 nm', '1550 nm'],
@@ -83,7 +83,7 @@ export const EXAM_QUESTIONS = {
       {
         id: 8,
         type: 'single',
-        difficulty: 'medium',
+        difficulty: 'easy',
         domain: 'GPON',
         question: 'What is the maximum downstream speed of GPON?',
         options: ['1.244 Gbps', '2.488 Gbps', '9.953 Gbps', '10 Gbps'],
@@ -133,7 +133,7 @@ export const EXAM_QUESTIONS = {
       {
         id: 13,
         type: 'single',
-        difficulty: 'medium',
+        difficulty: 'easy',
         domain: 'Testing',
         question: 'Which testing tier uses an OTDR?',
         options: ['Tier 1', 'Tier 2', 'Tier 3', 'Both Tier 1 and 2'],
@@ -173,7 +173,7 @@ export const EXAM_QUESTIONS = {
       {
         id: 17,
         type: 'single',
-        difficulty: 'hard',
+        difficulty: 'medium',
         domain: 'Fiber Fundamentals',
         question: 'What wavelengths are typically used for multimode fiber?',
         options: ['850nm and 1300nm', '1310nm and 1550nm', '1490nm and 1310nm', '1577nm and 1270nm'],
@@ -183,7 +183,7 @@ export const EXAM_QUESTIONS = {
       {
         id: 18,
         type: 'single',
-        difficulty: 'hard',
+        difficulty: 'medium',
         domain: 'PON Architecture',
         question: 'What is the typical maximum split ratio for GPON?',
         options: ['1:16', '1:32', '1:64', '1:128'],
@@ -307,7 +307,7 @@ export const EXAM_QUESTIONS = {
       {
         id: 31,
         type: 'fillin',
-        difficulty: 'medium',
+        difficulty: 'easy',
         domain: 'Color Codes',
         question: 'In the TIA-598 color code, fiber position 7 is _____.',
         correctAnswer: ['red', 'RED', 'Red'],
@@ -316,7 +316,7 @@ export const EXAM_QUESTIONS = {
       {
         id: 32,
         type: 'fillin',
-        difficulty: 'medium',
+        difficulty: 'easy',
         domain: 'Power Levels',
         question: 'SMF attenuation at 1550nm is approximately _____ dB/km.',
         correctAnswer: ['0.25', '.25', '0.25 dB/km'],
@@ -325,7 +325,7 @@ export const EXAM_QUESTIONS = {
       {
         id: 33,
         type: 'fillin',
-        difficulty: 'hard',
+        difficulty: 'medium',
         domain: 'GPON',
         question: 'The upstream wavelength for GPON is _____ nm.',
         correctAnswer: ['1310', '1310nm', '1310 nm'],
@@ -334,7 +334,7 @@ export const EXAM_QUESTIONS = {
       {
         id: 34,
         type: 'fillin',
-        difficulty: 'hard',
+        difficulty: 'medium',
         domain: 'Power Levels',
         question: 'The insertion loss for a 1:8 optical splitter is approximately _____ dB.',
         correctAnswer: ['10.7', '10.7 dB', '11'],
