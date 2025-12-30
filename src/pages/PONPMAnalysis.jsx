@@ -358,6 +358,33 @@ export default function PONPMAnalysis() {
     toast.success(`Exported ${ontsToExport.length} ${filterType === 'all' ? '' : filterType + ' '}ONTs`);
   };
 
+  const exportPDF = async () => {
+    if (!result?.onts) return;
+
+    toast.loading('Generating PDF report...', { id: 'pdf-export' });
+
+    try {
+      const response = await base44.functions.invoke('generatePonPmPDF', {
+        reportData: result
+      }, { responseType: 'arraybuffer' });
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pon-pm-report-${new Date().toISOString().slice(0,10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+
+      toast.success('PDF report generated', { id: 'pdf-export' });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast.error('Failed to generate PDF', { id: 'pdf-export' });
+    }
+  };
+
   const exportIssueReport = () => {
     if (!result?.onts) return;
 
@@ -644,6 +671,15 @@ export default function PONPMAnalysis() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => exportPDF()}>
+                      <FileText className="h-4 w-4 mr-2 text-red-500" />
+                      Issue Report (PDF)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportIssueReport}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Issue Report (TXT)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => exportCSV('all')}>
                       <FileSpreadsheet className="h-4 w-4 mr-2" />
                       All Results (CSV)
@@ -660,11 +696,6 @@ export default function PONPMAnalysis() {
                     <DropdownMenuItem onClick={() => exportCSV('warning')}>
                       <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
                       Warnings Only (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={exportIssueReport}>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Issue Report (TXT)
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
