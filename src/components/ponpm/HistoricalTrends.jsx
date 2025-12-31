@@ -61,6 +61,8 @@ export default function HistoricalTrends({ reports, onClose }) {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [ontRecords, setOntRecords] = useState([]);
   const [selectedMetrics, setSelectedMetrics] = useState(['ONT Rx (dBm)', 'OLT Rx (dBm)']);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
   // Load all ONT records for these reports
   useEffect(() => {
@@ -141,14 +143,24 @@ export default function HistoricalTrends({ reports, onClose }) {
 
   // Filter ONTs
   const filteredOnts = useMemo(() => {
-    return allOnts.filter(ont => {
+    const filtered = allOnts.filter(ont => {
       const matchesSearch = !searchSerial || 
         ont.serial.toLowerCase().includes(searchSerial.toLowerCase()) ||
         ont.ontId?.toString().includes(searchSerial);
       const matchesOlt = selectedOlt === 'all' || ont.olt === selectedOlt;
       return matchesSearch && matchesOlt && ont.dataPoints.length > 1;
     });
+    setCurrentPage(1); // Reset to page 1 when filters change
+    return filtered;
   }, [allOnts, searchSerial, selectedOlt]);
+
+  // Paginated ONTs
+  const paginatedOnts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredOnts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredOnts, currentPage]);
+
+  const totalPages = Math.ceil(filteredOnts.length / itemsPerPage);
 
   // Calculate trend for an ONT
   const calculateTrend = (dataPoints, field) => {
@@ -616,7 +628,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={runAiAnalysis} disabled={isAnalyzing || degradingOnts.length === 0}>
+            <Button onClick={runAiAnalysis} disabled={isAnalyzing || filteredOnts.length === 0}>
               {isAnalyzing ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -627,17 +639,23 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
           </div>
 
           {/* Summary Stats */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <Card className="border">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-blue-600">{allOnts.length}</div>
-                <div className="text-xs text-gray-500">ONTs with History</div>
+                <div className="text-xs text-gray-500">Total ONTs</div>
+              </CardContent>
+            </Card>
+            <Card className="border">
+              <CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold text-indigo-600">{filteredOnts.length}</div>
+                <div className="text-xs text-gray-500">Filtered ONTs</div>
               </CardContent>
             </Card>
             <Card className="border">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-amber-600">{degradingOnts.length}</div>
-                <div className="text-xs text-gray-500">Degrading ONTs</div>
+                <div className="text-xs text-gray-500">Degrading</div>
               </CardContent>
             </Card>
             <Card className="border">
@@ -645,7 +663,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                 <div className="text-2xl font-bold text-green-600">
                   {filteredOnts.length - degradingOnts.length}
                 </div>
-                <div className="text-xs text-gray-500">Stable ONTs</div>
+                <div className="text-xs text-gray-500">Stable</div>
               </CardContent>
             </Card>
           </div>
@@ -944,38 +962,67 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
             </Card>
           )}
 
-          {/* Degrading ONTs List */}
-          {degradingOnts.length > 0 && (
+          {/* ONTs List with Search Results */}
+          {filteredOnts.length > 0 && (
             <Card className="border">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <TrendingDown className="h-4 w-4 text-red-500" />
-                  ONTs with Performance Degradation
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-blue-500" />
+                    {searchSerial ? `Search Results (${filteredOnts.length})` : 'All ONTs with History'}
+                  </CardTitle>
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-xs text-gray-500">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="max-h-48 overflow-y-auto">
+                <div className="max-h-96 overflow-y-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Serial</TableHead>
+                        <TableHead>ONT ID</TableHead>
                         <TableHead>OLT/Port</TableHead>
                         <TableHead className="text-right">First Rx</TableHead>
                         <TableHead className="text-right">Latest Rx</TableHead>
                         <TableHead className="text-right">Change</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {degradingOnts.slice(0, 15).map((ont, idx) => {
+                      {paginatedOnts.map((ont, idx) => {
                         const rxTrend = calculateTrend(ont.dataPoints, 'OntRxOptPwr');
+                        const isDegrading = rxTrend && rxTrend.change < -1;
                         return (
                           <TableRow 
                             key={idx} 
-                            className="cursor-pointer hover:bg-gray-50"
+                            className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
                             onClick={() => setSelectedOnt(ont)}
                           >
                             <TableCell className="font-mono text-xs">{ont.serial}</TableCell>
+                            <TableCell className="text-xs">{ont.ontId || '-'}</TableCell>
                             <TableCell className="text-xs">{ont.olt}/{ont.port}</TableCell>
                             <TableCell className="text-right font-mono text-xs">
                               {rxTrend?.first?.toFixed(1)} dBm
@@ -984,9 +1031,20 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                               {rxTrend?.last?.toFixed(1)} dBm
                             </TableCell>
                             <TableCell className="text-right">
-                              <Badge className="bg-red-100 text-red-800 border-red-300">
-                                <TrendingDown className="h-3 w-3 mr-1" />
-                                {rxTrend?.change?.toFixed(1)} dB
+                              {rxTrend?.change && (
+                                <Badge className={isDegrading ? 'bg-red-100 text-red-800 border-red-300' : 'bg-green-100 text-green-800 border-green-300'}>
+                                  {isDegrading ? <TrendingDown className="h-3 w-3 mr-1" /> : <TrendingUp className="h-3 w-3 mr-1" />}
+                                  {rxTrend.change > 0 ? '+' : ''}{rxTrend.change?.toFixed(1)} dB
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="outline" className={`text-[10px] ${
+                                ont.dataPoints[ont.dataPoints.length - 1]?.status === 'critical' ? 'bg-red-50 text-red-700 border-red-300' :
+                                ont.dataPoints[ont.dataPoints.length - 1]?.status === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-300' :
+                                'bg-green-50 text-green-700 border-green-300'
+                              }`}>
+                                {ont.dataPoints[ont.dataPoints.length - 1]?.status}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -1000,6 +1058,27 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                     </TableBody>
                   </Table>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No search results message */}
+          {!isLoadingData && searchSerial && filteredOnts.length === 0 && (
+            <Card className="border border-amber-300 bg-amber-50 dark:bg-amber-900/20">
+              <CardContent className="p-6 text-center">
+                <Search className="h-12 w-12 text-amber-500 mx-auto mb-3" />
+                <h3 className="font-medium text-amber-800 dark:text-amber-200">No results found</h3>
+                <p className="text-sm text-amber-600 dark:text-amber-300 mt-1">
+                  No ONTs found matching "{searchSerial}"
+                </p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-3"
+                  onClick={() => setSearchSerial('')}
+                >
+                  Clear Search
+                </Button>
               </CardContent>
             </Card>
           )}
