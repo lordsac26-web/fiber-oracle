@@ -75,11 +75,18 @@ export default function HistoricalTrends({ reports, onClose }) {
       setIsLoadingData(true);
       try {
         const reportIds = reports.map(r => r.id);
-        // Fetch ONT records for all reports
-        const allRecords = await base44.entities.ONTPerformanceRecord.filter({
-          report_id: { $in: reportIds }
-        });
-        setOntRecords(allRecords);
+        
+        console.log('Loading ONT records for reports:', reportIds);
+        
+        // Try to fetch all ONT records (no filter first to see if any exist)
+        const allRecords = await base44.entities.ONTPerformanceRecord.list();
+        console.log(`Found ${allRecords.length} total ONT records in database`);
+        
+        // Filter to only records for these reports
+        const filteredRecords = allRecords.filter(r => reportIds.includes(r.report_id));
+        console.log(`Filtered to ${filteredRecords.length} records for current reports`);
+        
+        setOntRecords(filteredRecords);
       } catch (error) {
         console.error('Failed to load ONT records:', error);
         toast.error('Failed to load historical data');
