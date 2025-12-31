@@ -46,6 +46,7 @@ import {
   Sparkles,
   History,
   X,
+  BarChart3,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -59,6 +60,7 @@ export default function HistoricalTrends({ reports, onClose }) {
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [ontRecords, setOntRecords] = useState([]);
+  const [selectedMetrics, setSelectedMetrics] = useState(['ONT Rx (dBm)', 'OLT Rx (dBm)']);
 
   // Load all ONT records for these reports
   useEffect(() => {
@@ -113,6 +115,8 @@ export default function HistoricalTrends({ reports, onClose }) {
           OntTxPwr: record.ont_tx_power,
           UpstreamBipErrors: record.us_bip_errors || 0,
           DownstreamBipErrors: record.ds_bip_errors || 0,
+          UpstreamFecUncorrected: record.us_fec_uncorrected || 0,
+          DownstreamFecUncorrected: record.ds_fec_uncorrected || 0,
           status: record.status || 'ok'
         });
       }
@@ -524,6 +528,17 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
     return predictFutureValue(selectedOnt.dataPoints, 'OntRxOptPwr', 30);
   }, [selectedOnt]);
 
+  // Available metrics for selection
+  const AVAILABLE_METRICS = [
+    { key: 'ONT Rx (dBm)', label: 'ONT Rx Power', yAxisId: 'power', color: '#3b82f6', type: 'power' },
+    { key: 'OLT Rx (dBm)', label: 'OLT Rx Power', yAxisId: 'power', color: '#10b981', type: 'power' },
+    { key: 'ONT Tx (dBm)', label: 'ONT Tx Power', yAxisId: 'power', color: '#8b5cf6', type: 'power' },
+    { key: 'US BIP Errors', label: 'Upstream BIP Errors', yAxisId: 'errors', color: '#f59e0b', type: 'errors' },
+    { key: 'DS BIP Errors', label: 'Downstream BIP Errors', yAxisId: 'errors', color: '#ef4444', type: 'errors' },
+    { key: 'US FEC Uncorrected', label: 'Upstream FEC Uncorrected', yAxisId: 'errors', color: '#ec4899', type: 'errors' },
+    { key: 'DS FEC Uncorrected', label: 'Downstream FEC Uncorrected', yAxisId: 'errors', color: '#f97316', type: 'errors' },
+  ];
+
   // Chart data for selected ONT with anomaly markers
   const chartData = useMemo(() => {
     if (!selectedOnt) return [];
@@ -533,8 +548,11 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
       fullDate: moment(d.date).format('YYYY-MM-DD HH:mm'),
       'ONT Rx (dBm)': d.OntRxOptPwr,
       'OLT Rx (dBm)': d.OLTRXOptPwr,
+      'ONT Tx (dBm)': d.OntTxPwr,
       'US BIP Errors': d.UpstreamBipErrors,
       'DS BIP Errors': d.DownstreamBipErrors,
+      'US FEC Uncorrected': d.UpstreamFecUncorrected,
+      'DS FEC Uncorrected': d.DownstreamFecUncorrected,
       isAnomaly: anomalyDates.has(d.date),
       anomalyType: selectedOntAnomalies.find(a => a.date === d.date)?.type,
     }));
@@ -1004,6 +1022,34 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Metric Selector */}
+                <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <Label className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                    <BarChart3 className="h-3 w-3" />
+                    Select Metrics to Display
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {AVAILABLE_METRICS.map(metric => (
+                      <Badge
+                        key={metric.key}
+                        variant={selectedMetrics.includes(metric.key) ? 'default' : 'outline'}
+                        className="cursor-pointer text-xs"
+                        style={selectedMetrics.includes(metric.key) ? { backgroundColor: metric.color, borderColor: metric.color } : {}}
+                        onClick={() => {
+                          setSelectedMetrics(prev => 
+                            prev.includes(metric.key) 
+                              ? prev.filter(m => m !== metric.key)
+                              : [...prev, metric.key]
+                          );
+                        }}
+                      >
+                        {metric.label}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">Click to toggle metrics on/off</p>
+                </div>
+
                 {/* Prediction & Anomaly Summary */}
                 <div className="flex gap-2 mb-3 flex-wrap">
                   {selectedOntPrediction && (
@@ -1034,8 +1080,12 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                     <LineChart data={chartDataWithPrediction}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                      <YAxis yAxisId="power" domain={[-35, -5]} tick={{ fontSize: 10 }} />
-                      <YAxis yAxisId="errors" orientation="right" tick={{ fontSize: 10 }} />
+                      {selectedMetrics.some(m => AVAILABLE_METRICS.find(am => am.key === m)?.type === 'power') && (
+                        <YAxis yAxisId="power" domain={[-35, -5]} tick={{ fontSize: 10 }} label={{ value: 'dBm', angle: -90, position: 'insideLeft', fontSize: 10 }} />
+                      )}
+                      {selectedMetrics.some(m => AVAILABLE_METRICS.find(am => am.key === m)?.type === 'errors') && (
+                        <YAxis yAxisId="errors" orientation="right" tick={{ fontSize: 10 }} label={{ value: 'Errors', angle: 90, position: 'insideRight', fontSize: 10 }} />
+                      )}
                       <Tooltip 
                         labelFormatter={(label, payload) => payload[0]?.payload?.fullDate || label}
                         content={({ active, payload, label }) => {
@@ -1062,52 +1112,61 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                         }}
                       />
                       <Legend wrapperStyle={{ fontSize: 10 }} />
-                      <ReferenceLine yAxisId="power" y={-27} stroke="red" strokeDasharray="5 5" label={{ value: 'Critical', fontSize: 8 }} />
-                      <ReferenceLine yAxisId="power" y={-25} stroke="orange" strokeDasharray="5 5" label={{ value: 'Warning', fontSize: 8 }} />
-                      <Line 
-                        yAxisId="power"
-                        type="monotone" 
-                        dataKey="ONT Rx (dBm)" 
-                        stroke="#3b82f6" 
-                        strokeWidth={2}
-                        dot={(props) => {
-                          const { cx, cy, payload } = props;
-                          if (payload?.isAnomaly) {
-                            return (
-                              <g key={`anomaly-${cx}`}>
-                                <circle cx={cx} cy={cy} r={6} fill={payload.anomalyType === 'sudden_drop' ? '#ef4444' : '#22c55e'} />
-                                <circle cx={cx} cy={cy} r={3} fill="white" />
-                              </g>
-                            );
-                          }
-                          return <circle cx={cx} cy={cy} r={3} fill="#3b82f6" />;
-                        }}
-                      />
-                      <Line 
-                        yAxisId="power"
-                        type="monotone" 
-                        dataKey="Predicted Rx" 
-                        stroke="#8b5cf6" 
-                        strokeWidth={2}
-                        strokeDasharray="5 5"
-                        dot={{ r: 5, fill: '#8b5cf6' }}
-                      />
-                      <Line 
-                        yAxisId="power"
-                        type="monotone" 
-                        dataKey="OLT Rx (dBm)" 
-                        stroke="#10b981" 
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                      />
-                      <Line 
-                        yAxisId="errors"
-                        type="monotone" 
-                        dataKey="US BIP Errors" 
-                        stroke="#f59e0b" 
-                        strokeWidth={1}
-                        dot={{ r: 2 }}
-                      />
+                      {selectedMetrics.includes('ONT Rx (dBm)') && (
+                        <>
+                          <ReferenceLine yAxisId="power" y={-27} stroke="red" strokeDasharray="5 5" label={{ value: 'Critical', fontSize: 8 }} />
+                          <ReferenceLine yAxisId="power" y={-25} stroke="orange" strokeDasharray="5 5" label={{ value: 'Warning', fontSize: 8 }} />
+                        </>
+                      )}
+                      {AVAILABLE_METRICS.filter(m => selectedMetrics.includes(m.key)).map(metric => {
+                        if (metric.key === 'Predicted Rx') {
+                          return (
+                            <Line 
+                              key={metric.key}
+                              yAxisId={metric.yAxisId}
+                              type="monotone" 
+                              dataKey={metric.key}
+                              stroke={metric.color}
+                              strokeWidth={2}
+                              strokeDasharray="5 5"
+                              dot={{ r: 5, fill: metric.color }}
+                            />
+                          );
+                        }
+                        return (
+                          <Line 
+                            key={metric.key}
+                            yAxisId={metric.yAxisId}
+                            type="monotone" 
+                            dataKey={metric.key}
+                            stroke={metric.color}
+                            strokeWidth={metric.type === 'power' ? 2 : 1}
+                            dot={(props) => {
+                              const { cx, cy, payload } = props;
+                              if (metric.key === 'ONT Rx (dBm)' && payload?.isAnomaly) {
+                                return (
+                                  <g key={`anomaly-${cx}`}>
+                                    <circle cx={cx} cy={cy} r={6} fill={payload.anomalyType === 'sudden_drop' ? '#ef4444' : '#22c55e'} />
+                                    <circle cx={cx} cy={cy} r={3} fill="white" />
+                                  </g>
+                                );
+                              }
+                              return <circle cx={cx} cy={cy} r={metric.type === 'power' ? 3 : 2} fill={metric.color} />;
+                            }}
+                          />
+                        );
+                      })}
+                      {selectedOntPrediction && (
+                        <Line 
+                          yAxisId="power"
+                          type="monotone" 
+                          dataKey="Predicted Rx" 
+                          stroke="#8b5cf6" 
+                          strokeWidth={2}
+                          strokeDasharray="5 5"
+                          dot={{ r: 5, fill: '#8b5cf6' }}
+                        />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -1133,8 +1192,11 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                         <TableHead className="text-xs">Date</TableHead>
                         <TableHead className="text-xs text-right">ONT Rx</TableHead>
                         <TableHead className="text-xs text-right">OLT Rx</TableHead>
+                        <TableHead className="text-xs text-right">ONT Tx</TableHead>
                         <TableHead className="text-xs text-right">US BIP</TableHead>
                         <TableHead className="text-xs text-right">DS BIP</TableHead>
+                        <TableHead className="text-xs text-right">US FEC</TableHead>
+                        <TableHead className="text-xs text-right">DS FEC</TableHead>
                         <TableHead className="text-xs">Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1144,8 +1206,11 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                           <TableCell className="text-xs">{moment(dp.date).format('MM/DD/YY HH:mm')}</TableCell>
                           <TableCell className="text-xs text-right font-mono">{dp.OntRxOptPwr?.toFixed(1) || '-'}</TableCell>
                           <TableCell className="text-xs text-right font-mono">{dp.OLTRXOptPwr?.toFixed(1) || '-'}</TableCell>
+                          <TableCell className="text-xs text-right font-mono">{dp.OntTxPwr?.toFixed(1) || '-'}</TableCell>
                           <TableCell className="text-xs text-right font-mono">{dp.UpstreamBipErrors}</TableCell>
                           <TableCell className="text-xs text-right font-mono">{dp.DownstreamBipErrors}</TableCell>
+                          <TableCell className="text-xs text-right font-mono">{dp.UpstreamFecUncorrected}</TableCell>
+                          <TableCell className="text-xs text-right font-mono">{dp.DownstreamFecUncorrected}</TableCell>
                           <TableCell>
                             <Badge variant="outline" className={`text-[10px] ${
                               dp.status === 'critical' ? 'bg-red-50 text-red-700' :
