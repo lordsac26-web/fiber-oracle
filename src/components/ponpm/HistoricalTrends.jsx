@@ -76,17 +76,33 @@ export default function HistoricalTrends({ reports, onClose }) {
       try {
         const reportIds = reports.map(r => r.id);
         
-        console.log('Loading ONT records for reports:', reportIds);
+        console.log(`Loading ONT records for ${reportIds.length} reports:`, reportIds);
         
-        // Try to fetch all ONT records (no filter first to see if any exist)
-        const allRecords = await base44.entities.ONTPerformanceRecord.list();
-        console.log(`Found ${allRecords.length} total ONT records in database`);
+        // Fetch ONT records for each report separately to avoid loading stale data
+        const allRecordsForTheseReports = [];
         
-        // Filter to only records for these reports
-        const filteredRecords = allRecords.filter(r => reportIds.includes(r.report_id));
-        console.log(`Filtered to ${filteredRecords.length} records for current reports`);
+        for (const reportId of reportIds) {
+          try {
+            const recordsForReport = await base44.entities.ONTPerformanceRecord.filter({ report_id: reportId });
+            console.log(`Report ${reportId}: Found ${recordsForReport.length} ONT records`);
+            allRecordsForTheseReports.push(...recordsForReport);
+          } catch (err) {
+            console.warn(`Failed to load records for report ${reportId}:`, err);
+          }
+        }
         
-        setOntRecords(filteredRecords);
+        console.log(`Total ONT records loaded: ${allRecordsForTheseReports.length}`);
+        
+        // Log sample data to verify serial number format
+        if (allRecordsForTheseReports.length > 0) {
+          console.log('Sample ONT records (first 3):', allRecordsForTheseReports.slice(0, 3).map(r => ({
+            serial: r.serial_number,
+            reportId: r.report_id,
+            ontRx: r.ont_rx_power
+          })));
+        }
+        
+        setOntRecords(allRecordsForTheseReports);
       } catch (error) {
         console.error('Failed to load ONT records:', error);
         toast.error('Failed to load historical data');
