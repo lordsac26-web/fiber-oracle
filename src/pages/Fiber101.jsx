@@ -591,40 +591,6 @@ const SLIDES = [
     )
   },
   {
-    id: 'app-tour',
-    title: 'Using Fiber Oracle',
-    subtitle: 'Your essential field companion',
-    icon: Zap,
-    color: 'from-blue-500 to-indigo-600',
-    content: (
-      <div className="space-y-4">
-        <p className="text-center text-gray-600 dark:text-gray-300">
-          Fiber Oracle has everything you need in the field—calculators, troubleshooting, testing wizards, and reference materials all in one place:
-        </p>
-        <div className="grid gap-3">
-          {[
-            { name: 'Power Level Calculator', desc: 'Estimate ONT Rx power from OLT', icon: '⚡' },
-            { name: 'Fiber Locator', desc: 'Find fiber # by tube/fiber color', icon: '🎯' },
-            { name: 'Loss Budget Calculator', desc: 'Calculate total link loss', icon: '🧮' },
-            { name: 'Fiber Doctor', desc: 'Interactive troubleshooting flowchart', icon: '🩺' },
-            { name: 'PON PM Analysis', desc: 'Parse & analyze SMx PM exports', icon: '📈' },
-            { name: 'Cleaning & Inspection', desc: 'IEC 61300-3-35 procedures', icon: '✨' },
-            { name: 'OLTS & OTDR Wizards', desc: 'Step-by-step testing guides', icon: '🧪' },
-            { name: 'Reference Tables', desc: 'Standards, specs & quick lookups', icon: '📚' },
-          ].map((tool, i) => (
-            <div key={i} className="flex items-center gap-4 p-3 bg-white dark:bg-gray-800 rounded-lg shadow border">
-              <div className="text-2xl">{tool.icon}</div>
-              <div>
-                <div className="font-medium">{tool.name}</div>
-                <div className="text-sm text-gray-500">{tool.desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  },
-  {
     id: 'complete',
     title: 'You\'re Ready!',
     subtitle: 'Foundations complete',
