@@ -357,43 +357,158 @@ export default function HistoricalTrends({ reports, onClose }) {
     }).filter(p => p.predicted30Day !== null);
   }, [degradingOnts]);
 
-  // Detect anomalies (sudden changes)
+  // Advanced anomaly detection with statistical analysis
   const detectAnomalies = (dataPoints, field) => {
     const anomalies = [];
     const validPoints = dataPoints.filter(d => d[field] !== null);
     if (validPoints.length < 3) return anomalies;
     
+    const values = validPoints.map(p => p[field]);
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    const stdDev = Math.sqrt(variance);
+    
     for (let i = 1; i < validPoints.length; i++) {
-      const change = validPoints[i][field] - validPoints[i-1][field];
-      // Sudden drop of more than 2 dB
+      const currentValue = validPoints[i][field];
+      const prevValue = validPoints[i-1][field];
+      const change = currentValue - prevValue;
+      
+      // Z-score anomaly detection (statistical outlier)
+      const zScore = Math.abs((currentValue - mean) / (stdDev || 1));
+      const isStatisticalOutlier = zScore > 2.5; // 2.5 sigma threshold
+      
+      // Sudden drop detection (>2 dB drop)
       if (change < -2) {
         anomalies.push({
           index: i,
           date: validPoints[i].date,
-          value: validPoints[i][field],
+          value: currentValue,
           change,
-          type: 'sudden_drop'
+          zScore,
+          type: 'sudden_drop',
+          severity: change < -5 ? 'critical' : change < -3 ? 'high' : 'medium',
+          message: `Sudden drop of ${Math.abs(change).toFixed(1)} dB detected`
         });
       }
-      // Sudden improvement (possible maintenance)
+      
+      // Sudden improvement (possible maintenance/fix)
       if (change > 2) {
         anomalies.push({
           index: i,
           date: validPoints[i].date,
-          value: validPoints[i][field],
+          value: currentValue,
           change,
-          type: 'sudden_improvement'
+          zScore,
+          type: 'sudden_improvement',
+          severity: 'info',
+          message: `Sudden improvement of ${change.toFixed(1)} dB (possible maintenance)`
         });
       }
+      
+      // Statistical outlier detection
+      if (isStatisticalOutlier && !anomalies.find(a => a.index === i)) {
+        anomalies.push({
+          index: i,
+          date: validPoints[i].date,
+          value: currentValue,
+          change,
+          zScore,
+          type: 'statistical_outlier',
+          severity: zScore > 3 ? 'high' : 'medium',
+          message: `Statistical outlier detected (z-score: ${zScore.toFixed(2)})`
+        });
+      }
+      
+      // Gradual degradation detection (3+ consecutive drops)
+      if (i >= 3) {
+        const last3Changes = [
+          validPoints[i][field] - validPoints[i-1][field],
+          validPoints[i-1][field] - validPoints[i-2][field],
+          validPoints[i-2][field] - validPoints[i-3][field]
+        ];
+        if (last3Changes.every(c => c < -0.5)) {
+          const totalDrop = last3Changes.reduce((a, b) => a + b, 0);
+          if (!anomalies.find(a => a.index === i && a.type === 'gradual_degradation')) {
+            anomalies.push({
+              index: i,
+              date: validPoints[i].date,
+              value: currentValue,
+              change: totalDrop,
+              type: 'gradual_degradation',
+              severity: totalDrop < -3 ? 'high' : 'medium',
+              message: `Gradual degradation: ${Math.abs(totalDrop).toFixed(1)} dB over 3+ readings`
+            });
+          }
+        }
+      }
+      
+      // Critical threshold breach
+      if (field === 'OntRxOptPwr' && currentValue < -27 && prevValue >= -27) {
+        anomalies.push({
+          index: i,
+          date: validPoints[i].date,
+          value: currentValue,
+          change,
+          type: 'threshold_breach',
+          severity: 'critical',
+          message: `Breached critical threshold: ${currentValue.toFixed(1)} dBm < -27 dBm`
+        });
+      }
+      
+      // Erratic behavior (high variance in recent readings)
+      if (i >= 4) {
+        const last5Values = validPoints.slice(i - 4, i + 1).map(p => p[field]);
+        const recentVariance = last5Values.reduce((sum, val) => 
+          sum + Math.pow(val - (last5Values.reduce((a, b) => a + b, 0) / last5Values.length), 2), 0
+        ) / last5Values.length;
+        const recentStdDev = Math.sqrt(recentVariance);
+        
+        if (recentStdDev > stdDev * 2 && recentStdDev > 2) {
+          if (!anomalies.find(a => a.index === i && a.type === 'erratic_behavior')) {
+            anomalies.push({
+              index: i,
+              date: validPoints[i].date,
+              value: currentValue,
+              type: 'erratic_behavior',
+              severity: 'medium',
+              message: `Erratic behavior: High variance (σ=${recentStdDev.toFixed(2)})`
+            });
+          }
+        }
+      }
     }
+    
     return anomalies;
   };
+
+  // Detect all anomalies across network
+  const allAnomalies = useMemo(() => {
+    const detected = [];
+    allOnts.slice(0, 100).forEach(ont => {
+      const ontAnomalies = detectAnomalies(ont.dataPoints, 'OntRxOptPwr');
+      if (ontAnomalies.length > 0) {
+        detected.push({
+          serial: ont.serial,
+          olt: ont.olt,
+          port: ont.port,
+          anomalies: ontAnomalies,
+          criticalCount: ontAnomalies.filter(a => a.severity === 'critical').length,
+          highCount: ontAnomalies.filter(a => a.severity === 'high').length,
+          mediumCount: ontAnomalies.filter(a => a.severity === 'medium').length,
+        });
+      }
+    });
+    return detected.sort((a, b) => 
+      (b.criticalCount * 100 + b.highCount * 10 + b.mediumCount) - 
+      (a.criticalCount * 100 + a.highCount * 10 + a.mediumCount)
+    );
+  }, [allOnts]);
 
   // AI Analysis
   const runAiAnalysis = async () => {
     setIsAnalyzing(true);
     try {
-      // Prepare comprehensive analysis data
+      // Prepare comprehensive analysis data with anomalies
       const analysisData = {
         degradingOnts: degradingOnts.slice(0, 15).map(ont => ({
           serial: ont.serial,
@@ -408,27 +523,54 @@ export default function HistoricalTrends({ reports, onClose }) {
           })),
           anomalies: detectAnomalies(ont.dataPoints, 'OntRxOptPwr')
         })),
+        allDetectedAnomalies: allAnomalies.slice(0, 20).map(item => ({
+          serial: item.serial,
+          olt: item.olt,
+          port: item.port,
+          anomalies: item.anomalies.map(a => ({
+            type: a.type,
+            severity: a.severity,
+            date: moment(a.date).format('YYYY-MM-DD'),
+            value: a.value,
+            change: a.change,
+            message: a.message
+          }))
+        })),
         correlatedIssues: correlatedIssues.slice(0, 10),
         predictions: predictions.slice(0, 15),
         networkStats: {
           totalOntsTracked: allOnts.length,
           degradingCount: degradingOnts.length,
           correlatedPortCount: correlatedIssues.length,
-          criticalPredictions: predictions.filter(p => p.riskLevel === 'critical').length
+          criticalPredictions: predictions.filter(p => p.riskLevel === 'critical').length,
+          totalAnomaliesDetected: allAnomalies.reduce((sum, a) => sum + a.anomalies.length, 0),
+          criticalAnomalies: allAnomalies.reduce((sum, a) => sum + a.criticalCount, 0)
         }
       };
 
       const result = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are an expert fiber optic network performance analyst with deep knowledge of PON/FTTH infrastructure. Analyze this comprehensive ONT performance data and provide detailed root cause analysis with confidence scores.
+        prompt: `You are an expert fiber optic network performance analyst with deep knowledge of PON/FTTH infrastructure and anomaly detection. Analyze this comprehensive ONT performance data including detected anomalies and provide detailed root cause analysis with confidence scores.
 
 DATA:
 ${JSON.stringify(analysisData, null, 2)}
 
+ANOMALY DETECTION SUMMARY:
+- Total anomalies detected: ${analysisData.networkStats.totalAnomaliesDetected}
+- Critical anomalies: ${analysisData.networkStats.criticalAnomalies}
+- Anomaly types include: sudden_drop, sudden_improvement, statistical_outlier, gradual_degradation, threshold_breach, erratic_behavior
+
 ANALYSIS REQUIREMENTS:
 
-1. OVERALL NETWORK HEALTH: Score 0-100 with status and summary.
+1. OVERALL NETWORK HEALTH: Score 0-100 with status and summary, considering anomaly frequency and severity.
 
-2. ROOT CAUSE ANALYSIS FOR CORRELATED ISSUES:
+2. ANOMALY PATTERN ANALYSIS:
+Analyze the detected anomalies and identify patterns:
+- Are anomalies clustered by time (indicating network-wide events)?
+- Are anomalies clustered by location (indicating localized issues)?
+- What types of anomalies are most common?
+- Are there cyclic patterns suggesting environmental factors?
+
+3. ROOT CAUSE ANALYSIS FOR CORRELATED ISSUES:
 When multiple ONTs on the same port/OLT degrade together, provide detailed root cause analysis:
 - For each correlated issue, suggest 2-3 possible root causes with confidence percentages (must sum to ~100%)
 - Consider these specific causes:
@@ -439,7 +581,7 @@ When multiple ONTs on the same port/OLT degrade together, provide detailed root 
   * Upstream connector contamination (dirty SC/APC at splitter input)
   * Splice degradation (fusion splice aging, mechanical splice failure)
 
-3. ROOT CAUSE ANALYSIS FOR INDIVIDUAL ONT DEGRADATION:
+4. ROOT CAUSE ANALYSIS FOR INDIVIDUAL ONT DEGRADATION:
 For each degrading ONT, suggest specific causes with confidence:
 - Dirty drop connector (SC/APC at ONT or at LCP)
 - Drop fiber damage (macrobend in drop cable, staple through cable)
@@ -447,19 +589,21 @@ For each degrading ONT, suggest specific causes with confidence:
 - ONT optic degradation
 - Patch cord issue at customer premise
 
-4. ANOMALY ROOT CAUSES:
-For sudden drops (>2dB change), suggest:
-- New physical damage (construction hit, storm damage)
-- Connector disturbance (someone unplugged/replugged)
-- Environmental event (flooding, extreme temperature)
-For sudden improvements:
-- Recent maintenance (cleaning, splice repair)
-- Environmental recovery (temperature normalization)
+5. ANOMALY ROOT CAUSES (CRITICAL):
+For each major anomaly type detected:
+- sudden_drop: Likely physical damage, connector disturbance, or environmental event
+- sudden_improvement: Recent maintenance, cleaning, or splice repair
+- gradual_degradation: Progressive fiber/connector degradation, environmental stress
+- threshold_breach: Critical service impacting, immediate action required
+- erratic_behavior: Unstable connection, loose connector, intermittent fault
+- statistical_outlier: Unusual reading requiring verification
 
-5. PREDICTIVE MAINTENANCE with root cause context:
-Include what likely needs to be fixed based on degradation pattern.
+6. PREDICTIVE MAINTENANCE & PROACTIVE ALERTS:
+Based on detected anomalies and trends, identify ONTs that will likely fail soon.
+Provide specific timeline estimates and recommended preemptive actions.
 
-6. PRIORITIZED ACTION PLAN with specific tools/procedures needed.
+7. PRIORITIZED ACTION PLAN with specific tools/procedures needed.
+Include urgency level (immediate, soon, scheduled) for each action.
 
 Be very specific with serial numbers, locations, confidence percentages, and recommended test equipment.`,
         response_json_schema: {
@@ -470,7 +614,17 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
               properties: {
                 score: { type: "number" },
                 status: { type: "string" },
-                summary: { type: "string" }
+                summary: { type: "string" },
+                anomaly_impact: { type: "string" }
+              }
+            },
+            anomaly_patterns: {
+              type: "object",
+              properties: {
+                temporal_clustering: { type: "string" },
+                spatial_clustering: { type: "string" },
+                most_common_types: { type: "array", items: { type: "string" } },
+                cyclic_patterns: { type: "string" }
               }
             },
             correlated_issues: {
@@ -544,6 +698,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                   serial: { type: "string" },
                   date: { type: "string" },
                   type: { type: "string" },
+                  severity: { type: "string" },
                   change_db: { type: "number" },
                   root_causes: {
                     type: "array",
@@ -555,7 +710,25 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                         explanation: { type: "string" }
                       }
                     }
-                  }
+                  },
+                  recommended_action: { type: "string" },
+                  urgency: { type: "string" }
+                }
+              }
+            },
+            proactive_alerts: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  alert_id: { type: "string" },
+                  severity: { type: "string" },
+                  affected_onts: { type: "array", items: { type: "string" } },
+                  issue_type: { type: "string" },
+                  description: { type: "string" },
+                  estimated_time_to_failure: { type: "string" },
+                  recommended_action: { type: "string" },
+                  urgency: { type: "string" }
                 }
               }
             },
@@ -713,7 +886,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
           </div>
 
           {/* Summary Stats */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <Card className="border">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-gray-600">{allUniqueOnts.toLocaleString()}</div>
@@ -732,6 +905,14 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                 <div className="text-xs text-gray-500">Degrading</div>
               </CardContent>
             </Card>
+            <Card className="border border-purple-300 bg-purple-50">
+              <CardContent className="p-3 text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {allAnomalies.length}
+                </div>
+                <div className="text-xs text-purple-700">Anomalies Detected</div>
+              </CardContent>
+            </Card>
             <Card className="border">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-green-600">
@@ -741,6 +922,61 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
               </CardContent>
             </Card>
           </div>
+
+          {/* Anomaly Alerts Banner */}
+          {allAnomalies.length > 0 && (
+            <Card className="border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2 text-purple-800">
+                  <Sparkles className="h-4 w-4" />
+                  Advanced Anomaly Detection Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 text-xs flex-wrap">
+                    <Badge className="bg-red-100 text-red-800">
+                      {allAnomalies.reduce((sum, a) => sum + a.criticalCount, 0)} Critical
+                    </Badge>
+                    <Badge className="bg-orange-100 text-orange-800">
+                      {allAnomalies.reduce((sum, a) => sum + a.highCount, 0)} High Severity
+                    </Badge>
+                    <Badge className="bg-amber-100 text-amber-800">
+                      {allAnomalies.reduce((sum, a) => sum + a.mediumCount, 0)} Medium
+                    </Badge>
+                    <Badge variant="outline" className="bg-blue-50 border-blue-300 text-blue-700">
+                      {allAnomalies.reduce((sum, a) => sum + a.anomalies.length, 0)} Total Anomalies
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-purple-700">
+                    Statistical anomaly detection identified {allAnomalies.length} ONTs with unusual behavior patterns. 
+                    Run AI Analysis for detailed root cause identification and proactive maintenance recommendations.
+                  </p>
+                  <div className="flex gap-2 flex-wrap">
+                    {allAnomalies.slice(0, 5).map((item, idx) => (
+                      <Badge 
+                        key={idx}
+                        variant="outline" 
+                        className={`text-[10px] cursor-pointer ${
+                          item.criticalCount > 0 ? 'bg-red-50 border-red-300 text-red-700' :
+                          item.highCount > 0 ? 'bg-orange-50 border-orange-300 text-orange-700' :
+                          'bg-amber-50 border-amber-300 text-amber-700'
+                        }`}
+                        onClick={() => setSearchSerial(item.serial)}
+                      >
+                        {item.serial}: {item.anomalies.length} anomalies
+                      </Badge>
+                    ))}
+                    {allAnomalies.length > 5 && (
+                      <Badge variant="outline" className="text-[10px]">
+                        +{allAnomalies.length - 5} more
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Correlated Issues Alert */}
           {correlatedIssues.length > 0 && (
@@ -931,40 +1167,128 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                   </div>
                 )}
 
+                {/* Anomaly Pattern Analysis */}
+                {aiAnalysis.anomaly_patterns && (
+                  <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-lg border border-purple-200">
+                    <Label className="text-xs text-purple-800 font-semibold mb-2 flex items-center gap-1">
+                      <Activity className="h-3 w-3" />
+                      Anomaly Pattern Analysis
+                    </Label>
+                    <div className="space-y-1.5 text-xs">
+                      {aiAnalysis.anomaly_patterns.temporal_clustering && (
+                        <div><strong>Time Clustering:</strong> {aiAnalysis.anomaly_patterns.temporal_clustering}</div>
+                      )}
+                      {aiAnalysis.anomaly_patterns.spatial_clustering && (
+                        <div><strong>Location Clustering:</strong> {aiAnalysis.anomaly_patterns.spatial_clustering}</div>
+                      )}
+                      {aiAnalysis.anomaly_patterns.most_common_types?.length > 0 && (
+                        <div><strong>Common Types:</strong> {aiAnalysis.anomaly_patterns.most_common_types.join(', ')}</div>
+                      )}
+                      {aiAnalysis.anomaly_patterns.cyclic_patterns && (
+                        <div><strong>Cyclic Patterns:</strong> {aiAnalysis.anomaly_patterns.cyclic_patterns}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Proactive Alerts */}
+                {aiAnalysis.proactive_alerts?.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-gray-500 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3 text-orange-500" />
+                      Proactive Alerts ({aiAnalysis.proactive_alerts.length})
+                    </Label>
+                    <div className="max-h-48 overflow-y-auto space-y-2">
+                      {aiAnalysis.proactive_alerts.map((alert, idx) => (
+                        <div key={idx} className={`p-3 rounded-lg border-l-4 ${
+                          alert.severity === 'critical' ? 'bg-red-50 border-red-500' :
+                          alert.severity === 'high' ? 'bg-orange-50 border-orange-500' :
+                          'bg-amber-50 border-amber-500'
+                        }`}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-sm">{alert.issue_type}</span>
+                            <div className="flex items-center gap-2">
+                              <Badge className={getSeverityColor(alert.severity)}>{alert.severity}</Badge>
+                              <Badge variant="outline" className="text-[10px]">{alert.urgency}</Badge>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-700 mb-1">{alert.description}</p>
+                          {alert.affected_onts?.length > 0 && (
+                            <div className="text-xs text-gray-600 mb-1">
+                              <strong>Affected:</strong> {alert.affected_onts.slice(0, 3).join(', ')}
+                              {alert.affected_onts.length > 3 && ` +${alert.affected_onts.length - 3} more`}
+                            </div>
+                          )}
+                          {alert.estimated_time_to_failure && (
+                            <div className="text-xs text-red-700 font-medium">
+                              ⏱️ Est. Time to Failure: {alert.estimated_time_to_failure}
+                            </div>
+                          )}
+                          <div className="text-xs text-blue-700 mt-1">
+                            <strong>Action:</strong> {alert.recommended_action}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Anomaly Explanations with Root Causes */}
                 {aiAnalysis.anomaly_explanations?.length > 0 && (
                   <div className="space-y-2">
-                    <Label className="text-xs text-gray-500">Anomaly Root Cause Analysis</Label>
-                    <div className="max-h-40 overflow-y-auto space-y-2">
+                    <Label className="text-xs text-gray-500">Detailed Anomaly Root Cause Analysis</Label>
+                    <div className="max-h-48 overflow-y-auto space-y-2">
                       {aiAnalysis.anomaly_explanations.map((anomaly, idx) => (
                         <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg border">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-mono font-bold">{anomaly.serial}</span>
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="font-mono font-bold text-sm">{anomaly.serial}</span>
                             <span className="text-gray-500 text-xs">{anomaly.date}</span>
                             <Badge 
                               variant="outline" 
                               className={`text-[10px] ${
-                                anomaly.type === 'sudden_drop' ? 'bg-red-50 border-red-300 text-red-700' : 
-                                'bg-green-50 border-green-300 text-green-700'
+                                anomaly.severity === 'critical' ? 'bg-red-50 border-red-400 text-red-700' :
+                                anomaly.severity === 'high' ? 'bg-orange-50 border-orange-400 text-orange-700' :
+                                anomaly.type === 'sudden_improvement' ? 'bg-green-50 border-green-300 text-green-700' :
+                                'bg-amber-50 border-amber-300 text-amber-700'
                               }`}
                             >
-                              {anomaly.type === 'sudden_drop' ? '↓' : '↑'} {anomaly.change_db?.toFixed(1) || ''} dB
+                              {anomaly.type?.replace(/_/g, ' ')}
+                              {anomaly.change_db && ` (${anomaly.change_db > 0 ? '+' : ''}${anomaly.change_db.toFixed(1)} dB)`}
                             </Badge>
+                            {anomaly.urgency && (
+                              <Badge className={`text-[10px] ${
+                                anomaly.urgency === 'immediate' ? 'bg-red-100 text-red-800' :
+                                anomaly.urgency === 'soon' ? 'bg-orange-100 text-orange-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>
+                                {anomaly.urgency}
+                              </Badge>
+                            )}
                           </div>
                           {anomaly.root_causes?.length > 0 && (
-                            <div className="space-y-1 mt-1">
+                            <div className="space-y-1 mt-1.5 mb-1.5">
                               {anomaly.root_causes.map((rc, rcIdx) => (
-                                <div key={rcIdx} className="flex items-center gap-2 text-xs pl-2">
-                                  <div 
-                                    className={`h-1.5 rounded-full ${
-                                      anomaly.type === 'sudden_drop' ? 'bg-red-400' : 'bg-green-400'
-                                    }`}
-                                    style={{ width: `${rc.confidence * 0.4}px` }}
-                                  />
-                                  <span className="font-medium text-gray-700">{rc.confidence}%</span>
-                                  <span>{rc.cause}</span>
+                                <div key={rcIdx} className="flex items-start gap-2 text-xs pl-2">
+                                  <div className="flex items-center gap-1 min-w-[50px]">
+                                    <div 
+                                      className="h-1.5 rounded-full bg-gradient-to-r from-blue-400 to-purple-500"
+                                      style={{ width: `${rc.confidence * 0.4}px` }}
+                                    />
+                                    <span className="font-bold text-blue-700">{rc.confidence}%</span>
+                                  </div>
+                                  <div className="flex-1">
+                                    <span className="font-medium">{rc.cause}</span>
+                                    {rc.explanation && (
+                                      <p className="text-gray-500 text-[10px] mt-0.5">{rc.explanation}</p>
+                                    )}
+                                  </div>
                                 </div>
                               ))}
+                            </div>
+                          )}
+                          {anomaly.recommended_action && (
+                            <div className="text-xs text-green-700 bg-green-50 p-1.5 rounded mt-1">
+                              <strong>✓ Action:</strong> {anomaly.recommended_action}
                             </div>
                           )}
                         </div>
