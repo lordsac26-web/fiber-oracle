@@ -131,7 +131,7 @@ export default function Brochure() {
               Back
             </Button>
           </Link>
-          <Button onClick={downloadBrochurePDF} disabled={isDownloading} className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-600">
+          <Button onClick={downloadBrochurePDF} disabled={isDownloading} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
             {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             {isDownloading ? 'Generating...' : 'Download PDF'}
           </Button>
@@ -145,7 +145,7 @@ export default function Brochure() {
         
         <div className="relative max-w-6xl mx-auto px-4 py-20 md:py-32">
           <div className="text-center">
-            <Badge className="bg-white/20 text-white border-white/30 mb-6">
+            <Badge className="bg-white/10 text-white border-white/20 backdrop-blur-sm mb-6 px-4 py-1">
               <Zap className="h-3 w-3 mr-1" />
               Version 2.0 • Built for Professionals
             </Badge>
@@ -171,7 +171,7 @@ export default function Brochure() {
                 </Button>
               </Link>
               <Link to={createPageUrl('Fiber101')}>
-                <Button size="lg" variant="outline" className="border-white/50 text-white hover:bg-white/10">
+                <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-indigo-600 transition-all">
                   <BookOpen className="h-5 w-5 mr-2" />
                   Education Quick Start
                 </Button>
@@ -210,7 +210,7 @@ export default function Brochure() {
       <section className="py-20">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Features</Badge>
+            <Badge className="mb-4 bg-indigo-100 text-indigo-700 border-indigo-200">Features</Badge>
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
               Everything You Need in the Field
             </h2>
@@ -244,7 +244,7 @@ export default function Brochure() {
         <div className="max-w-6xl mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <Badge className="mb-4">Why FiberTech Pro?</Badge>
+              <Badge className="mb-4 bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">Why Fiber Oracle?</Badge>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">
                 Built by Fiber Techs, For Fiber Techs
               </h2>
@@ -316,7 +316,7 @@ export default function Brochure() {
       <section className="py-20">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-16">
-            <Badge className="mb-4">Testimonials</Badge>
+            <Badge className="mb-4 bg-purple-100 text-purple-700 border-purple-200">Testimonials</Badge>
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
               Trusted by Fiber Professionals
             </h2>
@@ -363,7 +363,7 @@ export default function Brochure() {
               </Button>
             </Link>
             <Link to={createPageUrl('Manual')}>
-              <Button size="lg" variant="outline" className="border-white/50 text-white hover:bg-white/10">
+              <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-indigo-600 transition-all">
                 <BookOpen className="h-5 w-5 mr-2" />
                 Read the Manual
               </Button>
