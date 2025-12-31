@@ -100,9 +100,16 @@ export default function HistoricalTrends({ reports, onClose }) {
 
   // Get all unique ONT serials across all records - only those with multiple data points
   const allOnts = useMemo(() => {
-    if (isLoadingData || ontRecords.length === 0) return [];
+    if (isLoadingData || ontRecords.length === 0) {
+      console.log('allOnts: No data', { isLoadingData, recordCount: ontRecords.length });
+      return [];
+    }
+
+    console.log(`Processing ${ontRecords.length} ONT records from ${reports.length} reports`);
 
     const ontMap = new Map();
+    let skippedNoSerial = 0;
+    
     ontRecords.forEach(record => {
       if (record.serial_number) {
         if (!ontMap.has(record.serial_number)) {
@@ -116,9 +123,10 @@ export default function HistoricalTrends({ reports, onClose }) {
           });
         }
         const report = reports.find(r => r.id === record.report_id);
-        ontMap.get(record.serial_number).dataPoints.push({
+        const dataPoint = {
           date: record.report_date || report?.upload_date,
           reportName: report?.report_name,
+          reportId: record.report_id,
           OntRxOptPwr: record.ont_rx_power,
           OLTRXOptPwr: record.olt_rx_power,
           OntTxPwr: record.ont_tx_power,
@@ -127,19 +135,51 @@ export default function HistoricalTrends({ reports, onClose }) {
           UpstreamFecUncorrected: record.us_fec_uncorrected || 0,
           DownstreamFecUncorrected: record.ds_fec_uncorrected || 0,
           status: record.status || 'ok'
-        });
+        };
+        ontMap.get(record.serial_number).dataPoints.push(dataPoint);
+      } else {
+        skippedNoSerial++;
       }
     });
     
+    console.log(`Found ${ontMap.size} unique ONT serials, skipped ${skippedNoSerial} records without serial`);
+    
     // Sort data points by date for each ONT and filter to only those with multiple data points
     const ontsWithHistory = [];
+    const ontsWithSinglePoint = [];
+    
     ontMap.forEach(ont => {
       ont.dataPoints.sort((a, b) => new Date(a.date) - new Date(b.date));
+      
+      // Group by unique report IDs to see if ONT appears in multiple reports
+      const uniqueReportIds = new Set(ont.dataPoints.map(d => d.reportId));
+      
       // Only include ONTs that appear in multiple reports
-      if (ont.dataPoints.length > 1) {
+      if (uniqueReportIds.size > 1) {
         ontsWithHistory.push(ont);
+      } else {
+        ontsWithSinglePoint.push(ont);
       }
     });
+    
+    console.log(`ONTs with multiple data points: ${ontsWithHistory.length}`);
+    console.log(`ONTs with single data point: ${ontsWithSinglePoint.length}`);
+    
+    if (ontsWithHistory.length > 0) {
+      console.log('Sample ONT with history:', {
+        serial: ontsWithHistory[0].serial,
+        dataPointCount: ontsWithHistory[0].dataPoints.length,
+        reports: ontsWithHistory[0].dataPoints.map(d => d.reportName)
+      });
+    }
+    
+    if (ontsWithSinglePoint.length > 0 && ontsWithHistory.length === 0) {
+      console.log('Sample ONT with single point:', {
+        serial: ontsWithSinglePoint[0].serial,
+        dataPointCount: ontsWithSinglePoint[0].dataPoints.length,
+        reportId: ontsWithSinglePoint[0].dataPoints[0].reportId
+      });
+    }
     
     return ontsWithHistory;
   }, [reports, ontRecords, isLoadingData]);
