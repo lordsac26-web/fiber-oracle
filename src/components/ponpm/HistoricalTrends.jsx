@@ -98,11 +98,11 @@ export default function HistoricalTrends({ reports, onClose }) {
     loadOntRecords();
   }, [reports]);
 
-  // Get all unique ONT serials across all records - only those with multiple data points
-  const allOnts = useMemo(() => {
+  // Track all unique ONTs and those with history separately
+  const { allUniqueOnts, ontsWithHistory } = useMemo(() => {
     if (isLoadingData || ontRecords.length === 0) {
       console.log('allOnts: No data', { isLoadingData, recordCount: ontRecords.length });
-      return [];
+      return { allUniqueOnts: 0, ontsWithHistory: [] };
     }
 
     console.log(`Processing ${ontRecords.length} ONT records from ${reports.length} reports`);
@@ -145,8 +145,8 @@ export default function HistoricalTrends({ reports, onClose }) {
     console.log(`Found ${ontMap.size} unique ONT serials, skipped ${skippedNoSerial} records without serial`);
     
     // Sort data points by date for each ONT and filter to only those with multiple data points
-    const ontsWithHistory = [];
-    const ontsWithSinglePoint = [];
+    const withHistory = [];
+    const withSinglePoint = [];
     
     ontMap.forEach(ont => {
       ont.dataPoints.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -156,33 +156,39 @@ export default function HistoricalTrends({ reports, onClose }) {
       
       // Only include ONTs that appear in multiple reports
       if (uniqueReportIds.size > 1) {
-        ontsWithHistory.push(ont);
+        withHistory.push(ont);
       } else {
-        ontsWithSinglePoint.push(ont);
+        withSinglePoint.push(ont);
       }
     });
     
-    console.log(`ONTs with multiple data points: ${ontsWithHistory.length}`);
-    console.log(`ONTs with single data point: ${ontsWithSinglePoint.length}`);
+    console.log(`ONTs with history (multiple reports): ${withHistory.length}`);
+    console.log(`ONTs with single report: ${withSinglePoint.length}`);
     
-    if (ontsWithHistory.length > 0) {
+    if (withHistory.length > 0) {
       console.log('Sample ONT with history:', {
-        serial: ontsWithHistory[0].serial,
-        dataPointCount: ontsWithHistory[0].dataPoints.length,
-        reports: ontsWithHistory[0].dataPoints.map(d => d.reportName)
+        serial: withHistory[0].serial,
+        dataPointCount: withHistory[0].dataPoints.length,
+        uniqueReports: new Set(withHistory[0].dataPoints.map(d => d.reportId)).size,
+        reports: withHistory[0].dataPoints.map(d => d.reportName)
       });
     }
     
-    if (ontsWithSinglePoint.length > 0 && ontsWithHistory.length === 0) {
-      console.log('Sample ONT with single point:', {
-        serial: ontsWithSinglePoint[0].serial,
-        dataPointCount: ontsWithSinglePoint[0].dataPoints.length,
-        reportId: ontsWithSinglePoint[0].dataPoints[0].reportId
+    if (withSinglePoint.length > 0 && withHistory.length === 0) {
+      console.log('All ONTs only appear in one report each. Sample:', {
+        serial: withSinglePoint[0].serial,
+        dataPointCount: withSinglePoint[0].dataPoints.length,
+        reportId: withSinglePoint[0].dataPoints[0].reportId,
+        reportName: withSinglePoint[0].dataPoints[0].reportName
       });
+      console.log('To see trends, upload the same report multiple times or upload reports with overlapping ONTs');
     }
     
-    return ontsWithHistory;
+    return { allUniqueOnts: ontMap.size, ontsWithHistory: withHistory };
   }, [reports, ontRecords, isLoadingData]);
+
+  // Use ontsWithHistory as allOnts for backward compatibility
+  const allOnts = ontsWithHistory;
 
   // Get unique OLTs
   const olts = useMemo(() => {
@@ -694,14 +700,14 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
           <div className="grid grid-cols-4 gap-3">
             <Card className="border">
               <CardContent className="p-3 text-center">
-                <div className="text-2xl font-bold text-blue-600">{allOnts.length}</div>
-                <div className="text-xs text-gray-500">Total ONTs</div>
+                <div className="text-2xl font-bold text-gray-600">{allUniqueOnts.toLocaleString()}</div>
+                <div className="text-xs text-gray-500">Total Unique ONTs</div>
               </CardContent>
             </Card>
             <Card className="border">
               <CardContent className="p-3 text-center">
-                <div className="text-2xl font-bold text-indigo-600">{filteredOnts.length}</div>
-                <div className="text-xs text-gray-500">Filtered ONTs</div>
+                <div className="text-2xl font-bold text-blue-600">{allOnts.length}</div>
+                <div className="text-xs text-gray-500">With History</div>
               </CardContent>
             </Card>
             <Card className="border">
@@ -713,7 +719,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
             <Card className="border">
               <CardContent className="p-3 text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  {filteredOnts.length - degradingOnts.length}
+                  {allOnts.length > 0 ? allOnts.length - degradingOnts.length : 0}
                 </div>
                 <div className="text-xs text-gray-500">Stable</div>
               </CardContent>
@@ -1370,15 +1376,29 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
 
           {/* No data message */}
           {!isLoadingData && allOnts.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <History className="h-12 w-12 mx-auto mb-2 opacity-30" />
-              <p className="font-medium">No ONTs with multiple data points found.</p>
-              <p className="text-sm mt-2">
-                {ontRecords.length === 0 
-                  ? 'No historical ONT records found. Reports may not have been fully saved with ONT data.'
-                  : `Found ${ontRecords.length} total ONT records, but each ONT only appears in one report. Upload more reports over time to track trends.`}
-              </p>
-            </div>
+            <Card className="border-2 border-blue-200 bg-blue-50 dark:bg-blue-900/20">
+              <CardContent className="p-8 text-center">
+                <History className="h-16 w-16 mx-auto mb-4 text-blue-400" />
+                <h3 className="font-semibold text-lg text-gray-900 dark:text-white mb-2">
+                  {ontRecords.length === 0 ? 'No Historical Data Found' : 'Waiting for Historical Trends'}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+                  {ontRecords.length === 0 
+                    ? 'No ONT records have been saved yet. Upload PON PM reports to start tracking performance over time.'
+                    : `Found ${allUniqueOnts.toLocaleString()} unique ONTs across ${reports.length} reports, but each ONT only appears in one report.`}
+                </p>
+                {ontRecords.length > 0 && (
+                  <div className="mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg max-w-md mx-auto">
+                    <p className="text-xs text-gray-500 mb-2"><strong>To see trends:</strong></p>
+                    <ul className="text-xs text-left text-gray-600 dark:text-gray-400 space-y-1">
+                      <li>• Upload the same network's PM export at different times</li>
+                      <li>• ONTs must have the same serial numbers across reports</li>
+                      <li>• Trends will appear automatically when ONTs appear in 2+ reports</li>
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
         </div>
       </DialogContent>

@@ -159,17 +159,18 @@ export default function PONPMAnalysis() {
       
       // Save all ONT records via backend (handles large datasets up to 50k+)
       if (reportData.onts && reportData.onts.length > 0) {
-        toast.loading(`Saving ${reportData.onts.length.toLocaleString()} ONT records...`, { id: 'save-onts' });
+        toast.loading(`Saving ${reportData.onts.length.toLocaleString()} ONT records for trends...`, { id: 'save-onts' });
         
         try {
           // Send all ONTs to backend - it handles batching internally
-          await base44.functions.invoke('saveOntRecords', {
+          const saveResponse = await base44.functions.invoke('saveOntRecords', {
             report_id: report.id,
             report_date: reportData.upload_date,
             onts: reportData.onts,
           });
           
-          toast.success(`Saved ${reportData.onts.length.toLocaleString()} ONT records`, { id: 'save-onts' });
+          console.log('ONT records saved:', saveResponse.data);
+          toast.success(`Saved ${saveResponse.data?.savedCount || reportData.onts.length} ONT records for historical analysis`, { id: 'save-onts' });
         } catch (err) {
           console.error('Failed to save ONT records:', err);
           toast.error(`Failed to save ONT records: ${err.message}`, { id: 'save-onts' });
