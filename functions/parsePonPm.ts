@@ -77,6 +77,21 @@ function parseNumeric(value) {
   return isNaN(num) ? null : num;
 }
 
+// Normalize serial number (FSAN) for consistent matching across reports
+function normalizeSerialNumber(serial) {
+  if (!serial || typeof serial !== 'string') return null;
+  
+  // Convert to uppercase, trim whitespace, remove common OCR artifacts
+  let normalized = serial.trim().toUpperCase();
+  
+  // Remove any non-alphanumeric characters that might be OCR errors
+  // Keep only letters and numbers (typical FSAN format: 8 alphanumeric chars)
+  normalized = normalized.replace(/[^A-Z0-9]/g, '');
+  
+  // If empty after cleaning, return null
+  return normalized.length > 0 ? normalized : null;
+}
+
 function analyzeOnt(ont, segmentStats) {
   const issues = [];
   const warnings = [];
@@ -344,7 +359,13 @@ Deno.serve(async (req) => {
       for (const field of FIELDS) {
         // Handle variations in column naming
         const value = record[field] || record[field.toLowerCase()] || record[field.toUpperCase()] || null;
-        ont[field] = value;
+        
+        // Apply normalization to SerialNumber field
+        if (field === 'SerialNumber') {
+          ont[field] = normalizeSerialNumber(value);
+        } else {
+          ont[field] = value;
+        }
       }
       
       // Try to match LCP data

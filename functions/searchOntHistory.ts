@@ -1,5 +1,20 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
+// Normalize serial number (FSAN) for consistent matching - same logic as parsePonPm
+function normalizeSerialNumber(serial) {
+  if (!serial || typeof serial !== 'string') return null;
+  
+  // Convert to uppercase, trim whitespace, remove common OCR artifacts
+  let normalized = serial.trim().toUpperCase();
+  
+  // Remove any non-alphanumeric characters that might be OCR errors
+  // Keep only letters and numbers (typical FSAN format: 8 alphanumeric chars)
+  normalized = normalized.replace(/[^A-Z0-9]/g, '');
+  
+  // If empty after cleaning, return null
+  return normalized.length > 0 ? normalized : null;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -19,7 +34,8 @@ Deno.serve(async (req) => {
     let query = {};
     
     if (search_type === 'fsan' || search_type === 'serial') {
-      query.serial_number = search_value;
+      // Normalize the search value for consistent matching
+      query.serial_number = normalizeSerialNumber(search_value);
     } else if (search_type === 'olt') {
       query.olt_name = search_value;
     } else if (search_type === 'port') {
