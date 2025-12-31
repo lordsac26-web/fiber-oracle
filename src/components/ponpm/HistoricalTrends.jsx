@@ -91,7 +91,7 @@ export default function HistoricalTrends({ reports, onClose }) {
     loadOntRecords();
   }, [reports]);
 
-  // Get all unique ONT serials across all records
+  // Get all unique ONT serials across all records - only those with multiple data points
   const allOnts = useMemo(() => {
     if (isLoadingData || ontRecords.length === 0) return [];
 
@@ -124,12 +124,17 @@ export default function HistoricalTrends({ reports, onClose }) {
       }
     });
     
-    // Sort data points by date for each ONT
+    // Sort data points by date for each ONT and filter to only those with multiple data points
+    const ontsWithHistory = [];
     ontMap.forEach(ont => {
       ont.dataPoints.sort((a, b) => new Date(a.date) - new Date(b.date));
+      // Only include ONTs that appear in multiple reports
+      if (ont.dataPoints.length > 1) {
+        ontsWithHistory.push(ont);
+      }
     });
     
-    return Array.from(ontMap.values());
+    return ontsWithHistory;
   }, [reports, ontRecords, isLoadingData]);
 
   // Get unique OLTs
@@ -148,7 +153,7 @@ export default function HistoricalTrends({ reports, onClose }) {
         ont.serial.toLowerCase().includes(searchSerial.toLowerCase()) ||
         ont.ontId?.toString().includes(searchSerial);
       const matchesOlt = selectedOlt === 'all' || ont.olt === selectedOlt;
-      return matchesSearch && matchesOlt && ont.dataPoints.length > 1;
+      return matchesSearch && matchesOlt;
     });
     setCurrentPage(1); // Reset to page 1 when filters change
     return filtered;
@@ -1317,14 +1322,14 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
           )}
 
           {/* No data message */}
-          {!isLoadingData && filteredOnts.length === 0 && (
+          {!isLoadingData && allOnts.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <History className="h-12 w-12 mx-auto mb-2 opacity-30" />
-              <p>No ONTs with multiple data points found.</p>
-              <p className="text-sm">
-                {allOnts.length === 0 
-                  ? 'No historical ONT records found. Make sure reports are fully saved.'
-                  : 'Upload more reports to see trends for these ONTs.'}
+              <p className="font-medium">No ONTs with multiple data points found.</p>
+              <p className="text-sm mt-2">
+                {ontRecords.length === 0 
+                  ? 'No historical ONT records found. Reports may not have been fully saved with ONT data.'
+                  : `Found ${ontRecords.length} total ONT records, but each ONT only appears in one report. Upload more reports over time to track trends.`}
               </p>
             </div>
           )}
