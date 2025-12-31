@@ -16,8 +16,13 @@ function sanitizeText(text) {
     .replace(/×/g, 'x')
     .replace(/÷/g, '/')
     .replace(/°/g, 'deg')
-    .replace(/µm/g, 'um')  // micrometer - preserve as "um" for readability
-    .replace(/µ/g, 'u')   // standalone micro symbol
+    // CRITICAL: Properly handle micrometers - convert μm to "micrometers" or "um"
+    .replace(/(\d+\.?\d*)\s*μm/g, '$1 micrometers')  // 9μm -> 9 micrometers
+    .replace(/(\d+\.?\d*)\s*µm/g, '$1 micrometers')  // 9µm -> 9 micrometers (alternate symbol)
+    .replace(/μm/g, 'micrometers')  // standalone μm
+    .replace(/µm/g, 'micrometers')  // standalone µm
+    .replace(/μ/g, 'micro')   // standalone micro symbol
+    .replace(/µ/g, 'micro')   // standalone micro symbol (alternate)
     .replace(/[^\x00-\x7F]/g, ''); // Remove any remaining non-ASCII characters
 }
 
@@ -26,9 +31,10 @@ function formatMeasurement(text) {
   if (!text) return '';
   // Convert common fiber measurements to readable format
   return String(text)
-    .replace(/(\d+)\s*µm/g, '$1um')      // 9µm -> 9um
-    .replace(/(\d+)\s*um/g, '$1um')       // already formatted
-    .replace(/(\d+\.?\d*)\s*micron/gi, '$1um'); // micron -> um
+    .replace(/(\d+)\s*μm/g, '$1 micrometers')      // 9μm -> 9 micrometers
+    .replace(/(\d+)\s*µm/g, '$1 micrometers')      // 9µm -> 9 micrometers
+    .replace(/(\d+)\s*um/g, '$1 micrometers')      // 9um -> 9 micrometers
+    .replace(/(\d+\.?\d*)\s*micron/gi, '$1 micrometers'); // micron -> micrometers
 }
 
 Deno.serve(async (req) => {
