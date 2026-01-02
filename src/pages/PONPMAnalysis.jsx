@@ -1444,7 +1444,7 @@ export default function PONPMAnalysis() {
                                                     <span className={parseInt(ont.UpstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
                                                       {ont.UpstreamBipErrors || '0'}
                                                     </span>
-                                                    {ont._trends?.us_bip_change !== null && ont._trends?.us_bip_change !== 0 && (
+                                                    {ont._trends && ont._trends.us_bip_change !== null && ont._trends.us_bip_change !== 0 && (
                                                       <span className={`text-[9px] ${ont._trends.us_bip_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
                                                         {ont._trends.us_bip_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.us_bip_change)}
                                                       </span>
@@ -1456,7 +1456,7 @@ export default function PONPMAnalysis() {
                                                     <span className={parseInt(ont.DownstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
                                                       {ont.DownstreamBipErrors || '0'}
                                                     </span>
-                                                    {ont._trends?.ds_bip_change !== null && ont._trends?.ds_bip_change !== 0 && (
+                                                    {ont._trends && ont._trends.ds_bip_change !== null && ont._trends.ds_bip_change !== 0 && (
                                                       <span className={`text-[9px] ${ont._trends.ds_bip_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
                                                         {ont._trends.ds_bip_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.ds_bip_change)}
                                                       </span>
@@ -1468,7 +1468,7 @@ export default function PONPMAnalysis() {
                                                     <span className={parseInt(ont.UpstreamFecUncorrectedCodeWords) > 10 ? 'text-amber-600' : ''}>
                                                       {ont.UpstreamFecUncorrectedCodeWords || '0'}
                                                     </span>
-                                                    {ont._trends?.us_fec_change !== null && ont._trends?.us_fec_change !== 0 && (
+                                                    {ont._trends && ont._trends.us_fec_change !== null && ont._trends.us_fec_change !== 0 && (
                                                       <span className={`text-[9px] ${ont._trends.us_fec_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
                                                         {ont._trends.us_fec_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.us_fec_change)}
                                                       </span>
@@ -1480,7 +1480,7 @@ export default function PONPMAnalysis() {
                                                     <span className={parseInt(ont.DownstreamFecUncorrectedCodeWords) > 10 ? 'text-amber-600' : ''}>
                                                       {ont.DownstreamFecUncorrectedCodeWords || '0'}
                                                     </span>
-                                                    {ont._trends?.ds_fec_change !== null && ont._trends?.ds_fec_change !== 0 && (
+                                                    {ont._trends && ont._trends.ds_fec_change !== null && ont._trends.ds_fec_change !== 0 && (
                                                       <span className={`text-[9px] ${ont._trends.ds_fec_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
                                                         {ont._trends.ds_fec_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.ds_fec_change)}
                                                       </span>
