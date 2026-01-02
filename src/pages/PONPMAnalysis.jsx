@@ -71,7 +71,9 @@ import {
   Trash2,
   Calendar,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Clipboard,
+  Sparkles
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -1373,6 +1375,7 @@ export default function PONPMAnalysis() {
                                               <TableHead className="text-right">US FEC</TableHead>
                                               <TableHead className="text-right">DS FEC</TableHead>
                                               <TableHead>Issues</TableHead>
+                                              <TableHead></TableHead>
                                             </TableRow>
                                           </TableHeader>
                                           <TableBody>
