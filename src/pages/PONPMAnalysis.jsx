@@ -1373,7 +1373,8 @@ Be specific, technical, and actionable.`;
               
               {/* Hierarchy View */}
               {viewMode === 'hierarchy' && Object.entries(result.olts).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([oltName, oltStats]) => {
-                const oltOnts = result.onts.filter(o => o._oltName === oltName);
+                const oltOnts = filteredOnts.filter(o => o._oltName === oltName);
+                if (oltOnts.length === 0) return null; // Hide OLT if no matching ONTs
                 const oltCritical = oltOnts.filter(o => o._analysis.status === 'critical').length;
                 const oltWarning = oltOnts.filter(o => o._analysis.status === 'warning').length;
                 const isOltExpanded = expandedOlts.includes(oltName);
@@ -1435,6 +1436,7 @@ Be specific, technical, and actionable.`;
                         <div className="p-3 space-y-2 bg-gray-50 dark:bg-gray-800/50">
                           {Object.entries(oltStats.ports).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([portKey, portStats]) => {
                             const portOnts = oltOnts.filter(o => o._port === portKey);
+                            if (portOnts.length === 0) return null; // Hide port if no matching ONTs
                             const portCritical = portOnts.filter(o => o._analysis.status === 'critical').length;
                             const portWarning = portOnts.filter(o => o._analysis.status === 'warning').length;
                             const portId = `${oltName}|${portKey}`;
