@@ -85,6 +85,7 @@ import HistoricalTrends from '@/components/ponpm/HistoricalTrends';
 import OLTPortSummary from '@/components/ponpm/OLTPortSummary';
 import HistoricalDataManager from '@/components/ponpm/HistoricalDataManager';
 import ReportForm from '@/components/jobreports/ReportForm';
+import ONTDetailView from '@/components/ponpm/ONTDetailView';
 
 const STATUS_COLORS = {
   critical: 'bg-red-500',
@@ -135,6 +136,7 @@ export default function PONPMAnalysis() {
   const [creatingJobReport, setCreatingJobReport] = useState(null);
   const [jobReportFormData, setJobReportFormData] = useState(null);
   const [generatingReport, setGeneratingReport] = useState(false);
+  const [selectedOntDetail, setSelectedOntDetail] = useState(null);
   const [customThresholds, setCustomThresholds] = useState(() => {
     const saved = localStorage.getItem('ponPmThresholds');
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
@@ -1759,15 +1761,26 @@ Be specific, technical, and actionable.`;
                                                   </TooltipProvider>
                                                 </TableCell>
                                                 <TableCell>
-                                                  <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => createJobReportForONT(ont)}
-                                                    className="text-xs h-7 gap-1"
-                                                  >
-                                                    <Clipboard className="h-3 w-3" />
-                                                    Job Report
-                                                  </Button>
+                                                  <div className="flex gap-1">
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      onClick={(e) => { e.stopPropagation(); setSelectedOntDetail(ont); }}
+                                                      className="text-xs h-7 gap-1"
+                                                    >
+                                                      <Activity className="h-3 w-3" />
+                                                      Details
+                                                    </Button>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="outline"
+                                                      onClick={(e) => { e.stopPropagation(); createJobReportForONT(ont); }}
+                                                      className="text-xs h-7 gap-1"
+                                                    >
+                                                      <Clipboard className="h-3 w-3" />
+                                                      Job
+                                                    </Button>
+                                                  </div>
                                                 </TableCell>
                                                 </TableRow>
                                                 ))}
@@ -1849,6 +1862,14 @@ Be specific, technical, and actionable.`;
         )}
       </main>
       
+      {/* ONT Detail View */}
+      {selectedOntDetail && (
+        <ONTDetailView 
+          ont={selectedOntDetail} 
+          onClose={() => setSelectedOntDetail(null)} 
+        />
+      )}
+
       {/* Job Report Creation Dialog */}
       <Dialog open={!!creatingJobReport} onOpenChange={(open) => {
         if (!open) {
