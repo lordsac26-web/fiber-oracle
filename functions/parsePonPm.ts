@@ -99,7 +99,10 @@ function analyzeOnt(ont, segmentStats) {
   // Check ONT Rx Power
   const ontRx = parseNumeric(ont.OntRxOptPwr);
   if (ontRx !== null) {
-    if (ontRx < THRESHOLDS.OntRxOptPwr.low) {
+    // Check if ONT is offline (0 power)
+    if (ontRx === 0) {
+      warnings.push({ field: 'OntRxOptPwr', severity: 'warning', value: `${ontRx} dBm`, threshold: `N/A`, message: `ONT OFFLINE - No signal detected` });
+    } else if (ontRx < THRESHOLDS.OntRxOptPwr.low) {
       issues.push({ field: 'OntRxOptPwr', severity: 'critical', value: `${ontRx} dBm`, threshold: `< ${THRESHOLDS.OntRxOptPwr.low} dBm`, message: `ONT Rx power critically low` });
     } else if (ontRx < THRESHOLDS.OntRxOptPwr.marginal) {
       warnings.push({ field: 'OntRxOptPwr', severity: 'warning', value: `${ontRx} dBm`, threshold: `< ${THRESHOLDS.OntRxOptPwr.marginal} dBm`, message: `ONT Rx power marginal` });
@@ -119,7 +122,10 @@ function analyzeOnt(ont, segmentStats) {
   // Check OLT Rx Power
   const oltRx = parseNumeric(ont.OLTRXOptPwr);
   if (oltRx !== null) {
-    if (oltRx < THRESHOLDS.OLTRXOptPwr.low) {
+    // Check if OLT Rx is 0 (ONT offline)
+    if (oltRx === 0) {
+      // Don't flag as issue - already marked as offline above
+    } else if (oltRx < THRESHOLDS.OLTRXOptPwr.low) {
       issues.push({ field: 'OLTRXOptPwr', severity: 'critical', value: `${oltRx} dBm`, threshold: `< ${THRESHOLDS.OLTRXOptPwr.low} dBm`, message: `OLT Rx power critically low` });
     } else if (oltRx < THRESHOLDS.OLTRXOptPwr.marginal) {
       warnings.push({ field: 'OLTRXOptPwr', severity: 'warning', value: `${oltRx} dBm`, threshold: `< ${THRESHOLDS.OLTRXOptPwr.marginal} dBm`, message: `OLT Rx power marginal` });

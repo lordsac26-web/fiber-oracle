@@ -309,13 +309,13 @@ export default function PONPMAnalysis() {
   const exportCSV = (filterType = 'all') => {
     if (!result?.onts) return;
 
-    let ontsToExport = filteredOnts;
+    let ontsToExport = result.onts;
     if (filterType === 'critical') {
-      ontsToExport = filteredOnts.filter(ont => ont._analysis.status === 'critical');
+      ontsToExport = result.onts.filter(ont => ont._analysis.status === 'critical');
     } else if (filterType === 'warning') {
-      ontsToExport = filteredOnts.filter(ont => ont._analysis.status === 'warning');
+      ontsToExport = result.onts.filter(ont => ont._analysis.status === 'warning');
     } else if (filterType === 'issues') {
-      ontsToExport = filteredOnts.filter(ont => ont._analysis.status !== 'ok');
+      ontsToExport = result.onts.filter(ont => ont._analysis.status !== 'ok');
     }
 
     const headers = [
@@ -357,6 +357,40 @@ export default function PONPMAnalysis() {
     a.click();
     URL.revokeObjectURL(url);
     toast.success(`Exported ${ontsToExport.length} ${filterType === 'all' ? '' : filterType + ' '}ONTs`);
+  };
+
+  const exportCriticalPDF = async () => {
+    if (!result?.onts) return;
+
+    const criticalOnts = result.onts.filter(o => o._analysis.status === 'critical');
+    if (criticalOnts.length === 0) {
+      toast.error('No critical issues to export');
+      return;
+    }
+
+    toast.loading('Generating critical issues PDF...', { id: 'critical-pdf' });
+
+    try {
+      const response = await base44.functions.invoke('generatePonPmPDF', {
+        reportData: { ...result, onts: criticalOnts },
+        criticalOnly: true
+      }, { responseType: 'arraybuffer' });
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pon-pm-critical-issues-${new Date().toISOString().slice(0,10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+
+      toast.success(`Exported ${criticalOnts.length} critical issues to PDF`, { id: 'critical-pdf' });
+    } catch (error) {
+      console.error('Critical PDF export error:', error);
+      toast.error('Failed to generate critical issues PDF', { id: 'critical-pdf' });
+    }
   };
 
   const exportPDF = async () => {
@@ -671,10 +705,14 @@ export default function PONPMAnalysis() {
                       <ChevronDown className="h-4 w-4 ml-2" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem onClick={() => exportPDF()}>
                       <FileText className="h-4 w-4 mr-2 text-red-500" />
-                      Issue Report (PDF)
+                      Full Issue Report (PDF)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportCriticalPDF}>
+                      <FileText className="h-4 w-4 mr-2 text-red-600" />
+                      Critical Issues Only (PDF)
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={exportIssueReport}>
                       <FileText className="h-4 w-4 mr-2" />
