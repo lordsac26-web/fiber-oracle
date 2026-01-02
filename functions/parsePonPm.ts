@@ -95,14 +95,19 @@ function normalizeSerialNumber(serial) {
 function analyzeOnt(ont, segmentStats) {
   const issues = [];
   const warnings = [];
+  let isOffline = false;
 
   // Check ONT Rx Power
   const ontRx = parseNumeric(ont.OntRxOptPwr);
-  if (ontRx !== null) {
-    // Check if ONT is offline (0 power)
-    if (ontRx === 0) {
-      warnings.push({ field: 'OntRxOptPwr', severity: 'warning', value: `${ontRx} dBm`, threshold: `N/A`, message: `ONT OFFLINE - No signal detected` });
-    } else if (ontRx < THRESHOLDS.OntRxOptPwr.low) {
+  const oltRxCheck = parseNumeric(ont.OLTRXOptPwr);
+  
+  // Detect offline ONT (both ONT Rx and OLT Rx are 0 or null)
+  if ((ontRx === 0 || ontRx === null) && (oltRxCheck === 0 || oltRxCheck === null)) {
+    isOffline = true;
+  }
+  
+  if (ontRx !== null && !isOffline) {
+    if (ontRx < THRESHOLDS.OntRxOptPwr.low) {
       issues.push({ field: 'OntRxOptPwr', severity: 'critical', value: `${ontRx} dBm`, threshold: `< ${THRESHOLDS.OntRxOptPwr.low} dBm`, message: `ONT Rx power critically low` });
     } else if (ontRx < THRESHOLDS.OntRxOptPwr.marginal) {
       warnings.push({ field: 'OntRxOptPwr', severity: 'warning', value: `${ontRx} dBm`, threshold: `< ${THRESHOLDS.OntRxOptPwr.marginal} dBm`, message: `ONT Rx power marginal` });
@@ -121,11 +126,8 @@ function analyzeOnt(ont, segmentStats) {
 
   // Check OLT Rx Power
   const oltRx = parseNumeric(ont.OLTRXOptPwr);
-  if (oltRx !== null) {
-    // Check if OLT Rx is 0 (ONT offline)
-    if (oltRx === 0) {
-      // Don't flag as issue - already marked as offline above
-    } else if (oltRx < THRESHOLDS.OLTRXOptPwr.low) {
+  if (oltRx !== null && !isOffline) {
+    if (oltRx < THRESHOLDS.OLTRXOptPwr.low) {
       issues.push({ field: 'OLTRXOptPwr', severity: 'critical', value: `${oltRx} dBm`, threshold: `< ${THRESHOLDS.OLTRXOptPwr.low} dBm`, message: `OLT Rx power critically low` });
     } else if (oltRx < THRESHOLDS.OLTRXOptPwr.marginal) {
       warnings.push({ field: 'OLTRXOptPwr', severity: 'warning', value: `${oltRx} dBm`, threshold: `< ${THRESHOLDS.OLTRXOptPwr.marginal} dBm`, message: `OLT Rx power marginal` });
@@ -173,7 +175,7 @@ function analyzeOnt(ont, segmentStats) {
   return {
     issues,
     warnings,
-    status: issues.length > 0 ? 'critical' : warnings.length > 0 ? 'warning' : 'ok'
+    status: isOffline ? 'offline' : issues.length > 0 ? 'critical' : warnings.length > 0 ? 'warning' : 'ok'
   };
 }
 
@@ -488,6 +490,7 @@ Deno.serve(async (req) => {
       criticalCount: analyzedOnts.filter(o => o._analysis.status === 'critical').length,
       warningCount: analyzedOnts.filter(o => o._analysis.status === 'warning').length,
       okCount: analyzedOnts.filter(o => o._analysis.status === 'ok').length,
+      offlineCount: analyzedOnts.filter(o => o._analysis.status === 'offline').length,
       oltCount: Object.keys(segmentStats).length,
       portCount: Object.values(segmentStats).reduce((sum, olt) => sum + Object.keys(olt.ports).length, 0),
     };

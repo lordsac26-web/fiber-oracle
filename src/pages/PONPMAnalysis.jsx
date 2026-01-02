@@ -90,6 +90,7 @@ const STATUS_COLORS = {
   critical: 'bg-red-500',
   warning: 'bg-amber-500',
   ok: 'bg-green-500',
+  offline: 'bg-purple-500',
   info: 'bg-blue-500',
 };
 
@@ -97,6 +98,7 @@ const STATUS_BADGES = {
   critical: 'bg-red-100 text-red-800 border-red-300',
   warning: 'bg-amber-100 text-amber-800 border-amber-300',
   ok: 'bg-green-100 text-green-800 border-green-300',
+  offline: 'bg-purple-100 text-purple-800 border-purple-300',
 };
 
 const DEFAULT_THRESHOLDS = {
@@ -126,7 +128,7 @@ export default function PONPMAnalysis() {
   const [expandedPorts, setExpandedPorts] = useState([]);
   const [issueDetailView, setIssueDetailView] = useState(null);
   const [showThresholdSettings, setShowThresholdSettings] = useState(false);
-  const [hideOntStatus, setHideOntStatus] = useState({ ok: false, warning: false, critical: false });
+  const [hideOntStatus, setHideOntStatus] = useState({ ok: false, warning: false, critical: false, offline: false });
   const [showHistoricalReports, setShowHistoricalReports] = useState(false);
   const [showTrends, setShowTrends] = useState(false);
   const [viewMode, setViewMode] = useState('hierarchy'); // 'hierarchy' or 'summary'
@@ -1070,7 +1072,7 @@ Be specific, technical, and actionable.`;
         {result && (
           <>
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               <Card className="border-0 shadow">
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -1093,7 +1095,7 @@ Be specific, technical, and actionable.`;
                   <div className="text-2xl font-bold text-red-600">
                     {result.summary.criticalCount}
                   </div>
-                  <div className="text-xs text-gray-500">Critical Issues</div>
+                  <div className="text-xs text-gray-500">Critical</div>
                 </CardContent>
               </Card>
               <Card 
@@ -1105,6 +1107,17 @@ Be specific, technical, and actionable.`;
                     {result.summary.warningCount}
                   </div>
                   <div className="text-xs text-gray-500">Warnings</div>
+                </CardContent>
+              </Card>
+              <Card 
+                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-purple-300 ${statusFilter === 'offline' ? 'ring-2 ring-purple-500' : ''}`}
+                onClick={() => { setStatusFilter(statusFilter === 'offline' ? 'all' : 'offline'); setIssueDetailView(null); }}
+              >
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {result.summary.offlineCount || 0}
+                  </div>
+                  <div className="text-xs text-gray-500">Offline</div>
                 </CardContent>
               </Card>
               <Card 
@@ -1228,6 +1241,10 @@ Be specific, technical, and actionable.`;
                     className="bg-red-500 transition-all" 
                     style={{ width: `${(result.summary.criticalCount / result.summary.totalOnts) * 100}%` }}
                   />
+                  <div 
+                    className="bg-purple-500 transition-all" 
+                    style={{ width: `${((result.summary.offlineCount || 0) / result.summary.totalOnts) * 100}%` }}
+                  />
                 </div>
                 {result.onts?.filter(o => o._trends).length > 0 && (
                   <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs">
@@ -1269,6 +1286,7 @@ Be specific, technical, and actionable.`;
                       <SelectItem value="all">All Status</SelectItem>
                       <SelectItem value="critical">Critical</SelectItem>
                       <SelectItem value="warning">Warning</SelectItem>
+                      <SelectItem value="offline">Offline</SelectItem>
                       <SelectItem value="ok">OK</SelectItem>
                     </SelectContent>
                   </Select>
@@ -1557,6 +1575,15 @@ Be specific, technical, and actionable.`;
                                         <label className="flex items-center gap-1.5 cursor-pointer">
                                           <input
                                             type="checkbox"
+                                            checked={!hideOntStatus.offline}
+                                            onChange={() => setHideOntStatus(prev => ({ ...prev, offline: !prev.offline }))}
+                                            className="rounded border-gray-300"
+                                          />
+                                          <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">Offline</Badge>
+                                        </label>
+                                        <label className="flex items-center gap-1.5 cursor-pointer">
+                                          <input
+                                            type="checkbox"
                                             checked={!hideOntStatus.ok}
                                             onChange={() => setHideOntStatus(prev => ({ ...prev, ok: !prev.ok }))}
                                             className="rounded border-gray-300"
@@ -1585,7 +1612,12 @@ Be specific, technical, and actionable.`;
                                           </TableHeader>
                                           <TableBody>
                                             {portOnts.filter(ont => !hideOntStatus[ont._analysis.status]).map((ont, idx) => (
-                                              <TableRow key={idx} className={ont._analysis.status === 'critical' ? 'bg-red-50 dark:bg-red-900/10' : ont._analysis.status === 'warning' ? 'bg-amber-50 dark:bg-amber-900/10' : ''}>
+                                              <TableRow key={idx} className={
+                                                ont._analysis.status === 'critical' ? 'bg-red-50 dark:bg-red-900/10' : 
+                                                ont._analysis.status === 'warning' ? 'bg-amber-50 dark:bg-amber-900/10' : 
+                                                ont._analysis.status === 'offline' ? 'bg-purple-50 dark:bg-purple-900/10' : 
+                                                ''
+                                              }>
                                                 <TableCell>
                                                   <div className={`w-3 h-3 rounded-full ${STATUS_COLORS[ont._analysis.status]}`} />
                                                 </TableCell>
