@@ -448,21 +448,32 @@ export default function PONPMAnalysis() {
       
       // Build trend summary
       const trends = [];
+      const trendDetails = [];
       if (ont._trends) {
         if (ont._trends.ont_rx_change !== null && ont._trends.ont_rx_change !== undefined) {
-          trends.push(`ONT Rx changed by ${ont._trends.ont_rx_change > 0 ? '+' : ''}${ont._trends.ont_rx_change.toFixed(1)} dB since ${moment(ont._trends.previous_date).format('MMM D')}`);
+          const change = ont._trends.ont_rx_change;
+          trends.push(`ONT Rx changed by ${change > 0 ? '+' : ''}${change.toFixed(1)} dB since ${moment(ont._trends.previous_date).format('MMM D')}`);
+          trendDetails.push(`ONT Rx Power: ${change.toFixed(1)} dB change over ${ont._trends.days_since_last} days ${change < -1 ? '(DEGRADING)' : change > 1 ? '(IMPROVING)' : '(STABLE)'}`);
         }
-        if (ont._trends.us_bip_change > 0) {
-          trends.push(`Upstream BIP errors increased by ${ont._trends.us_bip_change}`);
+        if (ont._trends.olt_rx_change !== null && ont._trends.olt_rx_change !== undefined) {
+          const change = ont._trends.olt_rx_change;
+          trendDetails.push(`OLT Rx Power: ${change > 0 ? '+' : ''}${change.toFixed(1)} dB change ${change < -1 ? '(DEGRADING)' : change > 1 ? '(IMPROVING)' : '(STABLE)'}`);
         }
-        if (ont._trends.ds_bip_change > 0) {
-          trends.push(`Downstream BIP errors increased by ${ont._trends.ds_bip_change}`);
+        if (ont._trends.us_bip_change !== 0) {
+          trends.push(`Upstream BIP errors ${ont._trends.us_bip_change > 0 ? 'increased' : 'decreased'} by ${Math.abs(ont._trends.us_bip_change)}`);
+          trendDetails.push(`US BIP Errors: ${ont._trends.us_bip_change > 0 ? '+' : ''}${ont._trends.us_bip_change} ${ont._trends.us_bip_change > 100 ? '(SIGNIFICANT INCREASE)' : ''}`);
         }
-        if (ont._trends.us_fec_change > 0) {
-          trends.push(`Upstream FEC uncorrected increased by ${ont._trends.us_fec_change}`);
+        if (ont._trends.ds_bip_change !== 0) {
+          trends.push(`Downstream BIP errors ${ont._trends.ds_bip_change > 0 ? 'increased' : 'decreased'} by ${Math.abs(ont._trends.ds_bip_change)}`);
+          trendDetails.push(`DS BIP Errors: ${ont._trends.ds_bip_change > 0 ? '+' : ''}${ont._trends.ds_bip_change} ${ont._trends.ds_bip_change > 100 ? '(SIGNIFICANT INCREASE)' : ''}`);
         }
-        if (ont._trends.ds_fec_change > 0) {
-          trends.push(`Downstream FEC uncorrected increased by ${ont._trends.ds_fec_change}`);
+        if (ont._trends.us_fec_change !== 0) {
+          trends.push(`Upstream FEC uncorrected ${ont._trends.us_fec_change > 0 ? 'increased' : 'decreased'} by ${Math.abs(ont._trends.us_fec_change)}`);
+          trendDetails.push(`US FEC Uncorrected: ${ont._trends.us_fec_change > 0 ? '+' : ''}${ont._trends.us_fec_change} ${ont._trends.us_fec_change > 10 ? '(SIGNIFICANT INCREASE)' : ''}`);
+        }
+        if (ont._trends.ds_fec_change !== 0) {
+          trends.push(`Downstream FEC uncorrected ${ont._trends.ds_fec_change > 0 ? 'increased' : 'decreased'} by ${Math.abs(ont._trends.ds_fec_change)}`);
+          trendDetails.push(`DS FEC Uncorrected: ${ont._trends.ds_fec_change > 0 ? '+' : ''}${ont._trends.ds_fec_change} ${ont._trends.ds_fec_change > 10 ? '(SIGNIFICANT INCREASE)' : ''}`);
         }
       }
       

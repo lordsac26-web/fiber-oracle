@@ -581,11 +581,14 @@ function generateJobReportPDF(data) {
       y = margin;
     }
     
+    doc.setFillColor(59, 130, 246);
+    doc.rect(margin, y - 2, 3, 8, 'F');
+    
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(71, 85, 105);
-    doc.text('ONT Information', margin, y);
-    y += 8;
+    doc.text('ONT Information', margin + 6, y + 3);
+    y += 10;
 
     doc.setTextColor(0, 0, 0);
     addField('FSAN Serial', data.fiber_info.fsan);
@@ -595,6 +598,38 @@ function generateJobReportPDF(data) {
     if (data.fiber_info.lcp) {
       addField('LCP/Splitter', `${data.fiber_info.lcp}${data.fiber_info.splitter ? ' / ' + data.fiber_info.splitter : ''}`);
     }
+    y += 5;
+  }
+
+  // Historical Trends Section
+  if (data.historical_trends && data.historical_trends.length > 0) {
+    if (y > pageHeight - 60) {
+      doc.addPage();
+      y = margin;
+    }
+    
+    doc.setFillColor(168, 85, 247);
+    doc.rect(margin, y - 2, 3, 8, 'F');
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(71, 85, 105);
+    doc.text('Historical Performance Trends', margin + 6, y + 3);
+    y += 10;
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    
+    data.historical_trends.forEach((trend, i) => {
+      if (y > pageHeight - 25) {
+        doc.addPage();
+        y = margin;
+      }
+      const trendLines = doc.splitTextToSize(sanitizeText(trend), contentWidth);
+      doc.text(trendLines, margin, y);
+      y += trendLines.length * 5 + 2;
+    });
     y += 5;
   }
 
