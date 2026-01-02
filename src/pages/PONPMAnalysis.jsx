@@ -515,7 +515,11 @@ Be specific, technical, and actionable.`;
         }
       });
       
-      // Pre-fill form data
+      // Pre-fill form data with historical trends
+      const trendSummary = trendDetails.length > 0 
+        ? `\n\nHISTORICAL PERFORMANCE TRENDS (Last ${ont._trends?.days_since_last || 0} days):\n${trendDetails.map(t => `- ${t}`).join('\n')}`
+        : '';
+      
       const formData = {
         job_number: `WO-PON-${ont.SerialNumber?.substring(0, 8)}-${Date.now().toString().slice(-4)}`,
         technician_name: '',
@@ -523,7 +527,7 @@ Be specific, technical, and actionable.`;
         start_power_level: ont.OntRxOptPwr,
         end_power_level: '',
         status: aiResponse.suggested_status || 'in_progress',
-        notes: `DIAGNOSIS:\n${aiResponse.diagnosis}\n\nRECOMMENDED ACTIONS:\n${aiResponse.recommended_actions?.map((a, i) => `${i + 1}. ${a}`).join('\n') || 'None'}\n\nEXPECTED OUTCOME:\n${aiResponse.expected_outcome}\n\n${trends.length > 0 ? `PERFORMANCE TRENDS:\n${trends.map(t => `- ${t}`).join('\n')}\n\n` : ''}ONT DETAILS:\n- FSAN: ${ont.SerialNumber}\n- ONT ID: ${ont.OntID || 'Unknown'}\n- Model: ${ont.model || 'Unknown'}\n- OLT: ${ont._oltName} / ${ont._port}\n- LCP: ${ont._lcpNumber || 'Unknown'}${ont._splitterNumber ? ' / Splitter ' + ont._splitterNumber : ''}`,
+        notes: `DIAGNOSIS:\n${aiResponse.diagnosis}\n\nRECOMMENDED ACTIONS:\n${aiResponse.recommended_actions?.map((a, i) => `${i + 1}. ${a}`).join('\n') || 'None'}\n\nEXPECTED OUTCOME:\n${aiResponse.expected_outcome}${trendSummary}\n\nONT DETAILS:\n- FSAN: ${ont.SerialNumber}\n- ONT ID: ${ont.OntID || 'Unknown'}\n- Model: ${ont.model || 'Unknown'}\n- OLT: ${ont._oltName} / ${ont._port}\n- LCP: ${ont._lcpNumber || 'Unknown'}${ont._splitterNumber ? ' / Splitter ' + ont._splitterNumber : ''}`,
         equipment_used: aiResponse.equipment_needed || [],
         diagnosis_used: true,
         diagnosis_result: aiResponse.diagnosis,
@@ -536,7 +540,8 @@ Be specific, technical, and actionable.`;
           lcp: ont._lcpNumber,
           splitter: ont._splitterNumber
         },
-        photo_urls: []
+        photo_urls: [],
+        historical_trends: trendDetails.length > 0 ? trendDetails : null
       };
       
       setJobReportFormData(formData);

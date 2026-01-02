@@ -523,6 +523,7 @@ function generateJobReportPDF(data) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
+  const contentWidth = pageWidth - 2 * margin;
   let y = margin;
 
   // Header
@@ -541,8 +542,8 @@ function generateJobReportPDF(data) {
   y = 55;
   doc.setTextColor(0, 0, 0);
 
-  // Job Details
-  const addField = (label, value) => {
+  // Helper to add field with proper text wrapping
+  const addField = (label, value, isMultiline = false) => {
     if (y > pageHeight - 30) {
       doc.addPage();
       y = margin;
@@ -550,9 +551,20 @@ function generateJobReportPDF(data) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text(sanitizeText(label) + ':', margin, y);
+    
     doc.setFont('helvetica', 'normal');
-    doc.text(sanitizeText(String(value || 'N/A')), margin + 50, y);
-    y += 8;
+    const sanitizedValue = sanitizeText(String(value || 'N/A'));
+    
+    if (isMultiline || sanitizedValue.length > 80) {
+      // Multi-line with wrapping
+      const lines = doc.splitTextToSize(sanitizedValue, contentWidth - 50);
+      doc.text(lines, margin + 50, y);
+      y += lines.length * 6 + 2;
+    } else {
+      // Single line
+      doc.text(sanitizedValue, margin + 50, y);
+      y += 8;
+    }
   };
 
   addField('Technician', data.technician_name);
@@ -561,6 +573,30 @@ function generateJobReportPDF(data) {
   addField('Date', data.completion_date ? new Date(data.completion_date).toLocaleDateString() : data.created_date ? new Date(data.created_date).toLocaleDateString() : 'N/A');
 
   y += 5;
+
+  // Fiber Info Section (if available from PON PM)
+  if (data.fiber_info) {
+    if (y > pageHeight - 50) {
+      doc.addPage();
+      y = margin;
+    }
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(71, 85, 105);
+    doc.text('ONT Information', margin, y);
+    y += 8;
+
+    doc.setTextColor(0, 0, 0);
+    addField('FSAN Serial', data.fiber_info.fsan);
+    addField('ONT ID', data.fiber_info.ont_id);
+    addField('Model', data.fiber_info.model);
+    addField('OLT / Port', `${data.fiber_info.olt} / ${data.fiber_info.port}`);
+    if (data.fiber_info.lcp) {
+      addField('LCP/Splitter', `${data.fiber_info.lcp}${data.fiber_info.splitter ? ' / ' + data.fiber_info.splitter : ''}`);
+    }
+    y += 5;
+  }
 
   // Power Readings Section
   doc.setFontSize(12);
@@ -581,7 +617,12 @@ function generateJobReportPDF(data) {
   y += 5;
 
   // Diagnosis Section
-  if (data.diagnosis_used) {
+  if (data.diagnosis_used && data.diagnosis_result) {
+    if (y > pageHeight - 50) {
+      doc.addPage();
+      y = margin;
+    }
+    
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(71, 85, 105);
@@ -589,7 +630,13 @@ function generateJobReportPDF(data) {
     y += 8;
 
     doc.setTextColor(0, 0, 0);
-    addField('Result', data.diagnosis_result);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    
+    // Use proper text wrapping for diagnosis result
+    const diagnosisLines = doc.splitTextToSize(sanitizeText(data.diagnosis_result), contentWidth);
+    doc.text(diagnosisLines, margin, y);
+    y += diagnosisLines.length * 6 + 5;
     
     if (data.diagnosis_steps && data.diagnosis_steps.length > 0) {
       doc.setFont('helvetica', 'bold');
@@ -597,8 +644,12 @@ function generateJobReportPDF(data) {
       y += 6;
       doc.setFont('helvetica', 'normal');
       data.diagnosis_steps.forEach((step, i) => {
+        if (y > pageHeight - 30) {
+          doc.addPage();
+          y = margin;
+        }
         const stepText = sanitizeText((i + 1) + '. ' + step);
-        const stepLines = doc.splitTextToSize(stepText, pageWidth - 2 * margin);
+        const stepLines = doc.splitTextToSize(stepText, contentWidth);
         doc.text(stepLines, margin, y);
         y += stepLines.length * 5 + 2;
       });
@@ -606,8 +657,41 @@ function generateJobReportPDF(data) {
     y += 5;
   }
 
+  // Equipment Used Section
+  if (data.equipment_used && data.equipment_used.length > 0) {
+    if (y > pageHeight - 30) {
+      doc.addPage();
+      y = margin;
+    }
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(71, 85, 105);
+    doc.text('Equipment Used', margin, y);
+    y += 8;
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    data.equipment_used.forEach((equipment, i) => {
+      if (y > pageHeight - 30) {
+        doc.addPage();
+        y = margin;
+      }
+      const equipmentLines = doc.splitTextToSize(sanitizeText(`* ${equipment}`), contentWidth);
+      doc.text(equipmentLines, margin, y);
+      y += equipmentLines.length * 5 + 2;
+    });
+    y += 5;
+  }
+
   // Notes Section
   if (data.notes) {
+    if (y > pageHeight - 50) {
+      doc.addPage();
+      y = margin;
+    }
+    
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(71, 85, 105);
@@ -617,8 +701,9 @@ function generateJobReportPDF(data) {
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    const noteLines = doc.splitTextToSize(sanitizeText(data.notes), pageWidth - 2 * margin);
+    const noteLines = doc.splitTextToSize(sanitizeText(data.notes), contentWidth);
     doc.text(noteLines, margin, y);
+    y += noteLines.length * 6;
   }
 
   // Footer
