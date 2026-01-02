@@ -1633,7 +1633,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                           />
                         );
                       })}
-                      {selectedOntPrediction && (
+                      {selectedOntPrediction && selectedMetrics.some(m => AVAILABLE_METRICS.find(am => am.key === m)?.type === 'power') && (
                         <Line 
                           yAxisId="power"
                           type="monotone" 
