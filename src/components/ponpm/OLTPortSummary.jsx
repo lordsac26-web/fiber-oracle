@@ -56,6 +56,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
       const criticalCount = oltOnts.filter(o => o._analysis.status === 'critical').length;
       const warningCount = oltOnts.filter(o => o._analysis.status === 'warning').length;
       const okCount = oltOnts.filter(o => o._analysis.status === 'ok').length;
+      const offlineCount = oltOnts.filter(o => o._analysis.status === 'offline').length;
 
       // Calculate averages
       const rxValues = oltOnts.map(o => parseFloat(o.OntRxOptPwr)).filter(v => !isNaN(v));
@@ -92,6 +93,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         const portCritical = portOnts.filter(o => o._analysis.status === 'critical').length;
         const portWarning = portOnts.filter(o => o._analysis.status === 'warning').length;
         const portOk = portOnts.filter(o => o._analysis.status === 'ok').length;
+        const portOffline = portOnts.filter(o => o._analysis.status === 'offline').length;
 
         const portRxValues = portOnts.map(o => parseFloat(o.OntRxOptPwr)).filter(v => !isNaN(v));
         const portTxValues = portOnts.map(o => parseFloat(o.OntTxPwr)).filter(v => !isNaN(v));
@@ -112,6 +114,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
           criticalCount: portCritical,
           warningCount: portWarning,
           okCount: portOk,
+          offlineCount: portOffline,
           avgOntRx: portRxValues.length > 0 ? portRxValues.reduce((a, b) => a + b, 0) / portRxValues.length : null,
           avgOntTx: portTxValues.length > 0 ? portTxValues.reduce((a, b) => a + b, 0) / portTxValues.length : null,
           avgOltRx: portOltRxValues.length > 0 ? portOltRxValues.reduce((a, b) => a + b, 0) / portOltRxValues.length : null,
@@ -363,7 +366,12 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                           {port.warningCount}
                         </Badge>
                       )}
-                      {port.criticalCount === 0 && port.warningCount === 0 && (
+                      {port.offlineCount > 0 && (
+                        <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs px-1.5">
+                          {port.offlineCount}
+                        </Badge>
+                      )}
+                      {port.criticalCount === 0 && port.warningCount === 0 && port.offlineCount === 0 && (
                         <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
                           <CheckCircle2 className="h-3 w-3" />
                         </Badge>
@@ -528,12 +536,14 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                     {selectedPort.onts.map((ont, idx) => (
                       <TableRow key={idx} className={
                         ont._analysis.status === 'critical' ? 'bg-red-50' :
-                        ont._analysis.status === 'warning' ? 'bg-amber-50' : ''
+                        ont._analysis.status === 'warning' ? 'bg-amber-50' :
+                        ont._analysis.status === 'offline' ? 'bg-purple-50' : ''
                       }>
                         <TableCell>
                           <div className={`w-3 h-3 rounded-full ${
                             ont._analysis.status === 'critical' ? 'bg-red-500' :
-                            ont._analysis.status === 'warning' ? 'bg-amber-500' : 'bg-green-500'
+                            ont._analysis.status === 'warning' ? 'bg-amber-500' :
+                            ont._analysis.status === 'offline' ? 'bg-purple-500' : 'bg-green-500'
                           }`} />
                         </TableCell>
                         <TableCell className="font-mono">{ont.OntID || '-'}</TableCell>
