@@ -69,7 +69,9 @@ import {
   History,
   Database,
   Trash2,
-  Calendar
+  Calendar,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -870,6 +872,12 @@ export default function PONPMAnalysis() {
                     {result.summary.totalOnts}
                   </div>
                   <div className="text-xs text-gray-500">Total ONTs</div>
+                  {result.onts?.filter(o => o._trends).length > 0 && (
+                    <Badge variant="outline" className="text-[10px] mt-1 bg-blue-50 text-blue-700 border-blue-300">
+                      <TrendingUp className="h-2 w-2 mr-1" />
+                      {result.onts.filter(o => o._trends).length} with trends
+                    </Badge>
+                  )}
                 </CardContent>
               </Card>
               <Card 
@@ -1016,6 +1024,22 @@ export default function PONPMAnalysis() {
                     style={{ width: `${(result.summary.criticalCount / result.summary.totalOnts) * 100}%` }}
                   />
                 </div>
+                {result.onts?.filter(o => o._trends).length > 0 && (
+                  <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs">
+                    <span className="text-gray-500">Trend Data Available:</span>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-300">
+                        {result.onts.filter(o => o._trends).length} ONTs tracked
+                      </Badge>
+                      {result.onts.filter(o => o._trends?.ont_rx_change < -1).length > 0 && (
+                        <Badge className="text-[10px] bg-red-100 text-red-700 border-red-300">
+                          <TrendingDown className="h-2 w-2 mr-1" />
+                          {result.onts.filter(o => o._trends?.ont_rx_change < -1).length} degrading
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1346,6 +1370,8 @@ export default function PONPMAnalysis() {
                                               <TableHead className="text-right">OLT Rx</TableHead>
                                               <TableHead className="text-right">US BIP</TableHead>
                                               <TableHead className="text-right">DS BIP</TableHead>
+                                              <TableHead className="text-right">US FEC</TableHead>
+                                              <TableHead className="text-right">DS FEC</TableHead>
                                               <TableHead>Issues</TableHead>
                                             </TableRow>
                                           </TableHeader>
@@ -1373,31 +1399,93 @@ export default function PONPMAnalysis() {
                                                 </TableCell>
                                                 <TableCell className="font-mono text-xs">{ont.SerialNumber || '-'}</TableCell>
                                                 <TableCell className="text-xs">{ont.model || '-'}</TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                  <span className={
-                                                    parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' :
-                                                    parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : ''
-                                                  }>
-                                                    {ont.OntRxOptPwr || '-'}
-                                                  </span>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                  <span className={
-                                                    parseFloat(ont.OLTRXOptPwr) < -30 ? 'text-red-600 font-bold' :
-                                                    parseFloat(ont.OLTRXOptPwr) < -28 ? 'text-amber-600' : ''
-                                                  }>
-                                                    {ont.OLTRXOptPwr || '-'}
-                                                  </span>
+                                                <TableCell className="text-right font-mono text-xs">
+                                                  <div className="flex flex-col items-end gap-0.5">
+                                                    <span className={
+                                                      parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' :
+                                                      parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : ''
+                                                    }>
+                                                      {ont.OntRxOptPwr || '-'}
+                                                    </span>
+                                                    {ont._trends?.ont_rx_change !== null && ont._trends?.ont_rx_change !== undefined && (
+                                                      <span className={`text-[9px] flex items-center gap-0.5 ${
+                                                        ont._trends.ont_rx_change < -1 ? 'text-red-600' :
+                                                        ont._trends.ont_rx_change > 1 ? 'text-green-600' :
+                                                        'text-gray-500'
+                                                      }`}>
+                                                        {ont._trends.ont_rx_change < -0.1 ? '↓' : ont._trends.ont_rx_change > 0.1 ? '↑' : '→'}
+                                                        {Math.abs(ont._trends.ont_rx_change).toFixed(1)}dB
+                                                      </span>
+                                                    )}
+                                                  </div>
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono text-xs">
-                                                  <span className={parseInt(ont.UpstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
-                                                    {ont.UpstreamBipErrors || '0'}
-                                                  </span>
+                                                  <div className="flex flex-col items-end gap-0.5">
+                                                    <span className={
+                                                      parseFloat(ont.OLTRXOptPwr) < -30 ? 'text-red-600 font-bold' :
+                                                      parseFloat(ont.OLTRXOptPwr) < -28 ? 'text-amber-600' : ''
+                                                    }>
+                                                      {ont.OLTRXOptPwr || '-'}
+                                                    </span>
+                                                    {ont._trends?.olt_rx_change !== null && ont._trends?.olt_rx_change !== undefined && (
+                                                      <span className={`text-[9px] flex items-center gap-0.5 ${
+                                                        ont._trends.olt_rx_change < -1 ? 'text-red-600' :
+                                                        ont._trends.olt_rx_change > 1 ? 'text-green-600' :
+                                                        'text-gray-500'
+                                                      }`}>
+                                                        {ont._trends.olt_rx_change < -0.1 ? '↓' : ont._trends.olt_rx_change > 0.1 ? '↑' : '→'}
+                                                        {Math.abs(ont._trends.olt_rx_change).toFixed(1)}dB
+                                                      </span>
+                                                    )}
+                                                  </div>
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono text-xs">
-                                                  <span className={parseInt(ont.DownstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
-                                                    {ont.DownstreamBipErrors || '0'}
-                                                  </span>
+                                                  <div className="flex flex-col items-end gap-0.5">
+                                                    <span className={parseInt(ont.UpstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
+                                                      {ont.UpstreamBipErrors || '0'}
+                                                    </span>
+                                                    {ont._trends?.us_bip_change !== null && ont._trends?.us_bip_change !== 0 && (
+                                                      <span className={`text-[9px] ${ont._trends.us_bip_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                        {ont._trends.us_bip_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.us_bip_change)}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-xs">
+                                                  <div className="flex flex-col items-end gap-0.5">
+                                                    <span className={parseInt(ont.DownstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
+                                                      {ont.DownstreamBipErrors || '0'}
+                                                    </span>
+                                                    {ont._trends?.ds_bip_change !== null && ont._trends?.ds_bip_change !== 0 && (
+                                                      <span className={`text-[9px] ${ont._trends.ds_bip_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                        {ont._trends.ds_bip_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.ds_bip_change)}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-xs">
+                                                  <div className="flex flex-col items-end gap-0.5">
+                                                    <span className={parseInt(ont.UpstreamFecUncorrectedCodeWords) > 10 ? 'text-amber-600' : ''}>
+                                                      {ont.UpstreamFecUncorrectedCodeWords || '0'}
+                                                    </span>
+                                                    {ont._trends?.us_fec_change !== null && ont._trends?.us_fec_change !== 0 && (
+                                                      <span className={`text-[9px] ${ont._trends.us_fec_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                        {ont._trends.us_fec_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.us_fec_change)}
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-xs">
+                                                  <div className="flex flex-col items-end gap-0.5">
+                                                    <span className={parseInt(ont.DownstreamFecUncorrectedCodeWords) > 10 ? 'text-amber-600' : ''}>
+                                                      {ont.DownstreamFecUncorrectedCodeWords || '0'}
+                                                    </span>
+                                                    {ont._trends?.ds_fec_change !== null && ont._trends?.ds_fec_change !== 0 && (
+                                                      <span className={`text-[9px] ${ont._trends.ds_fec_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                        {ont._trends.ds_fec_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.ds_fec_change)}
+                                                      </span>
+                                                    )}
+                                                  </div>
                                                 </TableCell>
                                                 <TableCell>
                                                   <TooltipProvider>

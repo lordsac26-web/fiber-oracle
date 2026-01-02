@@ -409,17 +409,76 @@ Deno.serve(async (req) => {
     // Calculate segment statistics
     const segmentStats = calculateSegmentStats(parsedOnts);
 
-    // Analyze each ONT
+    // Fetch historical data for trend analysis
+    const serialNumbers = parsedOnts
+      .map(ont => ont.SerialNumber)
+      .filter(s => s != null);
+
+    let historicalRecords = [];
+    if (serialNumbers.length > 0) {
+      try {
+        // Fetch all historical records for these ONTs
+        historicalRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.filter({
+          serial_number: { $in: serialNumbers }
+        });
+        console.log(`Loaded ${historicalRecords.length} historical records for trend analysis`);
+      } catch (err) {
+        console.log('No historical data available for trend analysis:', err.message);
+      }
+    }
+
+    // Build historical lookup map - get most recent record for each ONT
+    const historicalMap = new Map();
+    historicalRecords.forEach(record => {
+      const existing = historicalMap.get(record.serial_number);
+      if (!existing || new Date(record.report_date) > new Date(existing.report_date)) {
+        historicalMap.set(record.serial_number, record);
+      }
+    });
+
+    // Analyze each ONT with trend comparison
     const analyzedOnts = parsedOnts.map(ont => {
       const oltName = ont.OLTName || 'Unknown OLT';
       const portKey = ont['Shelf/Slot/Port'] || 'Unknown';
       const portStats = segmentStats[oltName]?.ports[portKey];
       const analysis = analyzeOnt(ont, portStats);
+
+      // Calculate trends if historical data exists
+      let trends = null;
+      const historical = historicalMap.get(ont.SerialNumber);
+      if (historical) {
+        const currentOntRx = parseNumeric(ont.OntRxOptPwr);
+        const previousOntRx = historical.ont_rx_power;
+        const currentOltRx = parseNumeric(ont.OLTRXOptPwr);
+        const previousOltRx = historical.olt_rx_power;
+        const currentUsBip = parseNumeric(ont.UpstreamBipErrors) || 0;
+        const previousUsBip = historical.us_bip_errors || 0;
+        const currentDsBip = parseNumeric(ont.DownstreamBipErrors) || 0;
+        const previousDsBip = historical.ds_bip_errors || 0;
+        const currentUsFec = parseNumeric(ont.UpstreamFecUncorrectedCodeWords) || 0;
+        const previousUsFec = historical.us_fec_uncorrected || 0;
+        const currentDsFec = parseNumeric(ont.DownstreamFecUncorrectedCodeWords) || 0;
+        const previousDsFec = historical.ds_fec_uncorrected || 0;
+
+        trends = {
+          ont_rx_change: currentOntRx !== null && previousOntRx !== null ? currentOntRx - previousOntRx : null,
+          olt_rx_change: currentOltRx !== null && previousOltRx !== null ? currentOltRx - previousOltRx : null,
+          us_bip_change: currentUsBip - previousUsBip,
+          ds_bip_change: currentDsBip - previousDsBip,
+          us_fec_change: currentUsFec - previousUsFec,
+          ds_fec_change: currentDsFec - previousDsFec,
+          previous_date: historical.report_date,
+          days_since_last: historical.report_date ? 
+            Math.floor((new Date() - new Date(historical.report_date)) / (1000 * 60 * 60 * 24)) : null
+        };
+      }
+
       return {
         ...ont,
         _analysis: analysis,
         _oltName: oltName,
         _port: portKey,
+        _trends: trends,
       };
     });
 
