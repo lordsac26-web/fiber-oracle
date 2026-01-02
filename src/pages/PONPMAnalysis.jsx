@@ -84,6 +84,7 @@ import moment from 'moment';
 import HistoricalTrends from '@/components/ponpm/HistoricalTrends';
 import OLTPortSummary from '@/components/ponpm/OLTPortSummary';
 import HistoricalDataManager from '@/components/ponpm/HistoricalDataManager';
+import ReportForm from '@/components/jobreports/ReportForm';
 
 const STATUS_COLORS = {
   critical: 'bg-red-500',
@@ -129,6 +130,9 @@ export default function PONPMAnalysis() {
   const [showHistoricalReports, setShowHistoricalReports] = useState(false);
   const [showTrends, setShowTrends] = useState(false);
   const [viewMode, setViewMode] = useState('hierarchy'); // 'hierarchy' or 'summary'
+  const [creatingJobReport, setCreatingJobReport] = useState(null);
+  const [jobReportFormData, setJobReportFormData] = useState(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
   const [customThresholds, setCustomThresholds] = useState(() => {
     const saved = localStorage.getItem('ponPmThresholds');
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
@@ -421,6 +425,189 @@ export default function PONPMAnalysis() {
     } catch (error) {
       console.error('PDF export error:', error);
       toast.error('Failed to generate PDF', { id: 'pdf-export' });
+    }
+  };
+
+  const createJobReportForONT = async (ont) => {
+    setCreatingJobReport(ont);
+    setGeneratingReport(true);
+    
+    try {
+      // Build comprehensive issue summary
+      const issues = [];
+      if (ont._analysis?.issues) {
+        ont._analysis.issues.forEach(issue => {
+          issues.push(`${issue.field}: ${issue.message} (${issue.value})`);
+        });
+      }
+      if (ont._analysis?.warnings) {
+        ont._analysis.warnings.forEach(warning => {
+          issues.push(`${warning.field}: ${warning.message} (${warning.value})`);
+        });
+      }
+      
+      // Build trend summary
+      const trends = [];
+      if (ont._trends) {
+        if (ont._trends.ont_rx_change !== null && ont._trends.ont_rx_change !== undefined) {
+          trends.push(`ONT Rx changed by ${ont._trends.ont_rx_change > 0 ? '+' : ''}${ont._trends.ont_rx_change.toFixed(1)} dB since ${moment(ont._trends.previous_date).format('MMM D')}`);
+        }
+        if (ont._trends.us_bip_change > 0) {
+          trends.push(`Upstream BIP errors increased by ${ont._trends.us_bip_change}`);
+        }
+        if (ont._trends.ds_bip_change > 0) {
+          trends.push(`Downstream BIP errors increased by ${ont._trends.ds_bip_change}`);
+        }
+        if (ont._trends.us_fec_change > 0) {
+          trends.push(`Upstream FEC uncorrected increased by ${ont._trends.us_fec_change}`);
+        }
+        if (ont._trends.ds_fec_change > 0) {
+          trends.push(`Downstream FEC uncorrected increased by ${ont._trends.ds_fec_change}`);
+        }
+      }
+      
+      // Use AI to generate smart diagnosis and recommendations
+      const aiPrompt = `You are a fiber optic technician creating a job report for an ONT with the following data:
+
+Serial Number (FSAN): ${ont.SerialNumber}
+ONT ID: ${ont.OntID || 'Unknown'}
+Model: ${ont.model || 'Unknown'}
+OLT: ${ont._oltName}
+Port: ${ont._port}
+Location: ${ont._lcpLocation || ont._lcpNumber ? `LCP ${ont._lcpNumber}${ont._splitterNumber ? ' / Splitter ' + ont._splitterNumber : ''}` : 'Unknown'}
+Address: ${ont._lcpAddress || 'Unknown'}
+
+Current Power Levels:
+- ONT Rx: ${ont.OntRxOptPwr} dBm
+- OLT Rx: ${ont.OLTRXOptPwr} dBm
+- ONT Tx: ${ont.OntTxPwr || 'N/A'} dBm
+
+Issues Detected:
+${issues.length > 0 ? issues.join('\n') : 'No critical issues detected'}
+
+${trends.length > 0 ? `Performance Trends:\n${trends.join('\n')}` : ''}
+
+Error Counts:
+- Upstream BIP Errors: ${ont.UpstreamBipErrors || 0}
+- Downstream BIP Errors: ${ont.DownstreamBipErrors || 0}
+- Upstream FEC Uncorrected: ${ont.UpstreamFecUncorrectedCodeWords || 0}
+- Downstream FEC Uncorrected: ${ont.DownstreamFecUncorrectedCodeWords || 0}
+
+Based on this data, generate:
+1. A professional diagnosis of the issues
+2. Recommended actions to resolve them
+3. Equipment that should be used
+4. Expected outcomes
+
+Be specific, technical, and actionable.`;
+
+      const aiResponse = await base44.integrations.Core.InvokeLLM({
+        prompt: aiPrompt,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            diagnosis: { type: "string" },
+            recommended_actions: { type: "array", items: { type: "string" } },
+            equipment_needed: { type: "array", items: { type: "string" } },
+            expected_outcome: { type: "string" },
+            suggested_status: { type: "string", enum: ["in_progress", "needs_followup", "completed"] }
+          }
+        }
+      });
+      
+      // Pre-fill form data
+      const formData = {
+        job_number: `WO-PON-${ont.SerialNumber?.substring(0, 8)}-${Date.now().toString().slice(-4)}`,
+        technician_name: '',
+        location: ont._lcpAddress || ont._lcpLocation || `${ont._oltName} / ${ont._port}`,
+        start_power_level: ont.OntRxOptPwr,
+        end_power_level: '',
+        status: aiResponse.suggested_status || 'in_progress',
+        notes: `DIAGNOSIS:\n${aiResponse.diagnosis}\n\nRECOMMENDED ACTIONS:\n${aiResponse.recommended_actions?.map((a, i) => `${i + 1}. ${a}`).join('\n') || 'None'}\n\nEXPECTED OUTCOME:\n${aiResponse.expected_outcome}\n\n${trends.length > 0 ? `PERFORMANCE TRENDS:\n${trends.map(t => `- ${t}`).join('\n')}\n\n` : ''}ONT DETAILS:\n- FSAN: ${ont.SerialNumber}\n- ONT ID: ${ont.OntID || 'Unknown'}\n- Model: ${ont.model || 'Unknown'}\n- OLT: ${ont._oltName} / ${ont._port}\n- LCP: ${ont._lcpNumber || 'Unknown'}${ont._splitterNumber ? ' / Splitter ' + ont._splitterNumber : ''}`,
+        equipment_used: aiResponse.equipment_needed || [],
+        diagnosis_used: true,
+        diagnosis_result: aiResponse.diagnosis,
+        fiber_info: {
+          fsan: ont.SerialNumber,
+          ont_id: ont.OntID,
+          model: ont.model,
+          olt: ont._oltName,
+          port: ont._port,
+          lcp: ont._lcpNumber,
+          splitter: ont._splitterNumber
+        },
+        photo_urls: []
+      };
+      
+      setJobReportFormData(formData);
+      toast.success('Job report pre-filled with AI analysis');
+    } catch (error) {
+      console.error('Failed to generate job report:', error);
+      toast.error('Failed to generate AI analysis');
+      
+      // Fallback to basic data
+      const basicFormData = {
+        job_number: `WO-PON-${ont.SerialNumber?.substring(0, 8)}-${Date.now().toString().slice(-4)}`,
+        technician_name: '',
+        location: ont._lcpAddress || ont._lcpLocation || `${ont._oltName} / ${ont._port}`,
+        start_power_level: ont.OntRxOptPwr,
+        end_power_level: '',
+        status: 'in_progress',
+        notes: `ONT Analysis Job\n\nFSAN: ${ont.SerialNumber}\nONT ID: ${ont.OntID || 'Unknown'}\nModel: ${ont.model || 'Unknown'}\nOLT: ${ont._oltName} / ${ont._port}\nLCP: ${ont._lcpNumber || 'Unknown'}\n\nCurrent ONT Rx: ${ont.OntRxOptPwr} dBm\n\nIssues detected:\n${ont._analysis?.issues?.map(i => `- ${i.message}`).join('\n') || 'None'}`,
+        equipment_used: [],
+        diagnosis_used: false,
+        fiber_info: {
+          fsan: ont.SerialNumber,
+          ont_id: ont.OntID,
+          model: ont.model,
+          olt: ont._oltName,
+          port: ont._port,
+          lcp: ont._lcpNumber
+        },
+        photo_urls: []
+      };
+      setJobReportFormData(basicFormData);
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+  
+  const handleJobReportSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const data = {
+        ...jobReportFormData,
+        start_power_level: jobReportFormData.start_power_level ? parseFloat(jobReportFormData.start_power_level) : null,
+        end_power_level: jobReportFormData.end_power_level ? parseFloat(jobReportFormData.end_power_level) : null,
+        power_improvement: jobReportFormData.start_power_level && jobReportFormData.end_power_level 
+          ? (parseFloat(jobReportFormData.end_power_level) - parseFloat(jobReportFormData.start_power_level)).toFixed(2)
+          : null
+      };
+      
+      const report = await base44.entities.JobReport.create(data);
+      
+      // Generate and download PDF
+      const response = await base44.functions.invoke('generatePDF', { 
+        type: 'jobReport',
+        data: report
+      }, { responseType: 'arraybuffer' });
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `JobReport-${report.job_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      
+      toast.success('Job report created and PDF downloaded');
+      setCreatingJobReport(null);
+      setJobReportFormData(null);
+    } catch (error) {
+      console.error('Failed to create job report:', error);
+      toast.error('Failed to create job report');
     }
   };
 
@@ -1521,24 +1708,35 @@ export default function PONPMAnalysis() {
                                                     </div>
                                                   </TooltipProvider>
                                                 </TableCell>
-                                              </TableRow>
-                                            ))}
-                                          </TableBody>
-                                        </Table>
-                                      </div>
-                                    </div>
-                                  </CollapsibleContent>
-                                </Card>
-                              </Collapsible>
-                            );
-                          })}
-                        </div>
-                      </CollapsibleContent>
-                    </Card>
-                  </Collapsible>
-                );
-              })}
-            </div>
+                                                <TableCell>
+                                                  <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => createJobReportForONT(ont)}
+                                                    className="text-xs h-7 gap-1"
+                                                  >
+                                                    <Clipboard className="h-3 w-3" />
+                                                    Job Report
+                                                  </Button>
+                                                </TableCell>
+                                                </TableRow>
+                                                ))}
+                                                </TableBody>
+                                                </Table>
+                                                </div>
+                                                </div>
+                                                </CollapsibleContent>
+                                                </Card>
+                                                </Collapsible>
+                                                );
+                                                })}
+                                                </div>
+                                                </CollapsibleContent>
+                                                </Card>
+                                                </Collapsible>
+                                                );
+                                                })}
+                                                </div>
 
             {/* New Analysis Button */}
             <div className="text-center pt-4">
@@ -1600,6 +1798,49 @@ export default function PONPMAnalysis() {
           />
         )}
       </main>
+      
+      {/* Job Report Creation Dialog */}
+      <Dialog open={!!creatingJobReport} onOpenChange={(open) => {
+        if (!open) {
+          setCreatingJobReport(null);
+          setJobReportFormData(null);
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-500" />
+              Create Job Report - AI Pre-filled
+            </DialogTitle>
+          </DialogHeader>
+          {generatingReport ? (
+            <div className="py-12 text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-3" />
+              <p className="text-gray-500">AI is analyzing ONT data and generating report...</p>
+            </div>
+          ) : jobReportFormData ? (
+            <>
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <Sparkles className="h-4 w-4 inline mr-1" />
+                  This report has been pre-filled with AI-generated diagnosis and recommendations based on ONT performance data. Review and adjust as needed.
+                </p>
+              </div>
+              <ReportForm
+                formData={jobReportFormData}
+                setFormData={setJobReportFormData}
+                onSubmit={handleJobReportSubmit}
+                onCancel={() => {
+                  setCreatingJobReport(null);
+                  setJobReportFormData(null);
+                }}
+                isEditing={false}
+                isSubmitting={false}
+              />
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
