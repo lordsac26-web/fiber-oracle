@@ -302,60 +302,9 @@ export default function HistoricalTrends({ reports, onClose }) {
     return issues;
   }, [ontsByPort]);
 
-  // Predict future performance based on linear regression
-  const predictFutureValue = (dataPoints, field, daysAhead = 30) => {
-    const validPoints = dataPoints.filter(d => d[field] !== null);
-    if (validPoints.length < 2) return null;
-    
-    // Simple linear regression
-    const n = validPoints.length;
-    const xValues = validPoints.map((_, i) => i);
-    const yValues = validPoints.map(d => d[field]);
-    
-    const sumX = xValues.reduce((a, b) => a + b, 0);
-    const sumY = yValues.reduce((a, b) => a + b, 0);
-    const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
-    const sumX2 = xValues.reduce((sum, x) => sum + x * x, 0);
-    
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    const intercept = (sumY - slope * sumX) / n;
-    
-    // Estimate days between data points
-    const firstDate = new Date(validPoints[0].date);
-    const lastDate = new Date(validPoints[validPoints.length - 1].date);
-    const daysBetween = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
-    const avgDaysPerPoint = daysBetween / (n - 1) || 1;
-    
-    // Predict future point
-    const futureIndex = n + (daysAhead / avgDaysPerPoint);
-    const predictedValue = slope * futureIndex + intercept;
-    
-    return {
-      predicted: predictedValue,
-      slope,
-      daysToThreshold: slope < 0 ? ((-27 - intercept) / slope - n) * avgDaysPerPoint : null,
-      confidence: n >= 4 ? 'high' : n >= 3 ? 'medium' : 'low'
-    };
-  };
 
-  // Calculate predictions for degrading ONTs
-  const predictions = useMemo(() => {
-    return degradingOnts.map(ont => {
-      const prediction = predictFutureValue(ont.dataPoints, 'OntRxOptPwr', 30);
-      return {
-        serial: ont.serial,
-        olt: ont.olt,
-        port: ont.port,
-        currentRx: ont.dataPoints[ont.dataPoints.length - 1]?.OntRxOptPwr,
-        predicted30Day: prediction?.predicted,
-        daysToFailure: prediction?.daysToThreshold,
-        confidence: prediction?.confidence,
-        riskLevel: prediction?.predicted < -27 ? 'critical' : 
-                   prediction?.predicted < -25 ? 'high' : 
-                   prediction?.daysToThreshold && prediction.daysToThreshold < 60 ? 'medium' : 'low'
-      };
-    }).filter(p => p.predicted30Day !== null);
-  }, [degradingOnts]);
+
+
 
   // Advanced anomaly detection with statistical analysis
   const detectAnomalies = (dataPoints, field) => {
@@ -537,12 +486,11 @@ export default function HistoricalTrends({ reports, onClose }) {
           }))
         })),
         correlatedIssues: correlatedIssues.slice(0, 10),
-        predictions: predictions.slice(0, 15),
+
         networkStats: {
           totalOntsTracked: allOnts.length,
           degradingCount: degradingOnts.length,
           correlatedPortCount: correlatedIssues.length,
-          criticalPredictions: predictions.filter(p => p.riskLevel === 'critical').length,
           totalAnomaliesDetected: allAnomalies.reduce((sum, a) => sum + a.anomalies.length, 0),
           criticalAnomalies: allAnomalies.reduce((sum, a) => sum + a.criticalCount, 0)
         }
@@ -674,22 +622,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                 }
               }
             },
-            predictive_alerts: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  serial: { type: "string" },
-                  location: { type: "string" },
-                  days_to_failure: { type: "number" },
-                  current_rx: { type: "number" },
-                  predicted_rx: { type: "number" },
-                  priority: { type: "string" },
-                  likely_fix: { type: "string" },
-                  action: { type: "string" }
-                }
-              }
-            },
+
             anomaly_explanations: {
               type: "array",
               items: {
@@ -781,12 +714,6 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
     return detectAnomalies(selectedOnt.dataPoints, 'OntRxOptPwr');
   }, [selectedOnt]);
 
-  // Prediction for selected ONT
-  const selectedOntPrediction = useMemo(() => {
-    if (!selectedOnt) return null;
-    return predictFutureValue(selectedOnt.dataPoints, 'OntRxOptPwr', 30);
-  }, [selectedOnt]);
-
   // Available metrics for selection
   const AVAILABLE_METRICS = [
     { key: 'ONT Rx (dBm)', label: 'ONT Rx Power', yAxisId: 'power', color: '#3b82f6', type: 'power' },
@@ -816,21 +743,6 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
       anomalyType: selectedOntAnomalies.find(a => a.date === d.date)?.type,
     }));
   }, [selectedOnt, selectedOntAnomalies]);
-
-  // Add prediction point to chart
-  const chartDataWithPrediction = useMemo(() => {
-    if (!selectedOntPrediction || !chartData.length) return chartData;
-    return [
-      ...chartData,
-      {
-        date: '+30d',
-        fullDate: 'Predicted (30 days)',
-        'ONT Rx (dBm)': null,
-        'Predicted Rx': selectedOntPrediction.predicted,
-        isPrediction: true,
-      }
-    ];
-  }, [chartData, selectedOntPrediction]);
 
   const getSeverityColor = (severity) => {
     switch (severity?.toLowerCase()) {
@@ -1008,39 +920,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
             </Card>
           )}
 
-          {/* Predictive Alerts */}
-          {predictions.filter(p => p.riskLevel === 'critical' || p.riskLevel === 'high').length > 0 && (
-            <Card className="border-2 border-red-300 bg-red-50 dark:bg-red-900/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-red-800">
-                  <TrendingDown className="h-4 w-4" />
-                  Failure Predictions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {predictions.filter(p => p.riskLevel === 'critical' || p.riskLevel === 'high').slice(0, 8).map((pred, idx) => (
-                    <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded-lg text-xs flex items-center justify-between">
-                      <div>
-                        <span className="font-mono font-bold">{pred.serial}</span>
-                        <span className="text-gray-500 ml-2">{pred.olt}/{pred.port}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono">
-                          {pred.currentRx?.toFixed(1)} → {pred.predicted30Day?.toFixed(1)} dBm
-                        </span>
-                        {pred.daysToFailure && pred.daysToFailure < 90 && (
-                          <Badge className="bg-red-100 text-red-800 text-[10px]">
-                            ~{Math.round(pred.daysToFailure)} days to fail
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+
 
           {/* AI Analysis Results */}
           {aiAnalysis && (
@@ -1146,26 +1026,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                   </div>
                 )}
 
-                {/* Predictive Alerts from AI */}
-                {aiAnalysis.predictive_alerts?.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-xs text-gray-500">Predictive Maintenance Alerts</Label>
-                    <div className="max-h-32 overflow-y-auto space-y-1">
-                      {aiAnalysis.predictive_alerts.map((alert, idx) => (
-                        <div key={idx} className="p-2 bg-white dark:bg-gray-800 rounded text-xs border-l-4 border-red-400">
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono font-bold">{alert.serial}</span>
-                            <Badge className={getSeverityColor(alert.priority)}>{alert.priority}</Badge>
-                          </div>
-                          <div className="text-gray-600">
-                            {alert.current_rx?.toFixed(1)} → {alert.predicted_rx?.toFixed(1)} dBm in ~{alert.days_to_failure} days
-                          </div>
-                          <div className="text-blue-600 mt-0.5"><strong>Action:</strong> {alert.action}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
 
                 {/* Anomaly Pattern Analysis */}
                 {aiAnalysis.anomaly_patterns && (
@@ -1527,24 +1388,8 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                   <p className="text-[10px] text-gray-400 mt-1">Click to toggle metrics on/off</p>
                 </div>
 
-                {/* Prediction & Anomaly Summary */}
+                {/* Anomaly Summary */}
                 <div className="flex gap-2 mb-3 flex-wrap">
-                  {selectedOntPrediction && (
-                    <Badge variant="outline" className={
-                      selectedOntPrediction.predicted < -27 ? 'bg-red-50 border-red-300 text-red-700' :
-                      selectedOntPrediction.predicted < -25 ? 'bg-amber-50 border-amber-300 text-amber-700' :
-                      'bg-blue-50 border-blue-300 text-blue-700'
-                    }>
-                      <TrendingDown className="h-3 w-3 mr-1" />
-                      30-day prediction: {selectedOntPrediction.predicted?.toFixed(1)} dBm
-                      ({selectedOntPrediction.confidence} confidence)
-                    </Badge>
-                  )}
-                  {selectedOntPrediction?.daysToThreshold && selectedOntPrediction.daysToThreshold < 90 && (
-                    <Badge className="bg-red-100 text-red-800">
-                      ⚠️ Est. failure in ~{Math.round(selectedOntPrediction.daysToThreshold)} days
-                    </Badge>
-                  )}
                   {selectedOntAnomalies.length > 0 && (
                     <Badge variant="outline" className="bg-purple-50 border-purple-300 text-purple-700">
                       {selectedOntAnomalies.length} anomalies detected
@@ -1554,7 +1399,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
 
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartDataWithPrediction}>
+                    <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                       {selectedMetrics.some(m => AVAILABLE_METRICS.find(am => am.key === m)?.type === 'power') && (
@@ -1595,22 +1440,7 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                           <ReferenceLine yAxisId="power" y={-25} stroke="orange" strokeDasharray="5 5" label={{ value: 'Warning', fontSize: 8 }} />
                         </>
                       )}
-                      {AVAILABLE_METRICS.filter(m => selectedMetrics.includes(m.key)).map(metric => {
-                        if (metric.key === 'Predicted Rx') {
-                          return (
-                            <Line 
-                              key={metric.key}
-                              yAxisId={metric.yAxisId}
-                              type="monotone" 
-                              dataKey={metric.key}
-                              stroke={metric.color}
-                              strokeWidth={2}
-                              strokeDasharray="5 5"
-                              dot={{ r: 5, fill: metric.color }}
-                            />
-                          );
-                        }
-                        return (
+                      {AVAILABLE_METRICS.filter(m => selectedMetrics.includes(m.key)).map(metric => (
                           <Line 
                             key={metric.key}
                             yAxisId={metric.yAxisId}
@@ -1629,21 +1459,9 @@ Be very specific with serial numbers, locations, confidence percentages, and rec
                                 );
                               }
                               return <circle cx={cx} cy={cy} r={metric.type === 'power' ? 3 : 2} fill={metric.color} />;
-                            }}
-                          />
-                        );
-                      })}
-                      {selectedOntPrediction && selectedMetrics.some(m => AVAILABLE_METRICS.find(am => am.key === m)?.type === 'power') && (
-                        <Line 
-                          yAxisId="power"
-                          type="monotone" 
-                          dataKey="Predicted Rx" 
-                          stroke="#8b5cf6" 
-                          strokeWidth={2}
-                          strokeDasharray="5 5"
-                          dot={{ r: 5, fill: '#8b5cf6' }}
-                        />
-                      )}
+                              }}
+                              />
+                              ))}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
