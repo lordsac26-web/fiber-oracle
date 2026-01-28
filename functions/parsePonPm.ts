@@ -309,6 +309,8 @@ Deno.serve(async (req) => {
           splitter_number: lcp.splitter_number,
           location: lcp.location,
           address: lcp.address,
+          gps_lat: lcp.gps_lat,
+          gps_lng: lcp.gps_lng,
         };
         
         // If port contains a range (e.g., "1-4"), also index individual ports
@@ -324,6 +326,8 @@ Deno.serve(async (req) => {
                 splitter_number: lcp.splitter_number,
                 location: lcp.location,
                 address: lcp.address,
+                gps_lat: lcp.gps_lat,
+                gps_lng: lcp.gps_lng,
               };
             }
             // Also handle xp prefix format
@@ -334,6 +338,8 @@ Deno.serve(async (req) => {
                 splitter_number: lcp.splitter_number,
                 location: lcp.location,
                 address: lcp.address,
+                gps_lat: lcp.gps_lat,
+                gps_lng: lcp.gps_lng,
               };
             }
           }
@@ -397,6 +403,8 @@ Deno.serve(async (req) => {
         ont._splitterNumber = lcpMatch.splitter_number;
         ont._lcpLocation = lcpMatch.location;
         ont._lcpAddress = lcpMatch.address;
+        ont._lcpGpsLat = lcpMatch.gps_lat;
+        ont._lcpGpsLng = lcpMatch.gps_lng;
       }
       
       // Add combo port detection info
