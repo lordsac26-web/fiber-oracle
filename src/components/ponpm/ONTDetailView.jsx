@@ -8,7 +8,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -18,39 +17,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ReferenceLine,
-} from 'recharts';
-import {
   Activity,
   TrendingDown,
   TrendingUp,
   AlertCircle,
-  AlertTriangle,
-  CheckCircle2,
   Loader2,
-  Search,
-  ArrowUpDown,
   FileText,
   Calendar,
   MapPin,
@@ -61,6 +38,8 @@ import {
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import moment from 'moment';
+import EnhancedHistoryChart from './EnhancedHistoryChart';
+import DateRangeFilter from './DateRangeFilter';
 
 const STATUS_COLORS = {
   critical: 'bg-red-100 text-red-800 border-red-300',
@@ -74,12 +53,7 @@ export default function ONTDetailView({ ont, onClose }) {
   const [jobReports, setJobReports] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
-  const [sortBy, setSortBy] = useState('date');
-  const [sortOrder, setSortOrder] = useState('desc');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMetrics, setSelectedMetrics] = useState(['ONT Rx', 'OLT Rx']);
-  const [showAverages, setShowAverages] = useState(true);
-  const [showThresholds, setShowThresholds] = useState(true);
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   useEffect(() => {
     loadHistoricalData();
@@ -107,7 +81,6 @@ export default function ONTDetailView({ ont, onClose }) {
   const loadJobReports = async () => {
     setIsLoadingJobs(true);
     try {
-      // Search for job reports that contain this ONT's serial number
       const reports = await base44.entities.JobReport.list('-created_date');
       const relatedReports = reports.filter(report => 
         report.fiber_info?.fsan === ont.SerialNumber ||
@@ -119,72 +92,6 @@ export default function ONTDetailView({ ont, onClose }) {
     } finally {
       setIsLoadingJobs(false);
     }
-  };
-
-  // Sort historical data
-  const sortedHistory = [...historicalData].sort((a, b) => {
-    let aVal, bVal;
-    switch (sortBy) {
-      case 'date':
-        aVal = new Date(a.date);
-        bVal = new Date(b.date);
-        break;
-      case 'ont_rx':
-        aVal = a.ont_rx_power || -999;
-        bVal = b.ont_rx_power || -999;
-        break;
-      case 'olt_rx':
-        aVal = a.olt_rx_power || -999;
-        bVal = b.olt_rx_power || -999;
-        break;
-      case 'bip':
-        aVal = (a.us_bip_errors || 0) + (a.ds_bip_errors || 0);
-        bVal = (b.us_bip_errors || 0) + (b.ds_bip_errors || 0);
-        break;
-      default:
-        aVal = new Date(a.date);
-        bVal = new Date(b.date);
-    }
-    return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
-  });
-
-  // Filter job reports
-  const filteredJobReports = jobReports.filter(report =>
-    !searchTerm || 
-    report.job_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    report.technician_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    report.notes?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Chart data with averages
-  const chartData = historicalData.map(d => ({
-    date: moment(d.date).format('MM/DD'),
-    fullDate: moment(d.date).format('YYYY-MM-DD HH:mm'),
-    'ONT Rx': d.ont_rx_power,
-    'OLT Rx': d.olt_rx_power,
-    'ONT Tx': d.ont_tx_power,
-    'US BIP': d.us_bip_errors || 0,
-    'DS BIP': d.ds_bip_errors || 0,
-    'US FEC': d.us_fec_uncorrected || 0,
-    'DS FEC': d.ds_fec_uncorrected || 0,
-  })).sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
-
-  // Calculate averages for comparison
-  const powerValues = historicalData.filter(d => d.ont_rx_power != null).map(d => d.ont_rx_power);
-  const avgOntRx = powerValues.length > 0 ? powerValues.reduce((a, b) => a + b, 0) / powerValues.length : null;
-  
-  const oltPowerValues = historicalData.filter(d => d.olt_rx_power != null).map(d => d.olt_rx_power);
-  const avgOltRx = oltPowerValues.length > 0 ? oltPowerValues.reduce((a, b) => a + b, 0) / oltPowerValues.length : null;
-
-  // Metric configurations
-  const METRIC_CONFIGS = {
-    'ONT Rx': { yAxisId: 'power', color: '#3b82f6', strokeWidth: 2 },
-    'OLT Rx': { yAxisId: 'power', color: '#10b981', strokeWidth: 2 },
-    'ONT Tx': { yAxisId: 'power', color: '#8b5cf6', strokeWidth: 2 },
-    'US BIP': { yAxisId: 'errors', color: '#f59e0b', strokeWidth: 1 },
-    'DS BIP': { yAxisId: 'errors', color: '#ef4444', strokeWidth: 1 },
-    'US FEC': { yAxisId: 'errors', color: '#ec4899', strokeWidth: 1 },
-    'DS FEC': { yAxisId: 'errors', color: '#f97316', strokeWidth: 1 },
   };
 
   return (
@@ -377,6 +284,19 @@ export default function ONTDetailView({ ont, onClose }) {
                           <span className="font-medium text-right text-xs">{ont._lcpAddress}</span>
                         </div>
                       )}
+                      {ont._lcpGpsLat && ont._lcpGpsLng && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">GPS:</span>
+                          <a 
+                            href={`https://www.google.com/maps?q=${ont._lcpGpsLat},${ont._lcpGpsLng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono text-xs text-blue-600 hover:underline"
+                          >
+                            {ont._lcpGpsLat.toFixed(4)}, {ont._lcpGpsLng.toFixed(4)}
+                          </a>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="text-gray-400 text-xs">No LCP data available</div>
@@ -462,7 +382,7 @@ export default function ONTDetailView({ ont, onClose }) {
             </Card>
           </TabsContent>
 
-          {/* History Tab */}
+          {/* History Tab with Enhanced Chart */}
           <TabsContent value="history" className="space-y-4">
             {isLoadingHistory ? (
               <div className="text-center py-12">
@@ -481,210 +401,23 @@ export default function ONTDetailView({ ont, onClose }) {
               </Card>
             ) : (
               <>
-                {/* Chart with Controls */}
+                {/* Date Range Filter */}
+                <DateRangeFilter 
+                  onRangeChange={setDateRange}
+                  availableDates={historicalData.map(d => d.date)}
+                />
+
+                {/* Enhanced Chart */}
+                <EnhancedHistoryChart
+                  historicalData={historicalData}
+                  title={`${ont.SerialNumber} - Performance Trends`}
+                  serialNumber={ont.SerialNumber}
+                />
+
+                {/* Data Table */}
                 <Card>
                   <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">Performance Trends</CardTitle>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant={showThresholds ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setShowThresholds(!showThresholds)}
-                          className="text-xs h-7"
-                        >
-                          Thresholds
-                        </Button>
-                        <Button
-                          variant={showAverages ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setShowAverages(!showAverages)}
-                          className="text-xs h-7"
-                        >
-                          Averages
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {/* Metric Selector */}
-                    <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg">
-                      {Object.keys(METRIC_CONFIGS).map(metric => (
-                        <Badge
-                          key={metric}
-                          variant={selectedMetrics.includes(metric) ? 'default' : 'outline'}
-                          className="cursor-pointer text-xs hover:opacity-80"
-                          style={selectedMetrics.includes(metric) ? { 
-                            backgroundColor: METRIC_CONFIGS[metric].color,
-                            borderColor: METRIC_CONFIGS[metric].color 
-                          } : {}}
-                          onClick={() => {
-                            setSelectedMetrics(prev =>
-                              prev.includes(metric)
-                                ? prev.filter(m => m !== metric)
-                                : [...prev, metric]
-                            );
-                          }}
-                        >
-                          {metric}
-                        </Badge>
-                      ))}
-                    </div>
-
-                    {/* Chart */}
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                          {selectedMetrics.some(m => METRIC_CONFIGS[m].yAxisId === 'power') && (
-                            <YAxis 
-                              yAxisId="power" 
-                              domain={[-35, -5]} 
-                              tick={{ fontSize: 10 }} 
-                              label={{ value: 'Power (dBm)', angle: -90, position: 'insideLeft', fontSize: 10 }} 
-                            />
-                          )}
-                          {selectedMetrics.some(m => METRIC_CONFIGS[m].yAxisId === 'errors') && (
-                            <YAxis 
-                              yAxisId="errors" 
-                              orientation="right" 
-                              tick={{ fontSize: 10 }} 
-                              label={{ value: 'Errors', angle: 90, position: 'insideRight', fontSize: 10 }} 
-                            />
-                          )}
-                          <Tooltip 
-                            contentStyle={{ fontSize: 12 }}
-                            labelFormatter={(label, payload) => payload[0]?.payload?.fullDate || label}
-                          />
-                          <Legend wrapperStyle={{ fontSize: 10 }} />
-                          
-                          {/* Thresholds */}
-                          {showThresholds && selectedMetrics.some(m => METRIC_CONFIGS[m].yAxisId === 'power') && (
-                            <>
-                              <ReferenceLine 
-                                yAxisId="power" 
-                                y={-27} 
-                                stroke="red" 
-                                strokeDasharray="5 5" 
-                                label={{ value: 'Critical (-27)', fontSize: 8, fill: 'red' }} 
-                              />
-                              <ReferenceLine 
-                                yAxisId="power" 
-                                y={-25} 
-                                stroke="orange" 
-                                strokeDasharray="5 5" 
-                                label={{ value: 'Warning (-25)', fontSize: 8, fill: 'orange' }} 
-                              />
-                            </>
-                          )}
-
-                          {/* Averages */}
-                          {showAverages && selectedMetrics.includes('ONT Rx') && avgOntRx !== null && (
-                            <ReferenceLine 
-                              yAxisId="power" 
-                              y={avgOntRx} 
-                              stroke="#3b82f6" 
-                              strokeDasharray="3 3" 
-                              strokeOpacity={0.5}
-                              label={{ 
-                                value: `Avg: ${avgOntRx.toFixed(1)}`, 
-                                fontSize: 8, 
-                                fill: '#3b82f6',
-                                position: 'right'
-                              }} 
-                            />
-                          )}
-                          {showAverages && selectedMetrics.includes('OLT Rx') && avgOltRx !== null && (
-                            <ReferenceLine 
-                              yAxisId="power" 
-                              y={avgOltRx} 
-                              stroke="#10b981" 
-                              strokeDasharray="3 3" 
-                              strokeOpacity={0.5}
-                              label={{ 
-                                value: `Avg: ${avgOltRx.toFixed(1)}`, 
-                                fontSize: 8, 
-                                fill: '#10b981',
-                                position: 'left'
-                              }} 
-                            />
-                          )}
-
-                          {/* Lines for selected metrics */}
-                          {selectedMetrics.map(metric => (
-                            <Line
-                              key={metric}
-                              yAxisId={METRIC_CONFIGS[metric].yAxisId}
-                              type="monotone"
-                              dataKey={metric}
-                              stroke={METRIC_CONFIGS[metric].color}
-                              strokeWidth={METRIC_CONFIGS[metric].strokeWidth}
-                              dot={{ r: METRIC_CONFIGS[metric].strokeWidth === 2 ? 3 : 2 }}
-                            />
-                          ))}
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-
-                    {/* Statistics Summary */}
-                    {showAverages && (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        {avgOntRx !== null && (
-                          <div className="text-center">
-                            <div className="text-xs text-gray-600">Avg ONT Rx</div>
-                            <div className="font-bold text-sm text-blue-700">{avgOntRx.toFixed(2)} dBm</div>
-                          </div>
-                        )}
-                        {avgOltRx !== null && (
-                          <div className="text-center">
-                            <div className="text-xs text-gray-600">Avg OLT Rx</div>
-                            <div className="font-bold text-sm text-green-700">{avgOltRx.toFixed(2)} dBm</div>
-                          </div>
-                        )}
-                        <div className="text-center">
-                          <div className="text-xs text-gray-600">Data Points</div>
-                          <div className="font-bold text-sm text-gray-700">{historicalData.length}</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-xs text-gray-600">Time Range</div>
-                          <div className="font-bold text-sm text-gray-700">
-                            {historicalData.length > 1 
-                              ? `${moment(historicalData[historicalData.length - 1].date).diff(moment(historicalData[0].date), 'days')} days`
-                              : 'N/A'
-                            }
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Data Table with Sorting */}
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">Historical Data Points</CardTitle>
-                      <Select value={sortBy} onValueChange={setSortBy}>
-                        <SelectTrigger className="w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="date">Sort by Date</SelectItem>
-                          <SelectItem value="ont_rx">Sort by ONT Rx</SelectItem>
-                          <SelectItem value="olt_rx">Sort by OLT Rx</SelectItem>
-                          <SelectItem value="bip">Sort by BIP Errors</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                      >
-                        <ArrowUpDown className="h-4 w-4" />
-                        {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                      </Button>
-                    </div>
+                    <CardTitle className="text-sm">Historical Data Points</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="max-h-96 overflow-y-auto">
@@ -703,7 +436,14 @@ export default function ONTDetailView({ ont, onClose }) {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {sortedHistory.map((record, idx) => (
+                          {historicalData
+                            .filter(d => {
+                              const dateStr = moment(d.date).format('YYYY-MM-DD');
+                              if (dateRange.start && dateStr < dateRange.start) return false;
+                              if (dateRange.end && dateStr > dateRange.end) return false;
+                              return true;
+                            })
+                            .map((record, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="text-xs">{moment(record.date).format('MM/DD/YY HH:mm')}</TableCell>
                               <TableCell className="text-right font-mono text-xs">
@@ -745,41 +485,24 @@ export default function ONTDetailView({ ont, onClose }) {
 
           {/* Job Reports Tab */}
           <TabsContent value="jobs" className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search job reports..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
             {isLoadingJobs ? (
               <div className="text-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-3" />
                 <p className="text-gray-500">Loading job reports...</p>
               </div>
-            ) : filteredJobReports.length === 0 ? (
+            ) : jobReports.length === 0 ? (
               <Card className="border-2 border-gray-200 bg-gray-50">
                 <CardContent className="p-8 text-center">
                   <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    {searchTerm ? 'No matching job reports' : 'No Job Reports'}
-                  </h3>
+                  <h3 className="font-semibold text-gray-900 mb-1">No Job Reports</h3>
                   <p className="text-sm text-gray-600">
-                    {searchTerm 
-                      ? 'Try adjusting your search terms'
-                      : 'No job reports have been created for this ONT yet.'
-                    }
+                    No job reports have been created for this ONT yet.
                   </p>
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-3">
-                {filteredJobReports.map((report, idx) => (
+                {jobReports.map((report, idx) => (
                   <Card key={idx} className="border">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-2">
