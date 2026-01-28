@@ -156,7 +156,7 @@ export default function ONTDetailView({ ont, onClose }) {
     report.notes?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Chart data
+  // Chart data with averages
   const chartData = historicalData.map(d => ({
     date: moment(d.date).format('MM/DD'),
     fullDate: moment(d.date).format('YYYY-MM-DD HH:mm'),
@@ -168,6 +168,24 @@ export default function ONTDetailView({ ont, onClose }) {
     'US FEC': d.us_fec_uncorrected || 0,
     'DS FEC': d.ds_fec_uncorrected || 0,
   })).sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
+
+  // Calculate averages for comparison
+  const powerValues = historicalData.filter(d => d.ont_rx_power != null).map(d => d.ont_rx_power);
+  const avgOntRx = powerValues.length > 0 ? powerValues.reduce((a, b) => a + b, 0) / powerValues.length : null;
+  
+  const oltPowerValues = historicalData.filter(d => d.olt_rx_power != null).map(d => d.olt_rx_power);
+  const avgOltRx = oltPowerValues.length > 0 ? oltPowerValues.reduce((a, b) => a + b, 0) / oltPowerValues.length : null;
+
+  // Metric configurations
+  const METRIC_CONFIGS = {
+    'ONT Rx': { yAxisId: 'power', color: '#3b82f6', strokeWidth: 2 },
+    'OLT Rx': { yAxisId: 'power', color: '#10b981', strokeWidth: 2 },
+    'ONT Tx': { yAxisId: 'power', color: '#8b5cf6', strokeWidth: 2 },
+    'US BIP': { yAxisId: 'errors', color: '#f59e0b', strokeWidth: 1 },
+    'DS BIP': { yAxisId: 'errors', color: '#ef4444', strokeWidth: 1 },
+    'US FEC': { yAxisId: 'errors', color: '#ec4899', strokeWidth: 1 },
+    'DS FEC': { yAxisId: 'errors', color: '#f97316', strokeWidth: 1 },
+  };
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
