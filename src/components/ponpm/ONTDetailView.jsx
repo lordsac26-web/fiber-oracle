@@ -90,12 +90,12 @@ export default function ONTDetailView({ ont, onClose }) {
     setIsLoadingHistory(true);
     try {
       const response = await base44.functions.invoke('searchOntHistory', {
-        searchType: 'serial',
-        searchValue: ont.SerialNumber
+        search_type: 'serial',
+        search_value: ont.SerialNumber
       });
 
       if (response.data?.results?.length > 0) {
-        setHistoricalData(response.data.results[0].data_points || []);
+        setHistoricalData(response.data.results[0].history || []);
       }
     } catch (error) {
       console.error('Failed to load historical data:', error);
