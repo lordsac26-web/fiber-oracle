@@ -481,30 +481,182 @@ export default function ONTDetailView({ ont, onClose }) {
               </Card>
             ) : (
               <>
-                {/* Chart */}
+                {/* Chart with Controls */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm">Performance Trends</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm">Performance Trends</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant={showThresholds ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setShowThresholds(!showThresholds)}
+                          className="text-xs h-7"
+                        >
+                          Thresholds
+                        </Button>
+                        <Button
+                          variant={showAverages ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setShowAverages(!showAverages)}
+                          className="text-xs h-7"
+                        >
+                          Averages
+                        </Button>
+                      </div>
+                    </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="h-64">
+                  <CardContent className="space-y-3">
+                    {/* Metric Selector */}
+                    <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg">
+                      {Object.keys(METRIC_CONFIGS).map(metric => (
+                        <Badge
+                          key={metric}
+                          variant={selectedMetrics.includes(metric) ? 'default' : 'outline'}
+                          className="cursor-pointer text-xs hover:opacity-80"
+                          style={selectedMetrics.includes(metric) ? { 
+                            backgroundColor: METRIC_CONFIGS[metric].color,
+                            borderColor: METRIC_CONFIGS[metric].color 
+                          } : {}}
+                          onClick={() => {
+                            setSelectedMetrics(prev =>
+                              prev.includes(metric)
+                                ? prev.filter(m => m !== metric)
+                                : [...prev, metric]
+                            );
+                          }}
+                        >
+                          {metric}
+                        </Badge>
+                      ))}
+                    </div>
+
+                    {/* Chart */}
+                    <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                          <YAxis yAxisId="power" domain={[-35, -5]} tick={{ fontSize: 10 }} label={{ value: 'Power (dBm)', angle: -90, position: 'insideLeft', fontSize: 10 }} />
-                          <YAxis yAxisId="errors" orientation="right" tick={{ fontSize: 10 }} label={{ value: 'Errors', angle: 90, position: 'insideRight', fontSize: 10 }} />
-                          <Tooltip />
+                          {selectedMetrics.some(m => METRIC_CONFIGS[m].yAxisId === 'power') && (
+                            <YAxis 
+                              yAxisId="power" 
+                              domain={[-35, -5]} 
+                              tick={{ fontSize: 10 }} 
+                              label={{ value: 'Power (dBm)', angle: -90, position: 'insideLeft', fontSize: 10 }} 
+                            />
+                          )}
+                          {selectedMetrics.some(m => METRIC_CONFIGS[m].yAxisId === 'errors') && (
+                            <YAxis 
+                              yAxisId="errors" 
+                              orientation="right" 
+                              tick={{ fontSize: 10 }} 
+                              label={{ value: 'Errors', angle: 90, position: 'insideRight', fontSize: 10 }} 
+                            />
+                          )}
+                          <Tooltip 
+                            contentStyle={{ fontSize: 12 }}
+                            labelFormatter={(label, payload) => payload[0]?.payload?.fullDate || label}
+                          />
                           <Legend wrapperStyle={{ fontSize: 10 }} />
-                          <ReferenceLine yAxisId="power" y={-27} stroke="red" strokeDasharray="5 5" label={{ value: 'Critical', fontSize: 8 }} />
-                          <ReferenceLine yAxisId="power" y={-25} stroke="orange" strokeDasharray="5 5" label={{ value: 'Warning', fontSize: 8 }} />
-                          <Line yAxisId="power" type="monotone" dataKey="ONT Rx" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
-                          <Line yAxisId="power" type="monotone" dataKey="OLT Rx" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-                          <Line yAxisId="errors" type="monotone" dataKey="US BIP" stroke="#f59e0b" strokeWidth={1} dot={{ r: 2 }} />
-                          <Line yAxisId="errors" type="monotone" dataKey="DS BIP" stroke="#ef4444" strokeWidth={1} dot={{ r: 2 }} />
+                          
+                          {/* Thresholds */}
+                          {showThresholds && selectedMetrics.some(m => METRIC_CONFIGS[m].yAxisId === 'power') && (
+                            <>
+                              <ReferenceLine 
+                                yAxisId="power" 
+                                y={-27} 
+                                stroke="red" 
+                                strokeDasharray="5 5" 
+                                label={{ value: 'Critical (-27)', fontSize: 8, fill: 'red' }} 
+                              />
+                              <ReferenceLine 
+                                yAxisId="power" 
+                                y={-25} 
+                                stroke="orange" 
+                                strokeDasharray="5 5" 
+                                label={{ value: 'Warning (-25)', fontSize: 8, fill: 'orange' }} 
+                              />
+                            </>
+                          )}
+
+                          {/* Averages */}
+                          {showAverages && selectedMetrics.includes('ONT Rx') && avgOntRx !== null && (
+                            <ReferenceLine 
+                              yAxisId="power" 
+                              y={avgOntRx} 
+                              stroke="#3b82f6" 
+                              strokeDasharray="3 3" 
+                              strokeOpacity={0.5}
+                              label={{ 
+                                value: `Avg: ${avgOntRx.toFixed(1)}`, 
+                                fontSize: 8, 
+                                fill: '#3b82f6',
+                                position: 'right'
+                              }} 
+                            />
+                          )}
+                          {showAverages && selectedMetrics.includes('OLT Rx') && avgOltRx !== null && (
+                            <ReferenceLine 
+                              yAxisId="power" 
+                              y={avgOltRx} 
+                              stroke="#10b981" 
+                              strokeDasharray="3 3" 
+                              strokeOpacity={0.5}
+                              label={{ 
+                                value: `Avg: ${avgOltRx.toFixed(1)}`, 
+                                fontSize: 8, 
+                                fill: '#10b981',
+                                position: 'left'
+                              }} 
+                            />
+                          )}
+
+                          {/* Lines for selected metrics */}
+                          {selectedMetrics.map(metric => (
+                            <Line
+                              key={metric}
+                              yAxisId={METRIC_CONFIGS[metric].yAxisId}
+                              type="monotone"
+                              dataKey={metric}
+                              stroke={METRIC_CONFIGS[metric].color}
+                              strokeWidth={METRIC_CONFIGS[metric].strokeWidth}
+                              dot={{ r: METRIC_CONFIGS[metric].strokeWidth === 2 ? 3 : 2 }}
+                            />
+                          ))}
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
+
+                    {/* Statistics Summary */}
+                    {showAverages && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        {avgOntRx !== null && (
+                          <div className="text-center">
+                            <div className="text-xs text-gray-600">Avg ONT Rx</div>
+                            <div className="font-bold text-sm text-blue-700">{avgOntRx.toFixed(2)} dBm</div>
+                          </div>
+                        )}
+                        {avgOltRx !== null && (
+                          <div className="text-center">
+                            <div className="text-xs text-gray-600">Avg OLT Rx</div>
+                            <div className="font-bold text-sm text-green-700">{avgOltRx.toFixed(2)} dBm</div>
+                          </div>
+                        )}
+                        <div className="text-center">
+                          <div className="text-xs text-gray-600">Data Points</div>
+                          <div className="font-bold text-sm text-gray-700">{historicalData.length}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-gray-600">Time Range</div>
+                          <div className="font-bold text-sm text-gray-700">
+                            {historicalData.length > 1 
+                              ? `${moment(historicalData[historicalData.length - 1].date).diff(moment(historicalData[0].date), 'days')} days`
+                              : 'N/A'
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
