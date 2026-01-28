@@ -413,6 +413,14 @@ Deno.serve(async (req) => {
       ont._techType = comboInfo.techType;
       ont._comboLabel = comboInfo.comboLabel;
       
+      // Detect DZS model based on FSAN prefix if model is unknown
+      if ((!ont.model || ont.model === 'Unknown' || ont.model === 'N/A' || ont.model === '') && ont.SerialNumber) {
+        const fsan = ont.SerialNumber;
+        if (fsan.startsWith('050') || fsan.startsWith('051') || fsan.startsWith('053')) {
+          ont.model = 'DZS 522x XG';
+        }
+      }
+      
       return ont;
     });
 
