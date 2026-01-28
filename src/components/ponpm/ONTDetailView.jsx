@@ -77,6 +77,9 @@ export default function ONTDetailView({ ont, onClose }) {
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedMetrics, setSelectedMetrics] = useState(['ONT Rx', 'OLT Rx']);
+  const [showAverages, setShowAverages] = useState(true);
+  const [showThresholds, setShowThresholds] = useState(true);
 
   useEffect(() => {
     loadHistoricalData();
