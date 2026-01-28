@@ -140,9 +140,9 @@ export default function OLTPortSummary({ result, onDrillDown }) {
     let ports = summaryData.ports.filter(p => {
       if (!searchTerm) return true;
       const term = searchTerm.toLowerCase();
-      return p.oltName.toLowerCase().includes(term) ||
-             p.portKey.toLowerCase().includes(term) ||
-             p.lcpNumber?.toLowerCase().includes(term);
+      return (p.oltName || '').toLowerCase().includes(term) ||
+             (p.portKey || '').toLowerCase().includes(term) ||
+             (p.lcpNumber || '').toLowerCase().includes(term);
     });
 
     ports.sort((a, b) => {
