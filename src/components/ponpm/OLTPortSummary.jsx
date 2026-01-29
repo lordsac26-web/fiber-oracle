@@ -104,7 +104,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         const portHasCorrelatedIssue = portIssueRate > 0.4 && (portCritical + portWarning) >= 2;
 
         // Get LCP info if available
-        const lcpInfo = portOnts.find(o => o._lcpNumber);
+        const lcpInfo = portOnts.find(o => o.lcp_number);
 
         portSummaries.push({
           oltName,
@@ -125,8 +125,8 @@ export default function OLTPortSummary({ result, onDrillDown }) {
           issueRate: portIssueRate,
           isCombo: portStats.isCombo,
           techType: portStats.techType,
-          lcpNumber: lcpInfo?._lcpNumber,
-          lcpLocation: lcpInfo?._lcpLocation,
+          lcpNumber: lcpInfo?.lcp_number,
+          lcpLocation: lcpInfo?.lcp_location,
           onts: portOnts,
         });
       });
