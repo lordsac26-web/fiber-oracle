@@ -33,21 +33,24 @@ import moment from 'moment';
 import { toast } from 'sonner';
 
 const METRIC_OPTIONS = [
-  { value: 'ont_rx', label: 'ONT Rx Power', color: '#3b82f6', yAxisId: 'power' },
-  { value: 'olt_rx', label: 'OLT Rx Power', color: '#10b981', yAxisId: 'power' },
+  { value: 'ont_rx', label: 'ONT Rx Power', color: '#3b82f6', yAxisId: 'power', thresholds: { critical: -27, warning: -25 } },
+  { value: 'olt_rx', label: 'OLT Rx Power', color: '#10b981', yAxisId: 'power', thresholds: { critical: -30, warning: -28 } },
   { value: 'ont_tx', label: 'ONT Tx Power', color: '#8b5cf6', yAxisId: 'power' },
-  { value: 'us_bip', label: 'US BIP Errors', color: '#f59e0b', yAxisId: 'errors' },
-  { value: 'ds_bip', label: 'DS BIP Errors', color: '#ef4444', yAxisId: 'errors' },
+  { value: 'us_bip', label: 'US BIP Errors', color: '#f59e0b', yAxisId: 'errors', thresholds: { critical: 1000, warning: 100 } },
+  { value: 'ds_bip', label: 'DS BIP Errors', color: '#ef4444', yAxisId: 'errors', thresholds: { critical: 1000, warning: 100 } },
+  { value: 'us_fec', label: 'US FEC Uncorrected', color: '#ec4899', yAxisId: 'errors', thresholds: { critical: 10, warning: 1 } },
+  { value: 'ds_fec', label: 'DS FEC Uncorrected', color: '#f97316', yAxisId: 'errors', thresholds: { critical: 10, warning: 1 } },
 ];
 
 const ONT_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export default function ONTComparisonView({ onts, onClose, onAddOnt }) {
-  const [selectedMetric, setSelectedMetric] = useState('ont_rx');
+  const [selectedMetrics, setSelectedMetrics] = useState(['ont_rx']);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [showThresholds, setShowThresholds] = useState(true);
 
-  const metricConfig = METRIC_OPTIONS.find(m => m.value === selectedMetric);
+  const hasPowerMetrics = selectedMetrics.some(m => METRIC_OPTIONS.find(opt => opt.value === m)?.yAxisId === 'power');
+  const hasErrorMetrics = selectedMetrics.some(m => METRIC_OPTIONS.find(opt => opt.value === m)?.yAxisId === 'errors');
 
   // Build combined chart data
   const chartData = useMemo(() => {
@@ -79,24 +82,32 @@ export default function ONTComparisonView({ onts, onClose, onAddOnt }) {
       onts.forEach((ont, idx) => {
         const dp = ont.dataPoints.find(d => moment(d.date).format('YYYY-MM-DD') === dateStr);
         if (dp) {
-          const ontLabel = `${ont.serial.substring(0, 8)}...`;
-          switch (selectedMetric) {
-            case 'ont_rx':
-              dataPoint[ontLabel] = dp.OntRxOptPwr;
-              break;
-            case 'olt_rx':
-              dataPoint[ontLabel] = dp.OLTRXOptPwr;
-              break;
-            case 'ont_tx':
-              dataPoint[ontLabel] = dp.OntTxPwr;
-              break;
-            case 'us_bip':
-              dataPoint[ontLabel] = dp.UpstreamBipErrors || 0;
-              break;
-            case 'ds_bip':
-              dataPoint[ontLabel] = dp.DownstreamBipErrors || 0;
-              break;
-          }
+          selectedMetrics.forEach(metric => {
+            const ontLabel = `${ont.serial.substring(0, 8)}..._${metric}`;
+            switch (metric) {
+              case 'ont_rx':
+                dataPoint[ontLabel] = dp.OntRxOptPwr;
+                break;
+              case 'olt_rx':
+                dataPoint[ontLabel] = dp.OLTRXOptPwr;
+                break;
+              case 'ont_tx':
+                dataPoint[ontLabel] = dp.OntTxPwr;
+                break;
+              case 'us_bip':
+                dataPoint[ontLabel] = dp.UpstreamBipErrors || 0;
+                break;
+              case 'ds_bip':
+                dataPoint[ontLabel] = dp.DownstreamBipErrors || 0;
+                break;
+              case 'us_fec':
+                dataPoint[ontLabel] = dp.UpstreamFecUncorrected || 0;
+                break;
+              case 'ds_fec':
+                dataPoint[ontLabel] = dp.DownstreamFecUncorrected || 0;
+                break;
+            }
+          });
         }
       });
 
@@ -104,56 +115,69 @@ export default function ONTComparisonView({ onts, onClose, onAddOnt }) {
     });
   }, [onts, selectedMetric, dateRange]);
 
-  // Calculate statistics for each ONT
+  // Calculate statistics for each ONT and metric
   const ontStats = useMemo(() => {
-    return onts.map(ont => {
-      const validPoints = ont.dataPoints.filter(dp => {
-        const dateStr = moment(dp.date).format('YYYY-MM-DD');
-        if (dateRange.start && dateStr < dateRange.start) return false;
-        if (dateRange.end && dateStr > dateRange.end) return false;
-        
-        switch (selectedMetric) {
-          case 'ont_rx': return dp.OntRxOptPwr !== null;
-          case 'olt_rx': return dp.OLTRXOptPwr !== null;
-          case 'ont_tx': return dp.OntTxPwr !== null;
-          case 'us_bip': return dp.UpstreamBipErrors !== null;
-          case 'ds_bip': return dp.DownstreamBipErrors !== null;
-          default: return false;
-        }
-      });
+    return selectedMetrics.map(metric => {
+      const metricLabel = METRIC_OPTIONS.find(m => m.value === metric)?.label;
+      const ontStatsForMetric = onts.map(ont => {
+        const validPoints = ont.dataPoints.filter(dp => {
+          const dateStr = moment(dp.date).format('YYYY-MM-DD');
+          if (dateRange.start && dateStr < dateRange.start) return false;
+          if (dateRange.end && dateStr > dateRange.end) return false;
+          
+          switch (metric) {
+            case 'ont_rx': return dp.OntRxOptPwr !== null;
+            case 'olt_rx': return dp.OLTRXOptPwr !== null;
+            case 'ont_tx': return dp.OntTxPwr !== null;
+            case 'us_bip': return dp.UpstreamBipErrors !== null;
+            case 'ds_bip': return dp.DownstreamBipErrors !== null;
+            case 'us_fec': return dp.UpstreamFecUncorrected !== null;
+            case 'ds_fec': return dp.DownstreamFecUncorrected !== null;
+            default: return false;
+          }
+        });
 
-      if (validPoints.length < 2) return null;
+        if (validPoints.length < 2) return null;
 
-      const values = validPoints.map(dp => {
-        switch (selectedMetric) {
-          case 'ont_rx': return dp.OntRxOptPwr;
-          case 'olt_rx': return dp.OLTRXOptPwr;
-          case 'ont_tx': return dp.OntTxPwr;
-          case 'us_bip': return dp.UpstreamBipErrors || 0;
-          case 'ds_bip': return dp.DownstreamBipErrors || 0;
-          default: return null;
-        }
-      });
+        const values = validPoints.map(dp => {
+          switch (metric) {
+            case 'ont_rx': return dp.OntRxOptPwr;
+            case 'olt_rx': return dp.OLTRXOptPwr;
+            case 'ont_tx': return dp.OntTxPwr;
+            case 'us_bip': return dp.UpstreamBipErrors || 0;
+            case 'ds_bip': return dp.DownstreamBipErrors || 0;
+            case 'us_fec': return dp.UpstreamFecUncorrected || 0;
+            case 'ds_fec': return dp.DownstreamFecUncorrected || 0;
+            default: return null;
+          }
+        });
 
-      const first = values[0];
-      const last = values[values.length - 1];
-      const change = last - first;
-      const avg = values.reduce((a, b) => a + b, 0) / values.length;
-      const min = Math.min(...values);
-      const max = Math.max(...values);
+        const first = values[0];
+        const last = values[values.length - 1];
+        const change = last - first;
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+
+        return {
+          serial: ont.serial,
+          first,
+          last,
+          change,
+          avg,
+          min,
+          max,
+          dataPointCount: validPoints.length,
+        };
+      }).filter(Boolean);
 
       return {
-        serial: ont.serial,
-        first,
-        last,
-        change,
-        avg,
-        min,
-        max,
-        dataPointCount: validPoints.length,
+        metric,
+        metricLabel,
+        stats: ontStatsForMetric
       };
-    }).filter(Boolean);
-  }, [onts, selectedMetric, dateRange]);
+    });
+  }, [onts, selectedMetrics, dateRange]);
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -170,16 +194,29 @@ export default function ONTComparisonView({ onts, onClose, onAddOnt }) {
           {/* Controls */}
           <div className="flex gap-3 flex-wrap items-end">
             <div className="flex-1 min-w-[200px]">
-              <Label className="text-xs mb-1">Metric</Label>
-              <select 
-                value={selectedMetric} 
-                onChange={(e) => setSelectedMetric(e.target.value)}
-                className="w-full h-9 px-3 rounded-md border border-gray-300 text-sm"
-              >
+              <Label className="text-xs mb-1">Metrics (select multiple)</Label>
+              <div className="flex flex-wrap gap-2 p-2 border border-gray-300 rounded-md bg-white min-h-[38px]">
                 {METRIC_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  <Badge
+                    key={opt.value}
+                    variant={selectedMetrics.includes(opt.value) ? 'default' : 'outline'}
+                    className="cursor-pointer text-xs hover:opacity-80"
+                    style={selectedMetrics.includes(opt.value) ? { 
+                      backgroundColor: opt.color,
+                      borderColor: opt.color 
+                    } : {}}
+                    onClick={() => {
+                      setSelectedMetrics(prev =>
+                        prev.includes(opt.value)
+                          ? prev.filter(m => m !== opt.value)
+                          : [...prev, opt.value]
+                      );
+                    }}
+                  >
+                    {opt.label}
+                  </Badge>
                 ))}
-              </select>
+              </div>
             </div>
             <div className="w-36">
               <Label className="text-xs mb-1 flex items-center gap-1">
@@ -251,7 +288,7 @@ export default function ONTComparisonView({ onts, onClose, onAddOnt }) {
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">
-                {metricConfig?.label} Comparison
+                Multi-Metric Comparison - {onts.length} ONT{onts.length > 1 ? 's' : ''}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -260,57 +297,102 @@ export default function ONTComparisonView({ onts, onClose, onAddOnt }) {
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                    <YAxis 
-                      yAxisId={metricConfig?.yAxisId}
-                      tick={{ fontSize: 10 }}
-                      label={{ 
-                        value: metricConfig?.yAxisId === 'power' ? 'dBm' : 'Count', 
-                        angle: -90, 
-                        position: 'insideLeft', 
-                        fontSize: 10 
-                      }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ fontSize: 12 }}
-                      labelFormatter={(label, payload) => payload[0]?.payload?.fullDate || label}
-                    />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
                     
-                    {/* Threshold lines for power metrics */}
-                    {showThresholds && metricConfig?.yAxisId === 'power' && selectedMetric === 'ont_rx' && (
-                      <>
-                        <ReferenceLine 
-                          yAxisId="power" 
-                          y={-27} 
-                          stroke="red" 
-                          strokeDasharray="5 5" 
-                          label={{ value: 'Critical (-27)', fontSize: 8, fill: 'red' }} 
-                        />
-                        <ReferenceLine 
-                          yAxisId="power" 
-                          y={-25} 
-                          stroke="orange" 
-                          strokeDasharray="5 5" 
-                          label={{ value: 'Warning (-25)', fontSize: 8, fill: 'orange' }} 
-                        />
-                      </>
+                    {/* Power Y-Axis (left) */}
+                    {hasPowerMetrics && (
+                      <YAxis 
+                        yAxisId="power"
+                        tick={{ fontSize: 10 }}
+                        label={{ 
+                          value: 'Power (dBm)', 
+                          angle: -90, 
+                          position: 'insideLeft', 
+                          fontSize: 10 
+                        }}
+                      />
                     )}
                     
-                    {/* Lines for each ONT */}
-                    {onts.map((ont, idx) => {
-                      const ontLabel = `${ont.serial.substring(0, 8)}...`;
+                    {/* Errors Y-Axis (right) */}
+                    {hasErrorMetrics && (
+                      <YAxis 
+                        yAxisId="errors"
+                        orientation="right"
+                        tick={{ fontSize: 10 }}
+                        label={{ 
+                          value: 'Errors', 
+                          angle: 90, 
+                          position: 'insideRight', 
+                          fontSize: 10 
+                        }}
+                      />
+                    )}
+                    
+                    <Tooltip 
+                      contentStyle={{ fontSize: 11 }}
+                      labelFormatter={(label, payload) => payload[0]?.payload?.fullDate || label}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 9 }} />
+                    
+                    {/* Threshold lines */}
+                    {showThresholds && selectedMetrics.map(metric => {
+                      const metricConfig = METRIC_OPTIONS.find(m => m.value === metric);
+                      if (!metricConfig?.thresholds) return null;
                       return (
-                        <Line
-                          key={idx}
-                          yAxisId={metricConfig?.yAxisId}
-                          type="monotone"
-                          dataKey={ontLabel}
-                          stroke={ONT_COLORS[idx % ONT_COLORS.length]}
-                          strokeWidth={2}
-                          dot={{ r: 3 }}
-                          connectNulls={false}
-                        />
+                        <React.Fragment key={`threshold-${metric}`}>
+                          {metricConfig.thresholds.critical && (
+                            <ReferenceLine 
+                              yAxisId={metricConfig.yAxisId} 
+                              y={metricConfig.thresholds.critical} 
+                              stroke="red" 
+                              strokeDasharray="5 5" 
+                              label={{ 
+                                value: `${metricConfig.label} Critical`, 
+                                fontSize: 7, 
+                                fill: 'red',
+                                position: 'right'
+                              }} 
+                            />
+                          )}
+                          {metricConfig.thresholds.warning && (
+                            <ReferenceLine 
+                              yAxisId={metricConfig.yAxisId} 
+                              y={metricConfig.thresholds.warning} 
+                              stroke="orange" 
+                              strokeDasharray="5 5" 
+                              label={{ 
+                                value: `${metricConfig.label} Warning`, 
+                                fontSize: 7, 
+                                fill: 'orange',
+                                position: 'right'
+                              }} 
+                            />
+                          )}
+                        </React.Fragment>
                       );
+                    })}
+                    
+                    {/* Lines for each ONT x metric combination */}
+                    {onts.map((ont, ontIdx) => {
+                      return selectedMetrics.map((metric, metricIdx) => {
+                        const metricConfig = METRIC_OPTIONS.find(m => m.value === metric);
+                        const ontLabel = `${ont.serial.substring(0, 8)}..._${metric}`;
+                        const displayLabel = `${ont.serial.substring(0, 8)}... - ${metricConfig.label}`;
+                        
+                        return (
+                          <Line
+                            key={`${ontIdx}-${metric}`}
+                            yAxisId={metricConfig.yAxisId}
+                            type="monotone"
+                            dataKey={ontLabel}
+                            name={displayLabel}
+                            stroke={ONT_COLORS[ontIdx % ONT_COLORS.length]}
+                            strokeWidth={metricConfig.yAxisId === 'power' ? 2 : 1}
+                            strokeDasharray={metricConfig.yAxisId === 'errors' ? '3 3' : '0'}
+                            dot={{ r: metricConfig.yAxisId === 'power' ? 3 : 2 }}
+                            connectNulls={false}
+                          />
+                        );
+                      });
                     })}
                   </LineChart>
                 </ResponsiveContainer>
@@ -318,51 +400,53 @@ export default function ONTComparisonView({ onts, onClose, onAddOnt }) {
             </CardContent>
           </Card>
 
-          {/* Statistics Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Comparison Statistics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 px-2">ONT Serial</th>
-                      <th className="text-right py-2 px-2">First</th>
-                      <th className="text-right py-2 px-2">Latest</th>
-                      <th className="text-right py-2 px-2">Change</th>
-                      <th className="text-right py-2 px-2">Average</th>
-                      <th className="text-right py-2 px-2">Min</th>
-                      <th className="text-right py-2 px-2">Max</th>
-                      <th className="text-right py-2 px-2">Points</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ontStats.map((stat, idx) => (
-                      <tr key={idx} className="border-b hover:bg-gray-50">
-                        <td className="py-2 px-2 font-mono" style={{ color: ONT_COLORS[idx % ONT_COLORS.length] }}>
-                          {stat.serial}
-                        </td>
-                        <td className="text-right py-2 px-2 font-mono">{stat.first?.toFixed(2)}</td>
-                        <td className="text-right py-2 px-2 font-mono font-bold">{stat.last?.toFixed(2)}</td>
-                        <td className="text-right py-2 px-2">
-                          <Badge className={stat.change < -1 ? 'bg-red-100 text-red-800' : stat.change > 1 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                            {stat.change < -0.1 ? <TrendingDown className="h-3 w-3 mr-1" /> : stat.change > 0.1 ? <TrendingUp className="h-3 w-3 mr-1" /> : '→'}
-                            {stat.change > 0 ? '+' : ''}{stat.change?.toFixed(2)}
-                          </Badge>
-                        </td>
-                        <td className="text-right py-2 px-2 font-mono">{stat.avg?.toFixed(2)}</td>
-                        <td className="text-right py-2 px-2 font-mono text-red-600">{stat.min?.toFixed(2)}</td>
-                        <td className="text-right py-2 px-2 font-mono text-green-600">{stat.max?.toFixed(2)}</td>
-                        <td className="text-right py-2 px-2">{stat.dataPointCount}</td>
+          {/* Statistics Tables - One per metric */}
+          {ontStats.map((metricData, metricIdx) => (
+            <Card key={metricIdx}>
+              <CardHeader>
+                <CardTitle className="text-sm">{metricData.metricLabel} - Statistics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-2 px-2">ONT Serial</th>
+                        <th className="text-right py-2 px-2">First</th>
+                        <th className="text-right py-2 px-2">Latest</th>
+                        <th className="text-right py-2 px-2">Change</th>
+                        <th className="text-right py-2 px-2">Average</th>
+                        <th className="text-right py-2 px-2">Min</th>
+                        <th className="text-right py-2 px-2">Max</th>
+                        <th className="text-right py-2 px-2">Points</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                    </thead>
+                    <tbody>
+                      {metricData.stats.map((stat, idx) => (
+                        <tr key={idx} className="border-b hover:bg-gray-50">
+                          <td className="py-2 px-2 font-mono" style={{ color: ONT_COLORS[idx % ONT_COLORS.length] }}>
+                            {stat.serial}
+                          </td>
+                          <td className="text-right py-2 px-2 font-mono">{stat.first?.toFixed(2)}</td>
+                          <td className="text-right py-2 px-2 font-mono font-bold">{stat.last?.toFixed(2)}</td>
+                          <td className="text-right py-2 px-2">
+                            <Badge className={stat.change < -1 ? 'bg-red-100 text-red-800' : stat.change > 1 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
+                              {stat.change < -0.1 ? <TrendingDown className="h-3 w-3 mr-1" /> : stat.change > 0.1 ? <TrendingUp className="h-3 w-3 mr-1" /> : '→'}
+                              {stat.change > 0 ? '+' : ''}{stat.change?.toFixed(2)}
+                            </Badge>
+                          </td>
+                          <td className="text-right py-2 px-2 font-mono">{stat.avg?.toFixed(2)}</td>
+                          <td className="text-right py-2 px-2 font-mono text-red-600">{stat.min?.toFixed(2)}</td>
+                          <td className="text-right py-2 px-2 font-mono text-green-600">{stat.max?.toFixed(2)}</td>
+                          <td className="text-right py-2 px-2">{stat.dataPointCount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </DialogContent>
     </Dialog>
