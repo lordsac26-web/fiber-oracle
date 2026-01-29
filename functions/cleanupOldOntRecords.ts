@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
-    const { days_old = 20, batch_size = 50 } = await req.json().catch(() => ({}));
+    const { days_old = 90, batch_size = 10 } = await req.json().catch(() => ({}));
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days_old);
@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
 
     let totalDeleted = 0;
     let batchCount = 0;
-    const maxBatches = 5;
+    const maxBatches = 2;
 
     const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -41,10 +41,10 @@ Deno.serve(async (req) => {
         try {
           await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
           totalDeleted++;
-          await delay(100);
+          await delay(300);
         } catch (err) {
           console.error(`Failed to delete record ${record.id}:`, err.message);
-          await delay(300);
+          await delay(800);
         }
       }
 
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
         break;
       }
 
-      await delay(1000);
+      await delay(3000);
     }
 
     const hasMoreRecords = batchCount >= maxBatches;
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       batches_processed: batchCount,
       has_more: hasMoreRecords,
       message: hasMoreRecords 
-        ? `Deleted ${totalDeleted} records. Run again to continue cleanup.`
+        ? `Deleted ${totalDeleted} records. Run again to continue cleanup (may take multiple runs).`
         : `Successfully deleted ${totalDeleted} ONT records older than ${days_old} days`
     });
 
