@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
-    const { days_old = 7, batch_size = 500 } = await req.json().catch(() => ({}));
+    const { days_old = 37, batch_size = 500 } = await req.json().catch(() => ({}));
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days_old);
