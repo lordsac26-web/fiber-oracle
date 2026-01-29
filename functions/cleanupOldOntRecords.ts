@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
-    const { days_old = 37, batch_size = 500 } = await req.json().catch(() => ({}));
+    const { days_old = 90, batch_size = 50 } = await req.json().catch(() => ({}));
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days_old);
@@ -18,10 +18,12 @@ Deno.serve(async (req) => {
     console.log(`Deleting ONT records older than ${days_old} days (before ${cutoffDateStr})`);
 
     let totalDeleted = 0;
-    let hasMore = true;
+    let batchCount = 0;
+    const maxBatches = 5;
 
-    while (hasMore) {
-      // Fetch a batch of old records
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    while (batchCount < maxBatches) {
       const oldRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
         { report_date: { $lt: cutoffDateStr } },
         null,
@@ -29,28 +31,31 @@ Deno.serve(async (req) => {
       );
 
       if (oldRecords.length === 0) {
-        hasMore = false;
+        console.log('No more records to delete');
         break;
       }
 
-      console.log(`Deleting batch of ${oldRecords.length} records...`);
+      console.log(`Batch ${batchCount + 1}: Deleting ${oldRecords.length} records...`);
 
-      // Delete records one by one to avoid timeout
       for (const record of oldRecords) {
         try {
           await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
           totalDeleted++;
+          await delay(100);
         } catch (err) {
           console.error(`Failed to delete record ${record.id}:`, err.message);
+          await delay(300);
         }
       }
 
+      batchCount++;
       console.log(`Progress: ${totalDeleted} records deleted so far`);
 
-      // If we got fewer records than batch size, we're done
       if (oldRecords.length < batch_size) {
-        hasMore = false;
+        break;
       }
+
+      await delay(1000);
     }
 
     const hasMoreRecords = batchCount >= maxBatches;
