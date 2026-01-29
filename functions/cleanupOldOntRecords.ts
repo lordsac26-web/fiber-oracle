@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     if (days_old < 1 || days_old > 365) {
       return Response.json({ error: 'days_old must be between 1 and 365' }, { status: 400 });
     }
-    if (batch_size < 1 || batch_size > 100) {
+    if (batch_size < 1 || batch_size > 1001) {
       return Response.json({ error: 'batch_size must be between 1 and 100' }, { status: 400 });
     }
     if (max_batches < 1 || max_batches > 50) {
