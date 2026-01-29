@@ -11,10 +11,10 @@ Deno.serve(async (req) => {
 
     const { 
       days_old = 45, 
-      batch_size = 300, 
-      max_batches = 5,
+      batch_size = 10, 
+      max_batches = 100,
       dry_run = false,
-      delay_between_deletes = 300,
+      delay_between_deletes = 500,
       delay_between_batches = 3000
     } = await req.json().catch(() => ({}));
 
@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     if (batch_size < 1 || batch_size > 1001) {
       return Response.json({ error: 'batch_size must be between 1 and 100' }, { status: 400 });
     }
-    if (max_batches < 1 || max_batches > 50) {
+    if (max_batches < 1 || max_batches > 500) {
       return Response.json({ error: 'max_batches must be between 1 and 50' }, { status: 400 });
     }
 
