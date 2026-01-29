@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,30 +17,66 @@ import {
   Search,
   Navigation,
   TrendingDown,
+  Loader2,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
 
 export default function LCPSummarySection({ result, onPortClick }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLCP, setSelectedLCP] = useState(null);
 
-  // Aggregate LCP data from ONTs
+  // Fetch LCP entries from database
+  const { data: lcpEntries = [], isLoading } = useQuery({
+    queryKey: ['lcp-entries'],
+    queryFn: async () => {
+      const entries = await base44.entities.LCPEntry.list();
+      return entries;
+    },
+  });
+
+  // Aggregate LCP data from ONTs and match with LCP database
   const lcpData = useMemo(() => {
-    if (!result?.onts) return [];
+    if (!result?.onts || !lcpEntries.length) return [];
 
     const lcpMap = {};
 
+    // First, initialize from LCP database entries
+    lcpEntries.forEach(lcpEntry => {
+      const lcpNumber = lcpEntry.lcp_number;
+      if (!lcpMap[lcpNumber]) {
+        lcpMap[lcpNumber] = {
+          lcpNumber,
+          location: lcpEntry.location || lcpEntry.address,
+          gps_lat: lcpEntry.gps_lat,
+          gps_lng: lcpEntry.gps_lng,
+          splitter_ratio: lcpEntry.splitter_ratio,
+          fiber_count: lcpEntry.fiber_count,
+          ports: new Set(),
+          onts: [],
+          critical: 0,
+          warning: 0,
+          ok: 0,
+          offline: 0,
+          degrading: 0,
+        };
+      }
+    });
+
+    // Then, aggregate ONT data
     result.onts.forEach(ont => {
       const lcpNumber = ont.lcp_number;
       if (!lcpNumber) return;
 
+      // Create entry if not found in database (for LCPs not yet in database)
       if (!lcpMap[lcpNumber]) {
         lcpMap[lcpNumber] = {
           lcpNumber,
-          location: ont.lcp_location,
-          gps_lat: ont.lcp_gps_lat,
-          gps_lng: ont.lcp_gps_lng,
+          location: 'Unknown',
+          gps_lat: null,
+          gps_lng: null,
           ports: new Set(),
           onts: [],
           critical: 0,
@@ -69,16 +105,19 @@ export default function LCPSummarySection({ result, onPortClick }) {
       }
     });
 
-    // Convert to array and add computed properties
-    return Object.values(lcpMap).map(lcp => ({
-      ...lcp,
-      portCount: lcp.ports.size,
-      ontCount: lcp.onts.length,
-      healthScore: lcp.ok / lcp.ontCount,
-      issueRate: (lcp.critical + lcp.warning) / lcp.ontCount,
-      hasGPS: !!(lcp.gps_lat && lcp.gps_lng),
-    })).sort((a, b) => b.issueRate - a.issueRate);
-  }, [result]);
+    // Convert to array and add computed properties, filter out LCPs with no ONTs
+    return Object.values(lcpMap)
+      .filter(lcp => lcp.onts.length > 0)
+      .map(lcp => ({
+        ...lcp,
+        portCount: lcp.ports.size,
+        ontCount: lcp.onts.length,
+        healthScore: lcp.ok / lcp.ontCount,
+        issueRate: (lcp.critical + lcp.warning) / lcp.ontCount,
+        hasGPS: !!(lcp.gps_lat && lcp.gps_lng),
+      }))
+      .sort((a, b) => b.issueRate - a.issueRate);
+  }, [result, lcpEntries]);
 
   // Filter LCPs
   const filteredLCPs = useMemo(() => {
@@ -101,6 +140,17 @@ export default function LCPSummarySection({ result, onPortClick }) {
     if (lcp.warning > 0) return <AlertTriangle className="h-4 w-4 text-amber-600" />;
     return <CheckCircle2 className="h-4 w-4 text-green-600" />;
   };
+
+  if (isLoading) {
+    return (
+      <Card className="border">
+        <CardContent className="p-8 flex items-center justify-center gap-2 text-gray-500">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Loading LCP data...</span>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
