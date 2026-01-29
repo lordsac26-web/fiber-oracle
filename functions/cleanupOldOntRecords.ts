@@ -53,10 +53,16 @@ Deno.serve(async (req) => {
       }
     }
 
+    const hasMoreRecords = batchCount >= maxBatches;
+
     return Response.json({
       success: true,
       deleted_count: totalDeleted,
-      message: `Successfully deleted ${totalDeleted} ONT records older than ${days_old} days`
+      batches_processed: batchCount,
+      has_more: hasMoreRecords,
+      message: hasMoreRecords 
+        ? `Deleted ${totalDeleted} records. Run again to continue cleanup.`
+        : `Successfully deleted ${totalDeleted} ONT records older than ${days_old} days`
     });
 
   } catch (error) {
