@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
     }
 
     const { 
-      days_old = 90, 
+      days_old = 45, 
       batch_size = 10, 
       max_batches = 2,
       dry_run = false,
