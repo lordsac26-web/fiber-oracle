@@ -37,6 +37,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
+import LCPSummarySection from './LCPSummarySection';
 
 export default function OLTPortSummary({ result, onDrillDown }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -201,8 +202,18 @@ export default function OLTPortSummary({ result, onDrillDown }) {
     return 'bg-green-50 border-green-200';
   };
 
+  const handlePortClick = (oltName, portKey) => {
+    const port = summaryData.ports.find(p => p.oltName === oltName && p.portKey === portKey);
+    if (port) {
+      setSelectedPort(port);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      {/* LCP Summary Section */}
+      <LCPSummarySection result={result} onPortClick={handlePortClick} />
+
       {/* Summary Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border shadow-sm">
