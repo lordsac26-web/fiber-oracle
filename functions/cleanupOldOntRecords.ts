@@ -11,11 +11,11 @@ Deno.serve(async (req) => {
 
     const { 
       days_old = 42, 
-      batch_size = 100, 
+      batch_size = 10, 
       max_batches = 100,
       dry_run = false,
-      delay_between_deletes = 400,
-      delay_between_batches = 1500
+      delay_between_deletes = 500,
+      delay_between_batches = 1000
     } = await req.json().catch(() => ({}));
 
     // Validate parameters
