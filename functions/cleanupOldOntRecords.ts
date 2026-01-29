@@ -11,8 +11,8 @@ Deno.serve(async (req) => {
 
     const { 
       days_old = 45, 
-      batch_size = 500, 
-      max_batches = 11,
+      batch_size = 400, 
+      max_batches = 20,
       dry_run = false,
       delay_between_deletes = 30,
       delay_between_batches = 3000
