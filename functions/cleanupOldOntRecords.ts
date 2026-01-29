@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
       batch_size = 100, 
       max_batches = 2,
       dry_run = false,
-      delay_between_deletes = 300,
+      delay_between_deletes = 50,
       delay_between_batches = 3000
     } = await req.json().catch(() => ({}));
 
