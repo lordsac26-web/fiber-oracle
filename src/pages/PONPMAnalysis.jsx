@@ -1987,7 +1987,8 @@ Be specific, technical, and actionable.`;
       {selectedOntDetail && (
         <ONTDetailView 
           ont={selectedOntDetail} 
-          onClose={() => setSelectedOntDetail(null)} 
+          onClose={() => setSelectedOntDetail(null)}
+          allOnts={result?.onts}
         />
       )}
 
