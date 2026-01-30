@@ -86,6 +86,8 @@ import OLTPortSummary from '@/components/ponpm/OLTPortSummary';
 import HistoricalDataManager from '@/components/ponpm/HistoricalDataManager';
 import ReportForm from '@/components/jobreports/ReportForm';
 import ONTDetailView from '@/components/ponpm/ONTDetailView';
+import KPIStatistics from '@/components/ponpm/KPIStatistics';
+import PowerDistributionChart from '@/components/ponpm/PowerDistributionChart';
 
 const STATUS_COLORS = {
   critical: 'bg-red-500',
@@ -125,6 +127,10 @@ export default function PONPMAnalysis() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [oltFilter, setOltFilter] = useState('all');
   const [portFilter, setPortFilter] = useState('all');
+  const [techFilter, setTechFilter] = useState('all');
+  const [powerRangeFilter, setPowerRangeFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('none');
+  const [showKPIs, setShowKPIs] = useState(true);
   const [expandedOlts, setExpandedOlts] = useState([]);
   const [expandedPorts, setExpandedPorts] = useState([]);
   const [issueDetailView, setIssueDetailView] = useState(null);
@@ -282,19 +288,61 @@ export default function PONPMAnalysis() {
     );
   };
 
-  const filteredOnts = result?.onts?.filter(ont => {
-    const matchesSearch = !searchTerm || 
-      ont.SerialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ont.OntID?.toString().includes(searchTerm) ||
-      ont['Shelf/Slot/Port']?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ont.OLTName?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || ont._analysis.status === statusFilter;
-    const matchesOlt = oltFilter === 'all' || ont._oltName === oltFilter;
-    const matchesPort = portFilter === 'all' || ont._port === portFilter;
+  const filteredOnts = useMemo(() => {
+    let filtered = result?.onts?.filter(ont => {
+      const matchesSearch = !searchTerm || 
+        ont.SerialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ont.OntID?.toString().includes(searchTerm) ||
+        ont['Shelf/Slot/Port']?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ont.OLTName?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || ont._analysis.status === statusFilter;
+      const matchesOlt = oltFilter === 'all' || ont._oltName === oltFilter;
+      const matchesPort = portFilter === 'all' || ont._port === portFilter;
+      
+      const matchesTech = techFilter === 'all' || 
+        (techFilter === 'gpon' && (!ont._techType || ont._techType.includes('GPON'))) ||
+        (techFilter === 'xgs' && ont._techType?.includes('XGS-PON'));
+      
+      let matchesPowerRange = true;
+      if (powerRangeFilter !== 'all') {
+        const rx = parseFloat(ont.OntRxOptPwr);
+        if (!isNaN(rx)) {
+          switch (powerRangeFilter) {
+            case 'critical': matchesPowerRange = rx < -27; break;
+            case 'warning': matchesPowerRange = rx >= -27 && rx < -25; break;
+            case 'optimal': matchesPowerRange = rx >= -25 && rx <= -15; break;
+            case 'high': matchesPowerRange = rx > -15; break;
+          }
+        } else {
+          matchesPowerRange = false;
+        }
+      }
 
-    return matchesSearch && matchesStatus && matchesOlt && matchesPort;
-  }) || [];
+      return matchesSearch && matchesStatus && matchesOlt && matchesPort && matchesTech && matchesPowerRange;
+    }) || [];
+    
+    // Apply sorting
+    if (sortBy !== 'none' && filtered.length > 0) {
+      filtered = [...filtered].sort((a, b) => {
+        switch (sortBy) {
+          case 'rx-asc':
+            return (parseFloat(a.OntRxOptPwr) || -999) - (parseFloat(b.OntRxOptPwr) || -999);
+          case 'rx-desc':
+            return (parseFloat(b.OntRxOptPwr) || -999) - (parseFloat(a.OntRxOptPwr) || -999);
+          case 'errors-desc':
+            return (parseInt(b.UpstreamBipErrors) + parseInt(b.DownstreamBipErrors) || 0) - 
+                   (parseInt(a.UpstreamBipErrors) + parseInt(a.DownstreamBipErrors) || 0);
+          case 'serial':
+            return (a.SerialNumber || '').localeCompare(b.SerialNumber || '');
+          default:
+            return 0;
+        }
+      });
+    }
+    
+    return filtered;
+  }, [result, searchTerm, statusFilter, oltFilter, portFilter, techFilter, powerRangeFilter, sortBy]);
 
   const saveThresholds = () => {
     localStorage.setItem('ponPmThresholds', JSON.stringify(customThresholds));
@@ -1281,69 +1329,128 @@ Be specific, technical, and actionable.`;
               </CardContent>
             </Card>
 
-            {/* Filters */}
+            {/* Advanced Filters */}
             <Card className="border-0 shadow">
               <CardContent className="p-4">
-                <div className="flex flex-col md:flex-row gap-3">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by Serial, ONT ID, or Port..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
+                <div className="space-y-3">
+                  <div className="flex flex-col md:flex-row gap-3">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search by Serial, ONT ID, or Port..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-full md:w-32">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                        <SelectItem value="warning">Warning</SelectItem>
+                        <SelectItem value="offline">Offline</SelectItem>
+                        <SelectItem value="ok">OK</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={oltFilter} onValueChange={(v) => { setOltFilter(v); setPortFilter('all'); }}>
+                      <SelectTrigger className="w-full md:w-32">
+                        <SelectValue placeholder="OLT" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All OLTs</SelectItem>
+                        {Object.keys(result.olts).sort().map(olt => (
+                          <SelectItem key={olt} value={olt}>{olt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={portFilter} onValueChange={setPortFilter}>
+                      <SelectTrigger className="w-full md:w-32">
+                        <SelectValue placeholder="Port" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Ports</SelectItem>
+                        {oltFilter !== 'all' && result.olts[oltFilter] && 
+                          Object.keys(result.olts[oltFilter].ports).sort().map(port => (
+                            <SelectItem key={port} value={port}>{port}</SelectItem>
+                          ))
+                        }
+                        {oltFilter === 'all' && 
+                          [...new Set(result.onts.map(o => o._port))].sort().map(port => (
+                            <SelectItem key={port} value={port}>{port}</SelectItem>
+                          ))
+                        }
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full md:w-40">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="critical">Critical</SelectItem>
-                      <SelectItem value="warning">Warning</SelectItem>
-                      <SelectItem value="offline">Offline</SelectItem>
-                      <SelectItem value="ok">OK</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={oltFilter} onValueChange={(v) => { setOltFilter(v); setPortFilter('all'); }}>
-                    <SelectTrigger className="w-full md:w-40">
-                      <SelectValue placeholder="OLT" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All OLTs</SelectItem>
-                      {Object.keys(result.olts).sort().map(olt => (
-                        <SelectItem key={olt} value={olt}>{olt}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={portFilter} onValueChange={setPortFilter}>
-                    <SelectTrigger className="w-full md:w-40">
-                      <SelectValue placeholder="Port" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Ports</SelectItem>
-                      {oltFilter !== 'all' && result.olts[oltFilter] && 
-                        Object.keys(result.olts[oltFilter].ports).sort().map(port => (
-                          <SelectItem key={port} value={port}>{port}</SelectItem>
-                        ))
-                      }
-                      {oltFilter === 'all' && 
-                        [...new Set(result.onts.map(o => o._port))].sort().map(port => (
-                          <SelectItem key={port} value={port}>{port}</SelectItem>
-                        ))
-                      }
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => { setSearchTerm(''); setStatusFilter('all'); setOltFilter('all'); setPortFilter('all'); }}
-                  >
-                    Clear
-                  </Button>
+                  <div className="flex flex-col md:flex-row gap-3">
+                    <Select value={techFilter} onValueChange={setTechFilter}>
+                      <SelectTrigger className="w-full md:w-40">
+                        <SelectValue placeholder="Technology" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Technologies</SelectItem>
+                        <SelectItem value="gpon">GPON</SelectItem>
+                        <SelectItem value="xgs">XGS-PON</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={powerRangeFilter} onValueChange={setPowerRangeFilter}>
+                      <SelectTrigger className="w-full md:w-40">
+                        <SelectValue placeholder="Power Range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Power Levels</SelectItem>
+                        <SelectItem value="critical">Critical (&lt; -27 dBm)</SelectItem>
+                        <SelectItem value="warning">Warning (-27 to -25)</SelectItem>
+                        <SelectItem value="optimal">Optimal (-25 to -15)</SelectItem>
+                        <SelectItem value="high">High (&gt; -15 dBm)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={sortBy} onValueChange={setSortBy}>
+                      <SelectTrigger className="w-full md:w-40">
+                        <SelectValue placeholder="Sort By" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Sorting</SelectItem>
+                        <SelectItem value="rx-asc">Rx Power (Low to High)</SelectItem>
+                        <SelectItem value="rx-desc">Rx Power (High to Low)</SelectItem>
+                        <SelectItem value="errors-desc">Errors (High to Low)</SelectItem>
+                        <SelectItem value="serial">Serial Number</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => { 
+                        setSearchTerm(''); 
+                        setStatusFilter('all'); 
+                        setOltFilter('all'); 
+                        setPortFilter('all'); 
+                        setTechFilter('all');
+                        setPowerRangeFilter('all');
+                        setSortBy('none');
+                      }}
+                    >
+                      Clear All
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
+
+            {/* KPI Statistics */}
+            {showKPIs && <KPIStatistics result={result} filteredOnts={filteredOnts} />}
+
+            {/* Power Distribution Chart */}
+            {filteredOnts.length > 0 && (
+              <div className="grid md:grid-cols-2 gap-4">
+                <PowerDistributionChart onts={filteredOnts} />
+                <PowerDistributionChart 
+                  onts={filteredOnts.filter(o => o._analysis.status !== 'ok')} 
+                />
+              </div>
+            )}
 
             {/* View Mode Toggle and OLT / Port Section */}
             <div className="space-y-4">
