@@ -74,6 +74,15 @@ export default function DataManagement() {
     },
   });
 
+  // Get total record count
+  const { data: totalCount = 0 } = useQuery({
+    queryKey: ['ontRecordsTotalCount'],
+    queryFn: async () => {
+      const allRecords = await base44.entities.ONTPerformanceRecord.list('-report_date', 1);
+      return allRecords.length > 0 ? await base44.entities.ONTPerformanceRecord.filter({}, '-report_date', 10000).then(r => r.length) : 0;
+    },
+  });
+
   const handleSelectAll = () => {
     if (selectedRecords.size === records.length) {
       setSelectedRecords(new Set());
@@ -163,13 +172,19 @@ export default function DataManagement() {
         <Card className="border-0 shadow-lg">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
-                  <Database className="h-6 w-6 text-blue-600" />
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+                    <Database className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">{totalCount.toLocaleString()}</div>
+                    <div className="text-sm text-gray-500">Total Records Stored</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-2xl font-bold">{records.length}</div>
-                  <div className="text-sm text-gray-500">Records on this page</div>
+                <div className="border-l border-gray-200 dark:border-gray-700 pl-6">
+                  <div className="text-lg font-semibold">{records.length}</div>
+                  <div className="text-xs text-gray-500">On this page</div>
                 </div>
               </div>
               {selectedRecords.size > 0 && (

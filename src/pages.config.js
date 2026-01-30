@@ -53,6 +53,7 @@ import CertificationExam from './pages/CertificationExam';
 import Certifications from './pages/Certifications';
 import Cleaning from './pages/Cleaning';
 import Contact from './pages/Contact';
+import DataManagement from './pages/DataManagement';
 import Education from './pages/Education';
 import Fiber101 from './pages/Fiber101';
 import Fiber102 from './pages/Fiber102';
@@ -80,7 +81,6 @@ import Settings from './pages/Settings';
 import SplitterLoss from './pages/SplitterLoss';
 import StudyGuide from './pages/StudyGuide';
 import UserGuide from './pages/UserGuide';
-import DataManagement from './pages/DataManagement';
 import __Layout from './Layout.jsx';
 
 
@@ -91,6 +91,7 @@ export const PAGES = {
     "Certifications": Certifications,
     "Cleaning": Cleaning,
     "Contact": Contact,
+    "DataManagement": DataManagement,
     "Education": Education,
     "Fiber101": Fiber101,
     "Fiber102": Fiber102,
@@ -118,7 +119,6 @@ export const PAGES = {
     "SplitterLoss": SplitterLoss,
     "StudyGuide": StudyGuide,
     "UserGuide": UserGuide,
-    "DataManagement": DataManagement,
 }
 
 export const pagesConfig = {
