@@ -742,6 +742,12 @@ Be specific, technical, and actionable.`;
                     <Database className="h-4 w-4 mr-2" />
                     History
                   </Button>
+                  <Link to={createPageUrl('DataManagement')}>
+                    <Button variant="outline" size="sm">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Manage Data
+                    </Button>
+                  </Link>
                 <Dialog open={showThresholdSettings} onOpenChange={setShowThresholdSettings}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
