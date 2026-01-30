@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
       batch_size = 20, 
       max_batches = 5,
       dry_run = false,
-      run_until_complete = false
+      run_until_complete = true
     } = await req.json().catch(() => ({}));
 
     // 150 ops/min = 2.5 ops/sec = 400ms between ops (with buffer: 500ms)
