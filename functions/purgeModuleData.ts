@@ -27,10 +27,8 @@ Deno.serve(async (req) => {
         for (const record of ontRecords) {
           await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
           deletedCount++;
-          // Rate limiting delay - increased to avoid 429 errors
-          if (deletedCount % 5 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
+          // Rate limiting delay - much slower to avoid 429 errors
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
         // Delete all PON PM reports
@@ -59,9 +57,7 @@ Deno.serve(async (req) => {
         for (const record of reportRecords) {
           await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
           deletedCount++;
-          if (deletedCount % 5 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
         // Delete the report itself
@@ -81,9 +77,7 @@ Deno.serve(async (req) => {
         for (const entry of lcpEntries) {
           await base44.asServiceRole.entities.LCPEntry.delete(entry.id);
           deletedCount++;
-          if (deletedCount % 5 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
         return Response.json({ 
@@ -100,9 +94,7 @@ Deno.serve(async (req) => {
         for (const report of jobReports) {
           await base44.asServiceRole.entities.JobReport.delete(report.id);
           deletedCount++;
-          if (deletedCount % 5 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
         return Response.json({ 
@@ -119,9 +111,7 @@ Deno.serve(async (req) => {
         for (const report of testReports) {
           await base44.asServiceRole.entities.TestReport.delete(report.id);
           deletedCount++;
-          if (deletedCount % 5 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
         
         return Response.json({ 
