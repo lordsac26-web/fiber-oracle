@@ -74,11 +74,34 @@ export default function HistoricalTrends({ reports, onClose }) {
         
         const allRecordsForTheseReports = [];
         
+        // Fetch all records with pagination to handle 100k+ records
         for (const reportId of reportIds) {
           try {
-            const recordsForReport = await base44.entities.ONTPerformanceRecord.filter({ report_id: reportId });
-            console.log(`Report ${reportId}: Found ${recordsForReport.length} ONT records`);
-            allRecordsForTheseReports.push(...recordsForReport);
+            let skip = 0;
+            const batchSize = 5000;
+            let hasMore = true;
+            
+            while (hasMore) {
+              const batch = await base44.entities.ONTPerformanceRecord.filter(
+                { report_id: reportId },
+                '-report_date',
+                batchSize,
+                skip
+              );
+              
+              if (batch.length === 0) {
+                hasMore = false;
+              } else {
+                allRecordsForTheseReports.push(...batch);
+                skip += batchSize;
+                
+                if (batch.length < batchSize) {
+                  hasMore = false;
+                }
+              }
+            }
+            
+            console.log(`Report ${reportId}: Loaded ${allRecordsForTheseReports.filter(r => r.report_id === reportId).length} ONT records (paginated)`);
           } catch (err) {
             console.warn(`Failed to load records for report ${reportId}:`, err);
           }
