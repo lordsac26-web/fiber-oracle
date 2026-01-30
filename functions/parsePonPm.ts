@@ -298,13 +298,16 @@ Deno.serve(async (req) => {
     }
 
     // Build LCP lookup map by OLT name + shelf/slot/port
-    // Support multiple port formats: exact match and range matching
+    // Support multiple port formats for robust matching
     const lcpLookup = {};
     for (const lcp of lcpEntries) {
-      if (lcp.olt_name && lcp.olt_shelf && lcp.olt_slot && lcp.olt_port) {
-        // Store with normalized key
-        const baseKey = `${lcp.olt_name}|${lcp.olt_shelf}/${lcp.olt_slot}/${lcp.olt_port}`.toLowerCase();
-        lcpLookup[baseKey] = {
+      if (lcp.olt_name && lcp.olt_shelf !== undefined && lcp.olt_slot !== undefined && lcp.olt_port) {
+        const oltName = lcp.olt_name.toLowerCase().trim();
+        const shelf = lcp.olt_shelf.toString();
+        const slot = lcp.olt_slot.toString();
+        const port = lcp.olt_port.toString();
+        
+        const lcpData = {
           lcp_number: lcp.lcp_number,
           splitter_number: lcp.splitter_number,
           location: lcp.location,
@@ -313,39 +316,28 @@ Deno.serve(async (req) => {
           gps_lng: lcp.gps_lng,
         };
         
-        // If port contains a range (e.g., "1-4"), also index individual ports
-        const portRange = lcp.olt_port.match(/(\d+)-(\d+)/);
+        // Base key: olt_name|shelf/slot/port
+        const baseKey = `${oltName}|${shelf}/${slot}/${port}`;
+        lcpLookup[baseKey] = lcpData;
+        
+        // Handle xp prefix variations (e.g., "xp3" for port "3")
+        const xpKey = `${oltName}|${shelf}/${slot}/xp${port}`;
+        lcpLookup[xpKey] = lcpData;
+        
+        // If port contains a range (e.g., "1-4" or "3-4"), index individual ports
+        const portRange = port.match(/^(\d+)-(\d+)$/);
         if (portRange) {
           const start = parseInt(portRange[1]);
           const end = parseInt(portRange[2]);
           for (let p = start; p <= end; p++) {
-            const rangeKey = `${lcp.olt_name}|${lcp.olt_shelf}/${lcp.olt_slot}/${p}`.toLowerCase();
-            if (!lcpLookup[rangeKey]) {
-              lcpLookup[rangeKey] = {
-                lcp_number: lcp.lcp_number,
-                splitter_number: lcp.splitter_number,
-                location: lcp.location,
-                address: lcp.address,
-                gps_lat: lcp.gps_lat,
-                gps_lng: lcp.gps_lng,
-              };
-            }
-            // Also handle xp prefix format
-            const xpKey = `${lcp.olt_name}|${lcp.olt_shelf}/${lcp.olt_slot}/xp${p}`.toLowerCase();
-            if (!lcpLookup[xpKey]) {
-              lcpLookup[xpKey] = {
-                lcp_number: lcp.lcp_number,
-                splitter_number: lcp.splitter_number,
-                location: lcp.location,
-                address: lcp.address,
-                gps_lat: lcp.gps_lat,
-                gps_lng: lcp.gps_lng,
-              };
-            }
+            lcpLookup[`${oltName}|${shelf}/${slot}/${p}`] = lcpData;
+            lcpLookup[`${oltName}|${shelf}/${slot}/xp${p}`] = lcpData;
           }
         }
       }
     }
+    
+    console.log(`Built LCP lookup with ${Object.keys(lcpLookup).length} keys for ${lcpEntries.length} LCP entries`);
 
     // Fetch the CSV file
     const fileResponse = await fetch(file_url);
@@ -382,27 +374,35 @@ Deno.serve(async (req) => {
         }
       }
       
-      // Try to match LCP data
-      const oltName = ont.OLTName || '';
-      const port = ont['Shelf/Slot/Port'] || '';
-      const lcpKey = `${oltName}|${port}`.toLowerCase();
+      // Match LCP data using OLT name and port information
+      const oltName = (ont.OLTName || '').toLowerCase().trim();
+      const shelfSlotPort = ont['Shelf/Slot/Port'] || '';
+      
+      // Try direct match with full path
+      let lcpKey = `${oltName}|${shelfSlotPort}`.toLowerCase();
       let lcpMatch = lcpLookup[lcpKey];
       
-      // If no direct match, try extracting individual port number for combo ports
-      if (!lcpMatch && port) {
-        // Handle combo port format like "0/1/xp3-4" - extract first port number
-        const comboMatch = port.match(/(\d+)\/(\d+)\/(?:xp)?(\d+)/i);
-        if (comboMatch) {
-          const altKey = `${oltName}|${comboMatch[1]}/${comboMatch[2]}/${comboMatch[3]}`.toLowerCase();
-          lcpMatch = lcpLookup[altKey];
+      // If no match, try normalizing the port format
+      if (!lcpMatch && shelfSlotPort) {
+        // Extract shelf, slot, port from formats like "0/1/xp3", "1/2/16", "0/1/xp3-4"
+        const portMatch = shelfSlotPort.match(/^(\d+)\/(\d+)\/(?:xp)?(\d+)(?:-\d+)?$/i);
+        if (portMatch) {
+          const shelf = portMatch[1];
+          const slot = portMatch[2];
+          const port = portMatch[3];
+          
+          // Try with and without xp prefix
+          lcpKey = `${oltName}|${shelf}/${slot}/${port}`;
+          lcpMatch = lcpLookup[lcpKey] || lcpLookup[`${oltName}|${shelf}/${slot}/xp${port}`];
         }
       }
       
+      // Store matched LCP data on ONT record
       if (lcpMatch) {
-        ont._lcpNumber = lcpMatch.lcp_number;
-        ont._splitterNumber = lcpMatch.splitter_number;
-        ont._lcpLocation = lcpMatch.location;
-        ont._lcpAddress = lcpMatch.address;
+        ont._lcpNumber = lcpMatch.lcp_number || '';
+        ont._splitterNumber = lcpMatch.splitter_number || '';
+        ont._lcpLocation = lcpMatch.location || '';
+        ont._lcpAddress = lcpMatch.address || '';
         ont._lcpGpsLat = lcpMatch.gps_lat;
         ont._lcpGpsLng = lcpMatch.gps_lng;
       }
