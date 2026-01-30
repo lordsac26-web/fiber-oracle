@@ -742,12 +742,20 @@ Be specific, technical, and actionable.`;
                     <Database className="h-4 w-4 mr-2" />
                     History
                   </Button>
-                  <Link to={createPageUrl('DataManagement')}>
-                    <Button variant="outline" size="sm">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Manage Data
-                    </Button>
-                  </Link>
+                  <div className="flex gap-2">
+                    <Link to={createPageUrl('DataManagement')}>
+                      <Button variant="outline" size="sm">
+                        <Database className="h-4 w-4 mr-2" />
+                        Records
+                      </Button>
+                    </Link>
+                    <Link to={createPageUrl('ReportManagement')}>
+                      <Button variant="outline" size="sm">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Reports
+                      </Button>
+                    </Link>
+                  </div>
                 <Dialog open={showThresholdSettings} onOpenChange={setShowThresholdSettings}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm">
