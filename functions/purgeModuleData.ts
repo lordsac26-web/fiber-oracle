@@ -20,23 +20,24 @@ Deno.serve(async (req) => {
 
     switch (module_type) {
       case 'pon_pm_all':
-        // Delete all ONT performance records
+        // Delete all ONT performance records using service role for efficiency
         entityName = 'ONTPerformanceRecord';
-        const ontRecords = await base44.entities.ONTPerformanceRecord.filter({});
+        const ontRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.filter({});
         
         for (const record of ontRecords) {
-          await base44.entities.ONTPerformanceRecord.delete(record.id);
+          await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
           deletedCount++;
-          // Rate limiting delay
-          if (deletedCount % 10 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+          // Rate limiting delay - increased to avoid 429 errors
+          if (deletedCount % 5 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
         }
 
         // Delete all PON PM reports
-        const reports = await base44.entities.PONPMReport.filter({});
+        const reports = await base44.asServiceRole.entities.PONPMReport.filter({});
         for (const report of reports) {
-          await base44.entities.PONPMReport.delete(report.id);
+          await base44.asServiceRole.entities.PONPMReport.delete(report.id);
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
         
         return Response.json({ 
@@ -53,18 +54,18 @@ Deno.serve(async (req) => {
         }
         
         entityName = 'ONTPerformanceRecord';
-        const reportRecords = await base44.entities.ONTPerformanceRecord.filter({ report_id });
+        const reportRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.filter({ report_id });
         
         for (const record of reportRecords) {
-          await base44.entities.ONTPerformanceRecord.delete(record.id);
+          await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
           deletedCount++;
-          if (deletedCount % 10 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+          if (deletedCount % 5 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
         }
 
         // Delete the report itself
-        await base44.entities.PONPMReport.delete(report_id);
+        await base44.asServiceRole.entities.PONPMReport.delete(report_id);
         
         return Response.json({ 
           success: true, 
@@ -75,13 +76,13 @@ Deno.serve(async (req) => {
       case 'lcp_all':
         // Delete all LCP entries
         entityName = 'LCPEntry';
-        const lcpEntries = await base44.entities.LCPEntry.filter({});
+        const lcpEntries = await base44.asServiceRole.entities.LCPEntry.filter({});
         
         for (const entry of lcpEntries) {
-          await base44.entities.LCPEntry.delete(entry.id);
+          await base44.asServiceRole.entities.LCPEntry.delete(entry.id);
           deletedCount++;
-          if (deletedCount % 10 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+          if (deletedCount % 5 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
         }
         
@@ -94,13 +95,13 @@ Deno.serve(async (req) => {
       case 'job_reports_all':
         // Delete all job reports
         entityName = 'JobReport';
-        const jobReports = await base44.entities.JobReport.filter({});
+        const jobReports = await base44.asServiceRole.entities.JobReport.filter({});
         
         for (const report of jobReports) {
-          await base44.entities.JobReport.delete(report.id);
+          await base44.asServiceRole.entities.JobReport.delete(report.id);
           deletedCount++;
-          if (deletedCount % 10 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+          if (deletedCount % 5 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
         }
         
@@ -113,13 +114,13 @@ Deno.serve(async (req) => {
       case 'test_reports_all':
         // Delete all test reports
         entityName = 'TestReport';
-        const testReports = await base44.entities.TestReport.filter({});
+        const testReports = await base44.asServiceRole.entities.TestReport.filter({});
         
         for (const report of testReports) {
-          await base44.entities.TestReport.delete(report.id);
+          await base44.asServiceRole.entities.TestReport.delete(report.id);
           deletedCount++;
-          if (deletedCount % 10 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+          if (deletedCount % 5 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
         }
         
