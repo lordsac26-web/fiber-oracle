@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 Deno.serve(async (req) => {
   try {
@@ -15,21 +15,30 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing report_id' }, { status: 400 });
     }
 
-    // Delete all ONT records for this report
-    const records = await base44.entities.ONTPerformanceRecord.filter({ report_id }, '-created_date', 10000);
+    // Delete all ONT records for this report using service role
+    const records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter({ report_id }, '-created_date', 10000);
     
-    // Delete in chunks
-    const chunkSize = 100;
+    // Delete in small batches with delays to avoid rate limits and timeouts
+    const chunkSize = 50;
     let deletedCount = 0;
     
     for (let i = 0; i < records.length; i += chunkSize) {
       const chunk = records.slice(i, i + chunkSize);
-      await Promise.all(chunk.map(r => base44.entities.ONTPerformanceRecord.delete(r.id)));
-      deletedCount += chunk.length;
+      
+      // Delete chunk sequentially with delay
+      for (const record of chunk) {
+        await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
+        deletedCount++;
+      }
+      
+      // Add delay between chunks to avoid rate limiting
+      if (i + chunkSize < records.length) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
     }
 
     // Delete the report itself
-    await base44.entities.PONPMReport.delete(report_id);
+    await base44.asServiceRole.entities.PONPMReport.delete(report_id);
 
     return Response.json({ 
       success: true, 
