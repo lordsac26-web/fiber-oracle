@@ -20,29 +20,38 @@ Deno.serve(async (req) => {
 
     switch (module_type) {
       case 'pon_pm_all':
-        // Delete all ONT performance records using service role for efficiency
+        // Delete in batches to avoid timeout
         entityName = 'ONTPerformanceRecord';
-        const ontRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.filter({});
+        let totalOntRecords = 0;
+        let batch;
         
-        for (const record of ontRecords) {
-          await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
-          deletedCount++;
-          // Rate limiting delay - much slower to avoid 429 errors
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        // Delete ONT records in batches of 100
+        do {
+          batch = await base44.asServiceRole.entities.ONTPerformanceRecord.list('', 100);
+          for (const record of batch) {
+            await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
+            totalOntRecords++;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } while (batch.length === 100);
 
         // Delete all PON PM reports
-        const reports = await base44.asServiceRole.entities.PONPMReport.filter({});
-        for (const report of reports) {
-          await base44.asServiceRole.entities.PONPMReport.delete(report.id);
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
+        let totalReports = 0;
+        let reportBatch;
+        do {
+          reportBatch = await base44.asServiceRole.entities.PONPMReport.list('', 100);
+          for (const report of reportBatch) {
+            await base44.asServiceRole.entities.PONPMReport.delete(report.id);
+            totalReports++;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } while (reportBatch.length === 100);
         
         return Response.json({ 
           success: true, 
-          deleted_records: deletedCount,
-          deleted_reports: reports.length,
-          message: `Purged all PON PM data: ${deletedCount} records and ${reports.length} reports`
+          deleted_records: totalOntRecords,
+          deleted_reports: totalReports,
+          message: `Purged all PON PM data: ${totalOntRecords} records and ${totalReports} reports`
         });
 
       case 'pon_pm_report':
@@ -52,72 +61,88 @@ Deno.serve(async (req) => {
         }
         
         entityName = 'ONTPerformanceRecord';
-        const reportRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.filter({ report_id });
+        let reportRecordCount = 0;
+        let reportBatch;
         
-        for (const record of reportRecords) {
-          await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
-          deletedCount++;
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        do {
+          reportBatch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter({ report_id }, '', 100);
+          for (const record of reportBatch) {
+            await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
+            reportRecordCount++;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } while (reportBatch.length === 100);
 
         // Delete the report itself
         await base44.asServiceRole.entities.PONPMReport.delete(report_id);
         
         return Response.json({ 
           success: true, 
-          deleted_records: deletedCount,
-          message: `Purged report data: ${deletedCount} records and 1 report`
+          deleted_records: reportRecordCount,
+          message: `Purged report data: ${reportRecordCount} records and 1 report`
         });
 
       case 'lcp_all':
-        // Delete all LCP entries
+        // Delete all LCP entries in batches
         entityName = 'LCPEntry';
-        const lcpEntries = await base44.asServiceRole.entities.LCPEntry.filter({});
+        let totalLcpEntries = 0;
+        let lcpBatch;
         
-        for (const entry of lcpEntries) {
-          await base44.asServiceRole.entities.LCPEntry.delete(entry.id);
-          deletedCount++;
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        do {
+          lcpBatch = await base44.asServiceRole.entities.LCPEntry.list('', 100);
+          for (const entry of lcpBatch) {
+            await base44.asServiceRole.entities.LCPEntry.delete(entry.id);
+            totalLcpEntries++;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } while (lcpBatch.length === 100);
         
         return Response.json({ 
           success: true, 
-          deleted_records: deletedCount,
-          message: `Purged all LCP data: ${deletedCount} entries`
+          deleted_records: totalLcpEntries,
+          message: `Purged all LCP data: ${totalLcpEntries} entries`
         });
 
       case 'job_reports_all':
-        // Delete all job reports
+        // Delete all job reports in batches
         entityName = 'JobReport';
-        const jobReports = await base44.asServiceRole.entities.JobReport.filter({});
+        let totalJobReports = 0;
+        let jobBatch;
         
-        for (const report of jobReports) {
-          await base44.asServiceRole.entities.JobReport.delete(report.id);
-          deletedCount++;
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        do {
+          jobBatch = await base44.asServiceRole.entities.JobReport.list('', 100);
+          for (const report of jobBatch) {
+            await base44.asServiceRole.entities.JobReport.delete(report.id);
+            totalJobReports++;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } while (jobBatch.length === 100);
         
         return Response.json({ 
           success: true, 
-          deleted_records: deletedCount,
-          message: `Purged all job reports: ${deletedCount} reports`
+          deleted_records: totalJobReports,
+          message: `Purged all job reports: ${totalJobReports} reports`
         });
 
       case 'test_reports_all':
-        // Delete all test reports
+        // Delete all test reports in batches
         entityName = 'TestReport';
-        const testReports = await base44.asServiceRole.entities.TestReport.filter({});
+        let totalTestReports = 0;
+        let testBatch;
         
-        for (const report of testReports) {
-          await base44.asServiceRole.entities.TestReport.delete(report.id);
-          deletedCount++;
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        do {
+          testBatch = await base44.asServiceRole.entities.TestReport.list('', 100);
+          for (const report of testBatch) {
+            await base44.asServiceRole.entities.TestReport.delete(report.id);
+            totalTestReports++;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } while (testBatch.length === 100);
         
         return Response.json({ 
           success: true, 
-          deleted_records: deletedCount,
-          message: `Purged all test reports: ${deletedCount} reports`
+          deleted_records: totalTestReports,
+          message: `Purged all test reports: ${totalTestReports} reports`
         });
 
       default:
