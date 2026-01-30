@@ -78,8 +78,8 @@ export default function DataManagement() {
   const { data: totalCount = 0 } = useQuery({
     queryKey: ['ontRecordsTotalCount'],
     queryFn: async () => {
-      const allRecords = await base44.entities.ONTPerformanceRecord.list('-report_date', 1);
-      return allRecords.length > 0 ? await base44.entities.ONTPerformanceRecord.filter({}, '-report_date', 10000).then(r => r.length) : 0;
+      const response = await base44.functions.invoke('countOntRecords');
+      return response.data?.count || 0;
     },
   });
 
