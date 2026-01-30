@@ -435,11 +435,33 @@ Deno.serve(async (req) => {
     let historicalRecords = [];
     if (serialNumbers.length > 0) {
       try {
-        // Fetch all historical records for these ONTs
-        historicalRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.filter({
-          serial_number: { $in: serialNumbers }
-        });
-        console.log(`Loaded ${historicalRecords.length} historical records for trend analysis`);
+        // Fetch all historical records for these ONTs with pagination for scalability (100k+)
+        const batchSize = 5000;
+        let skip = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+            { serial_number: { $in: serialNumbers } },
+            '-report_date', // Sort by most recent first
+            batchSize,
+            skip
+          );
+          
+          if (batch.length === 0) {
+            hasMore = false;
+          } else {
+            historicalRecords.push(...batch);
+            skip += batchSize;
+            
+            // If we got fewer records than batch size, we've reached the end
+            if (batch.length < batchSize) {
+              hasMore = false;
+            }
+          }
+        }
+        
+        console.log(`Loaded ${historicalRecords.length} historical records for trend analysis (fetched in batches of ${batchSize})`);
       } catch (err) {
         console.log('No historical data available for trend analysis:', err.message);
       }
