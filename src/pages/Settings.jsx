@@ -31,7 +31,11 @@ import {
   HelpCircle,
   RotateCcw,
   Eye,
-  EyeOff
+  EyeOff,
+  Database,
+  Trash2,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import ModuleVisibilitySettings from '@/components/ModuleVisibilitySettings';
 import { base44 } from '@/api/base44Client';
@@ -39,9 +43,23 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useUserPreferences } from '@/components/UserPreferencesContext';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useQuery } from '@tanstack/react-query';
 
 export default function Settings() {
     const { preferences, updatePreferences, isSaving, isAuthenticated, user } = useUserPreferences();
+    const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
+    const [purgeType, setPurgeType] = useState(null);
+    const [isPurging, setIsPurging] = useState(false);
 
     // Check for tab param from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -113,6 +131,93 @@ export default function Settings() {
     setSettings({ ...settings, customFields: newFields });
   };
 
+  // Fetch data counts for stored data section
+  const { data: ponReports = [] } = useQuery({
+    queryKey: ['ponReports'],
+    queryFn: () => base44.entities.PONPMReport.list(),
+    enabled: isAuthenticated,
+  });
+
+  const { data: ontRecords = [] } = useQuery({
+    queryKey: ['ontRecordsCount'],
+    queryFn: () => base44.entities.ONTPerformanceRecord.list('', 1),
+    enabled: isAuthenticated,
+  });
+
+  const { data: lcpEntries = [] } = useQuery({
+    queryKey: ['lcpEntries'],
+    queryFn: () => base44.entities.LCPEntry.list(),
+    enabled: isAuthenticated,
+  });
+
+  const { data: jobReports = [] } = useQuery({
+    queryKey: ['jobReports'],
+    queryFn: () => base44.entities.JobReport.list(),
+    enabled: isAuthenticated,
+  });
+
+  const { data: testReports = [] } = useQuery({
+    queryKey: ['testReports'],
+    queryFn: () => base44.entities.TestReport.list(),
+    enabled: isAuthenticated,
+  });
+
+  const handlePurge = async () => {
+    setIsPurging(true);
+    try {
+      const response = await base44.functions.invoke('purgeModuleData', {
+        module_type: purgeType
+      });
+
+      if (response.data.success) {
+        toast.success(response.data.message);
+        // Invalidate queries to refresh counts
+        window.location.reload();
+      } else {
+        toast.error('Failed to purge data');
+      }
+    } catch (error) {
+      console.error('Purge error:', error);
+      toast.error('Failed to purge data: ' + error.message);
+    } finally {
+      setIsPurging(false);
+      setPurgeDialogOpen(false);
+      setPurgeType(null);
+    }
+  };
+
+  const openPurgeDialog = (type) => {
+    setPurgeType(type);
+    setPurgeDialogOpen(true);
+  };
+
+  const getPurgeDialogContent = () => {
+    switch (purgeType) {
+      case 'pon_pm_all':
+        return {
+          title: 'Delete All PON PM Data?',
+          description: `This will permanently delete ${ponReports.length} reports and all associated ONT performance records. This action cannot be undone.`,
+        };
+      case 'lcp_all':
+        return {
+          title: 'Delete All LCP Data?',
+          description: `This will permanently delete ${lcpEntries.length} LCP entries. This action cannot be undone.`,
+        };
+      case 'job_reports_all':
+        return {
+          title: 'Delete All Job Reports?',
+          description: `This will permanently delete ${jobReports.length} job reports. This action cannot be undone.`,
+        };
+      case 'test_reports_all':
+        return {
+          title: 'Delete All Test Reports?',
+          description: `This will permanently delete ${testReports.length} test reports. This action cannot be undone.`,
+        };
+      default:
+        return { title: 'Confirm Deletion', description: 'Are you sure?' };
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
@@ -180,6 +285,10 @@ export default function Settings() {
             <TabsTrigger value="testing" className="rounded-lg">
               <Sliders className="h-4 w-4 mr-2" />
               Test Values
+            </TabsTrigger>
+            <TabsTrigger value="data" className="rounded-lg">
+              <Database className="h-4 w-4 mr-2" />
+              Stored Data
             </TabsTrigger>
           </TabsList>
 
@@ -515,6 +624,139 @@ export default function Settings() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Stored Data Tab */}
+          <TabsContent value="data" className="space-y-6">
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle>Stored Data Management</CardTitle>
+                <CardDescription>View and manage your stored data across different modules</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-amber-800 dark:text-amber-200">Destructive Actions</h4>
+                      <p className="text-sm text-amber-700 dark:text-amber-300">
+                        Purging data is permanent and cannot be undone. Make sure you have backups if needed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PON PM Data */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">PON PM Analysis Data</h3>
+                      <p className="text-sm text-gray-500">Reports and ONT performance records</p>
+                    </div>
+                    <Badge variant="outline" className="font-mono">
+                      {ponReports.length} reports
+                    </Badge>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => openPurgeDialog('pon_pm_all')}
+                      disabled={ponReports.length === 0}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Purge All PON PM Data
+                    </Button>
+                  </div>
+                </div>
+
+                {/* LCP Data */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">LCP Database</h3>
+                      <p className="text-sm text-gray-500">Local convergence point entries</p>
+                    </div>
+                    <Badge variant="outline" className="font-mono">
+                      {lcpEntries.length} entries
+                    </Badge>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => openPurgeDialog('lcp_all')}
+                      disabled={lcpEntries.length === 0}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Purge All LCP Data
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Job Reports */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Job Reports</h3>
+                      <p className="text-sm text-gray-500">Field service and maintenance reports</p>
+                    </div>
+                    <Badge variant="outline" className="font-mono">
+                      {jobReports.length} reports
+                    </Badge>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => openPurgeDialog('job_reports_all')}
+                      disabled={jobReports.length === 0}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Purge All Job Reports
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Test Reports */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Test Reports</h3>
+                      <p className="text-sm text-gray-500">OTDR, loss budget, and other test reports</p>
+                    </div>
+                    <Badge variant="outline" className="font-mono">
+                      {testReports.length} reports
+                    </Badge>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => openPurgeDialog('test_reports_all')}
+                      disabled={testReports.length === 0}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Purge All Test Reports
+                    </Button>
+                  </div>
+                </div>
+
+                {!isAuthenticated && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-blue-800 dark:text-blue-200">Sign In Required</h4>
+                        <p className="text-sm text-blue-700 dark:text-blue-300">
+                          Sign in to manage your stored data across modules.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* App Info */}
@@ -582,7 +824,42 @@ export default function Settings() {
                           </CardContent>
                         </Card>
                       )}
-      </main>
-    </div>
-  );
-}
+                      </main>
+
+                      {/* Purge Confirmation Dialog */}
+                      <AlertDialog open={purgeDialogOpen} onOpenChange={setPurgeDialogOpen}>
+                      <AlertDialogContent>
+                      <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-red-600" />
+                      {getPurgeDialogContent().title}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                      {getPurgeDialogContent().description}
+                      </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isPurging}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                      onClick={handlePurge}
+                      disabled={isPurging}
+                      className="bg-red-600 hover:bg-red-700"
+                      >
+                      {isPurging ? (
+                      <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Purging...
+                      </>
+                      ) : (
+                      <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Purge Data
+                      </>
+                      )}
+                      </AlertDialogAction>
+                      </AlertDialogFooter>
+                      </AlertDialogContent>
+                      </AlertDialog>
+                      </div>
+                      );
+                      }
