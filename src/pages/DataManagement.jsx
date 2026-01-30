@@ -102,23 +102,30 @@ export default function DataManagement() {
   };
 
   const handleBulkDelete = async () => {
+    const recordIds = Array.from(selectedRecords);
+    
+    // Limit to 500 records at a time
+    if (recordIds.length > 500) {
+      toast.error('Please select 500 or fewer records at a time');
+      return;
+    }
+    
     setIsDeleting(true);
-    toast.loading(`Deleting ${selectedRecords.size} records...`, { id: 'bulk-delete' });
+    toast.loading(`Deleting ${recordIds.length} records...`, { id: 'bulk-delete' });
     
     try {
-      const response = await base44.functions.invoke('bulkDeleteOntRecords', {
-        record_ids: Array.from(selectedRecords)
+      const response = await base44.functions.invoke('bulkDeleteOntRecordsSafe', {
+        record_ids: recordIds
       });
       
       if (response.data.success) {
-        toast.success(
-          `Successfully deleted ${response.data.deleted_count} records${
-            response.data.failed_count > 0 ? `, ${response.data.failed_count} failed` : ''
-          }`,
-          { id: 'bulk-delete' }
-        );
+        const message = response.data.failed > 0
+          ? `Deleted ${response.data.deleted} records (${response.data.failed} failed)`
+          : `Deleted ${response.data.deleted} records`;
+        toast.success(message, { id: 'bulk-delete' });
         setSelectedRecords(new Set());
         queryClient.invalidateQueries({ queryKey: ['ontRecords'] });
+        queryClient.invalidateQueries({ queryKey: ['ontRecordsTotalCount'] });
       } else {
         toast.error('Failed to delete records', { id: 'bulk-delete' });
       }
@@ -334,9 +341,9 @@ export default function DataManagement() {
               <div className="text-sm text-blue-800 dark:text-blue-200">
                 <p className="font-medium mb-1">Bulk Deletion Notes:</p>
                 <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>Select up to {pageSize} records per page for deletion</li>
-                  <li>Deletions respect rate limits (150 ops/min)</li>
-                  <li>Large batches may take several seconds</li>
+                  <li>Select up to 500 records at a time for deletion</li>
+                  <li>Deletions are processed sequentially to avoid timeouts</li>
+                  <li>Large batches may take up to a minute</li>
                   <li>Failed deletions will be reported in the result</li>
                 </ul>
               </div>

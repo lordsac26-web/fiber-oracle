@@ -77,12 +77,12 @@ import PONLevels from './pages/PONLevels';
 import PONPMAnalysis from './pages/PONPMAnalysis';
 import PowerLevelCalc from './pages/PowerLevelCalc';
 import ReferenceTables from './pages/ReferenceTables';
+import ReportManagement from './pages/ReportManagement';
 import Settings from './pages/Settings';
 import SplitterLoss from './pages/SplitterLoss';
 import StudyGuide from './pages/StudyGuide';
-import UserGuide from './pages/UserGuide';
 import TechAssistant from './pages/TechAssistant';
-import ReportManagement from './pages/ReportManagement';
+import UserGuide from './pages/UserGuide';
 import __Layout from './Layout.jsx';
 
 
@@ -117,12 +117,12 @@ export const PAGES = {
     "PONPMAnalysis": PONPMAnalysis,
     "PowerLevelCalc": PowerLevelCalc,
     "ReferenceTables": ReferenceTables,
+    "ReportManagement": ReportManagement,
     "Settings": Settings,
     "SplitterLoss": SplitterLoss,
     "StudyGuide": StudyGuide,
-    "UserGuide": UserGuide,
     "TechAssistant": TechAssistant,
-    "ReportManagement": ReportManagement,
+    "UserGuide": UserGuide,
 }
 
 export const pagesConfig = {
