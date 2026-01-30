@@ -35,7 +35,9 @@ import {
   Database,
   Trash2,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Download,
+  FileUp
 } from 'lucide-react';
 import ModuleVisibilitySettings from '@/components/ModuleVisibilitySettings';
 import { base44 } from '@/api/base44Client';
@@ -60,6 +62,14 @@ export default function Settings() {
     const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
     const [purgeType, setPurgeType] = useState(null);
     const [isPurging, setIsPurging] = useState(false);
+    const [isExporting, setIsExporting] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
+    const fileInputRefs = {
+      pon_pm_all: React.useRef(null),
+      lcp_all: React.useRef(null),
+      job_reports_all: React.useRef(null),
+      test_reports_all: React.useRef(null),
+    };
 
     // Check for tab param from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -215,6 +225,59 @@ export default function Settings() {
         };
       default:
         return { title: 'Confirm Deletion', description: 'Are you sure?' };
+    }
+  };
+
+  const handleExport = async (moduleType) => {
+    setIsExporting(true);
+    try {
+      const response = await base44.functions.invoke('exportModuleData', {
+        module_type: moduleType
+      });
+
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${moduleType}_backup_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      
+      toast.success('Data exported successfully');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export data: ' + error.message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportFile = async (moduleType, file) => {
+    if (!file) return;
+    
+    setIsImporting(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      const response = await base44.functions.invoke('importModuleData', {
+        module_type: moduleType,
+        data: data
+      });
+
+      if (response.data.success) {
+        toast.success(response.data.message);
+        window.location.reload();
+      } else {
+        toast.error('Failed to import data');
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('Failed to import data: ' + error.message);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -656,7 +719,32 @@ export default function Settings() {
                       {ponReports.length} reports
                     </Badge>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport('pon_pm_all')}
+                      disabled={ponReports.length === 0 || isExporting}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Backup
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRefs.pon_pm_all.current?.click()}
+                      disabled={isImporting}
+                    >
+                      <FileUp className="h-4 w-4 mr-2" />
+                      Import Backup
+                    </Button>
+                    <input
+                      ref={fileInputRefs.pon_pm_all}
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => handleImportFile('pon_pm_all', e.target.files[0])}
+                    />
                     <Button
                       variant="destructive"
                       size="sm"
@@ -664,7 +752,7 @@ export default function Settings() {
                       disabled={ponReports.length === 0}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Purge All PON PM Data
+                      Purge All
                     </Button>
                   </div>
                 </div>
@@ -680,7 +768,32 @@ export default function Settings() {
                       {lcpEntries.length} entries
                     </Badge>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport('lcp_all')}
+                      disabled={lcpEntries.length === 0 || isExporting}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Backup
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRefs.lcp_all.current?.click()}
+                      disabled={isImporting}
+                    >
+                      <FileUp className="h-4 w-4 mr-2" />
+                      Import Backup
+                    </Button>
+                    <input
+                      ref={fileInputRefs.lcp_all}
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => handleImportFile('lcp_all', e.target.files[0])}
+                    />
                     <Button
                       variant="destructive"
                       size="sm"
@@ -688,7 +801,7 @@ export default function Settings() {
                       disabled={lcpEntries.length === 0}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Purge All LCP Data
+                      Purge All
                     </Button>
                   </div>
                 </div>
@@ -704,7 +817,32 @@ export default function Settings() {
                       {jobReports.length} reports
                     </Badge>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport('job_reports_all')}
+                      disabled={jobReports.length === 0 || isExporting}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Backup
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRefs.job_reports_all.current?.click()}
+                      disabled={isImporting}
+                    >
+                      <FileUp className="h-4 w-4 mr-2" />
+                      Import Backup
+                    </Button>
+                    <input
+                      ref={fileInputRefs.job_reports_all}
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => handleImportFile('job_reports_all', e.target.files[0])}
+                    />
                     <Button
                       variant="destructive"
                       size="sm"
@@ -712,7 +850,7 @@ export default function Settings() {
                       disabled={jobReports.length === 0}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Purge All Job Reports
+                      Purge All
                     </Button>
                   </div>
                 </div>
@@ -728,7 +866,32 @@ export default function Settings() {
                       {testReports.length} reports
                     </Badge>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport('test_reports_all')}
+                      disabled={testReports.length === 0 || isExporting}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export Backup
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRefs.test_reports_all.current?.click()}
+                      disabled={isImporting}
+                    >
+                      <FileUp className="h-4 w-4 mr-2" />
+                      Import Backup
+                    </Button>
+                    <input
+                      ref={fileInputRefs.test_reports_all}
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => handleImportFile('test_reports_all', e.target.files[0])}
+                    />
                     <Button
                       variant="destructive"
                       size="sm"
@@ -736,7 +899,7 @@ export default function Settings() {
                       disabled={testReports.length === 0}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Purge All Test Reports
+                      Purge All
                     </Button>
                   </div>
                 </div>
