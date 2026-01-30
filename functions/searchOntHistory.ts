@@ -76,6 +76,10 @@ Deno.serve(async (req) => {
           shelf_slot_port: record.shelf_slot_port,
           model: record.model,
           lcp_number: record.lcp_number,
+          // Map database fields to frontend format for consistency
+          _lcpNumber: record.lcp_number,
+          _oltName: record.olt_name,
+          _port: record.shelf_slot_port,
           history: []
         };
       }
@@ -87,7 +91,10 @@ Deno.serve(async (req) => {
         ont_tx_power: record.ont_tx_power,
         us_bip_errors: record.us_bip_errors,
         ds_bip_errors: record.ds_bip_errors,
-        status: record.status
+        us_fec_uncorrected: record.us_fec_uncorrected,
+        ds_fec_uncorrected: record.ds_fec_uncorrected,
+        status: record.status,
+        lcp_number: record.lcp_number
       });
     });
 
