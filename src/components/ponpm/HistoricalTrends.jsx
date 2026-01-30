@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -125,6 +124,8 @@ export default function HistoricalTrends({ reports, onClose }) {
             olt: record.olt_name,
             port: record.shelf_slot_port,
             model: record.model,
+            lcp_number: record.lcp_number,
+            _lcpNumber: record.lcp_number,
             dataPoints: []
           });
         }
@@ -777,7 +778,10 @@ export default function HistoricalTrends({ reports, onClose }) {
                               </TableCell>
                               <TableCell className="font-mono text-xs">{ont.serial}</TableCell>
                               <TableCell className="text-xs">{ont.ontId || '-'}</TableCell>
-                              <TableCell className="text-xs">{ont.olt}/{ont.port}</TableCell>
+                              <TableCell className="text-xs">
+                                {ont.olt}/{ont.port}
+                                {ont._lcpNumber && <div className="text-[10px] text-blue-600">LCP: {ont._lcpNumber}</div>}
+                              </TableCell>
                               <TableCell className="text-right font-mono text-xs">
                                 {rxTrend?.first?.toFixed(1)} dBm
                               </TableCell>
