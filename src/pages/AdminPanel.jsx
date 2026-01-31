@@ -1241,6 +1241,9 @@ Thank you for reaching out!
                 <DialogContent className="bg-slate-800/50 border-slate-700">
                     <DialogHeader>
                         <DialogTitle>Resolve Request</DialogTitle>
+                        <DialogDescription className="sr-only">
+                          Complete the resolution of this admin request
+                        </DialogDescription>
                     </DialogHeader>
                     {selectedRequest && (
                         <div className="space-y-4">
