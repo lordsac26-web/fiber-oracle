@@ -76,6 +76,7 @@ export default function AdminPanel() {
     const [auditFilters, setAuditFilters] = useState({});
     const [convoFilters, setConvoFilters] = useState({});
     const [showTour, setShowTour] = useState(false);
+    const [archiveDays, setArchiveDays] = useState(30);
 
     // Check user permissions
     const hasPermission = (permission) => {
@@ -484,67 +485,33 @@ Thank you for reaching out!
         setSelectedConvos(newSelected);
     };
 
-    const handleBulkDeleteConversations = async () => {
+    const handleBulkArchiveConversations = async () => {
         setIsBulkProcessing(true);
         try {
             const convoIds = Array.from(selectedConvos);
             
-            // Debug: Verify ID structure
-            const selectedConvoObjects = filteredConversations.filter(c => convoIds.includes(c.id));
-            console.log('🗑️ deleteConversations: Conversation objects being deleted', {
-                count: selectedConvoObjects.length,
-                fullObjects: selectedConvoObjects,
-                justIds: convoIds
+            const response = await base44.functions.invoke('archiveConversations', {
+                conversation_ids: convoIds,
+                days: archiveDays
             });
-            
-            console.log('🗑️ deleteConversations: Starting deletion', { 
-                count: convoIds.length, 
-                ids: convoIds 
-            });
-            
-            const response = await base44.functions.invoke('deleteConversations', {
-                conversation_ids: convoIds
-            });
-            
-            console.log('🗑️ deleteConversations: Response received', response.data);
-            
-            // Display backend logs prominently
-            if (response.data.logs && response.data.logs.length > 0) {
-                console.group('🗑️ BACKEND LOGS:');
-                response.data.logs.forEach(entry => {
-                    const style = entry.level === 'ERROR' ? 'color: red; font-weight: bold;' : 
-                                  entry.level === 'WARN' ? 'color: orange; font-weight: bold;' : 
-                                  'color: blue;';
-                    console.log(`%c[${entry.level}] ${entry.msg}`, style, entry.data || '');
-                });
-                console.groupEnd();
-            }
             
             if (response.data.success) {
-                const deleted = response.data.results.deleted;
+                const archived = response.data.results.archived;
                 const failed = response.data.results.failed;
                 
-                console.log('🗑️ deleteConversations: Result summary', {
-                    deleted,
-                    failed,
-                    errors: response.data.results.errors
-                });
-                
                 if (failed > 0) {
-                    toast.error(`Deleted ${deleted}, but ${failed} failed. Check console for details.`);
+                    toast.error(`Archived ${archived}, but ${failed} failed`);
                 } else {
-                    toast.success(`Deleted ${deleted} conversations`);
+                    toast.success(`Archived ${archived} conversation${archived !== 1 ? 's' : ''} (will delete in ${archiveDays} days)`);
                 }
                 
                 setSelectedConvos(new Set());
                 queryClient.invalidateQueries(['allConversations']);
             } else {
-                console.error('🗑️ deleteConversations: Request failed', response.data);
                 toast.error(`Error: ${response.data.error}`);
             }
         } catch (error) {
-            console.error('🗑️ deleteConversations: Exception thrown', error);
-            toast.error(`Failed to delete conversations: ${error.message}`);
+            toast.error(`Failed to archive conversations: ${error.message}`);
         } finally {
             setIsBulkProcessing(false);
         }
@@ -1005,16 +972,30 @@ Thank you for reaching out!
                                         P.H.O.T.O.N. Conversations ({filteredConversations.length} / {allConversations.length})
                                     </CardTitle>
                                     {selectedConvos.size > 0 && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={handleBulkDeleteConversations}
-                                            disabled={isBulkProcessing}
-                                            className="border-red-400 text-red-400 hover:bg-red-500/20"
-                                        >
-                                            <Trash2 className="w-3 h-3 mr-1" />
-                                            Delete ({selectedConvos.size})
-                                        </Button>
+                                        <div className="flex gap-2 items-center">
+                                            <div className="flex gap-2">
+                                                <select
+                                                    value={archiveDays}
+                                                    onChange={(e) => setArchiveDays(Number(e.target.value))}
+                                                    className="bg-slate-700 border border-slate-600 text-white rounded px-2 py-1 text-sm"
+                                                    disabled={isBulkProcessing}
+                                                >
+                                                    <option value={7}>7 days</option>
+                                                    <option value={15}>15 days</option>
+                                                    <option value={30}>30 days</option>
+                                                </select>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={handleBulkArchiveConversations}
+                                                    disabled={isBulkProcessing}
+                                                    className="border-yellow-400 text-yellow-400 hover:bg-yellow-500/20"
+                                                >
+                                                    <Trash2 className="w-3 h-3 mr-1" />
+                                                    Archive ({selectedConvos.size})
+                                                </Button>
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </CardHeader>
