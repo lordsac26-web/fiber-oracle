@@ -26,7 +26,9 @@ import {
   Trash2,
   FileCheck,
   Link as LinkIcon,
-  Search
+  Search,
+  Menu,
+  Grid3x3
 } from 'lucide-react';
 import MultiFileUpload from '@/components/photon/MultiFileUpload';
 import GoogleDrivePicker from '@/components/photon/GoogleDrivePicker';
@@ -36,9 +38,12 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
+import AIModeSidebar from '@/components/AIModeSidebar';
+import { useUserPreferences } from '@/components/UserPreferencesContext';
 
 export default function PhotonChat() {
   const queryClient = useQueryClient();
+  const { preferences } = useUserPreferences();
   const [conversationId, setConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -48,6 +53,21 @@ export default function PhotonChat() {
   const messagesEndRef = useRef(null);
   const [currentUser, setCurrentUser] = useState(null);
   const textareaRef = useRef(null);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if in AI-centric mode
+  const isAICentricMode = preferences.aiCentricMode || false;
+
+  // Detect mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -253,16 +273,38 @@ export default function PhotonChat() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/70 border-b border-slate-700/50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex">
+      {/* AI Mode Sidebar - Desktop */}
+      {isAICentricMode && !isMobile && (
+        <AIModeSidebar isOpen={showSidebar} onClose={() => setShowSidebar(false)} />
+      )}
+      
+      {/* AI Mode Sidebar - Mobile */}
+      {isAICentricMode && isMobile && (
+        <AIModeSidebar isOpen={showSidebar} onClose={() => setShowSidebar(false)} isMobile={true} />
+      )}
+
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/70 border-b border-slate-700/50">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            {isAICentricMode ? (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full text-white hover:bg-slate-800 h-8 w-8 sm:h-10 sm:w-10"
+                onClick={() => setShowSidebar(!showSidebar)}
+              >
+                {showSidebar ? <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" /> : <Menu className="h-4 w-4 sm:h-5 sm:w-5" />}
+              </Button>
+            ) : (
               <Link to={createPageUrl('Home')}>
                 <Button variant="ghost" size="icon" className="rounded-full text-white hover:bg-slate-800 h-8 w-8 sm:h-10 sm:w-10">
                   <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </Link>
+            )}
               <div className="flex items-center gap-2">
                 <img 
                   src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
@@ -547,6 +589,7 @@ export default function PhotonChat() {
           </Card>
         </div>
       </main>
+      </div>
     </div>
   );
 }
