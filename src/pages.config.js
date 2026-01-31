@@ -75,6 +75,7 @@ import OfflineDocuments from './pages/OfflineDocuments';
 import OpticalCalculator from './pages/OpticalCalculator';
 import PONLevels from './pages/PONLevels';
 import PONPMAnalysis from './pages/PONPMAnalysis';
+import PhotonChat from './pages/PhotonChat';
 import PowerLevelCalc from './pages/PowerLevelCalc';
 import ReferenceTables from './pages/ReferenceTables';
 import ReportManagement from './pages/ReportManagement';
@@ -83,7 +84,7 @@ import SplitterLoss from './pages/SplitterLoss';
 import StudyGuide from './pages/StudyGuide';
 import TechAssistant from './pages/TechAssistant';
 import UserGuide from './pages/UserGuide';
-import PhotonChat from './pages/PhotonChat';
+import PhotonAuditLogs from './pages/PhotonAuditLogs';
 import __Layout from './Layout.jsx';
 
 
@@ -116,6 +117,7 @@ export const PAGES = {
     "OpticalCalculator": OpticalCalculator,
     "PONLevels": PONLevels,
     "PONPMAnalysis": PONPMAnalysis,
+    "PhotonChat": PhotonChat,
     "PowerLevelCalc": PowerLevelCalc,
     "ReferenceTables": ReferenceTables,
     "ReportManagement": ReportManagement,
@@ -124,7 +126,7 @@ export const PAGES = {
     "StudyGuide": StudyGuide,
     "TechAssistant": TechAssistant,
     "UserGuide": UserGuide,
-    "PhotonChat": PhotonChat,
+    "PhotonAuditLogs": PhotonAuditLogs,
 }
 
 export const pagesConfig = {

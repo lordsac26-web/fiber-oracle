@@ -23,7 +23,8 @@ import {
   Globe,
   MessageSquare,
   Plus,
-  Trash2
+  Trash2,
+  FileCheck
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -41,6 +42,31 @@ export default function PhotonChat() {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const messagesEndRef = useRef(null);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Get current user for audit logging
+  useEffect(() => {
+    base44.auth.me().then(user => setCurrentUser(user)).catch(() => {});
+  }, []);
+
+  // Audit logging helper
+  const logAuditEvent = async (eventType, content, metadata = {}, status = 'success', errorMessage = null) => {
+    if (!currentUser) return;
+    
+    try {
+      await base44.entities.AuditLog.create({
+        event_type: eventType,
+        user_email: currentUser.email,
+        conversation_id: conversationId || null,
+        content: content || '',
+        metadata,
+        status,
+        error_message: errorMessage
+      });
+    } catch (error) {
+      console.error('Audit log failed:', error);
+    }
+  };
 
   // Fetch reference documents
   const { data: referenceDocs = [], isLoading: docsLoading } = useQuery({
@@ -65,13 +91,34 @@ export default function PhotonChat() {
 
     const unsubscribe = base44.agents.subscribeToConversation(conversationId, (data) => {
       setMessages(data.messages || []);
+      
+      // Log tool invocations and responses
+      const latestMessage = data.messages?.[data.messages.length - 1];
+      if (latestMessage?.role === 'assistant' && latestMessage.content) {
+        logAuditEvent('response', latestMessage.content, {
+          message_id: latestMessage.id,
+          has_tool_calls: !!latestMessage.tool_calls?.length
+        });
+      }
+      
+      if (latestMessage?.tool_calls) {
+        latestMessage.tool_calls.forEach(tool => {
+          logAuditEvent('tool_invocation', tool.name, {
+            tool_name: tool.name,
+            arguments: tool.arguments_string,
+            status: tool.status,
+            results: tool.results
+          });
+        });
+      }
     });
 
     return unsubscribe;
-  }, [conversationId]);
+  }, [conversationId, currentUser]);
 
   // Create new conversation
   const createConversation = async () => {
+    const startTime = Date.now();
     try {
       const conv = await base44.agents.createConversation({
         agent_name: 'photon',
@@ -84,22 +131,41 @@ export default function PhotonChat() {
       setMessages(conv.messages || []);
       queryClient.invalidateQueries({ queryKey: ['photonConversations'] });
       toast.success('New conversation started');
+      
+      await logAuditEvent('conversation_start', 'New conversation created', {
+        conversation_id: conv.id,
+        duration_ms: Date.now() - startTime
+      });
     } catch (error) {
       console.error('Create conversation error:', error);
       toast.error('Failed to start conversation');
+      await logAuditEvent('conversation_start', 'Failed to create conversation', {
+        duration_ms: Date.now() - startTime
+      }, 'error', error.message);
     }
   };
 
   // Load existing conversation
   const loadConversation = async (convId) => {
+    const startTime = Date.now();
     try {
       const conv = await base44.agents.getConversation(convId);
       setConversationId(conv.id);
       setMessages(conv.messages || []);
       toast.success('Conversation loaded');
+      
+      await logAuditEvent('conversation_load', 'Loaded existing conversation', {
+        conversation_id: convId,
+        message_count: conv.messages?.length || 0,
+        duration_ms: Date.now() - startTime
+      });
     } catch (error) {
       console.error('Load conversation error:', error);
       toast.error('Failed to load conversation');
+      await logAuditEvent('conversation_load', 'Failed to load conversation', {
+        conversation_id: convId,
+        duration_ms: Date.now() - startTime
+      }, 'error', error.message);
     }
   };
 
@@ -108,17 +174,30 @@ export default function PhotonChat() {
     e?.preventDefault();
     if (!inputMessage.trim() || !conversationId) return;
 
+    const messageContent = inputMessage.trim();
+    const startTime = Date.now();
     setIsSending(true);
+    
     try {
+      // Log the user query
+      await logAuditEvent('query', messageContent, {
+        message_length: messageContent.length,
+        active_documents: referenceDocs.length
+      });
+      
       const conv = await base44.agents.getConversation(conversationId);
       await base44.agents.addMessage(conv, {
         role: 'user',
-        content: inputMessage
+        content: messageContent
       });
+      
       setInputMessage('');
     } catch (error) {
       console.error('Send message error:', error);
       toast.error('Failed to send message');
+      await logAuditEvent('query', messageContent, {
+        duration_ms: Date.now() - startTime
+      }, 'error', error.message);
     } finally {
       setIsSending(false);
     }
@@ -134,6 +213,7 @@ export default function PhotonChat() {
       return;
     }
 
+    const startTime = Date.now();
     setUploadingPdf(true);
     toast.loading('Uploading and processing PDF...', { id: 'pdf-upload' });
 
@@ -163,7 +243,7 @@ export default function PhotonChat() {
 
       if (extraction.status === 'success' && extraction.output) {
         // Save to ReferenceDocument
-        await base44.entities.ReferenceDocument.create({
+        const doc = await base44.entities.ReferenceDocument.create({
           title: file.name.replace('.pdf', ''),
           source_type: 'pdf',
           source_url: file_url,
@@ -171,6 +251,8 @@ export default function PhotonChat() {
           metadata: {
             page_count: extraction.output.sections?.length || 0,
             upload_date: new Date().toISOString(),
+            file_size: file.size,
+            original_filename: file.name
           },
           is_active: true
         });
@@ -178,12 +260,30 @@ export default function PhotonChat() {
         queryClient.invalidateQueries({ queryKey: ['referenceDocs'] });
         toast.success('PDF uploaded and indexed successfully', { id: 'pdf-upload' });
         setShowUploadDialog(false);
+        
+        // Audit log the PDF upload
+        await logAuditEvent('pdf_upload', `Uploaded: ${file.name}`, {
+          document_id: doc.id,
+          file_name: file.name,
+          file_size: file.size,
+          page_count: extraction.output.sections?.length || 0,
+          content_length: (extraction.output.full_text || '').length,
+          duration_ms: Date.now() - startTime
+        });
       } else {
         toast.error('Failed to extract PDF content', { id: 'pdf-upload' });
+        await logAuditEvent('pdf_upload', `Failed to extract: ${file.name}`, {
+          file_name: file.name,
+          duration_ms: Date.now() - startTime
+        }, 'error', 'Extraction failed');
       }
     } catch (error) {
       console.error('PDF upload error:', error);
       toast.error('Failed to upload PDF', { id: 'pdf-upload' });
+      await logAuditEvent('pdf_upload', `Error uploading: ${file.name}`, {
+        file_name: file.name,
+        duration_ms: Date.now() - startTime
+      }, 'error', error.message);
     } finally {
       setUploadingPdf(false);
     }
@@ -191,7 +291,14 @@ export default function PhotonChat() {
 
   // Delete reference doc
   const deleteReferenceMutation = useMutation({
-    mutationFn: (docId) => base44.entities.ReferenceDocument.delete(docId),
+    mutationFn: async (doc) => {
+      await logAuditEvent('document_reference', `Deleted document: ${doc.title}`, {
+        document_id: doc.id,
+        document_title: doc.title,
+        action: 'delete'
+      });
+      return base44.entities.ReferenceDocument.delete(doc.id);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['referenceDocs'] });
       toast.success('Reference document deleted');
@@ -218,11 +325,17 @@ export default function PhotonChat() {
                 </div>
                 <div>
                   <h1 className="text-lg font-semibold text-white">P.H.O.T.O.N.</h1>
-                  <p className="text-xs text-slate-400">Pdf Hosted Optical Testing Operational Nexus</p>
+                  <p className="text-xs text-slate-300">Pdf Hosted Optical Testing Operational Nexus</p>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Link to={createPageUrl('PhotonAuditLogs')}>
+                <Button variant="outline" size="sm" className="border-slate-600 text-white hover:bg-slate-800">
+                  <FileCheck className="h-4 w-4 mr-2" />
+                  Audit Logs
+                </Button>
+              </Link>
               <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="border-slate-600 text-white hover:bg-slate-800">
@@ -241,15 +354,15 @@ export default function PhotonChat() {
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                       <p className="text-sm text-blue-800 dark:text-blue-200">
                         Upload technical manuals, installation guides, troubleshooting documents, or any PDF reference material. 
-                        P.H.O.T.O.N. will index and use this content to answer your questions.
+                        P.H.O.T.O.N. will index and use this content to answer your questions. All uploads are logged for audit purposes.
                       </p>
                     </div>
 
                     <label className="block">
-                      <div className="border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer border-gray-300 hover:border-blue-400 hover:bg-blue-50/50">
+                      <div className="border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer border-gray-300 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20">
                         <div className="flex flex-col items-center gap-3">
                           <Upload className="h-10 w-10 text-gray-400" />
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-gray-600 dark:text-gray-300">
                             Click to upload or drag and drop
                           </span>
                           <span className="text-xs text-gray-400">PDF files only</span>
@@ -267,7 +380,7 @@ export default function PhotonChat() {
                     {uploadingPdf && (
                       <div className="flex items-center justify-center gap-2 py-4">
                         <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                        <span className="text-sm text-gray-600">Processing PDF...</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-300">Processing PDF...</span>
                       </div>
                     )}
 
@@ -286,7 +399,7 @@ export default function PhotonChat() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => deleteReferenceMutation.mutate(doc.id)}
+                              onClick={() => deleteReferenceMutation.mutate(doc)}
                             >
                               <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
@@ -330,7 +443,7 @@ export default function PhotonChat() {
                   className={`w-full text-left p-2 rounded transition-colors ${
                     conversationId === conv.id 
                       ? 'bg-blue-600 text-white' 
-                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                      : 'bg-slate-700/50 text-slate-100 hover:bg-slate-700'
                   }`}
                 >
                   <div className="text-sm font-medium truncate">
@@ -352,7 +465,7 @@ export default function PhotonChat() {
                   <Zap className="h-5 w-5 text-cyan-400" />
                   {conversationId ? 'Active Session' : 'Start a New Conversation'}
                 </CardTitle>
-                <Badge variant="outline" className="border-slate-600 text-slate-300">
+                <Badge variant="outline" className="border-slate-600 text-white">
                   <Database className="h-3 w-3 mr-1" />
                   {referenceDocs.length} PDFs loaded
                 </Badge>
@@ -369,12 +482,12 @@ export default function PhotonChat() {
                     <h2 className="text-xl font-semibold text-white mb-2">
                       Welcome to P.H.O.T.O.N.
                     </h2>
-                    <p className="text-slate-400 max-w-md">
+                    <p className="text-slate-300 max-w-md">
                       Your expert technical diagnostic and installation agent. Start a new conversation 
                       to troubleshoot, diagnose, or get installation guidance for fiber optic systems.
                     </p>
                   </div>
-                  <Button onClick={createConversation} className="bg-blue-600 hover:bg-blue-700">
+                  <Button onClick={createConversation} className="bg-blue-600 hover:bg-blue-700 text-white">
                     <Plus className="h-4 w-4 mr-2" />
                     Start New Session
                   </Button>
@@ -402,7 +515,7 @@ export default function PhotonChat() {
                         )}
                         
                         {msg.tool_calls?.map((tool, i) => (
-                          <div key={i} className="mt-2 text-xs opacity-75 flex items-center gap-1">
+                          <div key={i} className="mt-2 text-xs text-slate-300 flex items-center gap-1">
                             <Loader2 className="h-3 w-3 animate-spin" />
                             {tool.name}...
                           </div>
@@ -434,7 +547,7 @@ export default function PhotonChat() {
                   <Button 
                     type="submit" 
                     disabled={isSending || !inputMessage.trim()}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
                   >
                     {isSending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
