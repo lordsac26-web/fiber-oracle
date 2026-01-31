@@ -40,6 +40,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import AIModeSidebar from '@/components/AIModeSidebar';
 import { useUserPreferences } from '@/components/UserPreferencesContext';
+import MessageBubble from '@/components/photon/MessageBubble';
 
 export default function PhotonChat() {
   const queryClient = useQueryClient();
@@ -498,60 +499,37 @@ export default function PhotonChat() {
               </div>
             </CardHeader>
             
-            <CardContent className="flex-1 overflow-y-auto space-y-2 sm:space-y-4 py-2 sm:py-4 px-2 sm:px-6 min-h-0 bg-slate-900/50">
-              {!conversationId ? (
-                <div className="flex flex-col items-center justify-center h-full text-center space-y-3 sm:space-y-4 px-4">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
-                    <Zap className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">
-                      Welcome to P.H.O.T.O.N.
-                    </h2>
-                    <p className="text-slate-300 text-sm sm:text-base max-w-md">
-                      Your expert technical diagnostic and installation agent. Start a new conversation 
-                      to troubleshoot, diagnose, or get installation guidance for fiber optic systems.
-                    </p>
-                  </div>
-                  <Button onClick={createConversation} className="bg-blue-600 hover:bg-blue-700 text-white">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Start New Session
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  {messages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[85%] sm:max-w-[80%] rounded-lg p-2 sm:p-3 text-sm sm:text-base ${
-                          msg.role === 'user'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-slate-700 text-slate-100'
-                        }`}
-                      >
-                        {msg.role === 'assistant' ? (
-                          <ReactMarkdown className="prose prose-invert prose-sm max-w-none">
-                            {msg.content}
-                          </ReactMarkdown>
-                        ) : (
-                          <p className="text-sm">{msg.content}</p>
-                        )}
-                        
-                        {msg.tool_calls?.map((tool, i) => (
-                          <div key={i} className="mt-2 text-xs text-slate-200 flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            {tool.name}...
-                          </div>
-                        ))}
-                      </div>
+            <CardContent className="flex-1 overflow-y-auto py-4 px-3 sm:px-6 min-h-0">
+              {/* Chat Frame Background */}
+              <div className="min-h-full bg-slate-900/70 rounded-xl border border-slate-700/50 backdrop-blur-sm p-3 sm:p-4">
+                {!conversationId ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center space-y-3 sm:space-y-4 px-4">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
+                      <Zap className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                     </div>
-                  ))}
-                  <div ref={messagesEndRef} />
-                </>
-              )}
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">
+                        Welcome to P.H.O.T.O.N.
+                      </h2>
+                      <p className="text-slate-300 text-sm sm:text-base max-w-md">
+                        Your expert technical diagnostic and installation agent. Start a new conversation 
+                        to troubleshoot, diagnose, or get installation guidance for fiber optic systems.
+                      </p>
+                    </div>
+                    <Button onClick={createConversation} className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Start New Session
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    {messages.map((msg, idx) => (
+                      <MessageBubble key={msg.id || idx} message={msg} />
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
+              </div>
             </CardContent>
 
             {conversationId && (
