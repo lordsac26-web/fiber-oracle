@@ -9,11 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown, Users, BarChart3, TrendingUp, Activity, UserCheck, UserX, Zap, Trash2 } from 'lucide-react';
+import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown, Users, BarChart3, TrendingUp, Activity, UserCheck, UserX, Zap, Trash2, Search as SearchIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import moment from 'moment';
+import DocumentUploadManager from '@/components/admin/DocumentUploadManager';
 
 export default function AdminPanel() {
     const [selectedRequest, setSelectedRequest] = useState(null);
@@ -572,8 +573,10 @@ Thank you for reaching out!
                                                 </Button>
                                             </>
                                         )}
+                                        <DocumentUploadManager />
                                         <Link to={createPageUrl('DocumentSearch')}>
                                             <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                                                <SearchIcon className="w-3 h-3 mr-1" />
                                                 Search
                                             </Button>
                                         </Link>
@@ -581,8 +584,13 @@ Thank you for reaching out!
                                 </div>
                             </CardHeader>
                             <CardContent>
+                                <div className="mb-3 text-sm text-white/70">
+                                    {allReferenceDocs.filter(d => d.is_active).length} active • {allReferenceDocs.filter(d => !d.is_active).length} inactive
+                                </div>
                                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                                    {allReferenceDocs.map(doc => (
+                                    {allReferenceDocs.length === 0 ? (
+                                        <p className="text-white/60 text-center py-8">No documents in knowledge base</p>
+                                    ) : allReferenceDocs.map(doc => (
                                         <div
                                             key={doc.id}
                                             onClick={() => toggleDocSelection(doc.id)}
@@ -594,11 +602,19 @@ Thank you for reaching out!
                                         >
                                             <div className="flex-1 min-w-0">
                                                 <h4 className="font-medium text-white text-sm truncate">{doc.title}</h4>
-                                                <div className="flex items-center gap-2 mt-1">
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                     <Badge className="text-xs bg-purple-500">{doc.category}</Badge>
                                                     <Badge className={`text-xs ${doc.is_active ? 'bg-green-500' : 'bg-gray-500'}`}>
                                                         {doc.is_active ? 'Active' : 'Inactive'}
                                                     </Badge>
+                                                    {doc.version && (
+                                                        <Badge variant="outline" className="text-xs border-white/30 text-white/70">
+                                                            v{doc.version}
+                                                        </Badge>
+                                                    )}
+                                                    <span className="text-xs text-white/50">
+                                                        {moment(doc.created_date).fromNow()}
+                                                    </span>
                                                 </div>
                                             </div>
                                             <Checkbox
