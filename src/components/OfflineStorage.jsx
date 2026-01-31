@@ -1,7 +1,15 @@
 // Offline storage utilities using IndexedDB for field data
 
 const DB_NAME = 'FiberOracleDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+
+export const SYNC_STATUS = {
+  IDLE: 'idle',
+  SYNCING: 'syncing',
+  SUCCESS: 'success',
+  ERROR: 'error',
+  CONFLICT: 'conflict'
+};
 
 // Initialize IndexedDB
 export const initDB = () => {

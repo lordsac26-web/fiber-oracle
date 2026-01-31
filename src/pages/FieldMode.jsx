@@ -24,6 +24,8 @@ import { getDraftReports, getTestResults, initDB } from '@/components/OfflineSto
 import CameraCapture from '@/components/CameraCapture';
 import { useGeolocation } from '@/components/useGeolocation';
 import LocationMap from '@/components/LocationMap';
+import SyncStatusIndicator from '@/components/SyncStatusIndicator';
+import { syncService } from '@/components/SyncService';
 
 const FIELD_TOOLS = [
   {
@@ -100,9 +102,13 @@ export default function FieldMode() {
     // Get current location on mount
     getCurrentLocation();
 
+    // Start auto-sync
+    syncService.startAutoSync(60000); // Every 60 seconds
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      syncService.stopAutoSync();
     };
   }, []);
 
@@ -188,6 +194,9 @@ export default function FieldMode() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        {/* Sync Status */}
+        <SyncStatusIndicator />
+
         {/* Quick Actions */}
         <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
           <CardHeader>
@@ -212,7 +221,7 @@ export default function FieldMode() {
           </CardContent>
         </Card>
 
-        {/* Offline Status */}
+        {/* Offline Data Status */}
         {dbReady && (draftCount > 0 || testCount > 0) && (
           <Card className="bg-amber-900/20 border-amber-700/50">
             <CardContent className="py-3 px-4">
@@ -220,16 +229,21 @@ export default function FieldMode() {
                 <CloudOff className="h-5 w-5 text-amber-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-amber-200">
-                    Unsaved Data
+                    Pending Sync
                   </p>
                   <p className="text-xs text-amber-300/80">
-                    {draftCount} draft report{draftCount !== 1 ? 's' : ''}, {testCount} test result{testCount !== 1 ? 's' : ''}
+                    {draftCount} report{draftCount !== 1 ? 's' : ''}, {testCount} test result{testCount !== 1 ? 's' : ''}
                   </p>
                 </div>
                 {isOnline && (
-                  <Button size="sm" variant="outline" className="border-amber-500 text-amber-400">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="border-amber-500 text-amber-400 hover:bg-amber-500/20"
+                    onClick={() => syncService.syncAll()}
+                  >
                     <Upload className="h-3 w-3 mr-1" />
-                    Sync
+                    Sync Now
                   </Button>
                 )}
               </div>
