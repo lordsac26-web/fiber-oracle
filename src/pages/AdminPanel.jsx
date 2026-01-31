@@ -51,7 +51,14 @@ export default function AdminPanel() {
         enabled: user?.role === 'admin'
     });
 
+    const { data: allConversations = [] } = useQuery({
+        queryKey: ['allConversations'],
+        queryFn: () => base44.agents.listConversations({ agent_name: 'photon' }),
+        enabled: user?.role === 'admin'
+    });
+
     const [selectedDocs, setSelectedDocs] = useState(new Set());
+    const [selectedConvos, setSelectedConvos] = useState(new Set());
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
     const { data: pendingRequests = [] } = useQuery({
@@ -288,6 +295,36 @@ Thank you for reaching out!
             newSelected.add(docId);
         }
         setSelectedDocs(newSelected);
+    };
+
+    const toggleConvoSelection = (convoId) => {
+        const newSelected = new Set(selectedConvos);
+        if (newSelected.has(convoId)) {
+            newSelected.delete(convoId);
+        } else {
+            newSelected.add(convoId);
+        }
+        setSelectedConvos(newSelected);
+    };
+
+    const handleBulkDeleteConversations = async () => {
+        setIsBulkProcessing(true);
+        try {
+            const convoIds = Array.from(selectedConvos);
+            const response = await base44.functions.invoke('deleteConversations', {
+                conversation_ids: convoIds
+            });
+            
+            if (response.data.success) {
+                toast.success(`Deleted ${response.data.results.deleted} conversations`);
+                setSelectedConvos(new Set());
+                queryClient.invalidateQueries(['allConversations']);
+            }
+        } catch (error) {
+            toast.error('Failed to delete conversations');
+        } finally {
+            setIsBulkProcessing(false);
+        }
     };
 
     if (user?.role !== 'admin') {
@@ -628,6 +665,72 @@ Thank you for reaching out!
                             </CardContent>
                         </Card>
                         
+                        {/* Conversation Management */}
+                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <CardHeader>
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                    <CardTitle className="text-white flex items-center gap-2">
+                                        <MessageSquare className="w-5 h-5" />
+                                        P.H.O.T.O.N. Conversations ({allConversations.length})
+                                    </CardTitle>
+                                    {selectedConvos.size > 0 && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={handleBulkDeleteConversations}
+                                            disabled={isBulkProcessing}
+                                            className="border-red-400 text-red-400 hover:bg-red-500/20"
+                                        >
+                                            <Trash2 className="w-3 h-3 mr-1" />
+                                            Delete ({selectedConvos.size})
+                                        </Button>
+                                    )}
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="mb-3 text-sm text-white/70">
+                                    Clean up test conversations and garbage interactions
+                                </div>
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                    {allConversations.length === 0 ? (
+                                        <p className="text-white/60 text-center py-8">No conversations found</p>
+                                    ) : allConversations.map(convo => (
+                                        <div
+                                            key={convo.id}
+                                            onClick={() => toggleConvoSelection(convo.id)}
+                                            className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                                                selectedConvos.has(convo.id)
+                                                    ? 'bg-blue-500/30 border border-blue-400'
+                                                    : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                                            }`}
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-medium text-white text-sm truncate">
+                                                    {convo.metadata?.name || 'Untitled Session'}
+                                                </h4>
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                    <Badge className="text-xs bg-cyan-500">
+                                                        {convo.messages?.length || 0} messages
+                                                    </Badge>
+                                                    <span className="text-xs text-white/50">
+                                                        {moment(convo.created_date).fromNow()}
+                                                    </span>
+                                                    <span className="text-xs text-white/40">
+                                                        {moment(convo.created_date).format('MMM D, YYYY')}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <Checkbox
+                                                checked={selectedConvos.has(convo.id)}
+                                                onCheckedChange={() => toggleConvoSelection(convo.id)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+
                         {/* User Stats Cards Below */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <Card className="bg-white/10 backdrop-blur-md border-white/20">
