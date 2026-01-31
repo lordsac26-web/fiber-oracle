@@ -50,8 +50,9 @@ export default function GoogleDrivePicker({ onComplete, onClose }) {
     try {
       // Call backend function to fetch and process Google Drive file
       const response = await base44.functions.invoke('linkGoogleDriveFile', {
-        file_id: fileId,
-        url: driveUrl
+          file_id: fileId,
+          url: driveUrl,
+          is_admin: isAdmin
       });
 
       if (response.data?.success) {

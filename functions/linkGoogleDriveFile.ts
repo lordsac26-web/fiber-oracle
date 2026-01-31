@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { file_id, url } = await req.json();
+    const { file_id, url, is_admin = false } = await req.json();
 
     if (!file_id) {
       return Response.json({ error: 'File ID is required' }, { status: 400 });

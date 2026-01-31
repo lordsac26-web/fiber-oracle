@@ -85,6 +85,7 @@ import StudyGuide from './pages/StudyGuide';
 import TechAssistant from './pages/TechAssistant';
 import UserGuide from './pages/UserGuide';
 import PhotonAuditLogs from './pages/PhotonAuditLogs';
+import DocumentReview from './pages/DocumentReview';
 import __Layout from './Layout.jsx';
 
 
@@ -127,6 +128,7 @@ export const PAGES = {
     "TechAssistant": TechAssistant,
     "UserGuide": UserGuide,
     "PhotonAuditLogs": PhotonAuditLogs,
+    "DocumentReview": DocumentReview,
 }
 
 export const pagesConfig = {
