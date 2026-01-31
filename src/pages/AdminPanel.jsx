@@ -488,6 +488,15 @@ Thank you for reaching out!
         setIsBulkProcessing(true);
         try {
             const convoIds = Array.from(selectedConvos);
+            
+            // Debug: Verify ID structure
+            const selectedConvoObjects = filteredConversations.filter(c => convoIds.includes(c.id));
+            console.log('🗑️ deleteConversations: Conversation objects being deleted', {
+                count: selectedConvoObjects.length,
+                fullObjects: selectedConvoObjects,
+                justIds: convoIds
+            });
+            
             console.log('🗑️ deleteConversations: Starting deletion', { 
                 count: convoIds.length, 
                 ids: convoIds 
