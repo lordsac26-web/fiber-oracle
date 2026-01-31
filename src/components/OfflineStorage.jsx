@@ -27,6 +27,7 @@ export const initDB = () => {
         const reportStore = db.createObjectStore('reports', { keyPath: 'id', autoIncrement: true });
         reportStore.createIndex('timestamp', 'timestamp', { unique: false });
         reportStore.createIndex('synced', 'synced', { unique: false });
+        reportStore.createIndex('syncStatus', 'syncStatus', { unique: false });
       }
 
       // Store for cached reference data
@@ -40,6 +41,8 @@ export const initDB = () => {
         const testStore = db.createObjectStore('testResults', { keyPath: 'id', autoIncrement: true });
         testStore.createIndex('timestamp', 'timestamp', { unique: false });
         testStore.createIndex('type', 'type', { unique: false });
+        testStore.createIndex('synced', 'synced', { unique: false });
+        testStore.createIndex('syncStatus', 'syncStatus', { unique: false });
       }
 
       // Store for photos
@@ -60,7 +63,10 @@ export const saveDraftReport = async (report) => {
   const reportData = {
     ...report,
     timestamp: Date.now(),
-    synced: false
+    synced: false,
+    syncStatus: SYNC_STATUS.IDLE,
+    lastModified: Date.now(),
+    version: report.version || 1
   };
 
   return new Promise((resolve, reject) => {
@@ -158,7 +164,10 @@ export const saveTestResult = async (testData) => {
   const data = {
     ...testData,
     gps: gpsData,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    synced: false,
+    syncStatus: SYNC_STATUS.IDLE,
+    lastModified: Date.now()
   };
 
   return new Promise((resolve, reject) => {
