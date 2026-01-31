@@ -30,6 +30,7 @@ import {
   Menu,
   Grid3x3
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import MultiFileUpload from '@/components/photon/MultiFileUpload';
 import GoogleDrivePicker from '@/components/photon/GoogleDrivePicker';
 import { Link } from 'react-router-dom';
@@ -40,7 +41,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import AIModeSidebar from '@/components/AIModeSidebar';
 import { useUserPreferences } from '@/components/UserPreferencesContext';
-import MessageBubble from '@/components/photon/MessageBubble';
+import EnhancedMessageBubble from '@/components/photon/EnhancedMessageBubble';
+import PhotonHeader from '@/components/photon/PhotonHeader';
+import { PremiumButton, AnimatedLoader } from '@/components/premium';
 
 export default function PhotonChat() {
   const queryClient = useQueryClient();
@@ -286,201 +289,153 @@ export default function PhotonChat() {
       )}
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/70 border-b border-slate-700/50">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            {isAICentricMode ? (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="rounded-full text-white hover:bg-slate-800 h-8 w-8 sm:h-10 sm:w-10"
-                onClick={() => setShowSidebar(!showSidebar)}
+        <PhotonHeader
+          isAdmin={isAdmin}
+          onToggleSidebar={() => setShowSidebar(!showSidebar)}
+          showSidebar={showSidebar}
+          isAICentricMode={isAICentricMode}
+          onOpenUploadDialog={() => setShowUploadDialog(true)}
+          docsCount={referenceDocs.length}
+        />
+        <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+          <DialogTrigger asChild>
+            <span />
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-slate-900/95 border-slate-700">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-white">
+                <FileText className="h-5 w-5" />
+                Add Reference Documents
+              </DialogTitle>
+            </DialogHeader>
+            
+            {/* Upload mode tabs */}
+            <div className="flex gap-2 border-b border-slate-700 pb-3">
+              <Button
+                variant={uploadMode === 'local' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setUploadMode('local')}
+                className={uploadMode === 'local' ? 'bg-blue-600 text-white' : 'text-slate-400'}
               >
-                {showSidebar ? <Grid3x3 className="h-4 w-4 sm:h-5 sm:w-5" /> : <Menu className="h-4 w-4 sm:h-5 sm:w-5" />}
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Files
               </Button>
+              <Button
+                variant={uploadMode === 'drive' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setUploadMode('drive')}
+                className={uploadMode === 'drive' ? 'bg-blue-600 text-white' : 'text-slate-400'}
+              >
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Link Google Drive
+              </Button>
+            </div>
+
+            {uploadMode === 'local' ? (
+              <MultiFileUpload 
+                onComplete={handleUploadComplete}
+                onClose={() => setShowUploadDialog(false)}
+                isAdmin={isAdmin}
+              />
             ) : (
-              <Link to={createPageUrl('Home')}>
-                <Button variant="ghost" size="icon" className="rounded-full text-white hover:bg-slate-800 h-8 w-8 sm:h-10 sm:w-10">
-                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-              </Link>
+              <GoogleDrivePicker
+                onComplete={handleUploadComplete}
+                onClose={() => setShowUploadDialog(false)}
+                isAdmin={isAdmin}
+              />
             )}
-              <div className="flex items-center gap-2">
-                <img 
-                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png" 
-                  alt="Fiber Oracle" 
-                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover shadow-lg"
-                />
-                <div className="hidden sm:block">
-                  <h1 className="text-lg font-semibold text-white">P.H.O.T.O.N.</h1>
-                  <p className="text-xs text-slate-300">Pdf Hosted Optical Testing Operational Nexus</p>
-                </div>
-                <div className="sm:hidden">
-                  <h1 className="text-sm font-semibold text-white">P.H.O.T.O.N.</h1>
-                </div>
+
+            {/* Current knowledge base */}
+            <div className="border-t border-slate-700 pt-4 mt-4">
+              <h3 className="font-semibold mb-2 flex items-center gap-2 text-white">
+                <Database className="h-4 w-4" />
+                Active Knowledge Base ({referenceDocs.filter(d => d.is_active).length})
+              </h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {referenceDocs.map(doc => (
+                  <motion.div
+                    key={doc.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex items-center justify-between p-2 bg-slate-800/50 border border-slate-700 rounded hover:bg-slate-800/70 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <FileText className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                      <span className="text-sm truncate text-slate-100">{doc.title}</span>
+                      {!doc.is_active && (
+                        <Badge variant="outline" className="text-xs bg-slate-700 text-slate-300 border-slate-600">
+                          Inactive
+                        </Badge>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteReferenceMutation.mutate(doc)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-400 hover:text-red-300" />
+                    </Button>
+                  </motion.div>
+                ))}
               </div>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2">
-              <Link to={createPageUrl('DocumentSearch')} className="hidden sm:inline-block">
-                <Button variant="outline" size="sm" className="border-cyan-400 bg-cyan-500/20 text-cyan-100 hover:bg-cyan-500/30 hover:border-cyan-300 font-medium">
-                  <Search className="h-4 w-4 mr-2" />
-                  <span className="hidden md:inline">Search Docs</span>
-                </Button>
-              </Link>
-              <Link to={createPageUrl('PhotonAuditLogs')} className="hidden lg:inline-block">
-                <Button variant="outline" size="sm" className="border-blue-400 bg-blue-500/20 text-blue-100 hover:bg-blue-500/30 hover:border-blue-300 font-medium">
-                  <FileCheck className="h-4 w-4 mr-2" />
-                  <span className="hidden md:inline">Audit</span>
-                </Button>
-              </Link>
-              {isAdmin && (
-                <Link to={createPageUrl('DocumentReview')} className="hidden lg:inline-block">
-                  <Button variant="outline" size="sm" className="border-purple-400 bg-purple-500/20 text-purple-100 hover:bg-purple-500/30 hover:border-purple-300 font-medium">
-                    <FileText className="h-4 w-4 mr-2" />
-                    <span className="hidden md:inline">Review</span>
-                  </Button>
-                </Link>
-              )}
-              <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="border-emerald-400 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30 hover:border-emerald-300 font-medium">
-                    <Upload className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Add</span>
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      Add Reference Documents
-                    </DialogTitle>
-                  </DialogHeader>
-                  
-                  {/* Upload mode tabs */}
-                  <div className="flex gap-2 border-b pb-3">
-                    <Button
-                      variant={uploadMode === 'local' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setUploadMode('local')}
-                      className={uploadMode === 'local' ? 'bg-blue-600 text-white' : ''}
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload Files
-                    </Button>
-                    <Button
-                      variant={uploadMode === 'drive' ? 'default' : 'ghost'}
-                      size="sm"
-                      onClick={() => setUploadMode('drive')}
-                      className={uploadMode === 'drive' ? 'bg-blue-600 text-white' : ''}
-                    >
-                      <LinkIcon className="h-4 w-4 mr-2" />
-                      Link Google Drive
-                    </Button>
-                  </div>
-
-                  {uploadMode === 'local' ? (
-                    <MultiFileUpload 
-                      onComplete={handleUploadComplete}
-                      onClose={() => setShowUploadDialog(false)}
-                      isAdmin={isAdmin}
-                    />
-                  ) : (
-                    <GoogleDrivePicker
-                      onComplete={handleUploadComplete}
-                      onClose={() => setShowUploadDialog(false)}
-                      isAdmin={isAdmin}
-                    />
-                  )}
-
-                  {/* Current knowledge base */}
-                  <div className="border-t pt-4 mt-4">
-                    <h3 className="font-semibold mb-2 flex items-center gap-2 text-gray-900 dark:text-white">
-                      <Database className="h-4 w-4" />
-                      Active Knowledge Base ({referenceDocs.filter(d => d.is_active).length})
-                    </h3>
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
-                      {referenceDocs.map(doc => (
-                        <div key={doc.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                            <span className="text-sm truncate text-gray-900 dark:text-white">{doc.title}</span>
-                            {!doc.is_active && (
-                              <Badge variant="outline" className="text-xs bg-gray-100 text-gray-500 border-gray-300">
-                                Inactive
-                              </Badge>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteReferenceMutation.mutate(doc)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={createConversation}
-                className="border-cyan-400 bg-cyan-500/30 text-white hover:bg-cyan-500/40 hover:border-cyan-300 font-semibold shadow-lg"
-              >
-                <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
-                <span className="hidden sm:inline">New</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+          </DialogContent>
+        </Dialog>
 
       <main className="max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-6 h-[calc(100vh-80px)] sm:h-[calc(100vh-100px)]">
         <div className="grid md:grid-cols-4 gap-2 sm:gap-4 h-full">
           {/* Sidebar - Conversations - Static Container */}
-          <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm hidden md:flex flex-col h-full overflow-hidden">
-            <CardHeader className="pb-3 flex-shrink-0">
-              <CardTitle className="text-sm text-white flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                Conversations
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto p-2 space-y-2">
-              {convsLoading ? (
-                <div className="space-y-2">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="bg-slate-700/50 rounded p-3 animate-pulse">
-                      <div className="h-4 bg-slate-600 rounded mb-2"></div>
-                      <div className="h-3 bg-slate-600 rounded w-2/3"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : conversations.length === 0 ? (
-                <p className="text-white/60 text-xs text-center py-4">No conversations yet</p>
-              ) : conversations.map(conv => (
-                <button
-                  key={conv.id}
-                  onClick={() => loadConversation(conv.id)}
-                  className={`w-full text-left p-2 rounded transition-colors ${
-                    conversationId === conv.id 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-slate-700/50 text-white hover:bg-slate-700'
-                  }`}
-                >
-                  <div className="text-sm font-medium truncate">
-                    {conv.metadata?.name || 'Chat Session'}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.4 }}
+            className="hidden md:block"
+          >
+            <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col h-full overflow-hidden">
+              <CardHeader className="pb-3 flex-shrink-0">
+                <CardTitle className="text-sm text-white flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Conversations
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-1 overflow-y-auto p-2 space-y-2">
+                {convsLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <AnimatedLoader size="sm" label="Loading..." />
                   </div>
-                  <div className="text-xs opacity-80">
-                    {new Date(conv.created_date).toLocaleDateString()}
-                  </div>
-                </button>
-              ))}
-            </CardContent>
-          </Card>
+                ) : conversations.length === 0 ? (
+                  <p className="text-white/60 text-xs text-center py-4">No conversations yet</p>
+                ) : (
+                  <AnimatePresence>
+                    {conversations.map((conv, i) => (
+                      <motion.button
+                        key={conv.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ delay: i * 0.05 }}
+                        onClick={() => loadConversation(conv.id)}
+                        className={`w-full text-left p-3 rounded-lg transition-all ${
+                          conversationId === conv.id 
+                            ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/20' 
+                            : 'bg-slate-700/30 text-white hover:bg-slate-700/50 border border-slate-700/50'
+                        }`}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div className="text-sm font-medium truncate">
+                          {conv.metadata?.name || 'Chat Session'}
+                        </div>
+                        <div className="text-xs opacity-70 mt-1">
+                          {new Date(conv.created_date).toLocaleDateString()}
+                        </div>
+                      </motion.button>
+                    ))}
+                  </AnimatePresence>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
 
           {/* Chat Area */}
           <Card className="md:col-span-3 border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col h-full">
@@ -501,46 +456,72 @@ export default function PhotonChat() {
             
             <CardContent className="flex-1 flex flex-col py-4 px-3 sm:px-6 min-h-0">
               {/* Static Chat Frame - Fixed Container */}
-              <div className="flex-1 bg-slate-900/70 rounded-xl border border-slate-700/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                className="flex-1 bg-gradient-to-b from-slate-900/70 to-slate-900/50 rounded-xl border border-slate-700/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+              >
                 {!conversationId ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center space-y-3 sm:space-y-4 px-4">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="flex flex-col items-center justify-center h-full text-center space-y-4 sm:space-y-6 px-4"
+                  >
+                    <motion.div
+                      animate={{ scale: [1, 1.05, 1], rotate: [0, 5, -5, 0] }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-2xl shadow-blue-500/30"
+                    >
                       <Zap className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">
+                    </motion.div>
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                      <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent mb-3">
                         Welcome to P.H.O.T.O.N.
                       </h2>
-                      <p className="text-slate-300 text-sm sm:text-base max-w-md">
-                        Your expert technical diagnostic and installation agent. Start a new conversation 
-                        to troubleshoot, diagnose, or get installation guidance for fiber optic systems.
+                      <p className="text-slate-400 text-sm sm:text-base max-w-md leading-relaxed">
+                        Your expert technical diagnostic and installation agent. Start a new conversation to troubleshoot, diagnose, or get installation guidance for fiber optic systems.
                       </p>
-                    </div>
-                    <Button onClick={createConversation} className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold shadow-lg">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Start New Session
-                    </Button>
-                  </div>
+                    </motion.div>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+                      <PremiumButton
+                        onClick={createConversation}
+                        glow
+                        className="bg-cyan-500 hover:bg-cyan-600 text-white font-bold shadow-lg"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Start New Session
+                      </PremiumButton>
+                    </motion.div>
+                  </motion.div>
                 ) : (
-                  <div className="space-y-4">
-                    {messages.map((msg, idx) => (
-                      <MessageBubble key={msg.id || idx} message={msg} />
-                    ))}
-                    <div ref={messagesEndRef} />
-                  </div>
+                  <AnimatePresence>
+                    <div className="space-y-4">
+                      {messages.map((msg, idx) => (
+                        <EnhancedMessageBubble key={msg.id || idx} message={msg} />
+                      ))}
+                      <div ref={messagesEndRef} />
+                    </div>
+                  </AnimatePresence>
                 )}
-              </div>
+              </motion.div>
             </CardContent>
 
             {conversationId && (
-              <div className="border-t border-slate-700 p-2 flex-shrink-0 bg-slate-800/50">
-                <form onSubmit={sendMessage} className="flex gap-1 sm:gap-2">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="border-t border-slate-700 p-3 flex-shrink-0 bg-gradient-to-r from-slate-800/50 to-slate-800/30 backdrop-blur-sm"
+              >
+                <form onSubmit={sendMessage} className="flex gap-2">
                   <Textarea
                     ref={textareaRef}
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Ask P.H.O.T.O.N..."
-                    className="flex-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 resize-none text-sm sm:text-base min-h-[44px]"
+                    placeholder="Ask P.H.O.T.O.N... (Ctrl+Enter or Shift+Enter to send)"
+                    className="flex-1 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 resize-none text-sm sm:text-base min-h-[44px] rounded-lg focus:border-cyan-500/50 focus:ring-cyan-500/20"
                     rows={1}
                     onKeyDown={(e) => {
                       if ((e.key === 'Enter' && e.ctrlKey) || (e.key === 'Enter' && !e.shiftKey)) {
@@ -549,20 +530,18 @@ export default function PhotonChat() {
                       }
                     }}
                   />
-                  <Button 
+                  <PremiumButton 
                     type="submit" 
+                    isLoading={isSending}
                     disabled={isSending || !inputMessage.trim()}
-                    className="bg-cyan-500 hover:bg-cyan-600 text-white px-2 sm:px-4 min-h-[44px] font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    glow={!isSending && inputMessage.trim()}
+                    className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 min-h-[44px] font-bold shadow-lg disabled:opacity-50"
                     size="sm"
                   >
-                    {isSending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
+                    {!isSending && <Send className="h-4 w-4" />}
+                  </PremiumButton>
                 </form>
-              </div>
+              </motion.div>
             )}
           </Card>
         </div>
