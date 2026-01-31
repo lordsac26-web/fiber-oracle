@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
@@ -6,19 +6,41 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown, Users, BarChart3, TrendingUp, Activity, UserCheck, UserX, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import moment from 'moment';
 
 export default function AdminPanel() {
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [adminNotes, setAdminNotes] = useState('');
+    const [activeTab, setActiveTab] = useState('overview');
     const queryClient = useQueryClient();
 
     const { data: user } = useQuery({
         queryKey: ['user'],
         queryFn: () => base44.auth.me()
+    });
+
+    const { data: allUsers = [] } = useQuery({
+        queryKey: ['allUsers'],
+        queryFn: () => base44.entities.User.list(),
+        enabled: user?.role === 'admin'
+    });
+
+    const { data: allAuditLogs = [] } = useQuery({
+        queryKey: ['allAuditLogs'],
+        queryFn: () => base44.entities.AuditLog.list('-created_date', 1000),
+        enabled: user?.role === 'admin'
+    });
+
+    const { data: allDocSubmissions = [] } = useQuery({
+        queryKey: ['allDocSubmissions'],
+        queryFn: () => base44.entities.DocumentSubmission.list('-created_date', 500),
+        enabled: user?.role === 'admin'
     });
 
     const { data: pendingRequests = [] } = useQuery({
@@ -127,6 +149,75 @@ Thank you for reaching out!
         }
     });
 
+    // Analytics calculations
+    const analytics = useMemo(() => {
+        const last7Days = moment().subtract(7, 'days');
+        const last30Days = moment().subtract(30, 'days');
+
+        // Document submission stats
+        const totalSubmissions = allDocSubmissions.length;
+        const approved = allDocSubmissions.filter(d => d.status === 'approved').length;
+        const pending = allDocSubmissions.filter(d => d.status === 'pending').length;
+        const denied = allDocSubmissions.filter(d => d.status === 'denied').length;
+        
+        // Review time calculation
+        const reviewedDocs = allDocSubmissions.filter(d => d.review_date && d.created_date);
+        const avgReviewTime = reviewedDocs.length > 0 
+            ? reviewedDocs.reduce((sum, d) => {
+                const reviewTime = moment(d.review_date).diff(moment(d.created_date), 'hours');
+                return sum + reviewTime;
+            }, 0) / reviewedDocs.length
+            : 0;
+
+        // AI usage stats
+        const queries = allAuditLogs.filter(l => l.event_type === 'query');
+        const responses = allAuditLogs.filter(l => l.event_type === 'response');
+        const toolCalls = allAuditLogs.filter(l => l.event_type === 'tool_invocation');
+        const errors = allAuditLogs.filter(l => l.status === 'error');
+        
+        const queriesLast7Days = queries.filter(q => moment(q.created_date).isAfter(last7Days)).length;
+        const queriesLast30Days = queries.filter(q => moment(q.created_date).isAfter(last30Days)).length;
+
+        // User activity
+        const activeUsers = new Set(queries.filter(q => moment(q.created_date).isAfter(last7Days)).map(q => q.user_email)).size;
+
+        // Submissions by category
+        const submissionsByCategory = CATEGORIES.reduce((acc, cat) => {
+            acc[cat] = allDocSubmissions.filter(d => d.category === cat).length;
+            return acc;
+        }, {});
+
+        return {
+            documents: {
+                total: totalSubmissions,
+                approved,
+                pending,
+                denied,
+                approvalRate: totalSubmissions > 0 ? ((approved / totalSubmissions) * 100).toFixed(1) : 0,
+                avgReviewTime: avgReviewTime.toFixed(1)
+            },
+            ai: {
+                totalQueries: queries.length,
+                totalResponses: responses.length,
+                toolCalls: toolCalls.length,
+                errors: errors.length,
+                errorRate: queries.length > 0 ? ((errors.length / queries.length) * 100).toFixed(1) : 0,
+                queriesLast7Days,
+                queriesLast30Days,
+                avgQueriesPerDay: (queriesLast30Days / 30).toFixed(1)
+            },
+            users: {
+                total: allUsers.length,
+                admins: allUsers.filter(u => u.role === 'admin').length,
+                regular: allUsers.filter(u => u.role === 'user').length,
+                activeUsers
+            },
+            submissionsByCategory
+        };
+    }, [allDocSubmissions, allAuditLogs, allUsers]);
+
+    const CATEGORIES = ['installation', 'troubleshooting', 'maintenance', 'safety', 'specifications', 'training', 'other'];
+
     if (user?.role !== 'admin') {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-6">
@@ -162,35 +253,53 @@ Thank you for reaching out!
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-white text-sm">Pending Requests</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-yellow-400">{pendingRequests.length}</div>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-white text-sm">Master List Submissions</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-blue-400">{pendingDocuments.length}</div>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-white text-sm">Recent Approvals</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-green-400">{recentApprovals.length}</div>
-                        </CardContent>
-                    </Card>
-                </div>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="bg-white/10 border-white/20 mb-6">
+                        <TabsTrigger value="overview" className="data-[state=active]:bg-blue-600">
+                            <AlertCircle className="w-4 h-4 mr-2" />
+                            Overview
+                        </TabsTrigger>
+                        <TabsTrigger value="users" className="data-[state=active]:bg-blue-600">
+                            <Users className="w-4 h-4 mr-2" />
+                            Users
+                        </TabsTrigger>
+                        <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600">
+                            <BarChart3 className="w-4 h-4 mr-2" />
+                            Analytics
+                        </TabsTrigger>
+                    </TabsList>
 
-                <div className="grid gap-6">
-                    <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                    {/* Overview Tab */}
+                    <TabsContent value="overview" className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-white text-sm">Pending Requests</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-3xl font-bold text-yellow-400">{pendingRequests.length}</div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-white text-sm">Master List Submissions</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-3xl font-bold text-blue-400">{pendingDocuments.length}</div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-white text-sm">Recent Approvals</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-3xl font-bold text-green-400">{recentApprovals.length}</div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        <div className="grid gap-6">
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
                                 <AlertCircle className="w-5 h-5 text-yellow-400" />
@@ -344,8 +453,197 @@ Thank you for reaching out!
                                 </div>
                             )}
                         </CardContent>
-                    </Card>
-                </div>
+                        </Card>
+                        </div>
+                    </TabsContent>
+
+                    {/* Users Tab */}
+                    <TabsContent value="users" className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-white text-sm">Total Users</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-3xl font-bold text-blue-400">{analytics.users.total}</div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-white text-sm">Admins</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-3xl font-bold text-purple-400">{analytics.users.admins}</div>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-white text-sm">Active (7d)</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-3xl font-bold text-green-400">{analytics.users.activeUsers}</div>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <CardHeader>
+                                <CardTitle className="text-white flex items-center gap-2">
+                                    <Users className="w-5 h-5" />
+                                    User Management ({allUsers.length})
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {allUsers.map(u => (
+                                        <div key={u.id} className="bg-white/5 border border-white/10 rounded-lg p-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h4 className="font-medium text-white">{u.full_name || u.email}</h4>
+                                                        <Badge className={u.role === 'admin' ? 'bg-purple-500' : 'bg-blue-500'}>
+                                                            {u.role}
+                                                        </Badge>
+                                                    </div>
+                                                    <p className="text-sm text-white/60">{u.email}</p>
+                                                    <p className="text-xs text-white/40 mt-1">
+                                                        Joined {moment(u.created_date).format('MMM D, YYYY')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* Analytics Tab */}
+                    <TabsContent value="analytics" className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-white text-xs">Total Queries</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold text-cyan-400">{analytics.ai.totalQueries}</div>
+                                    <p className="text-xs text-white/60 mt-1">{analytics.ai.avgQueriesPerDay} per day</p>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-white text-xs">Queries (7d)</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold text-blue-400">{analytics.ai.queriesLast7Days}</div>
+                                    <p className="text-xs text-white/60 mt-1">Last week</p>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-white text-xs">Tool Invocations</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold text-purple-400">{analytics.ai.toolCalls}</div>
+                                    <p className="text-xs text-white/60 mt-1">AI actions</p>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-white text-xs">Error Rate</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold text-red-400">{analytics.ai.errorRate}%</div>
+                                    <p className="text-xs text-white/60 mt-1">{analytics.ai.errors} errors</p>
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader>
+                                    <CardTitle className="text-white flex items-center gap-2">
+                                        <FileText className="w-5 h-5" />
+                                        Document Statistics
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                                        <span className="text-white/70">Total Submissions</span>
+                                        <span className="text-white font-semibold">{analytics.documents.total}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                                        <span className="text-white/70">Approved</span>
+                                        <Badge className="bg-green-500">{analytics.documents.approved}</Badge>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                                        <span className="text-white/70">Pending</span>
+                                        <Badge className="bg-yellow-500">{analytics.documents.pending}</Badge>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                                        <span className="text-white/70">Denied</span>
+                                        <Badge className="bg-red-500">{analytics.documents.denied}</Badge>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                                        <span className="text-white/70">Approval Rate</span>
+                                        <span className="text-green-400 font-semibold">{analytics.documents.approvalRate}%</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-white/70">Avg Review Time</span>
+                                        <span className="text-blue-400 font-semibold">{analytics.documents.avgReviewTime}h</span>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                                <CardHeader>
+                                    <CardTitle className="text-white flex items-center gap-2">
+                                        <TrendingUp className="w-5 h-5" />
+                                        Submissions by Category
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-2">
+                                    {CATEGORIES.map(cat => (
+                                        <div key={cat} className="flex justify-between items-center pb-2 border-b border-white/10">
+                                            <span className="text-white/70 capitalize">{cat}</span>
+                                            <Badge variant="outline" className="bg-white/10 text-white border-white/30">
+                                                {analytics.submissionsByCategory[cat] || 0}
+                                            </Badge>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <CardHeader>
+                                <CardTitle className="text-white flex items-center gap-2">
+                                    <Activity className="w-5 h-5" />
+                                    System Health
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid md:grid-cols-3 gap-4">
+                                    <div className="bg-white/5 rounded-lg p-4 text-center">
+                                        <Zap className="w-8 h-8 mx-auto mb-2 text-cyan-400" />
+                                        <div className="text-2xl font-bold text-white">{analytics.ai.totalResponses}</div>
+                                        <div className="text-xs text-white/60">AI Responses</div>
+                                    </div>
+                                    <div className="bg-white/5 rounded-lg p-4 text-center">
+                                        <UserCheck className="w-8 h-8 mx-auto mb-2 text-green-400" />
+                                        <div className="text-2xl font-bold text-white">{analytics.users.activeUsers}</div>
+                                        <div className="text-xs text-white/60">Active Users (7d)</div>
+                                    </div>
+                                    <div className="bg-white/5 rounded-lg p-4 text-center">
+                                        <FileText className="w-8 h-8 mx-auto mb-2 text-blue-400" />
+                                        <div className="text-2xl font-bold text-white">{analytics.documents.total}</div>
+                                        <div className="text-xs text-white/60">Total Documents</div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             </div>
 
             <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
