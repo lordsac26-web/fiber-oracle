@@ -141,6 +141,16 @@ const MODULES = [
   // TROUBLESHOOTING - Diagnostic and analysis tools
   // ═══════════════════════════════════════════════════════════════════════════
   {
+    id: 'photon',
+    title: 'P.H.O.T.O.N.',
+    description: 'AI technical assistant & document expert',
+    icon: Zap,
+    color: 'from-cyan-400 to-blue-600',
+    page: 'PhotonChat',
+    badge: 'Troubleshoot',
+    isNew: true
+  },
+  {
     id: 'doctor',
     title: 'Fiber Doctor',
     description: 'Interactive troubleshooting flowchart',
