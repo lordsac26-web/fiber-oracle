@@ -47,6 +47,26 @@ export default function PhotonChat() {
   const [uploadMode, setUploadMode] = useState('local'); // 'local' or 'drive'
   const messagesEndRef = useRef(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const textareaRef = useRef(null);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl/Cmd + N for new chat
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        createConversation();
+      }
+      // Ctrl/Cmd + K for focus search/input
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        textareaRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [conversationId]);
 
   // Get current user for audit logging
   useEffect(() => {
@@ -373,10 +393,10 @@ export default function PhotonChat() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid md:grid-cols-4 gap-4 h-[calc(100vh-140px)]">
+      <main className="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-6">
+        <div className="grid md:grid-cols-4 gap-2 sm:gap-4 h-[calc(100vh-120px)] sm:h-[calc(100vh-140px)]">
           {/* Sidebar - Conversations */}
-          <Card className="border-slate-700 bg-slate-800/50">
+          <Card className="border-slate-700 bg-slate-800/50 hidden md:block">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm text-white flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
@@ -384,7 +404,18 @@ export default function PhotonChat() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 overflow-y-auto h-[calc(100%-80px)]">
-              {conversations.map(conv => (
+              {convsLoading ? (
+                <div className="space-y-2">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="bg-slate-700/50 rounded p-3 animate-pulse">
+                      <div className="h-4 bg-slate-600 rounded mb-2"></div>
+                      <div className="h-3 bg-slate-600 rounded w-2/3"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : conversations.length === 0 ? (
+                <p className="text-white/60 text-xs text-center py-4">No conversations yet</p>
+              ) : conversations.map(conv => (
                 <button
                   key={conv.id}
                   onClick={() => loadConversation(conv.id)}
@@ -407,20 +438,22 @@ export default function PhotonChat() {
 
           {/* Chat Area */}
           <Card className="md:col-span-3 border-slate-700 bg-slate-800/50 flex flex-col">
-            <CardHeader className="pb-3 border-b border-slate-700">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-white flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-cyan-400" />
-                  {conversationId ? 'Active Session' : 'Start a New Conversation'}
+            <CardHeader className="pb-2 sm:pb-3 border-b border-slate-700">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-white flex items-center gap-2 text-sm sm:text-base">
+                  <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400" />
+                  <span className="hidden sm:inline">{conversationId ? 'Active Session' : 'Start a New Conversation'}</span>
+                  <span className="sm:hidden">P.H.O.T.O.N.</span>
                 </CardTitle>
-                <Badge variant="outline" className="border-slate-600 text-white">
+                <Badge variant="outline" className="border-slate-600 text-white text-xs">
                   <Database className="h-3 w-3 mr-1" />
-                  {referenceDocs.length} PDFs loaded
+                  <span className="hidden sm:inline">{referenceDocs.length} PDFs</span>
+                  <span className="sm:hidden">{referenceDocs.length}</span>
                 </Badge>
               </div>
             </CardHeader>
             
-            <CardContent className="flex-1 overflow-y-auto space-y-4 py-4">
+            <CardContent className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 py-3 sm:py-4 px-2 sm:px-6">
               {!conversationId ? (
                 <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
                   <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
@@ -477,16 +510,17 @@ export default function PhotonChat() {
             </CardContent>
 
             {conversationId && (
-              <div className="border-t border-slate-700 p-4">
-                <form onSubmit={sendMessage} className="flex gap-2">
+              <div className="border-t border-slate-700 p-2 sm:p-4">
+                <form onSubmit={sendMessage} className="flex gap-1 sm:gap-2">
                   <Textarea
+                    ref={textareaRef}
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Ask P.H.O.T.O.N. about troubleshooting, installation, diagnostics..."
+                    placeholder="Ask P.H.O.T.O.N... (Ctrl+Enter to send, Ctrl+N for new chat)"
                     className="flex-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 resize-none"
                     rows={2}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
+                      if ((e.key === 'Enter' && e.ctrlKey) || (e.key === 'Enter' && !e.shiftKey)) {
                         e.preventDefault();
                         sendMessage();
                       }
@@ -495,12 +529,13 @@ export default function PhotonChat() {
                   <Button 
                     type="submit" 
                     disabled={isSending || !inputMessage.trim()}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4"
+                    size="sm"
                   >
                     {isSending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Send className="h-4 w-4" />
+                      <Send className="h-3 w-3 sm:h-4 sm:w-4" />
                     )}
                   </Button>
                 </form>

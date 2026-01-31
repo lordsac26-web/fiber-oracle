@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown, Users, BarChart3, TrendingUp, Activity, UserCheck, UserX, Zap } from 'lucide-react';
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown, Users, BarChart3, TrendingUp, Activity, UserCheck, UserX, Zap, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -42,6 +43,15 @@ export default function AdminPanel() {
         queryFn: () => base44.entities.DocumentSubmission.list('-created_date', 500),
         enabled: user?.role === 'admin'
     });
+
+    const { data: allReferenceDocs = [] } = useQuery({
+        queryKey: ['allReferenceDocs'],
+        queryFn: () => base44.entities.ReferenceDocument.list('-created_date', 500),
+        enabled: user?.role === 'admin'
+    });
+
+    const [selectedDocs, setSelectedDocs] = useState(new Set());
+    const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
     const { data: pendingRequests = [] } = useQuery({
         queryKey: ['pendingAdminRequests'],
@@ -217,6 +227,67 @@ Thank you for reaching out!
     }, [allDocSubmissions, allAuditLogs, allUsers]);
 
     const CATEGORIES = ['installation', 'troubleshooting', 'maintenance', 'safety', 'specifications', 'training', 'other'];
+
+    const handleBulkActivate = async () => {
+        setIsBulkProcessing(true);
+        try {
+            const docIds = Array.from(selectedDocs);
+            await Promise.all(
+                docIds.map(id => base44.entities.ReferenceDocument.update(id, { is_active: true }))
+            );
+            toast.success(`Activated ${docIds.length} documents`);
+            setSelectedDocs(new Set());
+            queryClient.invalidateQueries(['allReferenceDocs']);
+        } catch (error) {
+            toast.error('Failed to activate documents');
+        } finally {
+            setIsBulkProcessing(false);
+        }
+    };
+
+    const handleBulkDeactivate = async () => {
+        setIsBulkProcessing(true);
+        try {
+            const docIds = Array.from(selectedDocs);
+            await Promise.all(
+                docIds.map(id => base44.entities.ReferenceDocument.update(id, { is_active: false }))
+            );
+            toast.success(`Deactivated ${docIds.length} documents`);
+            setSelectedDocs(new Set());
+            queryClient.invalidateQueries(['allReferenceDocs']);
+        } catch (error) {
+            toast.error('Failed to deactivate documents');
+        } finally {
+            setIsBulkProcessing(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        setIsBulkProcessing(true);
+        try {
+            const docIds = Array.from(selectedDocs);
+            await Promise.all(
+                docIds.map(id => base44.entities.ReferenceDocument.delete(id))
+            );
+            toast.success(`Deleted ${docIds.length} documents`);
+            setSelectedDocs(new Set());
+            queryClient.invalidateQueries(['allReferenceDocs']);
+        } catch (error) {
+            toast.error('Failed to delete documents');
+        } finally {
+            setIsBulkProcessing(false);
+        }
+    };
+
+    const toggleDocSelection = (docId) => {
+        const newSelected = new Set(selectedDocs);
+        if (newSelected.has(docId)) {
+            newSelected.delete(docId);
+        } else {
+            newSelected.add(docId);
+        }
+        setSelectedDocs(newSelected);
+    };
 
     if (user?.role !== 'admin') {
         return (
@@ -461,47 +532,82 @@ Thank you for reaching out!
                     <TabsContent value="users" className="space-y-6">
                         <Card className="bg-white/10 backdrop-blur-md border-white/20">
                             <CardHeader>
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <CardTitle className="text-white flex items-center gap-2">
                                         <FileText className="w-5 h-5" />
-                                        PDF Management
+                                        Document Management ({allReferenceDocs.length})
                                     </CardTitle>
-                                    <Link to={createPageUrl('DocumentSearch')}>
-                                        <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                                            Search All Docs
-                                        </Button>
-                                    </Link>
+                                    <div className="flex gap-2 flex-wrap">
+                                        {selectedDocs.size > 0 && (
+                                            <>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={handleBulkActivate}
+                                                    disabled={isBulkProcessing}
+                                                    className="border-green-400 text-green-400 hover:bg-green-500/20"
+                                                >
+                                                    <UserCheck className="w-3 h-3 mr-1" />
+                                                    Activate ({selectedDocs.size})
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={handleBulkDeactivate}
+                                                    disabled={isBulkProcessing}
+                                                    className="border-yellow-400 text-yellow-400 hover:bg-yellow-500/20"
+                                                >
+                                                    <UserX className="w-3 h-3 mr-1" />
+                                                    Deactivate ({selectedDocs.size})
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={handleBulkDelete}
+                                                    disabled={isBulkProcessing}
+                                                    className="border-red-400 text-red-400 hover:bg-red-500/20"
+                                                >
+                                                    <Trash2 className="w-3 h-3 mr-1" />
+                                                    Delete ({selectedDocs.size})
+                                                </Button>
+                                            </>
+                                        )}
+                                        <Link to={createPageUrl('DocumentSearch')}>
+                                            <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                                                Search
+                                            </Button>
+                                        </Link>
+                                    </div>
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid md:grid-cols-3 gap-4">
-                                    <div className="bg-white/5 rounded-lg p-4">
-                                        <FileText className="w-8 h-8 text-blue-400 mb-2" />
-                                        <div className="text-2xl font-bold text-white">{allDocSubmissions.length}</div>
-                                        <div className="text-xs text-white/60">Total Uploads</div>
-                                    </div>
-                                    <div className="bg-white/5 rounded-lg p-4">
-                                        <CheckCircle className="w-8 h-8 text-green-400 mb-2" />
-                                        <div className="text-2xl font-bold text-white">
-                                            {allDocSubmissions.filter(d => d.status === 'approved').length}
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                    {allReferenceDocs.map(doc => (
+                                        <div
+                                            key={doc.id}
+                                            onClick={() => toggleDocSelection(doc.id)}
+                                            className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                                                selectedDocs.has(doc.id)
+                                                    ? 'bg-blue-500/30 border border-blue-400'
+                                                    : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                                            }`}
+                                        >
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-medium text-white text-sm truncate">{doc.title}</h4>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <Badge className="text-xs bg-purple-500">{doc.category}</Badge>
+                                                    <Badge className={`text-xs ${doc.is_active ? 'bg-green-500' : 'bg-gray-500'}`}>
+                                                        {doc.is_active ? 'Active' : 'Inactive'}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                            <Checkbox
+                                                checked={selectedDocs.has(doc.id)}
+                                                onCheckedChange={() => toggleDocSelection(doc.id)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
                                         </div>
-                                        <div className="text-xs text-white/60">Approved</div>
-                                    </div>
-                                    <div className="bg-white/5 rounded-lg p-4">
-                                        <Clock className="w-8 h-8 text-yellow-400 mb-2" />
-                                        <div className="text-2xl font-bold text-white">
-                                            {allDocSubmissions.filter(d => d.status === 'pending').length}
-                                        </div>
-                                        <div className="text-xs text-white/60">Pending Review</div>
-                                    </div>
-                                </div>
-                                <div className="mt-4">
-                                    <Link to={createPageUrl('DocumentReview')}>
-                                        <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                                            <FileText className="w-4 h-4 mr-2" />
-                                            Review & Manage Documents
-                                        </Button>
-                                    </Link>
+                                    ))}
                                 </div>
                             </CardContent>
                         </Card>
