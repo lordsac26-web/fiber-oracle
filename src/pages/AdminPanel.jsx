@@ -488,17 +488,46 @@ Thank you for reaching out!
         setIsBulkProcessing(true);
         try {
             const convoIds = Array.from(selectedConvos);
+            console.log('🗑️ deleteConversations: Starting deletion', { 
+                count: convoIds.length, 
+                ids: convoIds 
+            });
+            
             const response = await base44.functions.invoke('deleteConversations', {
                 conversation_ids: convoIds
             });
             
+            console.log('🗑️ deleteConversations: Response received', response.data);
+            
+            if (response.data.logs) {
+                console.log('🗑️ deleteConversations: Backend logs:', response.data.logs);
+            }
+            
             if (response.data.success) {
-                toast.success(`Deleted ${response.data.results.deleted} conversations`);
+                const deleted = response.data.results.deleted;
+                const failed = response.data.results.failed;
+                
+                console.log('🗑️ deleteConversations: Result summary', {
+                    deleted,
+                    failed,
+                    errors: response.data.results.errors
+                });
+                
+                if (failed > 0) {
+                    toast.error(`Deleted ${deleted}, but ${failed} failed. Check console for details.`);
+                } else {
+                    toast.success(`Deleted ${deleted} conversations`);
+                }
+                
                 setSelectedConvos(new Set());
                 queryClient.invalidateQueries(['allConversations']);
+            } else {
+                console.error('🗑️ deleteConversations: Request failed', response.data);
+                toast.error(`Error: ${response.data.error}`);
             }
         } catch (error) {
-            toast.error('Failed to delete conversations');
+            console.error('🗑️ deleteConversations: Exception thrown', error);
+            toast.error(`Failed to delete conversations: ${error.message}`);
         } finally {
             setIsBulkProcessing(false);
         }
