@@ -441,15 +441,15 @@ export default function PhotonChat() {
 
       <main className="max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-6 h-[calc(100vh-80px)] sm:h-[calc(100vh-100px)]">
         <div className="grid md:grid-cols-4 gap-2 sm:gap-4 h-full">
-          {/* Sidebar - Conversations */}
-          <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm hidden md:flex flex-col h-full">
+          {/* Sidebar - Conversations - Static Container */}
+          <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm hidden md:flex flex-col h-full overflow-hidden">
             <CardHeader className="pb-3 flex-shrink-0">
               <CardTitle className="text-sm text-white flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
                 Conversations
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 overflow-y-auto flex-1 min-h-0">
+            <CardContent className="flex-1 overflow-y-auto p-2 space-y-2">
               {convsLoading ? (
                 <div className="space-y-2">
                   {[...Array(3)].map((_, i) => (
@@ -499,9 +499,9 @@ export default function PhotonChat() {
               </div>
             </CardHeader>
             
-            <CardContent className="flex-1 overflow-y-auto py-4 px-3 sm:px-6 min-h-0">
-              {/* Chat Frame Background */}
-              <div className="min-h-full bg-slate-900/70 rounded-xl border border-slate-700/50 backdrop-blur-sm p-3 sm:p-4">
+            <CardContent className="flex-1 flex flex-col py-4 px-3 sm:px-6 min-h-0">
+              {/* Static Chat Frame - Fixed Container */}
+              <div className="flex-1 bg-slate-900/70 rounded-xl border border-slate-700/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
                 {!conversationId ? (
                   <div className="flex flex-col items-center justify-center h-full text-center space-y-3 sm:space-y-4 px-4">
                     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
@@ -522,12 +522,12 @@ export default function PhotonChat() {
                     </Button>
                   </div>
                 ) : (
-                  <>
+                  <div className="space-y-4">
                     {messages.map((msg, idx) => (
                       <MessageBubble key={msg.id || idx} message={msg} />
                     ))}
                     <div ref={messagesEndRef} />
-                  </>
+                  </div>
                 )}
               </div>
             </CardContent>
