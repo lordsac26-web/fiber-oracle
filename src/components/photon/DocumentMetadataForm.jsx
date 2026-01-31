@@ -125,7 +125,12 @@ export default function DocumentMetadataForm({ fileName, onSubmit, onCancel }) {
                 placeholder="Annotation text..."
                 className="flex-1 bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
               />
-              <Button size="sm" onClick={addAnnotation} type="button">
+              <Button 
+                size="sm" 
+                onClick={addAnnotation} 
+                type="button"
+                className="bg-cyan-500 hover:bg-cyan-600 text-white"
+              >
                 <Plus className="h-4 w-4" />
               </Button>
             </div>
@@ -143,10 +148,19 @@ export default function DocumentMetadataForm({ fileName, onSubmit, onCancel }) {
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button variant="outline" onClick={onCancel} type="button">
+        <Button 
+          variant="outline" 
+          onClick={onCancel} 
+          type="button"
+          className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
+        >
           Cancel
         </Button>
-        <Button onClick={handleSubmit} type="button">
+        <Button 
+          onClick={handleSubmit} 
+          type="button"
+          className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold shadow-lg"
+        >
           Continue Upload
         </Button>
       </div>
