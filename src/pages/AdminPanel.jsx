@@ -18,6 +18,7 @@ import DocumentUploadManager from '@/components/admin/DocumentUploadManager';
 import SystemHealthMonitor from '@/components/admin/SystemHealthMonitor';
 import AdvancedAuditFilter from '@/components/admin/AdvancedAuditFilter';
 import ConversationFilter from '@/components/admin/ConversationFilter';
+import AdminOnboardingTour from '@/components/admin/AdminOnboardingTour';
 
 export default function AdminPanel() {
     const [selectedRequest, setSelectedRequest] = useState(null);
@@ -158,6 +159,7 @@ export default function AdminPanel() {
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
     const [auditFilters, setAuditFilters] = useState({});
     const [convoFilters, setConvoFilters] = useState({});
+    const [showTour, setShowTour] = useState(false);
 
     const { data: pendingRequests = [] } = useQuery({
         queryKey: ['pendingAdminRequests'],
@@ -533,19 +535,19 @@ Thank you for reaching out!
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="bg-slate-800/50 border-slate-700 mb-6">
-                        <TabsTrigger value="overview" className="data-[state=active]:bg-blue-600">
+                        <TabsTrigger value="overview" className="data-[state=active]:bg-blue-600" data-tour="overview-tab">
                             <AlertCircle className="w-4 h-4 mr-2" />
                             Overview
                         </TabsTrigger>
-                        <TabsTrigger value="users" className="data-[state=active]:bg-blue-600">
+                        <TabsTrigger value="users" className="data-[state=active]:bg-blue-600" data-tour="users-tab">
                             <Users className="w-4 h-4 mr-2" />
                             Users
                         </TabsTrigger>
-                        <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600">
+                        <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600" data-tour="analytics-tab">
                             <BarChart3 className="w-4 h-4 mr-2" />
                             Analytics
                         </TabsTrigger>
-                        <TabsTrigger value="health" className="data-[state=active]:bg-blue-600">
+                        <TabsTrigger value="health" className="data-[state=active]:bg-blue-600" data-tour="health-tab">
                             <Activity className="w-4 h-4 mr-2" />
                             System Health
                         </TabsTrigger>
