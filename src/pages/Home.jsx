@@ -29,7 +29,8 @@ import {
   FlaskConical,
   ClipboardList,
   Info,
-  HelpCircle
+  HelpCircle,
+  Smartphone
 } from 'lucide-react';
 import OnboardingTour from '@/components/OnboardingTour';
 import { Link } from 'react-router-dom';
