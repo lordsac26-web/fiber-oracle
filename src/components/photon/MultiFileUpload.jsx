@@ -131,6 +131,7 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
             version: userMetadata.version || '1.0',
             comments: userMetadata.comments || '',
             annotations: userMetadata.annotations || [],
+            add_to_master: userMetadata.addToMaster || false,
             source_type: 'pdf',
             source_url: file_url,
             content: extraction.output.full_text || JSON.stringify(extraction.output),
@@ -145,6 +146,28 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
             status: 'pending',
             security_scan_status: 'pending'
           });
+          
+          // Send email notification if adding to master list
+          if (userMetadata.addToMaster) {
+            try {
+              await base44.integrations.Core.SendEmail({
+                to: 'admin@fiberoracle.com',
+                subject: `Master List Request: ${doc.title}`,
+                body: `
+New document submitted for master knowledge base:
+
+Title: ${doc.title}
+Category: ${doc.category}
+Submitted by: ${user.email}
+Comments: ${doc.comments || 'None'}
+
+View in admin panel to approve or deny.
+                `
+              });
+            } catch (emailError) {
+              console.error('Failed to send admin notification:', emailError);
+            }
+          }
         }
 
         updateFileStatus(index, { 

@@ -54,6 +54,7 @@ import Certifications from './pages/Certifications';
 import Cleaning from './pages/Cleaning';
 import Contact from './pages/Contact';
 import DataManagement from './pages/DataManagement';
+import DocumentReview from './pages/DocumentReview';
 import Education from './pages/Education';
 import Fiber101 from './pages/Fiber101';
 import Fiber102 from './pages/Fiber102';
@@ -75,6 +76,7 @@ import OfflineDocuments from './pages/OfflineDocuments';
 import OpticalCalculator from './pages/OpticalCalculator';
 import PONLevels from './pages/PONLevels';
 import PONPMAnalysis from './pages/PONPMAnalysis';
+import PhotonAuditLogs from './pages/PhotonAuditLogs';
 import PhotonChat from './pages/PhotonChat';
 import PowerLevelCalc from './pages/PowerLevelCalc';
 import ReferenceTables from './pages/ReferenceTables';
@@ -84,8 +86,8 @@ import SplitterLoss from './pages/SplitterLoss';
 import StudyGuide from './pages/StudyGuide';
 import TechAssistant from './pages/TechAssistant';
 import UserGuide from './pages/UserGuide';
-import PhotonAuditLogs from './pages/PhotonAuditLogs';
-import DocumentReview from './pages/DocumentReview';
+import ContactAdmin from './pages/ContactAdmin';
+import AdminPanel from './pages/AdminPanel';
 import __Layout from './Layout.jsx';
 
 
@@ -97,6 +99,7 @@ export const PAGES = {
     "Cleaning": Cleaning,
     "Contact": Contact,
     "DataManagement": DataManagement,
+    "DocumentReview": DocumentReview,
     "Education": Education,
     "Fiber101": Fiber101,
     "Fiber102": Fiber102,
@@ -118,6 +121,7 @@ export const PAGES = {
     "OpticalCalculator": OpticalCalculator,
     "PONLevels": PONLevels,
     "PONPMAnalysis": PONPMAnalysis,
+    "PhotonAuditLogs": PhotonAuditLogs,
     "PhotonChat": PhotonChat,
     "PowerLevelCalc": PowerLevelCalc,
     "ReferenceTables": ReferenceTables,
@@ -127,8 +131,8 @@ export const PAGES = {
     "StudyGuide": StudyGuide,
     "TechAssistant": TechAssistant,
     "UserGuide": UserGuide,
-    "PhotonAuditLogs": PhotonAuditLogs,
-    "DocumentReview": DocumentReview,
+    "ContactAdmin": ContactAdmin,
+    "AdminPanel": AdminPanel,
 }
 
 export const pagesConfig = {

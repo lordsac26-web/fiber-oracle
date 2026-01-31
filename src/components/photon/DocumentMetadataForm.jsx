@@ -4,7 +4,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Star } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const CATEGORIES = [
   { value: 'installation', label: 'Installation' },
@@ -21,7 +22,8 @@ export default function DocumentMetadataForm({ fileName, onSubmit, onCancel }) {
     category: 'other',
     version: '1.0',
     comments: '',
-    annotations: []
+    annotations: [],
+    addToMaster: false
   });
 
   const [newAnnotation, setNewAnnotation] = useState({ page: '', text: '' });
@@ -92,6 +94,18 @@ export default function DocumentMetadataForm({ fileName, onSubmit, onCancel }) {
             rows={3}
             className="bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
           />
+        </div>
+
+        <div className="flex items-center gap-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
+          <Checkbox
+            checked={metadata.addToMaster}
+            onCheckedChange={(checked) => setMetadata({...metadata, addToMaster: checked})}
+            id="addToMaster"
+          />
+          <label htmlFor="addToMaster" className="flex items-center gap-2 cursor-pointer text-sm">
+            <Star className="w-4 h-4 text-yellow-600" />
+            <span className="font-medium text-gray-900 dark:text-white">Request to add to Master Knowledge Base</span>
+          </label>
         </div>
 
         <div>
