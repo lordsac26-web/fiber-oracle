@@ -1,1275 +1,581 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { 
-  ArrowLeft, 
-  Search,
-  ChevronRight,
-  ChevronDown,
-  BookOpen,
-  Calculator,
-  Activity,
-  Stethoscope,
-  GraduationCap,
-  Settings,
-  HelpCircle,
-  Zap,
-  Cable,
-  Sparkles,
-  FileSearch,
-  ImageIcon,
-  ClipboardList,
-  FileText,
-  Home,
-  Target,
-  Wrench,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
-  Lightbulb
-} from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Download, BookOpen, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-
-const USER_GUIDE_SECTIONS = [
-  {
-    id: 'getting-started',
-    title: 'Getting Started',
-    icon: Home,
-    color: 'from-blue-500 to-indigo-600',
-    subsections: [
-      {
-        id: 'overview',
-        title: 'What is Fiber Oracle?',
-        content: `
-**Fiber Oracle** is your comprehensive fiber optic field companion, designed to help technicians, engineers, and installers work more efficiently and accurately.
-
-### Key Features
-- **Calculators** for loss budgets, power levels, and unit conversions
-- **Testing guides** for OLTS, OTDR, and inspection procedures
-- **Troubleshooting tools** including AI-powered OTDR analysis
-- **Reference tables** for standards, specifications, and color codes
-- **Educational courses** covering fiber optic fundamentals to advanced topics
-
-### Who Is This For?
-- Fiber optic technicians and installers
-- Network engineers and designers
-- Field service personnel
-- Students learning fiber optics
-- Anyone working with fiber optic systems
-        `
-      },
-      {
-        id: 'navigation',
-        title: 'Navigating the App',
-        content: `
-### Home Screen
-The home screen displays all available modules organized by category:
-- **Calculate** - Mathematical tools and calculators
-- **Test** - Testing procedures and wizards
-- **Troubleshoot** - Diagnostic and analysis tools
-- **Reference** - Lookup tables and specifications
-- **Learn** - Educational courses and documentation
-
-### Category Filters
-Use the category pills at the top to filter modules by type, or select "All" to see everything organized by section.
-
-### Quick References
-The header and footer display common reference values like:
-- SMF attenuation (0.35 dB/km @ 1310nm, 0.25 dB/km @ 1550nm)
-- Connector loss limits (Elite ≤0.15 dB)
-- Reflectance limits (UPC <-50 dB, APC <-60 dB)
-
-### Mobile Navigation
-On mobile devices, use the bottom navigation bar to quickly switch between categories.
-        `
-      },
-      {
-        id: 'customization',
-        title: 'Customizing Your Experience',
-        content: `
-### Dark Mode
-Toggle dark mode using the moon/sun icon in the header for comfortable viewing in low-light conditions.
-
-### Hiding Modules
-Click the eye icon in the header to show/hide specific modules. Hidden modules won't clutter your dashboard but can be restored anytime.
-
-### Settings
-Access the Settings page to:
-- Set default values for calculations
-- Configure company branding
-- Manage hidden content
-- Export/import preferences
-
-### Onboarding Tour
-New users will see an interactive tour. You can restart it anytime from the Settings page or by clicking the help icon.
-        `
-      }
-    ]
-  },
-  {
-    id: 'calculators',
-    title: 'Calculators',
-    icon: Calculator,
-    color: 'from-indigo-500 to-purple-600',
-    subsections: [
-      {
-        id: 'optical-calculator',
-        title: 'Optical Calculator',
-        content: `
-The Optical Calculator provides three essential tools in one module:
-
-### Link Loss Calculator
-Calculates total expected loss for a fiber link based on:
-- **Fiber type** (SMF G.652, G.657, OM3, OM4, etc.)
-- **Distance** in kilometers
-- **Number of connectors** and their quality grade
-- **Number of splices** (fusion or mechanical)
-- **Splitter configuration** (if applicable)
-
-**How to Use:**
-1. Select your fiber type
-2. Enter the total link distance
-3. Specify the number of connectors and splices
-4. Add any splitters in the path
-5. View the calculated total loss with breakdown
-
-### PON Power Calculator
-Estimates ONT receive power for GPON, XGS-PON, and next-gen PON systems:
-1. Select your PON class (B+, C+, N1, N2, etc.)
-2. Enter OLT transmit power
-3. Input total link loss
-4. View expected ONT Rx power and status
-
-### dB Converter
-Convert between:
-- **dBm ↔ mW** (power levels)
-- **dB ↔ Linear ratio** (loss/gain)
-        `
-      },
-      {
-        id: 'loss-budget',
-        title: 'Loss Budget Calculator',
-        content: `
-The Loss Budget Calculator helps you plan fiber links according to **TIA-568-D** standards.
-
-### Input Parameters
-- **Application** (Enterprise LAN, PON, Data Center, etc.)
-- **Fiber Type** (Single-mode or Multimode variants)
-- **Wavelength** (850nm, 1310nm, 1550nm, etc.)
-- **Link Distance**
-- **Number of Connections**
-- **Number of Splices**
-
-### Output
-- Total calculated loss
-- Maximum allowable loss for the application
-- Pass/Fail status
-- Safety margin
-
-### Best Practices
-- Always include a **3 dB safety margin** for future repairs
-- Use **worst-case attenuation values** for planning
-- Account for **all connections** including patch panels
-        `
-      },
-      {
-        id: 'power-calculator',
-        title: 'Power Level Calculator',
-        content: `
-Estimate ONT receive power levels for PON deployments.
-
-### Supported PON Types
-- **GPON** (ITU-T G.984)
-- **XGS-PON** (ITU-T G.9807)
-- **25G-PON / 50G-PON** (emerging standards)
-
-### Input Fields
-- OLT Tx Power (dBm)
-- Splitter configuration (1:2 to 1:128)
-- Fiber distance
-- Number of connectors
-- Additional losses
-
-### Status Indicators
-- **Good** (green): Within optimal range
-- **Marginal** (yellow): Near sensitivity limit
-- **Too Low** (red): Below minimum sensitivity
-- **Too High** (red): Risk of receiver saturation
-        `
-      },
-      {
-        id: 'splitter-loss',
-        title: 'Splitter Loss Reference',
-        content: `
-Quick lookup for optical splitter insertion loss values.
-
-### Common Split Ratios
-| Ratio | Typical Loss |
-|-------|-------------|
-| 1:2   | 3.5 dB      |
-| 1:4   | 7.0 dB      |
-| 1:8   | 10.5 dB     |
-| 1:16  | 14.0 dB     |
-| 1:32  | 17.5 dB     |
-| 1:64  | 21.0 dB     |
-| 1:128 | 24.5 dB     |
-
-### Cascaded Splitters
-For cascaded configurations, add the losses together:
-- 1:4 + 1:8 = 7.0 + 10.5 = **17.5 dB total**
-
-### Note
-These are typical values. Always check manufacturer specifications for exact values, as they can vary by ±0.5 dB or more.
-        `
-      },
-      {
-        id: 'bend-radius',
-        title: 'Bend Radius Calculator',
-        content: `
-Determine minimum bend radius requirements for different cable types.
-
-### Fiber Types
-- **G.652.D** - Standard single-mode (30mm min radius)
-- **G.657.A1** - Bend-tolerant (10mm min radius)
-- **G.657.A2** - Enhanced bend (7.5mm min radius)
-- **G.657.B3** - Extreme bend (5mm min radius)
-
-### Cable Types
-Indoor, outdoor, drop, and patchcord cables each have different requirements based on:
-- Cable construction
-- Number of fibers
-- Jacket material
-- Installation method (loaded vs. unloaded)
-
-### Visual Comparisons
-The tool provides size comparisons to common objects (pencil, coin, etc.) to help visualize acceptable bend sizes in the field.
-        `
-      }
-    ]
-  },
-  {
-    id: 'testing',
-    title: 'Testing Procedures',
-    icon: Activity,
-    color: 'from-emerald-500 to-teal-600',
-    subsections: [
-      {
-        id: 'olts-testing',
-        title: 'OLTS Tier-1 Testing',
-        content: `
-Optical Loss Test Set (OLTS) testing measures insertion loss and is the foundation of fiber certification.
-
-### Test Methods
-- **Method A** (1 reference cord): Simple but less accurate
-- **Method B** (3 reference cords): Most accurate, tests mated connections
-- **Method C** (1 reference cord): Alternative single-cord method
-
-### Step-by-Step Guide
-1. **Set Reference**
-   - Clean all reference cords
-   - Connect source to meter through reference cord(s)
-   - Zero/reference the meter
-
-2. **Test the Link**
-   - Connect to the fiber under test
-   - Record measurements at each wavelength
-   - Compare to calculated loss budget
-
-3. **Bidirectional Testing**
-   - Test from both ends
-   - Average the results for accurate loss values
-
-### Pass/Fail Criteria
-Based on TIA-568-D:
-- Total loss must be ≤ calculated loss budget
-- Individual events should meet connector/splice limits
-        `
-      },
-      {
-        id: 'otdr-testing',
-        title: 'OTDR Tier-2 Testing',
-        content: `
-Optical Time Domain Reflectometer (OTDR) testing provides detailed characterization of the fiber link.
-
-### What OTDR Shows
-- **Distance** to each event
-- **Loss** at connectors and splices
-- **Reflectance** at reflective events
-- **Fiber attenuation** (dB/km)
-- **Total link loss**
-
-### Test Setup
-1. Select appropriate **wavelength** (1310nm, 1550nm, or both)
-2. Set **pulse width** based on link length
-3. Use **launch/receive cables** to test near-end connectors
-4. Configure **averaging time** for noise reduction
-
-### Bidirectional Testing
-Always test from both ends because:
-- Splices can show as "gainers" from one direction
-- Average bidirectional loss gives true values
-- Some events may be masked from one direction
-
-### Interpreting Results
-- **Reflective events** (spikes): Connectors, mechanical splices, breaks
-- **Non-reflective events** (steps): Fusion splices, bends, fiber changes
-- **Gradual slope**: Normal fiber attenuation
-        `
-      },
-      {
-        id: 'cleaning-inspection',
-        title: 'Cleaning & Inspection',
-        content: `
-Proper cleaning and inspection per **IEC 61300-3-35** is critical for fiber performance.
-
-### Inspection First
-**Always inspect before and after cleaning:**
-1. Use a fiber scope at 200x-400x magnification
-2. Check the core zone (Zone A)
-3. Check the cladding zone (Zone B)
-4. Check the adhesive/contact zone (Zone C)
-5. Check the ferrule zone (Zone D)
-
-### Pass/Fail Criteria
-| Zone | Scratches | Defects |
-|------|-----------|---------|
-| Core (A) | None | None |
-| Cladding (B) | ≤5 (0-3μm) | None >5μm |
-| Contact (C) | Limited | None >10μm |
-| Ferrule (D) | Unlimited | Limited |
-
-### Cleaning Methods
-1. **Dry Cleaning** - Use lint-free wipes or click cleaners
-2. **Wet-Dry Cleaning** - IPA or fiber cleaning fluid, then dry
-3. **Adapter Cleaning** - Use swabs designed for adapters
-4. **MPO Cleaning** - Specialized MPO cleaning tools
-
-### Best Practices
-- Never touch the ferrule end face
-- Clean in one direction only
-- Inspect after every cleaning
-- Replace contaminated cleaning supplies
-        `
-      },
-      {
-        id: 'job-reports',
-        title: 'Job Reports',
-        content: `
-Document your fiber work with comprehensive job reports.
-
-### Creating a Report
-1. Enter **job number** and **technician name**
-2. Add **location** details
-3. Record **before/after power levels**
-4. Document **diagnosis steps** taken
-5. Attach **photos** of work performed
-6. Add **notes** for future reference
-
-### Report Fields
-- Job identification (number, location, date)
-- Technician information
-- Power level readings (start/end)
-- Power improvement calculation
-- Equipment used
-- Diagnosis results
-- Photos and documentation
-
-### Exporting
-Reports can be exported as PDF for:
-- Customer documentation
-- Quality assurance records
-- Compliance requirements
-- Billing support
-        `
-      }
-    ]
-  },
-  {
-    id: 'troubleshooting',
-    title: 'Troubleshooting',
-    icon: Stethoscope,
-    color: 'from-rose-500 to-pink-600',
-    subsections: [
-      {
-        id: 'fiber-doctor',
-        title: 'Fiber Doctor',
-        content: `
-An interactive troubleshooting flowchart that guides you through diagnosing fiber issues.
-
-### How It Works
-1. **Select the symptom** you're experiencing
-2. **Answer questions** about your observations
-3. **Follow the diagnostic path** based on your answers
-4. **Get recommendations** for tools and actions
-
-### Common Symptoms
-- No signal / Total loss
-- High loss
-- Intermittent connection
-- Slow speeds
-- High bit error rate
-
-### Diagnostic Outputs
-- **Probable cause** identification
-- **Recommended actions** prioritized by likelihood
-- **Tools needed** for the repair
-- **Reference images** showing what to look for
-
-### PON-Specific Diagnostics
-Special troubleshooting paths for:
-- ONT not registering
-- Low ONT Rx power
-- OLT port issues
-- Splitter problems
-        `
-      },
-      {
-        id: 'ai-otdr-analysis',
-        title: 'AI OTDR Analysis (Beta)',
-        content: `
-Upload OTDR traces for AI-powered analysis and recommendations.
-
-### Supported Inputs
-- **.SOR files** - Standard OTDR format
-- **EXFO iOLM PDFs** - Auto-extracts event data
-- **Manual entry** - Enter events by hand
-- **Trace images** - Upload screenshots
-
-### Analysis Output
-The AI analyzes your trace against industry standards and provides:
-
-**Overall Assessment**
-- Pass/Marginal/Fail status
-- Standards compliance check
-- Total excess loss calculation
-
-**Event-by-Event Analysis**
-- Event type identification (connector, splice, bend, etc.)
-- Severity rating (critical, warning, info, OK)
-- Confidence score for each diagnosis
-- Distinguishing factors explaining the diagnosis
-
-**Priority Actions**
-- Ranked list of recommended repairs
-- Expected improvement for each action
-- Effort level (quick, moderate, significant)
-- Tools needed
-
-### Interactive Trace View
-- Zoom and pan the trace visualization
-- Click events for detailed analysis
-- Compare against reference traces
-- Export as PNG or print
-
-### Feedback
-Help improve the AI by providing feedback on diagnosis accuracy.
-        `
-      },
-      {
-        id: 'impairment-library',
-        title: 'Impairment Library',
-        content: `
-A visual reference guide for identifying fiber defects and impairments.
-
-### Categories
-- **Connector End Face** - Scratches, contamination, damage
-- **OTDR Signatures** - How impairments appear on traces
-- **Physical Damage** - Breaks, bends, crushes
-- **Environmental** - Water ingress, rodent damage
-
-### For Each Impairment
-- **Visual example** showing what it looks like
-- **OTDR signature** showing trace characteristics
-- **Causes** of the impairment
-- **Effects** on system performance
-- **Remediation** steps to fix it
-
-### Common Impairments
-| Type | Loss | Reflectance | Key Identifier |
-|------|------|-------------|----------------|
-| Dirty connector | 0.3-1.5 dB | >-35 dB | Localized, cleanable |
-| Macrobend | Variable | None | λ-dependent (1550>>1310) |
-| Bad splice | 0.1-0.5 dB | None/low | Non-reflective step |
-| Cracked ferrule | >1 dB | >-20 dB | Very high reflectance |
-| Fiber break | Total | Very high | Spike then nothing |
-        `
-      }
-    ]
-  },
-  {
-    id: 'reference',
-    title: 'Reference',
-    icon: BookOpen,
-    color: 'from-slate-500 to-gray-600',
-    subsections: [
-      {
-        id: 'fiber-locator',
-        title: 'Fiber Locator (Color Codes)',
-        content: `
-Identify fiber positions using **TIA-598-D** color coding.
-
-### Standard Color Sequence
-1. Blue
-2. Orange
-3. Green
-4. Brown
-5. Slate
-6. White
-7. Red
-8. Black
-9. Yellow
-10. Violet
-11. Rose
-12. Aqua
-
-### Tube/Buffer Colors
-Same 12-color sequence applies to buffer tubes in loose-tube cables.
-
-### How to Use
-1. Select the **cable type** (ribbon, loose-tube, etc.)
-2. Enter the **fiber number** you're looking for
-3. Get the **tube color** and **fiber color** within that tube
-
-### Example
-Fiber #37 in a 144-fiber cable:
-- Tube: Green (tube 4)
-- Fiber: Blue (fiber 1 in tube 4)
-        `
-      },
-      {
-        id: 'pon-levels',
-        title: 'PON Power Levels',
-        content: `
-Reference specifications for GPON and XGS-PON systems.
-
-### GPON (ITU-T G.984)
-| Class | OLT Tx | ONT Sensitivity | ONT Overload |
-|-------|--------|-----------------|--------------|
-| B+    | +1.5 to +5 dBm | -28 dBm | -8 dBm |
-| C+    | +3 to +7 dBm | -32 dBm | -12 dBm |
-
-### XGS-PON (ITU-T G.9807)
-| Class | OLT Tx | ONT Sensitivity | ONT Overload |
-|-------|--------|-----------------|--------------|
-| N1    | +2 to +7 dBm | -28 dBm | -8 dBm |
-| N2    | +4 to +9 dBm | -29 dBm | -9 dBm |
-| E1    | +3 to +7 dBm | -31 dBm | -11 dBm |
-| E2    | +5 to +9 dBm | -33 dBm | -13 dBm |
-
-### Typical Values
-- **Good ONT Rx**: -15 to -25 dBm
-- **Marginal**: -25 to -28 dBm
-- **Critical**: Below -28 dBm
-        `
-      },
-      {
-        id: 'reference-tables',
-        title: 'Reference Tables',
-        content: `
-Comprehensive lookup tables for fiber optic specifications.
-
-### Fiber Attenuation
-| Fiber Type | 850nm | 1300nm | 1310nm | 1550nm |
-|------------|-------|--------|--------|--------|
-| SMF G.652  | -     | -      | 0.35   | 0.25   |
-| OM3        | 3.0   | 1.0    | -      | -      |
-| OM4        | 3.0   | 1.0    | -      | -      |
-| OM5        | 3.0   | 1.0    | -      | -      |
-
-### Connector Loss Limits
-| Grade | Single-mode | Multimode |
-|-------|-------------|-----------|
-| Elite | ≤0.15 dB    | ≤0.15 dB  |
-| Standard | ≤0.50 dB | ≤0.50 dB  |
-
-### Splice Loss Limits
-| Type | Typical | Maximum |
-|------|---------|---------|
-| Fusion | 0.02-0.05 dB | 0.10 dB |
-| Mechanical | 0.10-0.20 dB | 0.30 dB |
-
-### Reflectance Limits
-| Connector Type | Minimum Return Loss |
-|----------------|---------------------|
-| UPC | >50 dB (< -50 dB reflectance) |
-| APC | >60 dB (< -60 dB reflectance) |
-        `
-      },
-      {
-        id: 'lcp-info',
-        title: 'LCP / CLCP Database',
-        content: `
-Manage and lookup information about Local Convergence Points and cabinets.
-
-### What's Stored
-- LCP/CLCP identifier
-- Physical location and GPS coordinates
-- Splitter configuration
-- OLT assignment (name, shelf, slot, port)
-- Optic information (make, model, serial)
-- Notes and service history
-
-### Features
-- **Search** by LCP number, location, or OLT
-- **Map view** showing cabinet locations
-- **Add/Edit** entries for your network
-- **Export** data for documentation
-
-### Use Cases
-- Quickly find which OLT port serves a location
-- Document splitter ratios at each cabinet
-- Track optic inventory in the field
-- Navigate to cabinet locations
-        `
-      }
-    ]
-  },
-  {
-    id: 'learning',
-    title: 'Education Center',
-    icon: GraduationCap,
-    color: 'from-green-500 to-emerald-600',
-    subsections: [
-      {
-        id: 'fiber-101',
-        title: 'Fiber 101: Fundamentals',
-        content: `
-An introduction to fiber optic technology for beginners.
-
-### Topics Covered
-- **What is fiber optics?** - Light transmission principles
-- **Fiber types** - Single-mode vs. multimode
-- **Cable construction** - Jackets, buffers, strength members
-- **Connectors** - Types, polishes, and handling
-- **Basic measurements** - Loss, power levels, dB math
-
-### Learning Outcomes
-After completing Fiber 101, you will:
-- Understand how light travels through fiber
-- Identify different fiber and connector types
-- Know proper handling procedures
-- Perform basic dB calculations
-- Recognize common fiber optic terms
-
-### Duration
-Approximately 30-45 minutes of self-paced learning.
-
-### Certification
-Complete the exam to earn your Fiber 101 certificate.
-        `
-      },
-      {
-        id: 'fiber-102',
-        title: 'Fiber 102: Testing & Measurement',
-        content: `
-Intermediate course covering fiber optic testing procedures.
-
-### Topics Covered
-- **Test equipment** - Power meters, light sources, OTDRs
-- **OLTS testing** - Methods A, B, and C
-- **OTDR fundamentals** - Trace interpretation basics
-- **Loss budgets** - Calculation and verification
-- **Documentation** - Recording and reporting results
-
-### Learning Outcomes
-After completing Fiber 102, you will:
-- Set up and use OLTS equipment properly
-- Perform bidirectional loss testing
-- Interpret basic OTDR traces
-- Calculate and verify loss budgets
-- Document test results professionally
-
-### Prerequisites
-Fiber 101 or equivalent knowledge.
-
-### Certification
-Complete the exam to earn your Fiber 102 certificate.
-        `
-      },
-      {
-        id: 'fiber-103',
-        title: 'Fiber 103: Advanced Troubleshooting',
-        content: `
-Advanced course for experienced technicians.
-
-### Topics Covered
-- **Advanced OTDR analysis** - Event identification, artifacts
-- **PON troubleshooting** - GPON/XGS-PON diagnostics
-- **Error counters** - Interpreting OLT/ONT statistics
-- **Difficult problems** - Intermittent faults, environmental issues
-- **Documentation** - Professional reporting practices
-
-### Learning Outcomes
-After completing Fiber 103, you will:
-- Identify complex OTDR events and artifacts
-- Troubleshoot PON-specific issues
-- Use error counters for diagnostics
-- Solve intermittent and difficult problems
-- Create professional troubleshooting reports
-
-### Prerequisites
-Fiber 102 or equivalent experience.
-
-### Certification
-Complete the exam to earn your Fiber 103 certificate.
-        `
-      },
-      {
-        id: 'certifications',
-        title: 'Certifications & Exams',
-        content: `
-Earn certificates to demonstrate your fiber optic knowledge.
-
-### Available Certifications
-- **Fiber 101 Certificate** - Fundamentals
-- **Fiber 102 Certificate** - Testing & Measurement
-- **Fiber 103 Certificate** - Advanced Troubleshooting
-
-### Exam Format
-- Multiple choice questions
-- Passing score: 80%
-- Unlimited retakes
-- Instant results
-
-### Your Certificates
-- View earned certificates in your profile
-- Download PDF certificates
-- Track scores and completion dates
-- Share achievements
-
-### Study Resources
-- Course slides and content
-- Study guides with key terms
-- Practice questions
-- Reference materials
-        `
-      }
-    ]
-  },
-  {
-    id: 'settings',
-    title: 'Settings & Preferences',
-    icon: Settings,
-    color: 'from-gray-500 to-slate-600',
-    subsections: [
-      {
-        id: 'preferences',
-        title: 'User Preferences',
-        content: `
-Customize the app to match your workflow.
-
-### Display Settings
-- **Dark Mode** - Toggle between light and dark themes
-- **Units** - Metric or imperial measurements
-
-### Default Values
-Set custom default values for calculations:
-- Connector loss (default: 0.3 dB)
-- Splice loss (default: 0.1 dB)
-- Fiber attenuation rates
-
-### Visibility Settings
-Control which modules and sections appear:
-- Hide unused modules from the home screen
-- Collapse sections within modules
-- Restore hidden content anytime
-
-### Data Management
-- Export your preferences
-- Import settings from another device
-- Reset to defaults
-        `
-      },
-      {
-        id: 'branding',
-        title: 'Company Branding',
-        content: `
-Customize the app with your company identity.
-
-### Available Options
-- **Company Name** - Appears in reports and certificates
-- **Logo** - Upload your company logo
-- **Primary Color** - Accent color throughout the app
-
-### Where Branding Appears
-- PDF report headers
-- Exported certificates
-- Print outputs
-
-### Requirements
-- Logo: PNG or JPG, recommended 200x200px minimum
-- Colors: Hex code format (#RRGGBB)
-        `
-      }
-    ]
-  },
-  {
-    id: 'faq',
-    title: 'FAQ & Support',
-    icon: HelpCircle,
-    color: 'from-amber-500 to-orange-600',
-    subsections: [
-      {
-        id: 'common-questions',
-        title: 'Frequently Asked Questions',
-        content: `
-### General Questions
-
-**Q: Does the app work offline?**
-A: Yes! Once loaded, most features work without internet. Only external links and AI OTDR Analysis require connectivity.
-
-**Q: How do I save my work?**
-A: Job reports and LCP entries are automatically saved to your account. Calculation results can be exported as needed.
-
-**Q: Can I use this on my phone?**
-A: Yes! The app is fully responsive and works great on mobile devices, tablets, and desktops. You can install it as a PWA using "Add to Home Screen."
-
-**Q: Where is my data stored?**
-A: All data (settings, LCP entries, custom impairments) is stored locally on your device. If you're logged in, preferences sync to your account.
-
-### Technical Questions
-
-**Q: Why does my OTDR show different loss than OLTS?**
-A: OTDR measures backscatter and calculates loss, while OLTS measures actual power. Bidirectional OTDR averaging should match OLTS results.
-
-**Q: What's the difference between loss and reflectance?**
-A: Loss (dB) is power that doesn't make it through. Reflectance (dB) is power reflected back toward the source. Both are measured in dB but represent different phenomena.
-
-**Q: Why do I get "gainers" on OTDR traces?**
-A: Apparent gainers occur at splices when testing single-direction due to different backscatter coefficients between fibers. Bidirectional averaging eliminates this artifact.
-
-**Q: Why is APC required for PON?**
-A: PON systems are sensitive to back-reflections which can cause laser instability. APC connectors have 8° angled end-faces that direct reflections away from the fiber core.
-
-**Q: What causes high FEC errors on a PON link?**
-A: High FEC errors typically indicate marginal optical power, dirty connectors, excessive bends, or a failing laser/receiver. Check power levels first, then clean and inspect connectors.
-
-**Q: How do I identify a macrobend vs microbend?**
-A: Macrobends show significantly higher loss at 1550nm compared to 1310nm. Microbends show smaller wavelength-dependent loss difference. Both are non-reflective events on OTDR.
-
-### Common Field Tasks
-
-**Q: How do I calculate if a new drop will work?**
-A: Use the Power Level Calculator. Enter OLT power, splitter ratio, fiber length, and connector/splice count. If the calculated ONT Rx is between -8 and -27 dBm, the link should work.
-
-**Q: What's the proper connector cleaning sequence?**
-A: Per FOA guidelines: 1) Inspect with scope, 2) Dry clean first, 3) Re-inspect, 4) If still dirty, wet clean with IPA, 5) Dry thoroughly, 6) Final inspection. Never connect without inspecting.
-
-**Q: What power level is "good enough" for GPON?**
-A: Aim for -15 to -22 dBm at the ONT. This provides margin for aging, temperature, and future repairs. Below -25 dBm is marginal; below -27 dBm will likely cause issues.
-
-**Q: My ONT won't register—where do I start?**
-A: Check PON light on ONT (should blink then go solid). Measure Rx power. If no light: trace back to splitter. If low light: clean connectors, check for bends. If good light but no register: check OLT provisioning.
-
-**Q: What's the #1 cause of failed fiber installations?**
-A: Connector contamination accounts for approximately 85% of fiber problems. Always inspect and clean before connecting—no exceptions.
-
-### Account Questions
-
-**Q: How do I reset my password?**
-A: Use the "Forgot Password" link on the login page.
-
-**Q: Can multiple technicians share an account?**
-A: We recommend individual accounts for accurate job tracking and personalized settings.
-        `
-      },
-      {
-        id: 'glossary',
-        title: 'Glossary of Terms',
-        content: `
-### Common Fiber Optic Terms
-
-**APC (Angled Physical Contact)** - Connector polish with 8° angle to reduce reflectance.
-
-**Attenuation** - Reduction in optical power as light travels through fiber, measured in dB or dB/km.
-
-**Backscatter** - Light scattered backward in fiber, used by OTDRs for measurements.
-
-**dB (Decibel)** - Logarithmic unit for expressing ratios, commonly used for loss and gain.
-
-**dBm** - Power level referenced to 1 milliwatt (0 dBm = 1 mW).
-
-**Fusion Splice** - Permanent joint made by melting fiber ends together.
-
-**GPON** - Gigabit Passive Optical Network, ITU-T G.984 standard.
-
-**Insertion Loss** - Power loss caused by inserting a component into a fiber path.
-
-**Macrobend** - Large-radius bend causing light to escape the fiber.
-
-**Mechanical Splice** - Splice using alignment fixture and index-matching gel.
-
-**OTDR** - Optical Time Domain Reflectometer, used to characterize fiber links.
-
-**OLTS** - Optical Loss Test Set, used to measure insertion loss.
-
-**ONT** - Optical Network Terminal, customer premises equipment in PON.
-
-**OLT** - Optical Line Terminal, central office equipment in PON.
-
-**Reflectance** - Ratio of reflected power to incident power, expressed in negative dB.
-
-**Return Loss** - Same as reflectance but expressed as positive dB value.
-
-**SMF** - Single-Mode Fiber, fiber with small core (~9μm) for long distances.
-
-**UPC (Ultra Physical Contact)** - Connector polish with curved end face, <-50 dB reflectance.
-
-**XGS-PON** - 10G Symmetric PON, ITU-T G.9807 standard.
-        `
-      },
-      {
-        id: 'formulas',
-        title: 'Common Formulas',
-        content: `
-### Link Loss Calculation
-Total Loss = (Fiber Length × Attenuation) + (Connectors × Connector Loss) + (Splices × Splice Loss) + Splitter Loss
-
-### Fiber Number from Colors (144-fiber)
-Fiber # = (Tube Position - 1) × 12 + Fiber Position
-
-### Power Level
-Rx Power (dBm) = Tx Power (dBm) - Total Loss (dB)
-
-### Splitter Loss (Theoretical)
-Loss (dB) = 10 × log₁₀(N)
-where N = number of output ports
-
-### dB to Linear Conversion
-Linear Ratio = 10^(dB/10)
-dB = 10 × log₁₀(Linear Ratio)
-
-### Bidirectional Average
-Average Loss = (A→B Loss + B→A Loss) / 2
-
-### dBm to mW Conversion
-mW = 10^(dBm/10)
-dBm = 10 × log₁₀(mW)
-
-### Quick dB Reference
-- 3 dB = 2× power ratio (50% loss)
-- 6 dB = 4× power ratio (75% loss)  
-- 10 dB = 10× power ratio (90% loss)
-- 20 dB = 100× power ratio (99% loss)
-        `
-      },
-      {
-        id: 'standards',
-        title: 'Industry Standards Referenced',
-        content: `
-### TIA Standards
-- **TIA-568-D** - Generic Telecommunications Cabling for Customer Premises
-- **TIA-526-7** - Optical Power Loss Measurement - Single-Mode Fiber
-- **TIA-526-14-C** - Optical Power Loss Measurement - Multimode Fiber
-- **TIA-598-D** - Optical Fiber Cable Color Coding
-- **TIA-758-B** - Customer-Owned Outside Plant Telecommunications Infrastructure
-
-### IEC Standards
-- **IEC 61300-3-35** - Connector End Face Visual Inspection
-- **IEC 61280** - Fiber Optic Communication Test Procedures
-- **IEC 60794** - Optical Fiber Cables - Generic Specification
-
-### ITU-T Standards
-- **ITU-T G.652** - Single-Mode Optical Fiber Characteristics
-- **ITU-T G.657** - Bend-Insensitive Single-Mode Fiber
-- **ITU-T G.984** - GPON (Gigabit Passive Optical Network)
-- **ITU-T G.9807** - XGS-PON (10G Symmetric PON)
-- **ITU-T G.9804** - 25G/50G Higher Speed PON
-
-### Telcordia Standards
-- **GR-326** - Single-Mode Optical Connectors & Jumpers
-- **GR-20** - Generic Requirements for Optical Fiber
-- **GR-449** - Fiber Optic Splice Closures
-
-### FOA (Fiber Optic Association)
-- FOA Reference Method (1-Jumper testing)
-- FOA Best Practices for inspection, cleaning, documentation
-- FOA Safety guidelines for laser hazards and fiber handling
-
-### Safety & Compliance
-- **NEC Article 770** - Optical Fiber Cables & Raceways
-- **OSHA 1926** - Construction Safety Standards
-        `
-      },
-      {
-        id: 'support',
-        title: 'Getting Help',
-        content: `
-### In-App Help
-- **Tooltips** - Hover over icons and labels for quick explanations
-- **Info buttons** - Click (i) icons for detailed information
-- **This guide** - Comprehensive documentation for all features
-
-### Onboarding Tour
-New to the app? The onboarding tour walks you through key features. Restart it anytime from Settings.
-
-### Feedback
-We're constantly improving based on user feedback. Let us know:
-- Features that would help your workflow
-- Issues or bugs you encounter
-- Content that needs clarification
-
-### Contact
-For additional support, visit the Contact page in the app.
-
-### Updates
-The app is regularly updated with:
-- New features and tools
-- Bug fixes and improvements
-- Updated standards references
-- Additional educational content
-        `
-      }
-    ]
-  }
-];
+import { base44 } from '@/api/base44Client';
+import { toast } from 'sonner';
 
 export default function UserGuide() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [expandedSections, setExpandedSections] = useState(['getting-started']);
-  const [activeSubsection, setActiveSubsection] = useState('overview');
+  const [expandedSections, setExpandedSections] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isGenerating, setIsGenerating] = useState(null);
 
-  const toggleSection = (sectionId) => {
-    setExpandedSections(prev => 
-      prev.includes(sectionId) 
-        ? prev.filter(id => id !== sectionId)
-        : [...prev, sectionId]
-    );
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
   };
 
-  const filteredSections = USER_GUIDE_SECTIONS.map(section => ({
-    ...section,
-    subsections: section.subsections.filter(sub =>
-      sub.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sub.content.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  })).filter(section => section.subsections.length > 0);
+  const generatePDF = async (type) => {
+    setIsGenerating(type);
+    try {
+      const response = await base44.functions.invoke('generateDocumentationPDFs', {
+        type
+      });
 
-  const activeContent = USER_GUIDE_SECTIONS
-    .flatMap(s => s.subsections)
-    .find(sub => sub.id === activeSubsection);
+      if (response.data.success) {
+        toast.success(`${response.data.title} generated and saved to Offline Documents`);
+      }
+    } catch (error) {
+      toast.error('Failed to generate PDF');
+    }
+    setIsGenerating(null);
+  };
+
+  const pdfOptions = [
+    {
+      id: 'user_manual',
+      label: 'User Manual v1.31.26',
+      description: 'Complete guide covering all features, workflows, and best practices',
+      icon: BookOpen
+    },
+    {
+      id: 'quick_reference',
+      label: 'Quick Reference Guide',
+      description: 'Fast lookup for common tasks and tools',
+      icon: Search
+    },
+    {
+      id: 'changelog',
+      label: 'v2.0.0 Changelog',
+      description: 'New features, improvements, and fixes in latest release',
+      icon: BookOpen
+    },
+    {
+      id: 'app_overview',
+      label: 'App Overview & Features',
+      description: 'Complete feature list and system requirements',
+      icon: BookOpen
+    }
+  ];
+
+  const sections = [
+    {
+      id: 'getting_started',
+      title: 'Getting Started',
+      content: `
+        <h3>First-Time Setup</h3>
+        <p><strong>On Web (Desktop):</strong></p>
+        <ol>
+          <li>Navigate to https://www.fiberoracle.com</li>
+          <li>Log in with your company email and password</li>
+          <li>(Optional) Set your preference: Traditional Mode or AI-Centric Mode</li>
+          <li>You're ready to go</li>
+        </ol>
+        
+        <p><strong>On Mobile (iOS/Android):</strong></p>
+        <ol>
+          <li>Open a browser and go to https://www.fiberoracle.com</li>
+          <li>Log in as above</li>
+          <li>Look for "Install App" prompt</li>
+          <li>Tap "Add to Home Screen" (or "Install" if using Chrome)</li>
+          <li>FiberOracle now appears as an app icon on your home screen</li>
+        </ol>
+
+        <p><strong>Offline Access:</strong> FiberOracle works offline after your first visit. Your previously-accessed documents and tools remain available without internet. When connection returns, data automatically syncs.</p>
+
+        <h3>Navigating FiberOracle</h3>
+        <p><strong>Desktop Layout:</strong></p>
+        <ul>
+          <li>Top Header: Logo, navigation links, search, settings</li>
+          <li>Left Sidebar (Optional): Quick access to major sections</li>
+          <li>Main Content Area: Tool or page displayed</li>
+          <li>Bottom Navigation: Secondary options</li>
+        </ul>
+
+        <p><strong>Mobile Layout:</strong></p>
+        <ul>
+          <li>Top Header: Logo, menu icon, title</li>
+          <li>Main Content Area: Full screen for tool use</li>
+          <li>Bottom Navigation Bar: Quick access to core tools</li>
+        </ul>
+      `
+    },
+    {
+      id: 'core_tools',
+      title: 'Core Tools Guide',
+      content: `
+        <h3>Loss Budget Calculator</h3>
+        <p><strong>What It Does:</strong> Calculates total optical power loss from transmitter to receiver, accounting for cable attenuation, connector losses, splice losses, and splitter losses.</p>
+        
+        <p><strong>When to Use:</strong></p>
+        <ul>
+          <li>Before fiber installation (feasibility check)</li>
+          <li>Verifying link design meets performance specs</li>
+          <li>Troubleshooting power level problems</li>
+        </ul>
+
+        <p><strong>How to Use:</strong></p>
+        <ol>
+          <li>Open Loss Budget Calculator from Tools menu</li>
+          <li>Enter cable length, number/type of connectors, splices, splitter configuration</li>
+          <li>App displays total loss (dB), budget remaining, pass/fail status</li>
+          <li>Adjust parameters to optimize design</li>
+        </ol>
+
+        <h3>Optical Calculator</h3>
+        <p><strong>Quick conversions for:</strong></p>
+        <ul>
+          <li>dBm ↔ mW (power conversions)</li>
+          <li>Decibels (dB, dBm, dBm/km)</li>
+          <li>Distance-loss combinations</li>
+          <li>Wavelength references</li>
+        </ul>
+
+        <p><strong>Example:</strong> If your power meter reads 0.5 mW, the calculator shows: -3.0 dBm</p>
+
+        <h3>Other Core Tools</h3>
+        <ul>
+          <li><strong>OTDR Analysis:</strong> Visualizes optical traces to identify faults</li>
+          <li><strong>Splitter Loss Reference:</strong> Pre-calculated values for common configurations</li>
+          <li><strong>Fiber Doctor:</strong> AI-assisted troubleshooting for common issues</li>
+          <li><strong>Bend Radius Guide:</strong> Safe bending limits for different fiber types</li>
+        </ul>
+      `
+    },
+    {
+      id: 'field_work',
+      title: 'Field Work & Reporting',
+      content: `
+        <h3>Creating a Job Report</h3>
+        <p><strong>Why Report?</strong> Job reports create professional records of work completed, evidence of performance, and compliance documentation.</p>
+
+        <p><strong>What to Include:</strong></p>
+        <ul>
+          <li>Job number / work order reference</li>
+          <li>Your name and company</li>
+          <li>Date and time</li>
+          <li>Site location and GPS coordinates (auto-captured)</li>
+          <li>Work completed (description)</li>
+          <li>Measurements (before/after power levels, OTDR, etc.)</li>
+          <li>Photos (connectors, splices, cable routing)</li>
+          <li>Any issues encountered</li>
+          <li>Sign-off approval</li>
+        </ul>
+
+        <p><strong>How to Create:</strong></p>
+        <ol>
+          <li>Open Field Mode from home page</li>
+          <li>Tap New Job Report</li>
+          <li>Fill in basic info (auto-populated: date, your name, location)</li>
+          <li>Select report type (Loss Budget, OTDR, Inspection, etc.)</li>
+          <li>Enter measurements and tap camera icon to add photos</li>
+          <li>Tap Save (offline) or Submit (online)</li>
+        </ol>
+
+        <h3>Photo Capture Integration</h3>
+        <p><strong>Built-In Camera:</strong></p>
+        <ol>
+          <li>Within a Job Report, tap 📸 Add Photo</li>
+          <li>Camera opens directly in app</li>
+          <li>Take photo (auto-includes metadata: time, GPS, job ID)</li>
+          <li>Tap ✓ to save to report</li>
+        </ol>
+        <p>Photos are tied directly to your measurements and site location—creating a complete record without separate file management.</p>
+
+        <h3>GPS Location Tagging</h3>
+        <p><strong>Automatic Capture:</strong> When you create a job report, FiberOracle requests GPS permission. Location automatically recorded and embedded in all photos/measurements.</p>
+        <p><strong>Manual Override:</strong> If GPS is inaccurate, tap Edit Location to manually set coordinates.</p>
+      `
+    },
+    {
+      id: 'photon_ai',
+      title: 'P.H.O.T.O.N. AI Agent',
+      content: `
+        <h3>What Is P.H.O.T.O.N.?</h3>
+        <p>P.H.O.T.O.N. (Portable Hosting Optical Testing Operations Nexus) is your AI-powered technical expert. It's a conversational agent trained on your company's complete knowledge base, industry standards, and proven troubleshooting methods.</p>
+
+        <h3>How to Access</h3>
+        <ul>
+          <li><strong>Desktop:</strong> Click P.H.O.T.O.N. Chat from main menu</li>
+          <li><strong>Mobile (Traditional Mode):</strong> Tap Chat in bottom navigation</li>
+          <li><strong>Mobile (AI-Centric Mode):</strong> AI chat appears on every page</li>
+        </ul>
+
+        <h3>How to Use P.H.O.T.O.N.</h3>
+        <p><strong>Starting a Conversation:</strong></p>
+        <ol>
+          <li>Open P.H.O.T.O.N. Chat page</li>
+          <li>Type your question or describe your problem</li>
+          <li>Examples:
+            <ul>
+              <li>"How do I splice this 144-fiber cable?"</li>
+              <li>"This ONT shows -38 dBm Rx power—is it at risk?"</li>
+              <li>"What's the loss budget for a 5km run with 3 splices?"</li>
+            </ul>
+          </li>
+        </ol>
+
+        <p><strong>Getting Better Answers:</strong></p>
+        <ul>
+          <li>Be specific: "Connector loss for standard UPC connector" vs. "connector loss"</li>
+          <li>Provide context: Include what you've already tried, measurements, equipment type</li>
+          <li>Ask follow-ups: P.H.O.T.O.N. remembers conversation history</li>
+        </ul>
+
+        <h3>What P.H.O.T.O.N. Can Help With</h3>
+        <ul>
+          <li>✅ Technical Calculations (power budgets, dB conversions, loss estimates)</li>
+          <li>✅ Troubleshooting Guidance (diagnostic procedures, root cause analysis)</li>
+          <li>✅ Installation Procedures (best practices, safety procedures, equipment specs)</li>
+          <li>✅ Documentation Lookup (find references in your knowledge base)</li>
+          <li>✅ Network Analysis (interpret ONT performance data, identify trends)</li>
+          <li>❌ Cannot Help With: Replacing your judgment on critical infrastructure decisions</li>
+        </ul>
+
+        <p><strong>Important:</strong> Always verify critical information with your supervisor or company standards before acting on it.</p>
+      `
+    },
+    {
+      id: 'documentation',
+      title: 'Documentation & Learning',
+      content: `
+        <h3>Accessing the Reference Library</h3>
+        <p><strong>On Any Page:</strong> Use the Search function in the top header to search by keyword, document title, or topic. Results show matching documents with snippets.</p>
+        
+        <p><strong>From Home:</strong> Click Documentation or Reference Library to browse by category (Installation, Troubleshooting, Maintenance, Safety, Standards, Training, Other).</p>
+
+        <h3>Fiber 101/102/103 Courses</h3>
+        <p><strong>Purpose:</strong> Structured training to build fiber optic expertise.</p>
+
+        <p><strong>Each course includes:</strong></p>
+        <ul>
+          <li>10-15 learning modules</li>
+          <li>Embedded calculations and reference tables</li>
+          <li>Practice questions with explanations</li>
+          <li>Final certification exam</li>
+        </ul>
+
+        <p><strong>How to Complete:</strong></p>
+        <ol>
+          <li>Click Education or Learning from home menu</li>
+          <li>Select course: Fiber 101, 102, or 103</li>
+          <li>Start with Module 1 (or resume where you left off)</li>
+          <li>Read content, try calculations, answer practice questions</li>
+          <li>Take final exam when ready</li>
+          <li>Must score ≥80% to pass and receive certificate</li>
+        </ol>
+
+        <h3>Submitting Documents</h3>
+        <p><strong>Share Knowledge:</strong> Found a useful document, procedure, or reference? Submit it!</p>
+
+        <p><strong>How to Submit:</strong></p>
+        <ol>
+          <li>Click Submit Document</li>
+          <li>Choose source: Upload PDF/file, Link Google Drive, or Paste web URL</li>
+          <li>Fill in: Title, Category, Brief description, Comments</li>
+          <li>Check "Request Addition to Master List" if appropriate</li>
+          <li>Submit</li>
+          <li>Admin reviews within 1-2 business days</li>
+        </ol>
+      `
+    },
+    {
+      id: 'mobile_tips',
+      title: 'Mobile-Specific Tips',
+      content: `
+        <h3>Best Practices for Fieldwork</h3>
+        <p><strong>Before You Head Out:</strong></p>
+        <ul>
+          <li>Sync all data (in Settings, tap Force Sync)</li>
+          <li>Enable WiFi while syncing (faster than cellular)</li>
+          <li>Plug in phone if working near power</li>
+        </ul>
+
+        <p><strong>In the Field:</strong></p>
+        <ul>
+          <li>Use Dark Mode (default)—easier to read in sunlight</li>
+          <li>Keep phone in landscape orientation for larger buttons</li>
+          <li>Use voice input (speech-to-text) for fast report entry</li>
+          <li>Tap the camera icon frequently—photos are worth 1000 words</li>
+        </ul>
+
+        <p><strong>Back at the Office:</strong></p>
+        <ul>
+          <li>Review your reports before submission</li>
+          <li>Add any notes or context you remember</li>
+          <li>Create templates from recurring job types</li>
+        </ul>
+
+        <h3>Offline-First Workflow</h3>
+        <p><strong>Scenario: You're installing fiber 5km from nearest cell tower</strong></p>
+
+        <p><strong>Before losing signal:</strong> Sync all data</p>
+
+        <p><strong>In field (no signal):</strong></p>
+        <ul>
+          <li>Create job reports normally</li>
+          <li>Take photos (stored locally with metadata)</li>
+          <li>Use Loss Budget and Optical Calculator (all local)</li>
+          <li>Cannot use P.H.O.T.O.N. chat (needs internet)</li>
+          <li>Reports show "📍 Offline" badge</li>
+        </ul>
+
+        <p><strong>When back in range:</strong></p>
+        <ul>
+          <li>Status bar shows syncing progress</li>
+          <li>Tap Sync Now if it doesn't auto-start</li>
+          <li>Reports change from "📍 Offline" to "✓ Synced"</li>
+        </ul>
+
+        <h3>Reducing Data Usage</h3>
+        <ul>
+          <li><strong>Downloads:</strong> Reference docs cached after first view (no re-download)</li>
+          <li><strong>Photos:</strong> App compresses photos to ~1-2MB each</li>
+          <li><strong>Sync Frequency:</strong> Auto-sync occurs every 5 minutes (adjustable in Settings)</li>
+        </ul>
+      `
+    },
+    {
+      id: 'troubleshooting',
+      title: 'Troubleshooting',
+      content: `
+        <h3>Common Issues & Solutions</h3>
+
+        <p><strong>App won't sync</strong></p>
+        <ul>
+          <li>Check internet connection</li>
+          <li>Go to Settings → Force Sync</li>
+          <li>If still stuck, restart the app</li>
+        </ul>
+
+        <p><strong>Photos not saving</strong></p>
+        <ul>
+          <li>Ensure sufficient storage (check device storage)</li>
+          <li>Grant app permission to access camera & photos</li>
+        </ul>
+
+        <p><strong>P.H.O.T.O.N. not responding</strong></p>
+        <ul>
+          <li>Refresh browser or restart app</li>
+          <li>Check internet connection</li>
+          <li>If still stuck, start a new conversation</li>
+        </ul>
+
+        <p><strong>Job report seems incomplete</strong></p>
+        <ul>
+          <li>Check offline status (look for 📍 icon)</li>
+          <li>Ensure all required fields are filled (highlighted in red)</li>
+        </ul>
+
+        <p><strong>Settings not saving</strong></p>
+        <ul>
+          <li>Ensure you tapped the "Save" button, not just the back arrow</li>
+          <li>Retry</li>
+        </ul>
+
+        <p><strong>Can't find a document</strong></p>
+        <ul>
+          <li>Use the Search bar (top right)</li>
+          <li>Check spelling and try related keywords</li>
+          <li>Ask P.H.O.T.O.N. where to find it</li>
+        </ul>
+
+        <p><strong>GPS location inaccurate</strong></p>
+        <ul>
+          <li>Try again outdoors with clear sky view</li>
+          <li>Alternatively, manually enter coordinates</li>
+        </ul>
+      `
+    },
+    {
+      id: 'best_practices',
+      title: 'Best Practices',
+      content: `
+        <h3>Do's ✅</h3>
+        <ul>
+          <li>Create detailed job reports with photos</li>
+          <li>Use P.H.O.T.O.N. for guidance before attempting unfamiliar tasks</li>
+          <li>Verify critical calculations a second time</li>
+          <li>Sync data regularly (especially end-of-day)</li>
+          <li>Review reference docs for complex procedures</li>
+          <li>Submit useful documents you discover</li>
+        </ul>
+
+        <h3>Don'ts ❌</h3>
+        <ul>
+          <li>Don't rely solely on P.H.O.T.O.N. for critical safety decisions</li>
+          <li>Don't take photos of network architecture or sensitive equipment (if restricted)</li>
+          <li>Don't forget to GPS-tag your locations (helps accountability)</li>
+          <li>Don't delete conversations prematurely (audit trail may be needed)</li>
+          <li>Don't use outdated documents from reference library (check version date)</li>
+        </ul>
+      `
+    }
+  ];
+
+  const filteredSections = searchTerm 
+    ? sections.filter(s => s.title.toLowerCase().includes(searchTerm.toLowerCase()) || s.content.toLowerCase().includes(searchTerm.toLowerCase()))
+    : sections;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 border-b border-gray-200/50 dark:border-gray-700/50">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link to={createPageUrl('Home')}>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div className="flex-1">
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">User Guide</h1>
-              <p className="text-xs text-gray-500">Complete documentation for Fiber Oracle</p>
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/80 border-b border-slate-700/50">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Link to={createPageUrl('Home')}>
+                <Button variant="ghost" size="icon" className="text-white hover:bg-slate-800">
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold text-white">User Guide</h1>
+                <p className="text-sm text-slate-400">Complete documentation and tutorials</p>
+              </div>
             </div>
-            <Badge variant="outline" className="hidden sm:flex">
-              {USER_GUIDE_SECTIONS.reduce((acc, s) => acc + s.subsections.length, 0)} Topics
-            </Badge>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Sidebar Navigation */}
-          <aside className="lg:w-72 flex-shrink-0">
-            <Card className="sticky top-24 border-0 shadow-lg">
-              <CardContent className="p-4">
-                {/* Search */}
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search guide..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
+      {/* Main Content */}
+      <main className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        {/* Download PDFs Section */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Download className="h-5 w-5 text-blue-400" />
+              Download Documentation as PDF
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pdfOptions.map(pdf => (
+                <div key={pdf.id} className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+                  <p className="font-medium text-white mb-1">{pdf.label}</p>
+                  <p className="text-sm text-slate-300 mb-3">{pdf.description}</p>
+                  <Button
+                    size="sm"
+                    onClick={() => generatePDF(pdf.id)}
+                    disabled={isGenerating === pdf.id}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    {isGenerating === pdf.id ? (
+                      <>Loading...</>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Generate PDF
+                      </>
+                    )}
+                  </Button>
                 </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-                {/* Navigation */}
-                <ScrollArea className="h-[calc(100vh-280px)]">
-                  <nav className="space-y-1">
-                    {filteredSections.map((section) => (
-                      <Collapsible
-                        key={section.id}
-                        open={expandedSections.includes(section.id)}
-                        onOpenChange={() => toggleSection(section.id)}
-                      >
-                        <CollapsibleTrigger className="w-full">
-                          <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                            <div className={`w-7 h-7 rounded-md bg-gradient-to-br ${section.color} flex items-center justify-center`}>
-                              <section.icon className="h-4 w-4 text-white" />
-                            </div>
-                            <span className="flex-1 text-left text-sm font-medium">{section.title}</span>
-                            {expandedSections.includes(section.id) ? (
-                              <ChevronDown className="h-4 w-4 text-gray-400" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-gray-400" />
-                            )}
-                          </div>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <div className="ml-9 mt-1 space-y-0.5">
-                            {section.subsections.map((sub) => (
-                              <button
-                                key={sub.id}
-                                onClick={() => setActiveSubsection(sub.id)}
-                                className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${
-                                  activeSubsection === sub.id
-                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium'
-                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                                }`}
-                              >
-                                {sub.title}
-                              </button>
-                            ))}
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    ))}
-                  </nav>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </aside>
-
-          {/* Main Content */}
-          <main className="flex-1 min-w-0">
-            <Card className="border-0 shadow-lg">
-              <CardContent className="p-6 md:p-8">
-                {activeContent ? (
-                  <div className="prose prose-slate dark:prose-invert max-w-none">
-                    <h1 className="text-2xl font-bold mb-6">{activeContent.title}</h1>
-                    <div className="space-y-4">
-                      {activeContent.content.split('\n').map((line, i) => {
-                        // Handle headers
-                        if (line.startsWith('### ')) {
-                          return <h3 key={i} className="text-lg font-semibold mt-6 mb-3">{line.replace('### ', '')}</h3>;
-                        }
-                        if (line.startsWith('## ')) {
-                          return <h2 key={i} className="text-xl font-semibold mt-6 mb-3">{line.replace('## ', '')}</h2>;
-                        }
-                        // Handle bold text
-                        if (line.startsWith('**') && line.endsWith('**')) {
-                          return <p key={i} className="font-semibold">{line.replace(/\*\*/g, '')}</p>;
-                        }
-                        // Handle list items
-                        if (line.startsWith('- ')) {
-                          return (
-                            <div key={i} className="flex items-start gap-2 ml-4">
-                              <span className="text-blue-500 mt-1">•</span>
-                              <span dangerouslySetInnerHTML={{ __html: line.replace('- ', '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                            </div>
-                          );
-                        }
-                        // Handle numbered items
-                        if (/^\d+\.\s/.test(line)) {
-                          const num = line.match(/^(\d+)\./)[1];
-                          return (
-                            <div key={i} className="flex items-start gap-2 ml-4">
-                              <span className="text-blue-500 font-semibold min-w-[20px]">{num}.</span>
-                              <span dangerouslySetInnerHTML={{ __html: line.replace(/^\d+\.\s/, '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                            </div>
-                          );
-                        }
-                        // Handle tables
-                        if (line.startsWith('|')) {
-                          return null; // Tables handled separately
-                        }
-                        // Handle Q&A format
-                        if (line.startsWith('**Q:')) {
-                          return (
-                            <div key={i} className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                              <p className="font-semibold text-blue-800 dark:text-blue-200" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*/g, '') }} />
-                            </div>
-                          );
-                        }
-                        if (line.startsWith('A:')) {
-                          return (
-                            <p key={i} className="ml-4 mb-4 text-gray-600 dark:text-gray-300">{line.replace('A: ', '')}</p>
-                          );
-                        }
-                        // Regular paragraphs
-                        if (line.trim()) {
-                          return (
-                            <p key={i} className="text-gray-600 dark:text-gray-300" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
-                          );
-                        }
-                        return null;
-                      })}
-                      
-                      {/* Render tables if present */}
-                      {activeContent.content.includes('|') && (
-                        <div className="overflow-x-auto mt-4">
-                          <table className="min-w-full text-sm">
-                            <thead>
-                              <tr className="bg-gray-100 dark:bg-gray-800">
-                                {activeContent.content
-                                  .split('\n')
-                                  .find(l => l.startsWith('|') && !l.includes('---'))
-                                  ?.split('|')
-                                  .filter(Boolean)
-                                  .map((cell, i) => (
-                                    <th key={i} className="px-3 py-2 text-left font-semibold border">{cell.trim()}</th>
-                                  ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {activeContent.content
-                                .split('\n')
-                                .filter(l => l.startsWith('|') && !l.includes('---'))
-                                .slice(1)
-                                .map((row, i) => (
-                                  <tr key={i} className={i % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/50'}>
-                                    {row.split('|').filter(Boolean).map((cell, j) => (
-                                      <td key={j} className="px-3 py-2 border">{cell.trim()}</td>
-                                    ))}
-                                  </tr>
-                                ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-600">Select a topic</h3>
-                    <p className="text-sm text-gray-500 mt-1">Choose a section from the sidebar to view its content.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Quick Tips */}
-            <Card className="mt-6 border-0 shadow-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <Lightbulb className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div>
-                    <h4 className="font-semibold text-amber-800 dark:text-amber-200">Pro Tip</h4>
-                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                      Use the search bar to quickly find specific topics. You can search for terms like "OTDR", "connector loss", or "GPON" to jump directly to relevant content.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </main>
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+          <Input
+            placeholder="Search help topics..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500"
+          />
         </div>
-      </div>
+
+        {/* Expandable Sections */}
+        <div className="space-y-3">
+          {filteredSections.length === 0 ? (
+            <Card className="bg-slate-800/50 border-slate-700">
+              <CardContent className="p-6 text-center text-slate-400">
+                No topics found matching your search.
+              </CardContent>
+            </Card>
+          ) : (
+            filteredSections.map(section => (
+              <Card key={section.id} className="bg-slate-800/50 border-slate-700 hover:bg-slate-800/70 transition-colors">
+                <CardHeader 
+                  className="cursor-pointer"
+                  onClick={() => toggleSection(section.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-white">{section.title}</CardTitle>
+                    {expandedSections[section.id] ? (
+                      <ChevronUp className="h-5 w-5 text-slate-400" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-slate-400" />
+                    )}
+                  </div>
+                </CardHeader>
+                {expandedSections[section.id] && (
+                  <CardContent className="text-slate-200">
+                    <div 
+                      className="prose prose-invert max-w-none space-y-4 text-sm"
+                      dangerouslySetInnerHTML={{ __html: section.content }}
+                    />
+                  </CardContent>
+                )}
+              </Card>
+            ))
+          )}
+        </div>
+
+        {/* FAQ Section */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Frequently Asked Questions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <details className="group">
+              <summary className="cursor-pointer font-medium text-white">Can I use FiberOracle without an internet connection?</summary>
+              <p className="mt-2 text-slate-300">Yes. Core tools (Loss Budget, Optical Calculator) work fully offline. Reference docs are accessible if viewed before losing connection. Job reports sync when you're back online. P.H.O.T.O.N. chat requires internet.</p>
+            </details>
+
+            <details className="group">
+              <summary className="cursor-pointer font-medium text-white">How do I add my company's procedures to FiberOracle?</summary>
+              <p className="mt-2 text-slate-300">Use the Document Submission feature. Upload PDFs, procedures, or guides. Admin reviews and approves additions to the company knowledge base.</p>
+            </details>
+
+            <details className="group">
+              <summary className="cursor-pointer font-medium text-white">Can I access FiberOracle on multiple devices?</summary>
+              <p className="mt-2 text-slate-300">Yes. Log in on any device. Your preferences and past conversations sync across devices. Job reports created on one device appear on all devices.</p>
+            </details>
+
+            <details className="group">
+              <summary className="cursor-pointer font-medium text-white">What should I do if P.H.O.T.O.N. gives me incorrect information?</summary>
+              <p className="mt-2 text-slate-300">P.H.O.T.O.N. can make mistakes. Always verify critical information with your supervisor or company standards before acting on it. Report issues to your admin.</p>
+            </details>
+
+            <details className="group">
+              <summary className="cursor-pointer font-medium text-white">Can I export my job reports?</summary>
+              <p className="mt-2 text-slate-300">Yes. From Settings, select Download My Data. All reports export as a PDF package you can archive or share.</p>
+            </details>
+          </CardContent>
+        </Card>
+
+        {/* Support */}
+        <Card className="bg-gradient-to-r from-blue-900/50 to-indigo-900/50 border-slate-700">
+          <CardContent className="p-6">
+            <h3 className="text-white font-semibold mb-2">Need Help?</h3>
+            <p className="text-slate-300 mb-4">If you can't find the answer you're looking for:</p>
+            <div className="space-y-2">
+              <p className="text-slate-300">1. <strong>Ask P.H.O.T.O.N.:</strong> Open P.H.O.T.O.N. Chat and ask your question directly</p>
+              <p className="text-slate-300">2. <strong>Contact Support:</strong> Reach out to your administrator or support team</p>
+              <p className="text-slate-300">3. <strong>Report Issues:</strong> Go to Settings → Report Issue with details</p>
+            </div>
+          </CardContent>
+        </Card>
+      </main>
     </div>
   );
 }
