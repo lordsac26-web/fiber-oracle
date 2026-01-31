@@ -57,6 +57,15 @@ export default function AdminPanel() {
         enabled: user?.role === 'admin'
     });
 
+    const { data: documentAuditLogs = [] } = useQuery({
+        queryKey: ['documentAuditLogs'],
+        queryFn: async () => {
+            const logs = await base44.entities.AuditLog.filter({ event_type: 'document_reference' }, '-created_date', 100);
+            return logs;
+        },
+        enabled: user?.role === 'admin'
+    });
+
     const [selectedDocs, setSelectedDocs] = useState(new Set());
     const [selectedConvos, setSelectedConvos] = useState(new Set());
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
@@ -240,12 +249,30 @@ Thank you for reaching out!
         setIsBulkProcessing(true);
         try {
             const docIds = Array.from(selectedDocs);
+            const docs = allReferenceDocs.filter(d => docIds.includes(d.id));
+            
             await Promise.all(
                 docIds.map(id => base44.entities.ReferenceDocument.update(id, { is_active: true }))
             );
+            
+            // Log audit event
+            await base44.entities.AuditLog.create({
+                event_type: 'document_reference',
+                user_email: user.email,
+                content: `Bulk activated ${docIds.length} documents`,
+                metadata: {
+                    action: 'bulk_activate',
+                    document_ids: docIds,
+                    document_titles: docs.map(d => d.title),
+                    count: docIds.length
+                },
+                status: 'success'
+            });
+            
             toast.success(`Activated ${docIds.length} documents`);
             setSelectedDocs(new Set());
             queryClient.invalidateQueries(['allReferenceDocs']);
+            queryClient.invalidateQueries(['documentAuditLogs']);
         } catch (error) {
             toast.error('Failed to activate documents');
         } finally {
@@ -257,12 +284,30 @@ Thank you for reaching out!
         setIsBulkProcessing(true);
         try {
             const docIds = Array.from(selectedDocs);
+            const docs = allReferenceDocs.filter(d => docIds.includes(d.id));
+            
             await Promise.all(
                 docIds.map(id => base44.entities.ReferenceDocument.update(id, { is_active: false }))
             );
+            
+            // Log audit event
+            await base44.entities.AuditLog.create({
+                event_type: 'document_reference',
+                user_email: user.email,
+                content: `Bulk deactivated ${docIds.length} documents`,
+                metadata: {
+                    action: 'bulk_deactivate',
+                    document_ids: docIds,
+                    document_titles: docs.map(d => d.title),
+                    count: docIds.length
+                },
+                status: 'success'
+            });
+            
             toast.success(`Deactivated ${docIds.length} documents`);
             setSelectedDocs(new Set());
             queryClient.invalidateQueries(['allReferenceDocs']);
+            queryClient.invalidateQueries(['documentAuditLogs']);
         } catch (error) {
             toast.error('Failed to deactivate documents');
         } finally {
@@ -274,12 +319,30 @@ Thank you for reaching out!
         setIsBulkProcessing(true);
         try {
             const docIds = Array.from(selectedDocs);
+            const docs = allReferenceDocs.filter(d => docIds.includes(d.id));
+            
             await Promise.all(
                 docIds.map(id => base44.entities.ReferenceDocument.delete(id))
             );
+            
+            // Log audit event
+            await base44.entities.AuditLog.create({
+                event_type: 'document_reference',
+                user_email: user.email,
+                content: `Bulk deleted ${docIds.length} documents`,
+                metadata: {
+                    action: 'bulk_delete',
+                    document_ids: docIds,
+                    document_titles: docs.map(d => d.title),
+                    count: docIds.length
+                },
+                status: 'success'
+            });
+            
             toast.success(`Deleted ${docIds.length} documents`);
             setSelectedDocs(new Set());
             queryClient.invalidateQueries(['allReferenceDocs']);
+            queryClient.invalidateQueries(['documentAuditLogs']);
         } catch (error) {
             toast.error('Failed to delete documents');
         } finally {
@@ -665,6 +728,87 @@ Thank you for reaching out!
                             </CardContent>
                         </Card>
                         
+                        {/* Document Audit Trail */}
+                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-white flex items-center gap-2">
+                                        <Activity className="w-5 h-5" />
+                                        Document Management Audit Trail
+                                    </CardTitle>
+                                    <Badge className="bg-blue-500 text-white">
+                                        {documentAuditLogs.length} events
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                    {documentAuditLogs.length === 0 ? (
+                                        <p className="text-white/60 text-center py-8">No document activity logged</p>
+                                    ) : documentAuditLogs.map(log => {
+                                        const action = log.metadata?.action || 'unknown';
+                                        const actionColors = {
+                                            approved: 'bg-green-500',
+                                            bulk_activate: 'bg-emerald-500',
+                                            bulk_deactivate: 'bg-amber-500',
+                                            bulk_delete: 'bg-red-500',
+                                            added: 'bg-blue-500',
+                                            modified: 'bg-cyan-500',
+                                            deleted: 'bg-red-500'
+                                        };
+                                        
+                                        const actionIcons = {
+                                            approved: CheckCircle,
+                                            bulk_activate: CheckCircle,
+                                            bulk_deactivate: XCircle,
+                                            bulk_delete: Trash2,
+                                            added: FileText,
+                                            modified: FileText,
+                                            deleted: Trash2
+                                        };
+                                        
+                                        const Icon = actionIcons[action] || FileText;
+                                        
+                                        return (
+                                            <div
+                                                key={log.id}
+                                                className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10"
+                                            >
+                                                <div className={`p-2 rounded-lg ${actionColors[action] || 'bg-gray-500'}`}>
+                                                    <Icon className="w-4 h-4 text-white" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white text-sm font-medium">
+                                                        {log.content}
+                                                    </p>
+                                                    <div className="flex items-center gap-3 mt-1 text-xs text-white/60">
+                                                        <span className="flex items-center gap-1">
+                                                            <User className="w-3 h-3" />
+                                                            {log.user_email}
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" />
+                                                            {moment(log.created_date).format('MMM D, h:mm A')}
+                                                        </span>
+                                                    </div>
+                                                    {log.metadata?.document_title && (
+                                                        <Badge className="mt-2 text-xs bg-purple-500/30 text-purple-200 border-purple-400/50">
+                                                            {log.metadata.document_title}
+                                                        </Badge>
+                                                    )}
+                                                    {log.metadata?.count && (
+                                                        <Badge className="mt-2 ml-2 text-xs bg-blue-500/30 text-blue-200 border-blue-400/50">
+                                                            {log.metadata.count} docs
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </CardContent>
+                        </Card>
+
                         {/* Conversation Management */}
                         <Card className="bg-white/10 backdrop-blur-md border-white/20">
                             <CardHeader>
