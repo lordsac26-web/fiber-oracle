@@ -81,9 +81,12 @@ export default function DocumentReview() {
 
     const denyMutation = useMutation({
         mutationFn: async ({ submissionId, reason }) => {
+            const currentUser = await base44.auth.me();
+            
+            // Update submission status - this will trigger notification automation
             await base44.entities.DocumentSubmission.update(submissionId, {
                 status: 'denied',
-                reviewed_by: user.email,
+                reviewed_by: currentUser.email,
                 review_date: new Date().toISOString(),
                 denial_reason: reason
             });
@@ -304,19 +307,12 @@ export default function DocumentReview() {
                                                 )}
 
                                                 <div className="flex gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => handleScan(submission.id)}
-                                                        disabled={scanning === submission.id || submission.security_scan_status === 'scanning'}
-                                                        className="border-white/30 bg-blue-500/20 text-white hover:bg-blue-500/30"
-                                                    >
-                                                        {scanning === submission.id ? (
-                                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Scanning...</>
-                                                        ) : (
-                                                            <><Shield className="w-4 h-4 mr-2" />Run Scan</>
-                                                        )}
-                                                    </Button>
+                                                   {submission.security_scan_status === 'pending' && (
+                                                       <Badge className="bg-yellow-100 text-yellow-800 mr-2">
+                                                           <Clock className="w-3 h-3 mr-1 animate-pulse" />
+                                                           Auto-scanning...
+                                                       </Badge>
+                                                   )}
                                                     <Button
                                                         size="sm"
                                                         onClick={() => handleApprove(submission)}
