@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Upload, Plus } from 'lucide-react';
 import MultiFileUpload from '@/components/photon/MultiFileUpload';
+import GoogleDriveLinkForm from './GoogleDriveLinkForm';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function DocumentUploadManager() {
