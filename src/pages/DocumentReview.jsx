@@ -46,6 +46,8 @@ export default function DocumentReview() {
 
     const approveMutation = useMutation({
         mutationFn: async (submission) => {
+            const user = await base44.auth.me();
+            
             // Create the reference document
             await base44.entities.ReferenceDocument.create({
                 title: submission.title,
@@ -60,7 +62,7 @@ export default function DocumentReview() {
                 is_active: true
             });
 
-            // Update submission status
+            // Update submission status - this will trigger notification automation
             await base44.entities.DocumentSubmission.update(submission.id, {
                 status: 'approved',
                 reviewed_by: user.email,

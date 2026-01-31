@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar } from 'lucide-react';
+import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -46,18 +46,84 @@ export default function AdminPanel() {
 
     const resolveRequestMutation = useMutation({
         mutationFn: async ({ requestId, notes }) => {
-            return base44.entities.AdminRequest.update(requestId, {
+            const request = await base44.entities.AdminRequest.get(requestId);
+            await base44.entities.AdminRequest.update(requestId, {
                 status: 'resolved',
                 resolved_by: user.email,
                 resolved_date: new Date().toISOString(),
                 admin_notes: notes
             });
+            
+            // Send notification to requester
+            await base44.integrations.Core.SendEmail({
+                to: request.requested_by,
+                subject: `Request Resolved: ${request.subject}`,
+                body: `
+Hello,
+
+Your request has been resolved by an administrator.
+
+Subject: ${request.subject}
+Status: Resolved
+Resolved by: ${user.email}
+Date: ${new Date().toLocaleString()}
+
+${notes ? `Admin notes: ${notes}` : ''}
+
+Thank you for reaching out!
+                `
+            });
+            
+            return request;
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['pendingAdminRequests']);
-            toast.success('Request resolved');
+            toast.success('Request resolved and user notified');
             setSelectedRequest(null);
             setAdminNotes('');
+        }
+    });
+
+    const approveDocMutation = useMutation({
+        mutationFn: async (doc) => {
+            await base44.entities.ReferenceDocument.create({
+                title: doc.title,
+                category: doc.category || 'other',
+                version: doc.version || '1.0',
+                comments: doc.comments,
+                annotations: doc.annotations,
+                source_type: doc.source_type,
+                source_url: doc.source_url,
+                content: doc.content,
+                metadata: doc.metadata,
+                is_active: true
+            });
+
+            await base44.entities.DocumentSubmission.update(doc.id, {
+                status: 'approved',
+                reviewed_by: user.email,
+                review_date: new Date().toISOString()
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['pendingMasterDocs']);
+            queryClient.invalidateQueries(['recentApprovals']);
+            toast.success('Document approved and added to master list');
+        }
+    });
+
+    const denyDocMutation = useMutation({
+        mutationFn: async (doc) => {
+            await base44.entities.DocumentSubmission.update(doc.id, {
+                status: 'denied',
+                reviewed_by: user.email,
+                review_date: new Date().toISOString(),
+                denial_reason: 'Does not meet master list criteria'
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['pendingMasterDocs']);
+            toast.success('Document denied');
         }
     });
 
@@ -184,8 +250,8 @@ export default function AdminPanel() {
                                 <div className="space-y-3">
                                     {pendingDocuments.map(doc => (
                                         <div key={doc.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
                                                     <h3 className="font-semibold text-white mb-1">{doc.title}</h3>
                                                     <div className="flex flex-wrap gap-2 mb-2">
                                                         <Badge className="bg-purple-100 text-purple-800">
@@ -195,13 +261,32 @@ export default function AdminPanel() {
                                                             Master List Request
                                                         </Badge>
                                                     </div>
-                                                    <div className="flex items-center gap-2 text-xs text-white/50">
+                                                    <div className="flex items-center gap-2 text-xs text-white/50 mb-3">
                                                         <User className="w-3 h-3" />
                                                         {doc.submitted_by}
                                                         <span>•</span>
                                                         <Calendar className="w-3 h-3" />
                                                         {new Date(doc.created_date).toLocaleString()}
                                                     </div>
+                                                </div>
+                                                <div className="flex gap-2 flex-shrink-0">
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => approveDocMutation.mutate(doc)}
+                                                        className="bg-green-600 hover:bg-green-700"
+                                                        disabled={approveDocMutation.isPending}
+                                                    >
+                                                        <ThumbsUp className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => denyDocMutation.mutate(doc)}
+                                                        className="border-red-400 text-red-400 hover:bg-red-500/20"
+                                                        disabled={denyDocMutation.isPending}
+                                                    >
+                                                        <ThumbsDown className="w-4 h-4" />
+                                                    </Button>
                                                 </div>
                                             </div>
                                         </div>
