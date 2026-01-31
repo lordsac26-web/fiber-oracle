@@ -47,14 +47,17 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
+import AdminPanel from './pages/AdminPanel';
 import BendRadius from './pages/BendRadius';
 import Brochure from './pages/Brochure';
 import CertificationExam from './pages/CertificationExam';
 import Certifications from './pages/Certifications';
 import Cleaning from './pages/Cleaning';
 import Contact from './pages/Contact';
+import ContactAdmin from './pages/ContactAdmin';
 import DataManagement from './pages/DataManagement';
 import DocumentReview from './pages/DocumentReview';
+import DocumentSearch from './pages/DocumentSearch';
 import Education from './pages/Education';
 import Fiber101 from './pages/Fiber101';
 import Fiber102 from './pages/Fiber102';
@@ -86,21 +89,21 @@ import SplitterLoss from './pages/SplitterLoss';
 import StudyGuide from './pages/StudyGuide';
 import TechAssistant from './pages/TechAssistant';
 import UserGuide from './pages/UserGuide';
-import ContactAdmin from './pages/ContactAdmin';
-import AdminPanel from './pages/AdminPanel';
-import DocumentSearch from './pages/DocumentSearch';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
+    "AdminPanel": AdminPanel,
     "BendRadius": BendRadius,
     "Brochure": Brochure,
     "CertificationExam": CertificationExam,
     "Certifications": Certifications,
     "Cleaning": Cleaning,
     "Contact": Contact,
+    "ContactAdmin": ContactAdmin,
     "DataManagement": DataManagement,
     "DocumentReview": DocumentReview,
+    "DocumentSearch": DocumentSearch,
     "Education": Education,
     "Fiber101": Fiber101,
     "Fiber102": Fiber102,
@@ -132,9 +135,6 @@ export const PAGES = {
     "StudyGuide": StudyGuide,
     "TechAssistant": TechAssistant,
     "UserGuide": UserGuide,
-    "ContactAdmin": ContactAdmin,
-    "AdminPanel": AdminPanel,
-    "DocumentSearch": DocumentSearch,
 }
 
 export const pagesConfig = {

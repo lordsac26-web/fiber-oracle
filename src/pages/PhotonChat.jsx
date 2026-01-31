@@ -255,52 +255,55 @@ export default function PhotonChat() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/70 border-b border-slate-700/50">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
               <Link to={createPageUrl('Home')}>
-                <Button variant="ghost" size="icon" className="rounded-full text-white hover:bg-slate-800">
-                  <ArrowLeft className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="rounded-full text-white hover:bg-slate-800 h-8 w-8 sm:h-10 sm:w-10">
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </Link>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <img 
                   src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
                   alt="Fiber Oracle" 
-                  className="w-10 h-10 rounded-xl object-cover shadow-lg"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover shadow-lg"
                 />
-                <div>
+                <div className="hidden sm:block">
                   <h1 className="text-lg font-semibold text-white">P.H.O.T.O.N.</h1>
                   <p className="text-xs text-slate-300">Pdf Hosted Optical Testing Operational Nexus</p>
                 </div>
+                <div className="sm:hidden">
+                  <h1 className="text-sm font-semibold text-white">P.H.O.T.O.N.</h1>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Link to={createPageUrl('DocumentSearch')}>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Link to={createPageUrl('DocumentSearch')} className="hidden sm:inline-block">
                 <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
                   <Search className="h-4 w-4 mr-2" />
-                  Search Docs
+                  <span className="hidden md:inline">Search Docs</span>
                 </Button>
               </Link>
-              <Link to={createPageUrl('PhotonAuditLogs')}>
+              <Link to={createPageUrl('PhotonAuditLogs')} className="hidden lg:inline-block">
                 <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
                   <FileCheck className="h-4 w-4 mr-2" />
-                  Audit Logs
+                  <span className="hidden md:inline">Audit</span>
                 </Button>
               </Link>
               {isAdmin && (
-                <Link to={createPageUrl('DocumentReview')}>
+                <Link to={createPageUrl('DocumentReview')} className="hidden lg:inline-block">
                   <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
                     <FileText className="h-4 w-4 mr-2" />
-                    Review Docs
+                    <span className="hidden md:inline">Review</span>
                   </Button>
                 </Link>
               )}
               <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Add Documents
+                    <Upload className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Add</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -385,16 +388,16 @@ export default function PhotonChat() {
                 onClick={createConversation}
                 className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                New Chat
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                <span className="hidden sm:inline">New</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-2 sm:px-4 py-3 sm:py-6">
-        <div className="grid md:grid-cols-4 gap-2 sm:gap-4 h-[calc(100vh-120px)] sm:h-[calc(100vh-140px)]">
+      <main className="max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-6">
+        <div className="grid md:grid-cols-4 gap-2 sm:gap-4 h-[calc(100vh-80px)] sm:h-[calc(100vh-140px)]">
           {/* Sidebar - Conversations */}
           <Card className="border-slate-700 bg-slate-800/50 hidden md:block">
             <CardHeader className="pb-3">
@@ -453,17 +456,17 @@ export default function PhotonChat() {
               </div>
             </CardHeader>
             
-            <CardContent className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 py-3 sm:py-4 px-2 sm:px-6">
+            <CardContent className="flex-1 overflow-y-auto space-y-2 sm:space-y-4 py-2 sm:py-4 px-2 sm:px-6">
               {!conversationId ? (
-                <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
-                    <Zap className="h-10 w-10 text-white" />
+                <div className="flex flex-col items-center justify-center h-full text-center space-y-3 sm:space-y-4 px-4">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
+                    <Zap className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-semibold text-white mb-2">
+                    <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">
                       Welcome to P.H.O.T.O.N.
                     </h2>
-                    <p className="text-slate-300 max-w-md">
+                    <p className="text-slate-300 text-sm sm:text-base max-w-md">
                       Your expert technical diagnostic and installation agent. Start a new conversation 
                       to troubleshoot, diagnose, or get installation guidance for fiber optic systems.
                     </p>
@@ -481,7 +484,7 @@ export default function PhotonChat() {
                       className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[80%] rounded-lg p-3 ${
+                        className={`max-w-[85%] sm:max-w-[80%] rounded-lg p-2 sm:p-3 text-sm sm:text-base ${
                           msg.role === 'user'
                             ? 'bg-blue-600 text-white'
                             : 'bg-slate-700 text-slate-100'
@@ -510,15 +513,15 @@ export default function PhotonChat() {
             </CardContent>
 
             {conversationId && (
-              <div className="border-t border-slate-700 p-2 sm:p-4">
+              <div className="border-t border-slate-700 p-2">
                 <form onSubmit={sendMessage} className="flex gap-1 sm:gap-2">
                   <Textarea
                     ref={textareaRef}
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Ask P.H.O.T.O.N... (Ctrl+Enter to send, Ctrl+N for new chat)"
-                    className="flex-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 resize-none"
-                    rows={2}
+                    placeholder="Ask P.H.O.T.O.N..."
+                    className="flex-1 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 resize-none text-sm sm:text-base min-h-[44px]"
+                    rows={1}
                     onKeyDown={(e) => {
                       if ((e.key === 'Enter' && e.ctrlKey) || (e.key === 'Enter' && !e.shiftKey)) {
                         e.preventDefault();
@@ -529,13 +532,13 @@ export default function PhotonChat() {
                   <Button 
                     type="submit" 
                     disabled={isSending || !inputMessage.trim()}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 sm:px-4"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-2 sm:px-4 min-h-[44px]"
                     size="sm"
                   >
                     {isSending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Send className="h-3 w-3 sm:h-4 sm:w-4" />
+                      <Send className="h-4 w-4" />
                     )}
                   </Button>
                 </form>
