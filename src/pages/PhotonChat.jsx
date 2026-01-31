@@ -25,7 +25,8 @@ import {
   Plus,
   Trash2,
   FileCheck,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Search
 } from 'lucide-react';
 import MultiFileUpload from '@/components/photon/MultiFileUpload';
 import GoogleDrivePicker from '@/components/photon/GoogleDrivePicker';
@@ -255,6 +256,12 @@ export default function PhotonChat() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Link to={createPageUrl('DocumentSearch')}>
+                <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
+                  <Search className="h-4 w-4 mr-2" />
+                  Search Docs
+                </Button>
+              </Link>
               <Link to={createPageUrl('PhotonAuditLogs')}>
                 <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
                   <FileCheck className="h-4 w-4 mr-2" />

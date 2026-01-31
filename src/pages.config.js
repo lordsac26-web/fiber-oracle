@@ -88,6 +88,7 @@ import TechAssistant from './pages/TechAssistant';
 import UserGuide from './pages/UserGuide';
 import ContactAdmin from './pages/ContactAdmin';
 import AdminPanel from './pages/AdminPanel';
+import DocumentSearch from './pages/DocumentSearch';
 import __Layout from './Layout.jsx';
 
 
@@ -133,6 +134,7 @@ export const PAGES = {
     "UserGuide": UserGuide,
     "ContactAdmin": ContactAdmin,
     "AdminPanel": AdminPanel,
+    "DocumentSearch": DocumentSearch,
 }
 
 export const pagesConfig = {
