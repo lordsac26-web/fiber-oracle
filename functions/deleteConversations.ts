@@ -24,10 +24,8 @@ Deno.serve(async (req) => {
 
         for (const id of conversation_ids) {
             try {
-                // Delete via agents API - conversations are stored as agent conversations
-                await base44.asServiceRole.functions.invoke('deleteAgentConversation', { 
-                    conversation_id: id 
-                });
+                // Delete conversation using agents API
+                await base44.asServiceRole.agents.deleteConversation(id);
                 results.deleted++;
             } catch (error) {
                 results.failed++;
