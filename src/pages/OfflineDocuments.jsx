@@ -46,6 +46,8 @@ const DOCUMENT_TYPES = {
   brochure: { label: 'Brochure', icon: FileText, color: 'bg-blue-500' },
   jobReport: { label: 'Job Report', icon: ClipboardList, color: 'bg-slate-500' },
   manual: { label: 'User Manual', icon: BookOpen, color: 'bg-indigo-500' },
+  reference: { label: 'Reference', icon: FileText, color: 'bg-cyan-500' },
+  training: { label: 'Training', icon: BookOpen, color: 'bg-emerald-500' },
 };
 
 export default function OfflineDocuments() {
@@ -58,6 +60,7 @@ export default function OfflineDocuments() {
   const [showSyncDialog, setShowSyncDialog] = useState(false);
   const [syncingPDF, setSyncingPDF] = useState(false);
   const [referenceDocs, setReferenceDocs] = useState([]);
+  const [generatingDocs, setGeneratingDocs] = useState({});
 
   useEffect(() => {
     loadDocuments();
@@ -80,6 +83,24 @@ export default function OfflineDocuments() {
     } catch (error) {
       console.error('Failed to load reference docs:', error);
     }
+  };
+
+  const generateDocumentationPDF = async (type) => {
+    setGeneratingDocs(prev => ({ ...prev, [type]: true }));
+    try {
+      const response = await base44.functions.invoke('generateDocumentationPDFs', {
+        type
+      });
+
+      if (response.data.success) {
+        toast.success(`${response.data.title} generated and added to library`);
+        loadDocuments();
+        loadReferenceDocs();
+      }
+    } catch (error) {
+      toast.error('Failed to generate documentation PDF');
+    }
+    setGeneratingDocs(prev => ({ ...prev, [type]: false }));
   };
 
   const loadDocuments = async () => {
@@ -264,15 +285,47 @@ export default function OfflineDocuments() {
               </Button>
             </div>
 
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setShowSyncDialog(true)}
-              disabled={!isOnline || referenceDocs.length === 0}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Sync Reference PDFs ({referenceDocs.length})
-            </Button>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-slate-300">Generate Documentation</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => generateDocumentationPDF('user_manual')}
+                  disabled={generatingDocs['user_manual'] || !isOnline}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  {generatingDocs['user_manual'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                  <span className="hidden sm:inline ml-1">User Manual</span>
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => generateDocumentationPDF('quick_reference')}
+                  disabled={generatingDocs['quick_reference'] || !isOnline}
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                >
+                  {generatingDocs['quick_reference'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                  <span className="hidden sm:inline ml-1">Quick Ref</span>
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => generateDocumentationPDF('changelog')}
+                  disabled={generatingDocs['changelog'] || !isOnline}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {generatingDocs['changelog'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                  <span className="hidden sm:inline ml-1">Changelog</span>
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => generateDocumentationPDF('app_overview')}
+                  disabled={generatingDocs['app_overview'] || !isOnline}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {generatingDocs['app_overview'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                  <span className="hidden sm:inline ml-1">Overview</span>
+                </Button>
+              </div>
+            </div>
 
             <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
               <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
