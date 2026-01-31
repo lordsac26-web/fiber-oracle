@@ -39,7 +39,7 @@ export default function AdvancedAuditFilter({ onFilterChange, totalCount }) {
   const hasActiveFilters = searchTerm || eventType !== 'all' || status !== 'all' || userFilter || dateFrom || dateTo;
 
   return (
-    <Card className="bg-white/5 border-white/10">
+    <Card className="bg-slate-700/30 border-slate-600">
       <CardContent className="pt-4 space-y-3">
         {/* Search Bar */}
         <div className="flex gap-2">

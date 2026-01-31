@@ -498,8 +498,8 @@ Thank you for reaching out!
 
     if (user?.role !== 'admin') {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-6">
-                <Card className="max-w-md bg-white/10 backdrop-blur-md border-white/20">
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-6">
+                <Card className="max-w-md bg-slate-800/50 border-slate-700">
                     <CardHeader>
                         <CardTitle className="text-white">Access Denied</CardTitle>
                     </CardHeader>
@@ -512,7 +512,7 @@ Thank you for reaching out!
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
             <div className="max-w-7xl mx-auto">
                 <div className="flex items-center gap-4 mb-6">
                     <Link to={createPageUrl('Home')}>
@@ -532,7 +532,7 @@ Thank you for reaching out!
                 </div>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="bg-white/10 border-white/20 mb-6">
+                    <TabsList className="bg-slate-800/50 border-slate-700 mb-6">
                         <TabsTrigger value="overview" className="data-[state=active]:bg-blue-600">
                             <AlertCircle className="w-4 h-4 mr-2" />
                             Overview

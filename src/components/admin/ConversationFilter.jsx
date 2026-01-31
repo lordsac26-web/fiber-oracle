@@ -36,7 +36,7 @@ export default function ConversationFilter({ onFilterChange, totalCount }) {
   const hasActiveFilters = searchTerm || dateFrom || dateTo || minMessages || maxMessages;
 
   return (
-    <Card className="bg-white/5 border-white/10 mb-3">
+    <Card className="bg-slate-700/30 border-slate-600 mb-3">
       <CardContent className="pt-4 space-y-3">
         <div className="flex gap-2">
           <div className="relative flex-1">

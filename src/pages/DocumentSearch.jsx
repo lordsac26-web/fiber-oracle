@@ -163,8 +163,8 @@ export default function DocumentSearch() {
   const hasActiveFilters = searchTerm || selectedCategories.length > 0 || dateFrom || dateTo;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+          <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/70 border-b border-slate-700/50">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -179,8 +179,8 @@ export default function DocumentSearch() {
                 className="w-10 h-10 rounded-xl object-cover shadow-lg"
               />
               <div>
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Document Search</h1>
-                <p className="text-xs text-gray-500">Advanced search across knowledge base</p>
+                <h1 className="text-lg font-semibold text-white">Document Search</h1>
+                    <p className="text-xs text-slate-300">Advanced search across knowledge base</p>
               </div>
             </div>
             <Button
@@ -198,7 +198,7 @@ export default function DocumentSearch() {
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-4">
         {/* Search Bar */}
-        <Card className="border-0 shadow">
+        <Card className="bg-slate-800/50 border-slate-700">
           <CardContent className="p-4">
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -252,7 +252,7 @@ export default function DocumentSearch() {
 
         {/* Filters Panel */}
         {showFilters && (
-          <Card className="border-0 shadow">
+          <Card className="bg-slate-800/50 border-slate-700">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Filter className="h-4 w-4" />
@@ -310,7 +310,7 @@ export default function DocumentSearch() {
         )}
 
         {/* Results */}
-        <Card className="border-0 shadow">
+        <Card className="bg-slate-800/50 border-slate-700">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span className="flex items-center gap-2">

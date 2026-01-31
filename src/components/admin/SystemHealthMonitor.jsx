@@ -72,7 +72,7 @@ export default function SystemHealthMonitor() {
   return (
     <div className="space-y-4">
       {/* Overall Status */}
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-white flex items-center gap-2">
@@ -123,7 +123,7 @@ export default function SystemHealthMonitor() {
       </Card>
 
       {/* Recent Activity Stream */}
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="bg-slate-800/50 border-slate-700">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
