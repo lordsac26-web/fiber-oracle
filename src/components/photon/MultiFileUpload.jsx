@@ -123,6 +123,27 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
             },
             is_active: true
           });
+          
+          // Log audit event for admin uploads
+          try {
+            const user = await base44.auth.me();
+            await base44.entities.AuditLog.create({
+              event_type: 'document_reference',
+              user_email: user.email,
+              content: `Added document: ${doc.title}`,
+              metadata: {
+                action: 'added',
+                document_id: doc.id,
+                document_title: doc.title,
+                category: doc.category,
+                is_active: true,
+                file_size: fileObj.file.size
+              },
+              status: 'success'
+            });
+          } catch (auditError) {
+            console.error('Audit log failed:', auditError);
+          }
         } else {
           const user = await base44.auth.me();
           doc = await base44.entities.DocumentSubmission.create({

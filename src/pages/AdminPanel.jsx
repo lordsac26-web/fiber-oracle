@@ -135,7 +135,7 @@ Thank you for reaching out!
 
     const approveDocMutation = useMutation({
         mutationFn: async (doc) => {
-            await base44.entities.ReferenceDocument.create({
+            const newDoc = await base44.entities.ReferenceDocument.create({
                 title: doc.title,
                 category: doc.category || 'other',
                 version: doc.version || '1.0',
@@ -148,6 +148,22 @@ Thank you for reaching out!
                 is_active: true
             });
 
+            // Log audit event
+            await base44.entities.AuditLog.create({
+                event_type: 'document_reference',
+                user_email: user.email,
+                content: `Approved and added document: ${doc.title}`,
+                metadata: {
+                    action: 'approved',
+                    document_id: newDoc.id,
+                    document_title: doc.title,
+                    category: doc.category,
+                    is_active: true,
+                    submission_id: doc.id
+                },
+                status: 'success'
+            });
+
             await base44.entities.DocumentSubmission.update(doc.id, {
                 status: 'approved',
                 reviewed_by: user.email,
@@ -157,6 +173,7 @@ Thank you for reaching out!
         onSuccess: () => {
             queryClient.invalidateQueries(['pendingMasterDocs']);
             queryClient.invalidateQueries(['recentApprovals']);
+            queryClient.invalidateQueries(['documentAuditLogs']);
             toast.success('Document approved and added to master list');
         }
     });
