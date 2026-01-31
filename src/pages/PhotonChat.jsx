@@ -243,9 +243,11 @@ export default function PhotonChat() {
                 </Button>
               </Link>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
-                  <Zap className="h-6 w-6 text-white" />
-                </div>
+                <img 
+                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
+                  alt="Fiber Oracle" 
+                  className="w-10 h-10 rounded-xl object-cover shadow-lg"
+                />
                 <div>
                   <h1 className="text-lg font-semibold text-white">P.H.O.T.O.N.</h1>
                   <p className="text-xs text-slate-300">Pdf Hosted Optical Testing Operational Nexus</p>

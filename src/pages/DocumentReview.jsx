@@ -182,6 +182,11 @@ export default function DocumentReview() {
                             <ArrowLeft className="w-4 h-4" />
                         </Button>
                     </Link>
+                    <img 
+                        src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
+                        alt="Fiber Oracle" 
+                        className="w-12 h-12 rounded-xl object-cover shadow-lg"
+                    />
                     <div>
                         <h1 className="text-3xl font-bold text-white">Document Review Center</h1>
                         <p className="text-white/70">Review and approve user-submitted documents</p>
