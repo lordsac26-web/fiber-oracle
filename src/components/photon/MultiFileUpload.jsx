@@ -179,8 +179,9 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
           // Send email notification if adding to master list
           if (userMetadata.addToMaster) {
             try {
+              const adminEmail = import.meta.env.VITE_ADMIN_CONTACT_EMAIL || 'support@fiberoracle.com';
               await base44.integrations.Core.SendEmail({
-                to: 'admin@fiberoracle.com',
+                to: adminEmail,
                 subject: `Master List Request: ${doc.title}`,
                 body: `
 New document submitted for master knowledge base:
