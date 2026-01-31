@@ -14,80 +14,179 @@ import {
   Sparkles,
   GraduationCap,
   Settings,
-  Zap
+  Zap,
+  MessageSquare,
+  Upload,
+  Shield,
+  Eye,
+  FileText,
+  Brain
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import { base44 } from '@/api/base44Client';
 
-const TOUR_STEPS = [
-  {
-    id: 'welcome',
-    title: 'Welcome to Fiber Oracle!',
-    description: 'Your complete field reference tool for fiber optic professionals. Let\'s take a quick tour of what\'s available.',
-    icon: Zap,
-    color: 'from-indigo-500 to-purple-600',
-  },
-  {
-    id: 'calculators',
-    title: 'Powerful Calculators',
-    description: 'Instantly calculate power levels, loss budgets, splitter losses, and bend radius requirements. All values follow TIA/IEEE standards.',
-    icon: Calculator,
-    color: 'from-emerald-500 to-teal-600',
-    features: ['Power Level Calculator', 'Loss Budget Calculator', 'Splitter Loss Tables', 'Bend Radius Guide']
-  },
-  {
-    id: 'testing',
-    title: 'Testing Wizards',
-    description: 'Step-by-step guided testing procedures for OLTS Tier-1 and OTDR Tier-2 certification with automatic pass/fail analysis.',
-    icon: Activity,
-    color: 'from-blue-500 to-indigo-600',
-    features: ['OLTS Tier-1 Wizard', 'OTDR Tier-2 Wizard', 'Cleaning & Inspection', 'Job Reports']
-  },
-  {
-    id: 'troubleshooting',
-    title: 'Smart Troubleshooting',
-    description: 'Fiber Doctor guides you through interactive flowcharts to diagnose issues. AI OTDR Analysis helps identify trace anomalies.',
-    icon: Stethoscope,
-    color: 'from-rose-500 to-pink-600',
-    features: ['Fiber Doctor Flowchart', 'AI OTDR Analysis (Beta)', 'Impairment Library']
-  },
-  {
-    id: 'reference',
-    title: 'Quick Reference',
-    description: 'Access fiber color codes, PON power specifications, attenuation tables, and industry standards instantly.',
-    icon: Cable,
-    color: 'from-orange-500 to-amber-600',
-    features: ['Fiber Locator (TIA-598)', 'PON Power Levels', 'Reference Tables', 'LCP/CLCP Database']
-  },
-  {
-    id: 'education',
-    title: 'Education Center',
-    description: 'Learn with Fiber 101, 102, and 103 courses. Take certification exams and download study guides.',
-    icon: GraduationCap,
-    color: 'from-green-500 to-emerald-600',
-    features: ['Fiber 101-103 Courses', 'Certification Exams', 'Study Guides', 'Downloadable Certificates']
-  },
-  {
-    id: 'customize',
-    title: 'Make It Yours',
-    description: 'Customize your experience in Settings. Hide modules you don\'t need, set custom test values, and toggle dark mode.',
-    icon: Settings,
-    color: 'from-slate-500 to-gray-600',
-    features: ['Hide/Show Modules', 'Custom Test Values', 'Dark Mode', 'Company Branding']
-  },
-  {
+const getTourSteps = (isAdmin) => {
+  const baseSteps = [
+    {
+      id: 'welcome',
+      title: 'Welcome to Fiber Oracle!',
+      description: 'Your complete field reference tool for fiber optic professionals. Let\'s take a quick tour of the core features.',
+      icon: Zap,
+      color: 'from-indigo-500 to-purple-600',
+    },
+    {
+      id: 'photon',
+      title: 'Meet P.H.O.T.O.N.',
+      description: 'Your AI technical assistant. Ask questions, troubleshoot issues, and get expert guidance in natural language.',
+      icon: Brain,
+      color: 'from-cyan-400 to-blue-600',
+      actionButton: {
+        label: 'Try P.H.O.T.O.N.',
+        link: 'PhotonChat',
+        icon: MessageSquare
+      },
+      features: [
+        'Natural language queries',
+        'Real-time troubleshooting',
+        'Document Q&A',
+        'Conversation history'
+      ],
+      visualGuide: {
+        steps: [
+          '1. Click any module to access tools',
+          '2. Or start a P.H.O.T.O.N. chat',
+          '3. Ask: "How do I test fiber loss?"',
+          '4. Get instant expert answers'
+        ]
+      }
+    },
+    {
+      id: 'upload-docs',
+      title: 'Upload Reference Documents',
+      description: 'Add PDFs, websites, or Google Drive files to expand P.H.O.T.O.N.\'s knowledge base.',
+      icon: Upload,
+      color: 'from-emerald-500 to-teal-600',
+      actionButton: {
+        label: 'Upload Documents',
+        link: 'PhotonChat',
+        icon: Upload
+      },
+      features: [
+        'PDF manuals & datasheets',
+        'Website content',
+        'Google Drive integration',
+        'Searchable knowledge base'
+      ],
+      visualGuide: {
+        steps: [
+          '1. Open P.H.O.T.O.N. chat',
+          '2. Click upload icon (top right)',
+          '3. Choose PDF, URL, or Drive',
+          '4. Documents auto-indexed for AI'
+        ]
+      }
+    },
+    {
+      id: 'modules',
+      title: 'Powerful Tools',
+      description: 'Calculators, testing wizards, troubleshooting flowcharts, and reference tables—all at your fingertips.',
+      icon: Calculator,
+      color: 'from-purple-500 to-pink-600',
+      features: [
+        'Optical calculators',
+        'OLTS/OTDR testing wizards', 
+        'Fiber Doctor diagnostics',
+        'PON PM analysis'
+      ]
+    },
+    {
+      id: 'customize',
+      title: 'Personalize Your Experience',
+      description: 'Hide modules you don\'t need, toggle dark mode, and customize your dashboard.',
+      icon: Eye,
+      color: 'from-slate-500 to-gray-600',
+      actionButton: {
+        label: 'Open Settings',
+        link: 'Settings',
+        icon: Settings
+      },
+      features: [
+        'Hide/show modules',
+        'Dark mode toggle',
+        'Custom test values',
+        'Company branding'
+      ]
+    }
+  ];
+
+  const adminSteps = [
+    {
+      id: 'admin-panel',
+      title: 'Admin Control Panel',
+      description: 'As an admin, you have access to the Control Panel for managing users, documents, and system settings.',
+      icon: Shield,
+      color: 'from-purple-600 to-indigo-600',
+      actionButton: {
+        label: 'Open Control Panel',
+        link: 'AdminPanel',
+        icon: Shield
+      },
+      features: [
+        'User management',
+        'Document approval',
+        'System analytics',
+        'Data management'
+      ],
+      visualGuide: {
+        steps: [
+          '1. Look for purple bar at top',
+          '2. Click "Control Panel" link',
+          '3. Review pending documents',
+          '4. Monitor system health'
+        ]
+      },
+      isAdminOnly: true
+    }
+  ];
+
+  const finalStep = {
     id: 'ready',
-    title: 'You\'re Ready!',
-    description: 'That\'s it! Start exploring Fiber Oracle. You can always restart this tour from Settings.',
+    title: 'You\'re All Set!',
+    description: 'Start exploring Fiber Oracle. You can restart this tour anytime from Settings.',
     icon: Sparkles,
     color: 'from-violet-500 to-purple-600',
-  },
-];
+  };
+
+  if (isAdmin) {
+    return [...baseSteps, ...adminSteps, finalStep];
+  }
+  
+  return [...baseSteps, finalStep];
+};
 
 export default function OnboardingTour({ isOpen, onClose, onComplete }) {
   const [currentStep, setCurrentStep] = useState(0);
-  const step = TOUR_STEPS[currentStep];
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [tourSteps, setTourSteps] = useState([]);
+
+  // Check admin status
+  useEffect(() => {
+    base44.auth.me().then(user => {
+      const adminStatus = user?.role === 'admin';
+      setIsAdmin(adminStatus);
+      setTourSteps(getTourSteps(adminStatus));
+    }).catch(() => {
+      setTourSteps(getTourSteps(false));
+    });
+  }, []);
+
+  const step = tourSteps[currentStep];
   const isFirstStep = currentStep === 0;
-  const isLastStep = currentStep === TOUR_STEPS.length - 1;
+  const isLastStep = currentStep === tourSteps.length - 1;
+
+  if (!step) return null;
 
   const handleNext = () => {
     if (isLastStep) {
@@ -145,7 +244,7 @@ export default function OnboardingTour({ isOpen, onClose, onComplete }) {
                 </div>
                 <div>
                   <Badge className="bg-white/20 text-white border-0 mb-1">
-                    Step {currentStep + 1} of {TOUR_STEPS.length}
+                    Step {currentStep + 1} of {tourSteps.length}
                   </Badge>
                   <h2 className="text-xl font-bold">{step.title}</h2>
                 </div>
@@ -157,9 +256,44 @@ export default function OnboardingTour({ isOpen, onClose, onComplete }) {
                 {step.description}
               </p>
 
+              {/* Action Button */}
+              {step.actionButton && (
+                <Link to={createPageUrl(step.actionButton.link)}>
+                  <Button 
+                    className={`w-full mb-4 bg-gradient-to-r ${step.color} hover:opacity-90 text-white`}
+                    onClick={() => {
+                      onClose();
+                      setTimeout(() => {
+                        onComplete();
+                      }, 300);
+                    }}
+                  >
+                    <step.actionButton.icon className="h-4 w-4 mr-2" />
+                    {step.actionButton.label}
+                  </Button>
+                </Link>
+              )}
+
+              {/* Visual Guide */}
+              {step.visualGuide && (
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-2 flex items-center gap-1">
+                    <Eye className="h-3 w-3" />
+                    Quick Start Guide:
+                  </p>
+                  <div className="space-y-1">
+                    {step.visualGuide.steps.map((guideStep, i) => (
+                      <p key={i} className="text-xs text-blue-600 dark:text-blue-400">
+                        {guideStep}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {step.features && (
                 <div className="mb-6">
-                  <p className="text-sm font-medium text-gray-500 mb-2">Includes:</p>
+                  <p className="text-sm font-medium text-gray-500 mb-2">Key Features:</p>
                   <div className="grid grid-cols-2 gap-2">
                     {step.features.map((feature, i) => (
                       <div 
@@ -174,9 +308,17 @@ export default function OnboardingTour({ isOpen, onClose, onComplete }) {
                 </div>
               )}
 
+              {/* Admin badge */}
+              {step.isAdminOnly && (
+                <Badge className="mb-4 bg-purple-100 text-purple-700 border-purple-300">
+                  <Shield className="h-3 w-3 mr-1" />
+                  Admin Feature
+                </Badge>
+              )}
+
               {/* Progress dots */}
               <div className="flex justify-center gap-1.5 mb-6">
-                {TOUR_STEPS.map((_, i) => (
+                {tourSteps.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setCurrentStep(i)}
