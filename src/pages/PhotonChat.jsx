@@ -24,8 +24,11 @@ import {
   MessageSquare,
   Plus,
   Trash2,
-  FileCheck
+  FileCheck,
+  Link as LinkIcon
 } from 'lucide-react';
+import MultiFileUpload from '@/components/photon/MultiFileUpload';
+import GoogleDrivePicker from '@/components/photon/GoogleDrivePicker';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
@@ -40,7 +43,7 @@ export default function PhotonChat() {
   const [inputMessage, setInputMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadMode, setUploadMode] = useState('local'); // 'local' or 'drive'
   const messagesEndRef = useRef(null);
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -203,90 +206,8 @@ export default function PhotonChat() {
     }
   };
 
-  // Upload PDF
-  const handlePdfUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      toast.error('Please upload a PDF file');
-      return;
-    }
-
-    const startTime = Date.now();
-    setUploadingPdf(true);
-    toast.loading('Uploading and processing PDF...', { id: 'pdf-upload' });
-
-    try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      
-      // Extract content from PDF
-      const extraction = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url: file_url,
-        json_schema: {
-          type: "object",
-          properties: {
-            full_text: { type: "string" },
-            sections: { 
-              type: "array", 
-              items: { 
-                type: "object",
-                properties: {
-                  title: { type: "string" },
-                  content: { type: "string" }
-                }
-              }
-            }
-          }
-        }
-      });
-
-      if (extraction.status === 'success' && extraction.output) {
-        // Save to ReferenceDocument
-        const doc = await base44.entities.ReferenceDocument.create({
-          title: file.name.replace('.pdf', ''),
-          source_type: 'pdf',
-          source_url: file_url,
-          content: extraction.output.full_text || JSON.stringify(extraction.output),
-          metadata: {
-            page_count: extraction.output.sections?.length || 0,
-            upload_date: new Date().toISOString(),
-            file_size: file.size,
-            original_filename: file.name
-          },
-          is_active: true
-        });
-
-        queryClient.invalidateQueries({ queryKey: ['referenceDocs'] });
-        toast.success('PDF uploaded and indexed successfully', { id: 'pdf-upload' });
-        setShowUploadDialog(false);
-        
-        // Audit log the PDF upload
-        await logAuditEvent('pdf_upload', `Uploaded: ${file.name}`, {
-          document_id: doc.id,
-          file_name: file.name,
-          file_size: file.size,
-          page_count: extraction.output.sections?.length || 0,
-          content_length: (extraction.output.full_text || '').length,
-          duration_ms: Date.now() - startTime
-        });
-      } else {
-        toast.error('Failed to extract PDF content', { id: 'pdf-upload' });
-        await logAuditEvent('pdf_upload', `Failed to extract: ${file.name}`, {
-          file_name: file.name,
-          duration_ms: Date.now() - startTime
-        }, 'error', 'Extraction failed');
-      }
-    } catch (error) {
-      console.error('PDF upload error:', error);
-      toast.error('Failed to upload PDF', { id: 'pdf-upload' });
-      await logAuditEvent('pdf_upload', `Error uploading: ${file.name}`, {
-        file_name: file.name,
-        duration_ms: Date.now() - startTime
-      }, 'error', error.message);
-    } finally {
-      setUploadingPdf(false);
-    }
+  const handleUploadComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ['referenceDocs'] });
   };
 
   // Delete reference doc
@@ -340,72 +261,78 @@ export default function PhotonChat() {
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="border-slate-600 text-white hover:bg-slate-800">
                     <Upload className="h-4 w-4 mr-2" />
-                    Upload PDF
+                    Add Documents
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <FileText className="h-5 w-5" />
-                      Upload Technical Reference Document
+                      Add Reference Documents
                     </DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                      <p className="text-sm text-blue-800 dark:text-blue-200">
-                        Upload technical manuals, installation guides, troubleshooting documents, or any PDF reference material. 
-                        P.H.O.T.O.N. will index and use this content to answer your questions. All uploads are logged for audit purposes.
-                      </p>
-                    </div>
+                  
+                  {/* Upload mode tabs */}
+                  <div className="flex gap-2 border-b pb-3">
+                    <Button
+                      variant={uploadMode === 'local' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setUploadMode('local')}
+                      className={uploadMode === 'local' ? 'bg-blue-600 text-white' : ''}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Files
+                    </Button>
+                    <Button
+                      variant={uploadMode === 'drive' ? 'default' : 'ghost'}
+                      size="sm"
+                      onClick={() => setUploadMode('drive')}
+                      className={uploadMode === 'drive' ? 'bg-blue-600 text-white' : ''}
+                    >
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                      Link Google Drive
+                    </Button>
+                  </div>
 
-                    <label className="block">
-                      <div className="border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer border-gray-300 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20">
-                        <div className="flex flex-col items-center gap-3">
-                          <Upload className="h-10 w-10 text-gray-400" />
-                          <span className="text-sm text-gray-600 dark:text-gray-300">
-                            Click to upload or drag and drop
-                          </span>
-                          <span className="text-xs text-gray-400">PDF files only</span>
-                        </div>
-                      </div>
-                      <Input
-                        type="file"
-                        accept=".pdf"
-                        onChange={handlePdfUpload}
-                        disabled={uploadingPdf}
-                        className="hidden"
-                      />
-                    </label>
+                  {uploadMode === 'local' ? (
+                    <MultiFileUpload 
+                      onComplete={handleUploadComplete}
+                      onClose={() => setShowUploadDialog(false)}
+                    />
+                  ) : (
+                    <GoogleDrivePicker
+                      onComplete={handleUploadComplete}
+                      onClose={() => setShowUploadDialog(false)}
+                    />
+                  )}
 
-                    {uploadingPdf && (
-                      <div className="flex items-center justify-center gap-2 py-4">
-                        <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                        <span className="text-sm text-gray-600 dark:text-gray-300">Processing PDF...</span>
-                      </div>
-                    )}
-
-                    <div className="border-t pt-4">
-                      <h3 className="font-semibold mb-2 flex items-center gap-2">
-                        <Database className="h-4 w-4" />
-                        Current Knowledge Base ({referenceDocs.length})
-                      </h3>
-                      <div className="space-y-2 max-h-60 overflow-y-auto">
-                        {referenceDocs.map(doc => (
-                          <div key={doc.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded">
-                            <div className="flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-blue-500" />
-                              <span className="text-sm">{doc.title}</span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteReferenceMutation.mutate(doc)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-500" />
-                            </Button>
+                  {/* Current knowledge base */}
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="font-semibold mb-2 flex items-center gap-2 text-gray-900 dark:text-white">
+                      <Database className="h-4 w-4" />
+                      Active Knowledge Base ({referenceDocs.filter(d => d.is_active).length})
+                    </h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {referenceDocs.map(doc => (
+                        <div key={doc.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                            <span className="text-sm truncate text-gray-900 dark:text-white">{doc.title}</span>
+                            {!doc.is_active && (
+                              <Badge variant="outline" className="text-xs bg-gray-100 text-gray-500 border-gray-300">
+                                Inactive
+                              </Badge>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteReferenceMutation.mutate(doc)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </DialogContent>
@@ -443,13 +370,13 @@ export default function PhotonChat() {
                   className={`w-full text-left p-2 rounded transition-colors ${
                     conversationId === conv.id 
                       ? 'bg-blue-600 text-white' 
-                      : 'bg-slate-700/50 text-slate-100 hover:bg-slate-700'
+                      : 'bg-slate-700/50 text-white hover:bg-slate-700'
                   }`}
                 >
                   <div className="text-sm font-medium truncate">
                     {conv.metadata?.name || 'Chat Session'}
                   </div>
-                  <div className="text-xs opacity-70">
+                  <div className="text-xs opacity-80">
                     {new Date(conv.created_date).toLocaleDateString()}
                   </div>
                 </button>
@@ -515,7 +442,7 @@ export default function PhotonChat() {
                         )}
                         
                         {msg.tool_calls?.map((tool, i) => (
-                          <div key={i} className="mt-2 text-xs text-slate-300 flex items-center gap-1">
+                          <div key={i} className="mt-2 text-xs text-slate-200 flex items-center gap-1">
                             <Loader2 className="h-3 w-3 animate-spin" />
                             {tool.name}...
                           </div>
