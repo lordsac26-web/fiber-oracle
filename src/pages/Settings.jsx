@@ -37,7 +37,10 @@ import {
   AlertTriangle,
   Loader2,
   Download,
-  FileUp
+  FileUp,
+  Sparkles,
+  Grid3x3,
+  Zap
 } from 'lucide-react';
 import ModuleVisibilitySettings from '@/components/ModuleVisibilitySettings';
 import { base44 } from '@/api/base44Client';
@@ -418,6 +421,45 @@ export default function Settings() {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-gray-500">Default field to sort by in lists</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* AI-Centric Mode */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200/50 dark:border-blue-700/50">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-blue-500/10">
+                        <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-base font-semibold">AI-Centric Mode</Label>
+                          <Badge variant="outline" className="text-xs">Beta</Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Start with P.H.O.T.O.N. AI as your primary assistant. Access traditional tools through a compact sidebar.
+                        </p>
+                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <Zap className="w-3 h-3" />
+                            <span>Instant AI guidance</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Grid3x3 className="w-3 h-3" />
+                            <span>Quick tool access</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={preferences.aiCentricMode || false}
+                      onCheckedChange={async (checked) => {
+                        await updatePreferences({ aiCentricMode: checked });
+                        toast.success(checked ? 'AI-Centric Mode enabled' : 'Traditional mode enabled');
+                      }}
+                    />
                   </div>
                 </div>
 
