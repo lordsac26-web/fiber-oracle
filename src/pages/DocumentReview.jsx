@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, CheckCircle, XCircle, Shield, AlertTriangle, FileText, Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { createPageUrl } from './utils';
+import { createPageUrl } from '@/utils';
 import { Link } from 'react-router-dom';
 
 export default function DocumentReview() {
