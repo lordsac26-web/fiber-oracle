@@ -55,9 +55,13 @@ export default function OfflineDocuments() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [savingDoc, setSavingDoc] = useState(null);
+  const [showSyncDialog, setShowSyncDialog] = useState(false);
+  const [syncingPDF, setSyncingPDF] = useState(false);
+  const [referenceDocs, setReferenceDocs] = useState([]);
 
   useEffect(() => {
     loadDocuments();
+    loadReferenceDocs();
 
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -68,6 +72,15 @@ export default function OfflineDocuments() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  const loadReferenceDocs = async () => {
+    try {
+      const docs = await base44.entities.ReferenceDocument.filter({ is_active: true }, '-created_date', 50);
+      setReferenceDocs(docs || []);
+    } catch (error) {
+      console.error('Failed to load reference docs:', error);
+    }
+  };
 
   const loadDocuments = async () => {
     setIsLoading(true);
@@ -128,6 +141,41 @@ export default function OfflineDocuments() {
       console.error('Failed to save brochure:', error);
     }
     setSavingDoc(null);
+  };
+
+  const handleSyncPDFToOffline = async (doc) => {
+    setSyncingPDF(doc.id);
+    try {
+      // Call backend function to extract and prepare PDF
+      const response = await base44.functions.invoke('syncPDFsToOffline', {
+        file_url: doc.source_url,
+        title: doc.title,
+        category: doc.category
+      });
+
+      if (response.data.success) {
+        // Save to local offline storage
+        const pdfResponse = await fetch(doc.source_url);
+        const pdfData = await pdfResponse.blob();
+        
+        await saveDocumentOffline(
+          doc.id,
+          'reference',
+          doc.title,
+          pdfData,
+          { 
+            category: doc.category,
+            version: doc.version,
+            extracted: response.data.content_extracted 
+          }
+        );
+
+        loadDocuments();
+      }
+    } catch (error) {
+      console.error('Failed to sync PDF:', error);
+    }
+    setSyncingPDF(null);
   };
 
   const getTypeInfo = (type) => DOCUMENT_TYPES[type] || DOCUMENT_TYPES.manual;
@@ -215,6 +263,16 @@ export default function OfflineDocuments() {
                 )}
               </Button>
             </div>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowSyncDialog(true)}
+              disabled={!isOnline || referenceDocs.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Sync Reference PDFs ({referenceDocs.length})
+            </Button>
 
             <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/20">
               <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm">
@@ -316,6 +374,42 @@ export default function OfflineDocuments() {
               <Trash2 className="h-4 w-4 mr-2" />
               Delete All
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sync PDFs Dialog */}
+      <Dialog open={showSyncDialog} onOpenChange={setShowSyncDialog}>
+        <DialogContent className="max-h-96 overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sync Reference Documents</DialogTitle>
+            <DialogDescription>
+              Select PDFs to save for offline access. Synced documents will be available anytime, even without internet.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {referenceDocs.map(doc => (
+              <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{doc.title}</p>
+                  <p className="text-xs text-gray-500">{doc.category}</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => handleSyncPDFToOffline(doc)}
+                  disabled={syncingPDF === doc.id || !isOnline}
+                >
+                  {syncingPDF === doc.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSyncDialog(false)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
