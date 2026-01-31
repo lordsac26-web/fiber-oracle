@@ -22,6 +22,8 @@ import {
 import { toast } from 'sonner';
 import { getDraftReports, getTestResults, initDB } from '@/components/OfflineStorage';
 import CameraCapture from '@/components/CameraCapture';
+import { useGeolocation } from '@/components/useGeolocation';
+import LocationMap from '@/components/LocationMap';
 
 const FIELD_TOOLS = [
   {
@@ -76,6 +78,8 @@ export default function FieldMode() {
   const [draftCount, setDraftCount] = useState(0);
   const [testCount, setTestCount] = useState(0);
   const [dbReady, setDbReady] = useState(false);
+  const [recentLocations, setRecentLocations] = useState([]);
+  const { location, loading: locationLoading, getCurrentLocation } = useGeolocation();
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -89,8 +93,12 @@ export default function FieldMode() {
       .then(() => {
         setDbReady(true);
         loadCounts();
+        loadRecentLocations();
       })
       .catch(() => toast.error('Offline storage unavailable'));
+
+    // Get current location on mount
+    getCurrentLocation();
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -106,6 +114,24 @@ export default function FieldMode() {
       setTestCount(tests.length);
     } catch (error) {
       console.error('Failed to load counts:', error);
+    }
+  };
+
+  const loadRecentLocations = async () => {
+    try {
+      const tests = await getTestResults();
+      const locationsWithGPS = tests
+        .filter(t => t.gps?.latitude && t.gps?.longitude)
+        .slice(0, 10)
+        .map((t, idx) => ({
+          gps: t.gps,
+          title: t.title || `Test ${idx + 1}`,
+          description: t.type,
+          timestamp: t.timestamp
+        }));
+      setRecentLocations(locationsWithGPS);
+    } catch (error) {
+      console.error('Failed to load locations:', error);
     }
   };
 
@@ -246,6 +272,15 @@ export default function FieldMode() {
           ))}
         </div>
 
+        {/* Location Map */}
+        {location && (
+          <LocationMap 
+            currentLocation={location}
+            locations={recentLocations}
+            height="300px"
+          />
+        )}
+
         {/* Tips */}
         <Card className="bg-blue-900/20 border-blue-700/50">
           <CardContent className="py-3 px-4">
@@ -253,10 +288,13 @@ export default function FieldMode() {
               <Download className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-blue-200">
-                  Offline Mode Active
+                  {location ? 'GPS Active' : 'Offline Mode Active'}
                 </p>
                 <p className="text-xs text-blue-300/80 mt-1">
-                  Tools marked with offline badge work without internet. Data syncs automatically when online.
+                  {location 
+                    ? `GPS coordinates captured automatically with photos and test results. Current accuracy: ±${location.accuracy.toFixed(0)}m`
+                    : 'Tools marked with offline badge work without internet. Data syncs automatically when online.'
+                  }
                 </p>
               </div>
             </div>

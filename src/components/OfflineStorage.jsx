@@ -126,8 +126,30 @@ export const saveTestResult = async (testData) => {
   const transaction = db.transaction(['testResults'], 'readwrite');
   const store = transaction.objectStore('testResults');
 
+  // Capture GPS if available and not provided
+  let gpsData = testData.gps;
+  if (!gpsData && navigator.geolocation) {
+    try {
+      gpsData = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            timestamp: new Date(pos.timestamp).toISOString()
+          }),
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      });
+    } catch (err) {
+      console.log('GPS not available');
+    }
+  }
+
   const data = {
     ...testData,
+    gps: gpsData,
     timestamp: Date.now()
   };
 
