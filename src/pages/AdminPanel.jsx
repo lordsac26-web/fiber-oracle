@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown, Users, BarChart3, TrendingUp, Activity, UserCheck, UserX, Zap, Trash2, Search as SearchIcon } from 'lucide-react';
+import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown, Users, BarChart3, TrendingUp, Activity, UserCheck, UserX, Zap, Trash2, Search as SearchIcon, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -160,6 +160,12 @@ export default function AdminPanel() {
     const [auditFilters, setAuditFilters] = useState({});
     const [convoFilters, setConvoFilters] = useState({});
     const [showTour, setShowTour] = useState(false);
+
+    React.useEffect(() => {
+        if (user && user.role === 'admin' && !user.admin_tour_completed) {
+            setShowTour(true);
+        }
+    }, [user]);
 
     const { data: pendingRequests = [] } = useQuery({
         queryKey: ['pendingAdminRequests'],
@@ -515,22 +521,41 @@ Thank you for reaching out!
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
+            {showTour && (
+                <AdminOnboardingTour 
+                    onComplete={() => setShowTour(false)}
+                    onSkip={() => setShowTour(false)}
+                />
+            )}
+            
             <div className="max-w-7xl mx-auto">
-                <div className="flex items-center gap-4 mb-6">
-                    <Link to={createPageUrl('Home')}>
-                        <Button variant="outline" size="icon" className="border-white/30 bg-white/10 text-white hover:bg-white/20">
-                            <ArrowLeft className="w-4 h-4" />
-                        </Button>
-                    </Link>
+                <div className="flex items-center justify-between gap-4 mb-6">
+                    <div className="flex items-center gap-4">
+                        <Link to={createPageUrl('Home')}>
+                            <Button variant="outline" size="icon" className="border-white/30 bg-white/10 text-white hover:bg-white/20">
+                                <ArrowLeft className="w-4 h-4" />
+                            </Button>
+                        </Link>
                     <img 
                         src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
                         alt="Fiber Oracle" 
                         className="w-12 h-12 rounded-xl object-cover shadow-lg"
                     />
-                    <div>
-                        <h1 className="text-3xl font-bold text-white">Admin Control Panel</h1>
-                        <p className="text-white/70">Manage requests and approvals</p>
+                        <div>
+                            <h1 className="text-3xl font-bold text-white">Admin Control Panel</h1>
+                            <p className="text-white/70">Manage requests and approvals</p>
+                        </div>
                     </div>
+                    
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowTour(true)}
+                        className="border-white/20 text-white hover:bg-white/10"
+                    >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Tour
+                    </Button>
                 </div>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -841,7 +866,7 @@ Thank you for reaching out!
                         </Card>
                         
                         {/* Document Audit Trail */}
-                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                        <Card className="bg-white/10 backdrop-blur-md border-white/20" data-tour="audit-section">
                             <CardHeader>
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-white flex items-center gap-2">
@@ -926,7 +951,7 @@ Thank you for reaching out!
                         </Card>
 
                         {/* Conversation Management */}
-                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                        <Card className="bg-white/10 backdrop-blur-md border-white/20" data-tour="conversations-section">
                             <CardHeader>
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <CardTitle className="text-white flex items-center gap-2">
