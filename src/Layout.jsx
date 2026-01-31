@@ -3,10 +3,30 @@ import { Toaster } from 'sonner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserPreferencesProvider, useUserPreferences } from '@/components/UserPreferencesContext';
 import ModeTransition from '@/components/ModeTransition';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 const queryClient = new QueryClient();
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/service-worker.js')
+      .then((registration) => {
+        console.log('SW registered:', registration);
+        
+        // Check for updates periodically
+        setInterval(() => {
+          registration.update();
+        }, 60000); // Check every minute
+      })
+      .catch((error) => {
+        console.log('SW registration failed:', error);
+      });
+  });
+}
 
 function LayoutContent({ children, currentPageName }) {
   const { preferences, isAuthenticated } = useUserPreferences();
@@ -52,6 +72,7 @@ function LayoutContent({ children, currentPageName }) {
   return (
     <>
       <Toaster position="top-center" richColors />
+      <PWAInstallPrompt />
       <ModeTransition 
         isTransitioning={isTransitioning} 
         mode={targetMode}

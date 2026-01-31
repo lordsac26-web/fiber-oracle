@@ -151,6 +151,16 @@ const MODULES = [
     isNew: true
   },
   {
+    id: 'fieldmode',
+    title: 'Field Mode',
+    description: 'Mobile-optimized tools for technicians',
+    icon: Smartphone,
+    color: 'from-violet-500 to-purple-600',
+    page: 'FieldMode',
+    badge: 'Troubleshoot',
+    isNew: true
+  },
+  {
     id: 'doctor',
     title: 'Fiber Doctor',
     description: 'Interactive troubleshooting flowchart',

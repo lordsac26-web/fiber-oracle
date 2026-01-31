@@ -89,6 +89,7 @@ import SplitterLoss from './pages/SplitterLoss';
 import StudyGuide from './pages/StudyGuide';
 import TechAssistant from './pages/TechAssistant';
 import UserGuide from './pages/UserGuide';
+import FieldMode from './pages/FieldMode';
 import __Layout from './Layout.jsx';
 
 
@@ -135,6 +136,7 @@ export const PAGES = {
     "StudyGuide": StudyGuide,
     "TechAssistant": TechAssistant,
     "UserGuide": UserGuide,
+    "FieldMode": FieldMode,
 }
 
 export const pagesConfig = {
