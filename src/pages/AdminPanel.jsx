@@ -70,6 +70,13 @@ export default function AdminPanel() {
         enabled: user?.role === 'admin'
     });
 
+    const [selectedDocs, setSelectedDocs] = useState(new Set());
+    const [selectedConvos, setSelectedConvos] = useState(new Set());
+    const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+    const [auditFilters, setAuditFilters] = useState({});
+    const [convoFilters, setConvoFilters] = useState({});
+    const [showTour, setShowTour] = useState(false);
+
     // Check user permissions
     const hasPermission = (permission) => {
         if (user?.role !== 'admin') return false;
@@ -153,13 +160,6 @@ export default function AdminPanel() {
         
         return filtered;
     }, [allConversations, convoFilters]);
-
-    const [selectedDocs, setSelectedDocs] = useState(new Set());
-    const [selectedConvos, setSelectedConvos] = useState(new Set());
-    const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-    const [auditFilters, setAuditFilters] = useState({});
-    const [convoFilters, setConvoFilters] = useState({});
-    const [showTour, setShowTour] = useState(false);
 
     React.useEffect(() => {
         if (user && user.role === 'admin' && !user.admin_tour_completed) {
