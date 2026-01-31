@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, CheckCircle, XCircle, Shield, AlertTriangle, FileText, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Shield, AlertTriangle, FileText, Clock, Loader2, Tag, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { createPageUrl } from '@/utils';
 import { Link } from 'react-router-dom';
@@ -49,6 +49,10 @@ export default function DocumentReview() {
             // Create the reference document
             await base44.entities.ReferenceDocument.create({
                 title: submission.title,
+                category: submission.category || 'other',
+                version: submission.version || '1.0',
+                comments: submission.comments,
+                annotations: submission.annotations,
                 source_type: submission.source_type,
                 source_url: submission.source_url,
                 content: submission.content,
@@ -236,10 +240,32 @@ export default function DocumentReview() {
                                                         <p className="text-sm text-white/60 mb-2">
                                                             Submitted by: {submission.submitted_by} • {new Date(submission.created_date).toLocaleDateString()}
                                                         </p>
-                                                        <div className="flex gap-2 mb-3">
+                                                        <div className="flex flex-wrap gap-2 mb-3">
                                                             {getStatusBadge(submission.status)}
                                                             {getScanBadge(submission.security_scan_status)}
+                                                            {submission.category && (
+                                                                <Badge className="bg-purple-100 text-purple-800">
+                                                                    <Tag className="w-3 h-3 mr-1" />
+                                                                    {submission.category}
+                                                                </Badge>
+                                                            )}
+                                                            {submission.version && (
+                                                                <Badge variant="outline" className="border-white/30 text-white">
+                                                                    v{submission.version}
+                                                                </Badge>
+                                                            )}
                                                         </div>
+                                                        {submission.comments && (
+                                                            <div className="bg-black/20 rounded p-2 mb-2 text-sm text-white/80">
+                                                                <MessageSquare className="w-3 h-3 inline mr-1" />
+                                                                {submission.comments}
+                                                            </div>
+                                                        )}
+                                                        {submission.annotations && submission.annotations.length > 0 && (
+                                                            <div className="text-xs text-white/70 mb-2">
+                                                                {submission.annotations.length} annotation(s) attached
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
 

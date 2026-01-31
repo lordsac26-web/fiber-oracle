@@ -19,10 +19,13 @@ const SUPPORTED_FORMATS = ['.pdf', '.txt', '.doc', '.docx', '.md', '.csv', '.jso
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_FILES = 10;
 
+import DocumentMetadataForm from './DocumentMetadataForm';
+
 export default function MultiFileUpload({ onComplete, onClose, isAdmin = true }) {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [processedFiles, setProcessedFiles] = useState([]);
+  const [currentMetadataFile, setCurrentMetadataFile] = useState(null);
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
@@ -56,7 +59,8 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
       progress: 0,
       stage: '',
       documentId: null,
-      isActive: true
+      isActive: true,
+      metadata: null
     })));
   };
 
@@ -65,6 +69,8 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
   };
 
   const processFile = async (fileObj, index) => {
+    const userMetadata = fileObj.metadata || {};
+    
     try {
       updateFileStatus(index, { status: 'uploading', stage: 'Uploading file...', progress: 10 });
       
@@ -101,6 +107,10 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
         if (isAdmin) {
           doc = await base44.entities.ReferenceDocument.create({
             title: fileObj.file.name.replace(/\.[^/.]+$/, ''),
+            category: userMetadata.category || 'other',
+            version: userMetadata.version || '1.0',
+            comments: userMetadata.comments || '',
+            annotations: userMetadata.annotations || [],
             source_type: 'pdf',
             source_url: file_url,
             content: extraction.output.full_text || JSON.stringify(extraction.output),
@@ -117,6 +127,10 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
           const user = await base44.auth.me();
           doc = await base44.entities.DocumentSubmission.create({
             title: fileObj.file.name.replace(/\.[^/.]+$/, ''),
+            category: userMetadata.category || 'other',
+            version: userMetadata.version || '1.0',
+            comments: userMetadata.comments || '',
+            annotations: userMetadata.annotations || [],
             source_type: 'pdf',
             source_url: file_url,
             content: extraction.output.full_text || JSON.stringify(extraction.output),
@@ -154,6 +168,23 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
     }
   };
 
+  const startMetadataCollection = () => {
+    if (files.length > 0) {
+      setCurrentMetadataFile(0);
+    }
+  };
+
+  const handleMetadataSubmit = (metadata) => {
+    updateFileStatus(currentMetadataFile, { metadata });
+    const nextFile = currentMetadataFile + 1;
+    if (nextFile < files.length) {
+      setCurrentMetadataFile(nextFile);
+    } else {
+      setCurrentMetadataFile(null);
+      handleUpload();
+    }
+  };
+
   const handleUpload = async () => {
     setUploading(true);
     const results = [];
@@ -188,6 +219,16 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
   };
 
   const allComplete = files.length > 0 && files.every(f => f.status === 'success' || f.status === 'error');
+
+  if (currentMetadataFile !== null) {
+    return (
+      <DocumentMetadataForm
+        fileName={files[currentMetadataFile]?.file.name}
+        onSubmit={handleMetadataSubmit}
+        onCancel={() => setCurrentMetadataFile(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -313,7 +354,7 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
             </Button>
           ) : files.length > 0 && (
             <Button
-              onClick={handleUpload}
+              onClick={startMetadataCollection}
               disabled={uploading}
             >
               {uploading ? (
@@ -324,7 +365,7 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-2" />
-                  Upload {files.length} File{files.length > 1 ? 's' : ''}
+                  Next: Add Details
                 </>
               )}
             </Button>
