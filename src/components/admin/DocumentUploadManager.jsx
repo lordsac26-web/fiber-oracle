@@ -18,11 +18,14 @@ export default function DocumentUploadManager() {
   return (
     <Dialog open={showDialog} onOpenChange={setShowDialog}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Documents
-        </Button>
-      </DialogTrigger>
+         <div className="flex gap-2">
+           <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+             <Plus className="w-4 h-4 mr-2" />
+             Add Documents
+           </Button>
+           <GoogleDriveLinkForm />
+         </div>
+       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
