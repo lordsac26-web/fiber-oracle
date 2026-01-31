@@ -24,9 +24,23 @@ Deno.serve(async (req) => {
 
         for (const id of conversation_ids) {
             try {
-                // Delete conversation using agents API
-                await base44.asServiceRole.agents.deleteConversation(id);
-                results.deleted++;
+                // Conversations are stored in the ConversationAgents entity
+                // We need to delete the conversation record directly
+                const url = `https://api.base44.com/v1/agents/conversations/${id}`;
+                const response = await fetch(url, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${Deno.env.get('BASE44_SERVICE_ROLE_KEY')}`
+                    }
+                });
+                
+                if (response.ok) {
+                    results.deleted++;
+                } else {
+                    const error = await response.text();
+                    results.failed++;
+                    results.errors.push({ id, error });
+                }
             } catch (error) {
                 results.failed++;
                 results.errors.push({ id, error: error.message });
