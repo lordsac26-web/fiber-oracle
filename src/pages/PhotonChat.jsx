@@ -252,14 +252,14 @@ export default function PhotonChat() {
             </div>
             <div className="flex items-center gap-2">
               <Link to={createPageUrl('PhotonAuditLogs')}>
-                <Button variant="outline" size="sm" className="border-slate-600 text-white hover:bg-slate-800">
+                <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
                   <FileCheck className="h-4 w-4 mr-2" />
                   Audit Logs
                 </Button>
               </Link>
               <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="border-slate-600 text-white hover:bg-slate-800">
+                  <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
                     <Upload className="h-4 w-4 mr-2" />
                     Add Documents
                   </Button>
@@ -342,7 +342,7 @@ export default function PhotonChat() {
                 variant="outline" 
                 size="sm"
                 onClick={createConversation}
-                className="border-slate-600 text-white hover:bg-slate-800"
+                className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 New Chat
