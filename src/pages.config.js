@@ -83,6 +83,7 @@ import SplitterLoss from './pages/SplitterLoss';
 import StudyGuide from './pages/StudyGuide';
 import TechAssistant from './pages/TechAssistant';
 import UserGuide from './pages/UserGuide';
+import PhotonChat from './pages/PhotonChat';
 import __Layout from './Layout.jsx';
 
 
@@ -123,6 +124,7 @@ export const PAGES = {
     "StudyGuide": StudyGuide,
     "TechAssistant": TechAssistant,
     "UserGuide": UserGuide,
+    "PhotonChat": PhotonChat,
 }
 
 export const pagesConfig = {
