@@ -438,17 +438,17 @@ export default function PhotonChat() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-6">
-        <div className="grid md:grid-cols-4 gap-2 sm:gap-4 h-[calc(100vh-80px)] sm:h-[calc(100vh-140px)]">
+      <main className="max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-6 h-[calc(100vh-80px)] sm:h-[calc(100vh-100px)]">
+        <div className="grid md:grid-cols-4 gap-2 sm:gap-4 h-full">
           {/* Sidebar - Conversations */}
-          <Card className="border-slate-700 bg-slate-800/50 hidden md:block">
-            <CardHeader className="pb-3">
+          <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm hidden md:flex flex-col h-full">
+            <CardHeader className="pb-3 flex-shrink-0">
               <CardTitle className="text-sm text-white flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
                 Conversations
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 overflow-y-auto h-[calc(100%-80px)]">
+            <CardContent className="space-y-2 overflow-y-auto flex-1 min-h-0">
               {convsLoading ? (
                 <div className="space-y-2">
                   {[...Array(3)].map((_, i) => (
@@ -482,8 +482,8 @@ export default function PhotonChat() {
           </Card>
 
           {/* Chat Area */}
-          <Card className="md:col-span-3 border-slate-700 bg-slate-800/50 flex flex-col">
-            <CardHeader className="pb-2 sm:pb-3 border-b border-slate-700">
+          <Card className="md:col-span-3 border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col h-full">
+            <CardHeader className="pb-2 sm:pb-3 border-b border-slate-700 flex-shrink-0">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-white flex items-center gap-2 text-sm sm:text-base">
                   <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400" />
@@ -498,7 +498,7 @@ export default function PhotonChat() {
               </div>
             </CardHeader>
             
-            <CardContent className="flex-1 overflow-y-auto space-y-2 sm:space-y-4 py-2 sm:py-4 px-2 sm:px-6">
+            <CardContent className="flex-1 overflow-y-auto space-y-2 sm:space-y-4 py-2 sm:py-4 px-2 sm:px-6 min-h-0 bg-slate-800/30">
               {!conversationId ? (
                 <div className="flex flex-col items-center justify-center h-full text-center space-y-3 sm:space-y-4 px-4">
                   <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
@@ -555,7 +555,7 @@ export default function PhotonChat() {
             </CardContent>
 
             {conversationId && (
-              <div className="border-t border-slate-700 p-2">
+              <div className="border-t border-slate-700 p-2 flex-shrink-0 bg-slate-800/50">
                 <form onSubmit={sendMessage} className="flex gap-1 sm:gap-2">
                   <Textarea
                     ref={textareaRef}
