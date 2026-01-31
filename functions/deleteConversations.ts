@@ -44,41 +44,25 @@ Deno.serve(async (req) => {
 
         log('INFO', 'Starting deletion loop', { total: conversation_ids.length });
 
-        // Try different SDK methods to delete conversations
-        for (const id of conversation_ids) {
-            try {
-                log('DEBUG', 'Attempting to delete conversation', { id });
-                
-                // Try Method 1: Direct SDK call with agent_name
-                try {
-                    await base44.asServiceRole.agents.deleteConversation(id, { agent_name: 'photon' });
-                    log('INFO', 'Conversation deleted (Method 1)', { id });
-                    results.deleted++;
-                } catch (method1Error) {
-                    log('DEBUG', 'Method 1 failed, trying Method 2', { id, error: method1Error.message });
-                    
-                    // Try Method 2: Using SDK conversation API directly
-                    try {
-                        const convo = await base44.asServiceRole.agents.getConversation(id);
-                        if (convo) {
-                            await base44.asServiceRole.agents.updateConversation(id, { archived: true });
-                            log('INFO', 'Conversation archived (Method 2)', { id });
-                            results.deleted++;
-                        }
-                    } catch (method2Error) {
-                        throw method1Error; // Throw original error if both fail
-                    }
-                }
-            } catch (error) {
-                log('ERROR', 'Failed to delete conversation', { 
-                    id, 
-                    error: error.message,
-                    stack: error.stack 
-                });
-                results.failed++;
-                results.errors.push({ id, error: error.message });
-            }
-        }
+        // Delete conversations directly
+         for (const id of conversation_ids) {
+             try {
+                 log('DEBUG', 'Attempting to delete conversation', { id });
+
+                 // The SDK deleteConversation takes just the ID
+                 const deleteResponse = await base44.asServiceRole.agents.deleteConversation(id);
+                 log('INFO', 'Conversation deleted successfully', { id, response: deleteResponse });
+                 results.deleted++;
+             } catch (error) {
+                 log('ERROR', 'Failed to delete conversation', { 
+                     id, 
+                     error: error.message,
+                     errorDetails: error.response?.data || error.toString()
+                 });
+                 results.failed++;
+                 results.errors.push({ id, error: error.message });
+             }
+         }
 
         log('INFO', 'Deletion loop complete', results);
 
