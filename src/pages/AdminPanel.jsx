@@ -608,7 +608,7 @@ Thank you for reaching out!
                         </div>
 
                         <div className="grid gap-6">
-                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <Card className="bg-slate-800/50 border-slate-700">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
                                 <AlertCircle className="w-5 h-5 text-yellow-400" />
@@ -652,7 +652,7 @@ Thank you for reaching out!
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                    <Card className="bg-slate-800/50 border-slate-700">
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-white flex items-center gap-2">
@@ -660,7 +660,7 @@ Thank you for reaching out!
                                     Master List Submissions ({pendingDocuments.length})
                                 </CardTitle>
                                 <Link to={createPageUrl('DocumentReview')}>
-                                    <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                                    <Button size="sm" variant="outline" className="border-slate-600 text-white hover:bg-slate-700">
                                         Review All Docs
                                     </Button>
                                 </Link>
@@ -719,7 +719,7 @@ Thank you for reaching out!
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                    <Card className="bg-slate-800/50 border-slate-700">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
                                 <CheckCircle className="w-5 h-5 text-green-400" />
@@ -768,7 +768,7 @@ Thank you for reaching out!
 
                     {/* Users Tab */}
                     <TabsContent value="users" className="space-y-6">
-                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                        <Card className="bg-slate-800/50 border-slate-700">
                             <CardHeader>
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <CardTitle className="text-white flex items-center gap-2">
@@ -866,7 +866,7 @@ Thank you for reaching out!
                         </Card>
                         
                         {/* Document Audit Trail */}
-                        <Card className="bg-white/10 backdrop-blur-md border-white/20" data-tour="audit-section">
+                         <Card className="bg-slate-800/50 border-slate-700" data-tour="audit-section">
                             <CardHeader>
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-white flex items-center gap-2">
@@ -951,7 +951,7 @@ Thank you for reaching out!
                         </Card>
 
                         {/* Conversation Management */}
-                        <Card className="bg-white/10 backdrop-blur-md border-white/20" data-tour="conversations-section">
+                         <Card className="bg-slate-800/50 border-slate-700" data-tour="conversations-section">
                             <CardHeader>
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <CardTitle className="text-white flex items-center gap-2">
@@ -1045,7 +1045,7 @@ Thank you for reaching out!
                             </Card>
                         </div>
 
-                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                        <Card className="bg-slate-800/50 border-slate-700">
                             <CardHeader>
                                 <CardTitle className="text-white flex items-center gap-2">
                                     <Users className="w-5 h-5" />
@@ -1154,7 +1154,7 @@ Thank you for reaching out!
                                 </CardContent>
                             </Card>
 
-                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <Card className="bg-slate-800/50 border-slate-700">
                                 <CardHeader>
                                     <CardTitle className="text-white flex items-center gap-2">
                                         <TrendingUp className="w-5 h-5" />
@@ -1174,7 +1174,7 @@ Thank you for reaching out!
                             </Card>
                         </div>
 
-                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                        <Card className="bg-slate-800/50 border-slate-700">
                             <CardHeader>
                                 <CardTitle className="text-white flex items-center gap-2">
                                     <Activity className="w-5 h-5" />
@@ -1211,7 +1211,7 @@ Thank you for reaching out!
             </div>
 
             <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
-                <DialogContent className="bg-slate-900 text-white border-white/20">
+                <DialogContent className="bg-slate-800/50 border-slate-700">
                     <DialogHeader>
                         <DialogTitle>Resolve Request</DialogTitle>
                     </DialogHeader>
