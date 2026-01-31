@@ -44,20 +44,20 @@ Deno.serve(async (req) => {
 
         log('INFO', 'Starting deletion loop', { total: conversation_ids.length });
 
-        // Delete conversations directly
+        // Archive conversations (SDK doesn't have delete, so we archive instead)
          for (const id of conversation_ids) {
              try {
-                 log('DEBUG', 'Attempting to delete conversation', { id });
+                 log('DEBUG', 'Attempting to archive conversation', { id });
 
-                 // The SDK deleteConversation takes just the ID
-                 const deleteResponse = await base44.asServiceRole.agents.deleteConversation(id);
-                 log('INFO', 'Conversation deleted successfully', { id, response: deleteResponse });
+                 await base44.asServiceRole.agents.updateConversation(id, { 
+                     metadata: { archived: true, archived_at: new Date().toISOString() }
+                 });
+                 log('INFO', 'Conversation archived successfully', { id });
                  results.deleted++;
              } catch (error) {
-                 log('ERROR', 'Failed to delete conversation', { 
+                 log('ERROR', 'Failed to archive conversation', { 
                      id, 
-                     error: error.message,
-                     errorDetails: error.response?.data || error.toString()
+                     error: error.message
                  });
                  results.failed++;
                  results.errors.push({ id, error: error.message });
