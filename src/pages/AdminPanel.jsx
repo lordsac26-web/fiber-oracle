@@ -627,6 +627,8 @@ Thank you for reaching out!
                                 </div>
                             </CardContent>
                         </Card>
+                        
+                        {/* User Stats Cards Below */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <Card className="bg-white/10 backdrop-blur-md border-white/20">
                                 <CardHeader className="pb-3">
