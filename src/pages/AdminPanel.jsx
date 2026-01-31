@@ -190,6 +190,8 @@ export default function AdminPanel() {
         }
     });
 
+    const CATEGORIES = ['installation', 'troubleshooting', 'maintenance', 'safety', 'specifications', 'training', 'other'];
+
     const resolveRequestMutation = useMutation({
         mutationFn: async ({ requestId, notes }) => {
             const request = await base44.entities.AdminRequest.get(requestId);
@@ -356,8 +358,6 @@ Thank you for reaching out!
             submissionsByCategory
         };
     }, [allDocSubmissions, allAuditLogs, allUsers]);
-
-    const CATEGORIES = ['installation', 'troubleshooting', 'maintenance', 'safety', 'specifications', 'training', 'other'];
 
     const handleBulkActivate = async () => {
         setIsBulkProcessing(true);

@@ -64,6 +64,7 @@ import Fiber102 from './pages/Fiber102';
 import Fiber103 from './pages/Fiber103';
 import FiberDoctor from './pages/FiberDoctor';
 import FiberLocator from './pages/FiberLocator';
+import FieldMode from './pages/FieldMode';
 import Home from './pages/Home';
 import Impairments from './pages/Impairments';
 import IndustryLinks from './pages/IndustryLinks';
@@ -89,7 +90,6 @@ import SplitterLoss from './pages/SplitterLoss';
 import StudyGuide from './pages/StudyGuide';
 import TechAssistant from './pages/TechAssistant';
 import UserGuide from './pages/UserGuide';
-import FieldMode from './pages/FieldMode';
 import __Layout from './Layout.jsx';
 
 
@@ -111,6 +111,7 @@ export const PAGES = {
     "Fiber103": Fiber103,
     "FiberDoctor": FiberDoctor,
     "FiberLocator": FiberLocator,
+    "FieldMode": FieldMode,
     "Home": Home,
     "Impairments": Impairments,
     "IndustryLinks": IndustryLinks,
@@ -136,7 +137,6 @@ export const PAGES = {
     "StudyGuide": StudyGuide,
     "TechAssistant": TechAssistant,
     "UserGuide": UserGuide,
-    "FieldMode": FieldMode,
 }
 
 export const pagesConfig = {
