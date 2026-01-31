@@ -554,7 +554,7 @@ Thank you for reaching out!
                     {/* Overview Tab */}
                     <TabsContent value="overview" className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <Card className="bg-slate-800/50 border-slate-700">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-sm">Pending Requests</CardTitle>
                                 </CardHeader>
@@ -562,7 +562,7 @@ Thank you for reaching out!
                                     <div className="text-3xl font-bold text-yellow-400">{pendingRequests.length}</div>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <Card className="bg-slate-800/50 border-slate-700">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-sm">Master List Submissions</CardTitle>
                                 </CardHeader>
@@ -570,7 +570,7 @@ Thank you for reaching out!
                                     <div className="text-3xl font-bold text-blue-400">{pendingDocuments.length}</div>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <Card className="bg-slate-800/50 border-slate-700">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-sm">Recent Approvals</CardTitle>
                                 </CardHeader>
@@ -994,7 +994,7 @@ Thank you for reaching out!
 
                         {/* User Stats Cards Below */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <Card className="bg-slate-800/50 border-slate-700">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-sm">Total Users</CardTitle>
                                 </CardHeader>
@@ -1002,7 +1002,7 @@ Thank you for reaching out!
                                     <div className="text-3xl font-bold text-blue-400">{analytics.users.total}</div>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <Card className="bg-slate-800/50 border-slate-700">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-sm">Admins</CardTitle>
                                 </CardHeader>
@@ -1010,7 +1010,7 @@ Thank you for reaching out!
                                     <div className="text-3xl font-bold text-purple-400">{analytics.users.admins}</div>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <Card className="bg-slate-800/50 border-slate-700">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-sm">Active (7d)</CardTitle>
                                 </CardHeader>
@@ -1055,7 +1055,7 @@ Thank you for reaching out!
                     {/* Analytics Tab */}
                     <TabsContent value="analytics" className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <Card className="bg-slate-800/50 border-slate-700">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-xs">Total Queries</CardTitle>
                                 </CardHeader>
@@ -1094,7 +1094,7 @@ Thank you for reaching out!
                         </div>
 
                         <div className="grid md:grid-cols-2 gap-6">
-                            <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <Card className="bg-slate-800/50 border-slate-700">
                                 <CardHeader>
                                     <CardTitle className="text-white flex items-center gap-2">
                                         <FileText className="w-5 h-5" />
