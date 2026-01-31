@@ -958,7 +958,7 @@ Thank you for reaching out!
                                         <MessageSquare className="w-5 h-5" />
                                         P.H.O.T.O.N. Conversations ({filteredConversations.length} / {allConversations.length})
                                     </CardTitle>
-                                    {selectedConvos.size > 0 && hasPermission('can_delete_conversations') && (
+                                    {selectedConvos.size > 0 && (
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -1006,13 +1006,11 @@ Thank you for reaching out!
                                                     </span>
                                                 </div>
                                             </div>
-                                            {hasPermission('can_delete_conversations') && (
-                                               <Checkbox
-                                                   checked={selectedConvos.has(convo.id)}
-                                                   onCheckedChange={() => toggleConvoSelection(convo.id)}
-                                                   onClick={(e) => e.stopPropagation()}
-                                               />
-                                            )}
+                                            <Checkbox
+                                                checked={selectedConvos.has(convo.id)}
+                                                onCheckedChange={() => toggleConvoSelection(convo.id)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
                                             </div>
                                             ))}
                                             </div>
