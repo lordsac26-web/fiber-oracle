@@ -323,20 +323,20 @@ export default function PhotonChat() {
             </div>
             <div className="flex items-center gap-1 sm:gap-2">
               <Link to={createPageUrl('DocumentSearch')} className="hidden sm:inline-block">
-                <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
+                <Button variant="outline" size="sm" className="border-cyan-400 bg-cyan-500/20 text-cyan-100 hover:bg-cyan-500/30 hover:border-cyan-300 font-medium">
                   <Search className="h-4 w-4 mr-2" />
                   <span className="hidden md:inline">Search Docs</span>
                 </Button>
               </Link>
               <Link to={createPageUrl('PhotonAuditLogs')} className="hidden lg:inline-block">
-                <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
+                <Button variant="outline" size="sm" className="border-blue-400 bg-blue-500/20 text-blue-100 hover:bg-blue-500/30 hover:border-blue-300 font-medium">
                   <FileCheck className="h-4 w-4 mr-2" />
                   <span className="hidden md:inline">Audit</span>
                 </Button>
               </Link>
               {isAdmin && (
                 <Link to={createPageUrl('DocumentReview')} className="hidden lg:inline-block">
-                  <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
+                  <Button variant="outline" size="sm" className="border-purple-400 bg-purple-500/20 text-purple-100 hover:bg-purple-500/30 hover:border-purple-300 font-medium">
                     <FileText className="h-4 w-4 mr-2" />
                     <span className="hidden md:inline">Review</span>
                   </Button>
@@ -344,7 +344,7 @@ export default function PhotonChat() {
               )}
               <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
+                  <Button variant="outline" size="sm" className="border-emerald-400 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30 hover:border-emerald-300 font-medium">
                     <Upload className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                     <span className="hidden sm:inline">Add</span>
                   </Button>
@@ -429,7 +429,7 @@ export default function PhotonChat() {
                 variant="outline" 
                 size="sm"
                 onClick={createConversation}
-                className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50"
+                className="border-cyan-400 bg-cyan-500/30 text-white hover:bg-cyan-500/40 hover:border-cyan-300 font-semibold shadow-lg"
               >
                 <Plus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
                 <span className="hidden sm:inline">New</span>
@@ -516,7 +516,7 @@ export default function PhotonChat() {
                         to troubleshoot, diagnose, or get installation guidance for fiber optic systems.
                       </p>
                     </div>
-                    <Button onClick={createConversation} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Button onClick={createConversation} className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold shadow-lg">
                       <Plus className="h-4 w-4 mr-2" />
                       Start New Session
                     </Button>
@@ -552,7 +552,7 @@ export default function PhotonChat() {
                   <Button 
                     type="submit" 
                     disabled={isSending || !inputMessage.trim()}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-2 sm:px-4 min-h-[44px]"
+                    className="bg-cyan-500 hover:bg-cyan-600 text-white px-2 sm:px-4 min-h-[44px] font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     size="sm"
                   >
                     {isSending ? (
