@@ -15,6 +15,9 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import moment from 'moment';
 import DocumentUploadManager from '@/components/admin/DocumentUploadManager';
+import SystemHealthMonitor from '@/components/admin/SystemHealthMonitor';
+import AdvancedAuditFilter from '@/components/admin/AdvancedAuditFilter';
+import ConversationFilter from '@/components/admin/ConversationFilter';
 
 export default function AdminPanel() {
     const [selectedRequest, setSelectedRequest] = useState(null);
@@ -66,9 +69,95 @@ export default function AdminPanel() {
         enabled: user?.role === 'admin'
     });
 
+    // Check user permissions
+    const hasPermission = (permission) => {
+        if (user?.role !== 'admin') return false;
+        if (user?.admin_role === 'super_admin') return true;
+        return user?.permissions?.[permission] || false;
+    };
+
+    // Filter audit logs based on active filters
+    const filteredAuditLogs = React.useMemo(() => {
+        let filtered = documentAuditLogs;
+        
+        if (auditFilters.searchTerm) {
+            filtered = filtered.filter(log => 
+                log.content?.toLowerCase().includes(auditFilters.searchTerm.toLowerCase()) ||
+                log.user_email?.toLowerCase().includes(auditFilters.searchTerm.toLowerCase())
+            );
+        }
+        
+        if (auditFilters.eventType && auditFilters.eventType !== 'all') {
+            filtered = filtered.filter(log => log.event_type === auditFilters.eventType);
+        }
+        
+        if (auditFilters.status && auditFilters.status !== 'all') {
+            filtered = filtered.filter(log => log.status === auditFilters.status);
+        }
+        
+        if (auditFilters.userFilter) {
+            filtered = filtered.filter(log => 
+                log.user_email?.toLowerCase().includes(auditFilters.userFilter.toLowerCase())
+            );
+        }
+        
+        if (auditFilters.dateFrom) {
+            filtered = filtered.filter(log => 
+                moment(log.created_date).isSameOrAfter(moment(auditFilters.dateFrom))
+            );
+        }
+        
+        if (auditFilters.dateTo) {
+            filtered = filtered.filter(log => 
+                moment(log.created_date).isSameOrBefore(moment(auditFilters.dateTo))
+            );
+        }
+        
+        return filtered;
+    }, [documentAuditLogs, auditFilters]);
+
+    // Filter conversations based on active filters
+    const filteredConversations = React.useMemo(() => {
+        let filtered = allConversations;
+        
+        if (convoFilters.searchTerm) {
+            filtered = filtered.filter(convo => 
+                convo.metadata?.name?.toLowerCase().includes(convoFilters.searchTerm.toLowerCase())
+            );
+        }
+        
+        if (convoFilters.dateFrom) {
+            filtered = filtered.filter(convo => 
+                moment(convo.created_date).isSameOrAfter(moment(convoFilters.dateFrom))
+            );
+        }
+        
+        if (convoFilters.dateTo) {
+            filtered = filtered.filter(convo => 
+                moment(convo.created_date).isSameOrBefore(moment(convoFilters.dateTo))
+            );
+        }
+        
+        if (convoFilters.minMessages) {
+            filtered = filtered.filter(convo => 
+                (convo.messages?.length || 0) >= convoFilters.minMessages
+            );
+        }
+        
+        if (convoFilters.maxMessages) {
+            filtered = filtered.filter(convo => 
+                (convo.messages?.length || 0) <= convoFilters.maxMessages
+            );
+        }
+        
+        return filtered;
+    }, [allConversations, convoFilters]);
+
     const [selectedDocs, setSelectedDocs] = useState(new Set());
     const [selectedConvos, setSelectedConvos] = useState(new Set());
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+    const [auditFilters, setAuditFilters] = useState({});
+    const [convoFilters, setConvoFilters] = useState({});
 
     const { data: pendingRequests = [] } = useQuery({
         queryKey: ['pendingAdminRequests'],
@@ -456,6 +545,10 @@ Thank you for reaching out!
                             <BarChart3 className="w-4 h-4 mr-2" />
                             Analytics
                         </TabsTrigger>
+                        <TabsTrigger value="health" className="data-[state=active]:bg-blue-600">
+                            <Activity className="w-4 h-4 mr-2" />
+                            System Health
+                        </TabsTrigger>
                     </TabsList>
 
                     {/* Overview Tab */}
@@ -754,15 +847,19 @@ Thank you for reaching out!
                                         Document Management Audit Trail
                                     </CardTitle>
                                     <Badge className="bg-blue-500 text-white">
-                                        {documentAuditLogs.length} events
+                                        {filteredAuditLogs.length} / {documentAuditLogs.length} events
                                     </Badge>
                                 </div>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="space-y-3">
+                                <AdvancedAuditFilter 
+                                    onFilterChange={setAuditFilters} 
+                                    totalCount={filteredAuditLogs.length}
+                                />
                                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                                    {documentAuditLogs.length === 0 ? (
-                                        <p className="text-white/60 text-center py-8">No document activity logged</p>
-                                    ) : documentAuditLogs.map(log => {
+                                    {filteredAuditLogs.length === 0 ? (
+                                        <p className="text-white/60 text-center py-8">No matching audit logs</p>
+                                    ) : filteredAuditLogs.map(log => {
                                         const action = log.metadata?.action || 'unknown';
                                         const actionColors = {
                                             approved: 'bg-green-500',
@@ -832,9 +929,9 @@ Thank you for reaching out!
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <CardTitle className="text-white flex items-center gap-2">
                                         <MessageSquare className="w-5 h-5" />
-                                        P.H.O.T.O.N. Conversations ({allConversations.length})
+                                        P.H.O.T.O.N. Conversations ({filteredConversations.length} / {allConversations.length})
                                     </CardTitle>
-                                    {selectedConvos.size > 0 && (
+                                    {selectedConvos.size > 0 && hasPermission('can_delete_conversations') && (
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -848,14 +945,15 @@ Thank you for reaching out!
                                     )}
                                 </div>
                             </CardHeader>
-                            <CardContent>
-                                <div className="mb-3 text-sm text-white/70">
-                                    Clean up test conversations and garbage interactions
-                                </div>
+                            <CardContent className="space-y-3">
+                                <ConversationFilter 
+                                    onFilterChange={setConvoFilters}
+                                    totalCount={filteredConversations.length}
+                                />
                                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                                    {allConversations.length === 0 ? (
-                                        <p className="text-white/60 text-center py-8">No conversations found</p>
-                                    ) : allConversations.map(convo => (
+                                    {filteredConversations.length === 0 ? (
+                                        <p className="text-white/60 text-center py-8">No matching conversations</p>
+                                    ) : filteredConversations.map(convo => (
                                         <div
                                             key={convo.id}
                                             onClick={() => toggleConvoSelection(convo.id)}
@@ -881,16 +979,18 @@ Thank you for reaching out!
                                                     </span>
                                                 </div>
                                             </div>
-                                            <Checkbox
-                                                checked={selectedConvos.has(convo.id)}
-                                                onCheckedChange={() => toggleConvoSelection(convo.id)}
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
+                                            {hasPermission('can_delete_conversations') && (
+                                               <Checkbox
+                                                   checked={selectedConvos.has(convo.id)}
+                                                   onCheckedChange={() => toggleConvoSelection(convo.id)}
+                                                   onClick={(e) => e.stopPropagation()}
+                                               />
+                                            )}
+                                            </div>
+                                            ))}
+                                            </div>
+                                            </CardContent>
+                                            </Card>
 
                         {/* User Stats Cards Below */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1076,6 +1176,11 @@ Thank you for reaching out!
                                 </div>
                             </CardContent>
                         </Card>
+                    </TabsContent>
+
+                    {/* System Health Tab */}
+                    <TabsContent value="health" className="space-y-6">
+                        <SystemHealthMonitor />
                     </TabsContent>
                 </Tabs>
             </div>
