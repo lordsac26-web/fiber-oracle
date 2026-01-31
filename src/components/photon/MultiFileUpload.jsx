@@ -19,7 +19,7 @@ const SUPPORTED_FORMATS = ['.pdf', '.txt', '.doc', '.docx', '.md', '.csv', '.jso
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_FILES = 10;
 
-export default function MultiFileUpload({ onComplete, onClose }) {
+export default function MultiFileUpload({ onComplete, onClose, isAdmin = true }) {
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [processedFiles, setProcessedFiles] = useState([]);
@@ -96,24 +96,46 @@ export default function MultiFileUpload({ onComplete, onClose }) {
       if (extraction.status === 'success' && extraction.output) {
         updateFileStatus(index, { stage: 'Creating document entry...', progress: 70 });
         
-        const doc = await base44.entities.ReferenceDocument.create({
-          title: fileObj.file.name.replace(/\.[^/.]+$/, ''),
-          source_type: 'pdf',
-          source_url: file_url,
-          content: extraction.output.full_text || JSON.stringify(extraction.output),
-          metadata: {
-            page_count: extraction.output.sections?.length || 0,
-            upload_date: new Date().toISOString(),
-            file_size: fileObj.file.size,
-            original_filename: fileObj.file.name,
-            file_type: fileObj.file.type
-          },
-          is_active: true
-        });
+        // Create reference document or submission based on user role
+        let doc;
+        if (isAdmin) {
+          doc = await base44.entities.ReferenceDocument.create({
+            title: fileObj.file.name.replace(/\.[^/.]+$/, ''),
+            source_type: 'pdf',
+            source_url: file_url,
+            content: extraction.output.full_text || JSON.stringify(extraction.output),
+            metadata: {
+              page_count: extraction.output.sections?.length || 0,
+              upload_date: new Date().toISOString(),
+              file_size: fileObj.file.size,
+              original_filename: fileObj.file.name,
+              file_type: fileObj.file.type
+            },
+            is_active: true
+          });
+        } else {
+          const user = await base44.auth.me();
+          doc = await base44.entities.DocumentSubmission.create({
+            title: fileObj.file.name.replace(/\.[^/.]+$/, ''),
+            source_type: 'pdf',
+            source_url: file_url,
+            content: extraction.output.full_text || JSON.stringify(extraction.output),
+            metadata: {
+              page_count: extraction.output.sections?.length || 0,
+              upload_date: new Date().toISOString(),
+              file_size: fileObj.file.size,
+              original_filename: fileObj.file.name,
+              file_type: fileObj.file.type
+            },
+            submitted_by: user.email,
+            status: 'pending',
+            security_scan_status: 'pending'
+          });
+        }
 
         updateFileStatus(index, { 
           status: 'success', 
-          stage: 'Indexed successfully!', 
+          stage: isAdmin ? 'Indexed successfully!' : 'Submitted for review!', 
           progress: 100,
           documentId: doc.id
         });

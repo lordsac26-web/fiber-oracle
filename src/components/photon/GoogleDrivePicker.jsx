@@ -12,7 +12,7 @@ import {
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
-export default function GoogleDrivePicker({ onComplete, onClose }) {
+export default function GoogleDrivePicker({ onComplete, onClose, isAdmin = true }) {
   const [driveUrl, setDriveUrl] = useState('');
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState(null);

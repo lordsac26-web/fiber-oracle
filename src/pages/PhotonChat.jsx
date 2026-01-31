@@ -52,6 +52,8 @@ export default function PhotonChat() {
     base44.auth.me().then(user => setCurrentUser(user)).catch(() => {});
   }, []);
 
+  const isAdmin = currentUser?.role === 'admin';
+
   // Audit logging helper
   const logAuditEvent = async (eventType, content, metadata = {}, status = 'success', errorMessage = null) => {
     if (!currentUser) return;
@@ -257,6 +259,14 @@ export default function PhotonChat() {
                   Audit Logs
                 </Button>
               </Link>
+              {isAdmin && (
+                <Link to={createPageUrl('DocumentReview')}>
+                  <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Review Docs
+                  </Button>
+                </Link>
+              )}
               <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="border-white/30 bg-white/10 text-white hover:bg-white/20 hover:border-white/50">
@@ -298,11 +308,13 @@ export default function PhotonChat() {
                     <MultiFileUpload 
                       onComplete={handleUploadComplete}
                       onClose={() => setShowUploadDialog(false)}
+                      isAdmin={isAdmin}
                     />
                   ) : (
                     <GoogleDrivePicker
                       onComplete={handleUploadComplete}
                       onClose={() => setShowUploadDialog(false)}
+                      isAdmin={isAdmin}
                     />
                   )}
 
