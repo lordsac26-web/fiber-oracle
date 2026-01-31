@@ -7,7 +7,8 @@ import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 import { useNavigate, Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
-import { Shield } from 'lucide-react';
+import { Shield, Sun, Moon } from 'lucide-react';
+import { ThemeProvider, useTheme } from 'next-themes';
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,27 @@ if ('serviceWorker' in navigator) {
         console.log('SW registration failed:', error);
       });
   });
+}
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return (
+    <button
+      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
+      aria-label="Toggle theme"
+    >
+      {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+    </button>
+  );
 }
 
 function LayoutContent({ children, currentPageName }) {
@@ -93,15 +115,23 @@ function LayoutContent({ children, currentPageName }) {
         onComplete={handleTransitionComplete}
       />
       {isAdmin && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-1 text-xs flex items-center justify-center gap-2 shadow-lg">
-          <Shield className="h-3 w-3" />
-          <span className="font-medium">Admin Mode</span>
-          <Link 
-            to={createPageUrl('AdminPanel')}
-            className="ml-2 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded transition-colors"
-          >
-            Control Panel
-          </Link>
+        <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-1 text-xs flex items-center justify-between shadow-lg">
+          <div className="flex items-center gap-2">
+            <Shield className="h-3 w-3" />
+            <span className="font-medium">Admin Mode</span>
+            <Link 
+              to={createPageUrl('AdminPanel')}
+              className="ml-2 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded transition-colors"
+            >
+              Control Panel
+            </Link>
+          </div>
+          <ThemeToggle />
+        </div>
+      )}
+      {!isAdmin && (
+        <div className="fixed top-4 right-4 z-50">
+          <ThemeToggle />
         </div>
       )}
       <div className={isAdmin ? 'pt-7' : ''}>
@@ -113,10 +143,12 @@ function LayoutContent({ children, currentPageName }) {
 
 export default function Layout({ children, currentPageName }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <UserPreferencesProvider>
-        <LayoutContent children={children} currentPageName={currentPageName} />
-      </UserPreferencesProvider>
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <UserPreferencesProvider>
+          <LayoutContent children={children} currentPageName={currentPageName} />
+        </UserPreferencesProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
