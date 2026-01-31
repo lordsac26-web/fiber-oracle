@@ -499,8 +499,16 @@ Thank you for reaching out!
             
             console.log('🗑️ deleteConversations: Response received', response.data);
             
-            if (response.data.logs) {
-                console.log('🗑️ deleteConversations: Backend logs:', response.data.logs);
+            // Display backend logs prominently
+            if (response.data.logs && response.data.logs.length > 0) {
+                console.group('🗑️ BACKEND LOGS:');
+                response.data.logs.forEach(entry => {
+                    const style = entry.level === 'ERROR' ? 'color: red; font-weight: bold;' : 
+                                  entry.level === 'WARN' ? 'color: orange; font-weight: bold;' : 
+                                  'color: blue;';
+                    console.log(`%c[${entry.level}] ${entry.msg}`, style, entry.data || '');
+                });
+                console.groupEnd();
             }
             
             if (response.data.success) {
