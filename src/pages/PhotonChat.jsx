@@ -498,7 +498,7 @@ export default function PhotonChat() {
               </div>
             </CardHeader>
             
-            <CardContent className="flex-1 overflow-y-auto space-y-2 sm:space-y-4 py-2 sm:py-4 px-2 sm:px-6 min-h-0 bg-slate-800/30">
+            <CardContent className="flex-1 overflow-y-auto space-y-2 sm:space-y-4 py-2 sm:py-4 px-2 sm:px-6 min-h-0 bg-slate-900/50">
               {!conversationId ? (
                 <div className="flex flex-col items-center justify-center h-full text-center space-y-3 sm:space-y-4 px-4">
                   <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
