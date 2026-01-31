@@ -459,6 +459,52 @@ Thank you for reaching out!
 
                     {/* Users Tab */}
                     <TabsContent value="users" className="space-y-6">
+                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-white flex items-center gap-2">
+                                        <FileText className="w-5 h-5" />
+                                        PDF Management
+                                    </CardTitle>
+                                    <Link to={createPageUrl('DocumentSearch')}>
+                                        <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                                            Search All Docs
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid md:grid-cols-3 gap-4">
+                                    <div className="bg-white/5 rounded-lg p-4">
+                                        <FileText className="w-8 h-8 text-blue-400 mb-2" />
+                                        <div className="text-2xl font-bold text-white">{allDocSubmissions.length}</div>
+                                        <div className="text-xs text-white/60">Total Uploads</div>
+                                    </div>
+                                    <div className="bg-white/5 rounded-lg p-4">
+                                        <CheckCircle className="w-8 h-8 text-green-400 mb-2" />
+                                        <div className="text-2xl font-bold text-white">
+                                            {allDocSubmissions.filter(d => d.status === 'approved').length}
+                                        </div>
+                                        <div className="text-xs text-white/60">Approved</div>
+                                    </div>
+                                    <div className="bg-white/5 rounded-lg p-4">
+                                        <Clock className="w-8 h-8 text-yellow-400 mb-2" />
+                                        <div className="text-2xl font-bold text-white">
+                                            {allDocSubmissions.filter(d => d.status === 'pending').length}
+                                        </div>
+                                        <div className="text-xs text-white/60">Pending Review</div>
+                                    </div>
+                                </div>
+                                <div className="mt-4">
+                                    <Link to={createPageUrl('DocumentReview')}>
+                                        <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                                            <FileText className="w-4 h-4 mr-2" />
+                                            Review & Manage Documents
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </CardContent>
+                        </Card>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <Card className="bg-white/10 backdrop-blur-md border-white/20">
                                 <CardHeader className="pb-3">

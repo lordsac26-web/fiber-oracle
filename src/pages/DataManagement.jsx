@@ -29,12 +29,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Database, Trash2, Search, Loader2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Database, Trash2, Search, Loader2, AlertTriangle, Download, Upload as UploadIcon, FileJson } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import moment from 'moment';
 
 export default function DataManagement() {
@@ -47,6 +47,14 @@ export default function DataManagement() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 50;
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Get current user
+  React.useEffect(() => {
+    base44.auth.me().then(user => setCurrentUser(user)).catch(() => {});
+  }, []);
+
+  const isAdmin = currentUser?.role === 'admin';
 
   // Fetch ONT records
   const { data: records = [], isLoading } = useQuery({
@@ -138,6 +146,68 @@ export default function DataManagement() {
     }
   };
 
+  const exportKnowledgeBase = useMutation({
+    mutationFn: async () => {
+      const response = await base44.functions.invoke('exportKnowledgeBase');
+      return response.data;
+    },
+    onSuccess: (data) => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `knowledge-base-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Knowledge base exported successfully');
+    },
+    onError: (error) => {
+      toast.error(`Export failed: ${error.message}`);
+    }
+  });
+
+  const importKnowledgeBase = useMutation({
+    mutationFn: async (importData) => {
+      const response = await base44.functions.invoke('importKnowledgeBase', importData);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      const { results } = data;
+      toast.success(
+        `Import complete: ${results.imported} imported, ${results.updated} updated, ${results.skipped} skipped${
+          results.errors.length > 0 ? `, ${results.errors.length} errors` : ''
+        }`
+      );
+      queryClient.invalidateQueries({ queryKey: ['referenceDocs'] });
+    },
+    onError: (error) => {
+      toast.error(`Import failed: ${error.message}`);
+    }
+  });
+
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (data.documents && Array.isArray(data.documents)) {
+          importKnowledgeBase.mutate({
+            documents: data.documents,
+            merge_strategy: 'skip'
+          });
+        } else {
+          toast.error('Invalid import file format');
+        }
+      } catch (error) {
+        toast.error('Failed to parse import file');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const filteredRecords = records;
 
   return (
@@ -153,23 +223,66 @@ export default function DataManagement() {
               </Link>
               <div>
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Data Management</h1>
-                <p className="text-xs text-gray-500">Manage ONT Performance Records</p>
+                <p className="text-xs text-gray-500">Manage ONT Performance & Knowledge Base</p>
               </div>
             </div>
-            {selectedRecords.size > 0 && (
-              <Button 
-                variant="destructive"
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4 mr-2" />
-                )}
-                Delete Selected ({selectedRecords.size})
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportKnowledgeBase.mutate()}
+                    disabled={exportKnowledgeBase.isPending}
+                  >
+                    {exportKnowledgeBase.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
+                    Export KB
+                  </Button>
+                  <label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={importKnowledgeBase.isPending}
+                      asChild
+                    >
+                      <span>
+                        {importKnowledgeBase.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <UploadIcon className="h-4 w-4 mr-2" />
+                        )}
+                        Import KB
+                      </span>
+                    </Button>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportFile}
+                      className="hidden"
+                      disabled={importKnowledgeBase.isPending}
+                    />
+                  </label>
+                </>
+              )}
+                {selectedRecords.size > 0 && (
+                <Button 
+                  variant="destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Delete Selected ({selectedRecords.size})
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>

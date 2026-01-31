@@ -16,8 +16,8 @@ import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 
 const SUPPORTED_FORMATS = ['.pdf', '.txt', '.doc', '.docx', '.md', '.csv', '.json', '.xml'];
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const MAX_FILES = 10;
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB - Platform limit
+const MAX_FILES = 20; // Increased from 10
 
 import DocumentMetadataForm from './DocumentMetadataForm';
 
@@ -259,10 +259,11 @@ View in admin panel to approve or deny.
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2">Upload Limitations</h4>
         <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
-          <li>• Maximum {MAX_FILES} files per upload</li>
-          <li>• Maximum 50MB per file</li>
+          <li>• Maximum {MAX_FILES} files per batch upload</li>
+          <li>• Maximum 50MB per file (platform limit)</li>
           <li>• Supported formats: {SUPPORTED_FORMATS.join(', ')}</li>
-          <li>• All documents will be indexed and made searchable</li>
+          <li>• All documents are indexed and searchable</li>
+          <li>• For larger files (&gt;50MB), split into smaller chunks or compress</li>
         </ul>
       </div>
 
