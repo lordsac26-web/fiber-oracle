@@ -138,6 +138,11 @@ export default function PhotonAuditLogs() {
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </Link>
+              <img 
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
+                alt="Fiber Oracle" 
+                className="w-10 h-10 rounded-xl object-cover shadow-lg"
+              />
               <div>
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">P.H.O.T.O.N. Audit Logs</h1>
                 <p className="text-xs text-gray-500">Comprehensive activity tracking and compliance</p>
