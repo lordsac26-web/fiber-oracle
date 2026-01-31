@@ -423,10 +423,10 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
                 <img 
-                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
-                  alt="Fiber Oracle" 
-                  className="w-10 h-10 rounded-xl object-cover shadow-lg"
-                />
+                    src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png" 
+                    alt="Fiber Oracle" 
+                    className="w-10 h-10 rounded-xl object-cover shadow-lg"
+                  />
                 <div>
                   <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Fiber Oracle</h1>
                   <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">When you need to know, ask the Oracle.</p>

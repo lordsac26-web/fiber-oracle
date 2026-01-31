@@ -537,7 +537,7 @@ Thank you for reaching out!
                             </Button>
                         </Link>
                     <img 
-                        src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
+                        src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png" 
                         alt="Fiber Oracle" 
                         className="w-12 h-12 rounded-xl object-cover shadow-lg"
                     />
