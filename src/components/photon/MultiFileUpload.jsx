@@ -74,7 +74,15 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
     try {
       updateFileStatus(index, { status: 'uploading', stage: 'Uploading file...', progress: 10 });
       
-      const { file_url } = await base44.integrations.Core.UploadFile({ file: fileObj.file });
+      // Upload with retry logic for network issues
+      let file_url;
+      try {
+        const uploadResult = await base44.integrations.Core.UploadFile({ file: fileObj.file });
+        file_url = uploadResult.file_url;
+      } catch (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw new Error(`Upload failed: ${uploadError.message || 'Network error. Please check your connection and try again.'}`);
+      }
       
       updateFileStatus(index, { stage: 'Extracting content...', progress: 40 });
       
@@ -389,18 +397,23 @@ View in admin panel to approve or deny.
           variant="outline"
           onClick={onClose}
           disabled={uploading}
+          className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
         >
           {allComplete ? 'Close' : 'Cancel'}
         </Button>
         <div className="flex gap-2">
           {allComplete ? (
-            <Button onClick={() => { onComplete(); onClose(); }}>
+            <Button 
+              onClick={() => { onComplete(); onClose(); }}
+              className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold shadow-lg"
+            >
               Done
             </Button>
           ) : files.length > 0 && (
             <Button
               onClick={startMetadataCollection}
               disabled={uploading}
+              className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? (
                 <>
@@ -410,7 +423,7 @@ View in admin panel to approve or deny.
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-2" />
-                  Next: Add Details
+                  Continue Upload
                 </>
               )}
             </Button>
