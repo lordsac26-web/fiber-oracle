@@ -12,33 +12,64 @@ const COLORS = {
   highlight: [248, 249, 250]
 };
 
-// Parse content into structured sections using Handlebars templates
-function parseContentStructure(content) {
-  const template = `
-{{#each sections}}
-  {{#if isTitle}}[TITLE]{{text}}[/TITLE]{{/if}}
-  {{#if isSection}}[SECTION]{{text}}[/SECTION]{{/if}}
-  {{#if isSubsection}}[SUBSECTION]{{text}}[/SUBSECTION]{{/if}}
-  {{#if isParagraph}}[P]{{text}}[/P]{{/if}}
-  {{#if isList}}[LIST]{{text}}[/LIST]{{/if}}
-  {{#if isHighlight}}[HIGHLIGHT]{{text}}[/HIGHLIGHT]{{/if}}
-{{/each}}
-  `;
+// Clean text for PDF rendering - remove Unicode symbols that jsPDF can't handle
+function cleanTextForPDF(text) {
+  return text
+    // Replace Unicode arrows
+    .replace(/→/g, '->')
+    .replace(/←/g, '<-')
+    .replace(/↔/g, '<->')
+    // Replace checkmarks and crosses
+    .replace(/✅/g, '[YES]')
+    .replace(/❌/g, '[NO]')
+    .replace(/✓/g, '[CHECK]')
+    .replace(/✗/g, '[X]')
+    // Replace common emojis with text
+    .replace(/📊/g, '[CHART]')
+    .replace(/🔧/g, '[TOOL]')
+    .replace(/📈/g, '[GRAPH]')
+    .replace(/📍/g, '[PIN]')
+    .replace(/🎓/g, '[GRAD]')
+    .replace(/🤖/g, '[AI]')
+    .replace(/📱/g, '[MOBILE]')
+    .replace(/📸/g, '[CAMERA]')
+    .replace(/💬/g, '[CHAT]')
+    // Replace bullet points
+    .replace(/•/g, '-')
+    .replace(/▪/g, '-')
+    .replace(/◆/g, '-')
+    // Replace special quotes
+    .replace(/[""]/g, '"')
+    .replace(/['']/g, "'")
+    // Replace en/em dashes
+    .replace(/–/g, '-')
+    .replace(/—/g, '-')
+    // Replace other problematic characters
+    .replace(/≤/g, '<=')
+    .replace(/≥/g, '>=')
+    .replace(/×/g, 'x')
+    .replace(/÷/g, '/')
+    // Remove any remaining non-ASCII characters
+    .replace(/[^\x00-\x7F]/g, '');
+}
 
-  const lines = content.trim().split('\n');
+// Parse content into structured sections
+function parseContentStructure(content) {
+  const cleanedContent = cleanTextForPDF(content);
+  const lines = cleanedContent.trim().split('\n');
   const sections = [];
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    if (trimmed === trimmed.toUpperCase() && trimmed.length > 20 && !trimmed.startsWith('✅')) {
+    if (trimmed === trimmed.toUpperCase() && trimmed.length > 20 && !trimmed.startsWith('[YES]')) {
       sections.push({ isTitle: true, text: trimmed });
     } else if (trimmed.match(/^SECTION \d+:/)) {
       sections.push({ isSection: true, text: trimmed });
     } else if (trimmed.match(/^\d+\.\d+\s+[A-Z]/)) {
       sections.push({ isSubsection: true, text: trimmed });
-    } else if (trimmed.startsWith('✅') || trimmed.startsWith('❌') || trimmed.startsWith('-')) {
+    } else if (trimmed.startsWith('[YES]') || trimmed.startsWith('[NO]') || trimmed.startsWith('-')) {
       sections.push({ isList: true, text: trimmed });
     } else if (trimmed.includes('IMPORTANT:') || trimmed.includes('CRITICAL:')) {
       sections.push({ isHighlight: true, text: trimmed });
