@@ -69,6 +69,7 @@ export default function PhotonHeader({
                 src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png"
                 alt="Fiber Oracle"
                 className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover shadow-lg"
+                onError={(e) => { e.target.style.display = 'none'; }}
               />
               <div className="hidden sm:block">
                 <motion.h1
