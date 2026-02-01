@@ -18,8 +18,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
-  FileDown
-} from 'lucide-react';
+  FileDown } from
+'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -31,16 +31,16 @@ import {
   getStorageUsed,
   formatBytes,
   clearAllDocuments,
-  saveDocumentOffline
-} from '@/components/OfflineDocumentService';
+  saveDocumentOffline } from
+'@/components/OfflineDocumentService';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  DialogFooter } from
+"@/components/ui/dialog";
 
 const DOCUMENT_TYPES = {
   studyGuide: { label: 'Study Guide', icon: BookOpen, color: 'bg-green-500' },
@@ -49,7 +49,7 @@ const DOCUMENT_TYPES = {
   jobReport: { label: 'Job Report', icon: ClipboardList, color: 'bg-slate-500' },
   manual: { label: 'User Manual', icon: BookOpen, color: 'bg-indigo-500' },
   reference: { label: 'Reference', icon: FileText, color: 'bg-cyan-500' },
-  training: { label: 'Training', icon: BookOpen, color: 'bg-emerald-500' },
+  training: { label: 'Training', icon: BookOpen, color: 'bg-emerald-500' }
 };
 
 export default function OfflineDocuments() {
@@ -88,7 +88,7 @@ export default function OfflineDocuments() {
   };
 
   const generateDocumentationPDF = async (type) => {
-    setGeneratingDocs(prev => ({ ...prev, [type]: true }));
+    setGeneratingDocs((prev) => ({ ...prev, [type]: true }));
     try {
       const response = await base44.functions.invoke('generateDocumentationPDFs', {
         type
@@ -97,14 +97,14 @@ export default function OfflineDocuments() {
       if (response.data.success) {
         // Convert PDF data array back to Uint8Array
         const pdfData = new Uint8Array(response.data.pdf_data);
-        
+
         // Save to offline storage
         await saveDocumentOffline(
           response.data.document_id,
           'manual',
           response.data.title,
           pdfData,
-          { 
+          {
             category: response.data.category || 'training',
             generated: true,
             type: response.data.type
@@ -119,7 +119,7 @@ export default function OfflineDocuments() {
       console.error('PDF generation error:', error);
       toast.error('Failed to generate documentation PDF');
     }
-    setGeneratingDocs(prev => ({ ...prev, [type]: false }));
+    setGeneratingDocs((prev) => ({ ...prev, [type]: false }));
   };
 
   const loadDocuments = async () => {
@@ -197,16 +197,16 @@ export default function OfflineDocuments() {
         // Save to local offline storage
         const pdfResponse = await fetch(doc.source_url);
         const pdfData = await pdfResponse.blob();
-        
+
         await saveDocumentOffline(
           doc.id,
           'reference',
           doc.title,
           pdfData,
-          { 
+          {
             category: doc.category,
             version: doc.version,
-            extracted: response.data.content_extracted 
+            extracted: response.data.content_extracted
           }
         );
 
@@ -232,7 +232,7 @@ export default function OfflineDocuments() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Offline Documents</h1>
+                <h1 className="text-gray-900 text-2xl font-semibold dark:text-white">Offline Documents</h1>
                 <p className="text-xs text-gray-500">Saved for offline access</p>
               </div>
             </div>
@@ -263,12 +263,12 @@ export default function OfflineDocuments() {
                   <RefreshCw className="h-4 w-4 mr-1" />
                   Refresh
                 </Button>
-                {documents.length > 0 && (
-                  <Button variant="outline" size="sm" className="text-red-600" onClick={() => setShowClearDialog(true)}>
+                {documents.length > 0 &&
+                <Button variant="outline" size="sm" className="text-red-600" onClick={() => setShowClearDialog(true)}>
                     <Trash2 className="h-4 w-4 mr-1" />
                     Clear All
                   </Button>
-                )}
+                }
               </div>
             </div>
           </CardContent>
@@ -294,13 +294,13 @@ export default function OfflineDocuments() {
               <Button
                 size="sm"
                 onClick={handleSaveBrochure}
-                disabled={savingDoc === 'brochure' || !isOnline}
-              >
-                {savingDoc === 'brochure' ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
+                disabled={savingDoc === 'brochure' || !isOnline}>
+
+                {savingDoc === 'brochure' ?
+                <Loader2 className="h-4 w-4 animate-spin" /> :
+
+                <Download className="h-4 w-4" />
+                }
               </Button>
             </div>
 
@@ -311,8 +311,8 @@ export default function OfflineDocuments() {
                   size="sm"
                   onClick={() => generateDocumentationPDF('user_manual')}
                   disabled={generatingDocs['user_manual'] || !isOnline}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                >
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white">
+
                   {generatingDocs['user_manual'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                   <span className="hidden sm:inline ml-1">User Manual</span>
                 </Button>
@@ -320,8 +320,8 @@ export default function OfflineDocuments() {
                   size="sm"
                   onClick={() => generateDocumentationPDF('quick_reference')}
                   disabled={generatingDocs['quick_reference'] || !isOnline}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                >
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white">
+
                   {generatingDocs['quick_reference'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                   <span className="hidden sm:inline ml-1">Quick Ref</span>
                 </Button>
@@ -329,8 +329,8 @@ export default function OfflineDocuments() {
                   size="sm"
                   onClick={() => generateDocumentationPDF('changelog')}
                   disabled={generatingDocs['changelog'] || !isOnline}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
+                  className="bg-blue-600 hover:bg-blue-700 text-white">
+
                   {generatingDocs['changelog'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                   <span className="hidden sm:inline ml-1">Changelog</span>
                 </Button>
@@ -338,8 +338,8 @@ export default function OfflineDocuments() {
                   size="sm"
                   onClick={() => generateDocumentationPDF('app_overview')}
                   disabled={generatingDocs['app_overview'] || !isOnline}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
+                  className="bg-green-600 hover:bg-green-700 text-white">
+
                   {generatingDocs['app_overview'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                   <span className="hidden sm:inline ml-1">Overview</span>
                 </Button>
@@ -363,26 +363,26 @@ export default function OfflineDocuments() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
+            {isLoading ?
+            <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-              </div>
-            ) : documents.length === 0 ? (
-              <div className="text-center py-8">
+              </div> :
+            documents.length === 0 ?
+            <div className="text-center py-8">
                 <WifiOff className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-500">No documents saved for offline access</p>
                 <p className="text-sm text-gray-400 mt-1">Download documents while online to access them offline</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
+              </div> :
+
+            <div className="space-y-2">
                 {documents.map((doc) => {
-                  const typeInfo = getTypeInfo(doc.type);
-                  const TypeIcon = typeInfo.icon;
-                  return (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    >
+                const typeInfo = getTypeInfo(doc.type);
+                const TypeIcon = typeInfo.icon;
+                return (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-lg ${typeInfo.color}`}>
                           <TypeIcon className="h-4 w-4 text-white" />
@@ -406,11 +406,11 @@ export default function OfflineDocuments() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
-                  );
-                })}
+                    </div>);
+
+              })}
               </div>
-            )}
+            }
           </CardContent>
         </Card>
 
@@ -460,31 +460,31 @@ export default function OfflineDocuments() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-80 overflow-y-auto">
-            {referenceDocs.map(doc => (
-              <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            {referenceDocs.map((doc) =>
+            <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{doc.title}</p>
                   <p className="text-xs text-gray-500">{doc.category}</p>
                 </div>
                 <Button
-                  size="sm"
-                  onClick={() => handleSyncPDFToOffline(doc)}
-                  disabled={syncingPDF === doc.id || !isOnline}
-                >
-                  {syncingPDF === doc.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
+                size="sm"
+                onClick={() => handleSyncPDFToOffline(doc)}
+                disabled={syncingPDF === doc.id || !isOnline}>
+
+                  {syncingPDF === doc.id ?
+                <Loader2 className="h-4 w-4 animate-spin" /> :
+
+                <Download className="h-4 w-4" />
+                }
                 </Button>
               </div>
-            ))}
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSyncDialog(false)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>);
+
 }
