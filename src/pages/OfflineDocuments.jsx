@@ -95,11 +95,28 @@ export default function OfflineDocuments() {
       });
 
       if (response.data.success) {
-        toast.success(`${response.data.title} generated and added to library`);
+        // Convert PDF data array back to Uint8Array
+        const pdfData = new Uint8Array(response.data.pdf_data);
+        
+        // Save to offline storage
+        await saveDocumentOffline(
+          response.data.document_id,
+          'manual',
+          response.data.title,
+          pdfData,
+          { 
+            category: response.data.category || 'training',
+            generated: true,
+            type: response.data.type
+          }
+        );
+
+        toast.success(`${response.data.title} generated and saved offline`);
         loadDocuments();
         loadReferenceDocs();
       }
     } catch (error) {
+      console.error('PDF generation error:', error);
       toast.error('Failed to generate documentation PDF');
     }
     setGeneratingDocs(prev => ({ ...prev, [type]: false }));

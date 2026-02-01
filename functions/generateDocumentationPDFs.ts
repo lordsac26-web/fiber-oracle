@@ -613,18 +613,27 @@ END OF APP OVERVIEW
       return Response.json({ error: 'Unknown PDF type' }, { status: 400 });
     }
 
+    // Generate actual PDF
+    const pdfBytes = generatePDF(title, pdfContent);
+
+    // Upload PDF to storage
+    const uploadResult = await base44.integrations.Core.UploadFile({ 
+      file: new Blob([pdfBytes], { type: 'application/pdf' }) 
+    });
+
     // Create reference document record
     const doc = await base44.entities.ReferenceDocument.create({
       title,
       source_type: 'pdf',
-      source_url: `internal://pdf/${type}`,
+      source_url: uploadResult.file_url,
       content: pdfContent.substring(0, 5000),
       category,
       metadata: {
         generated_date: new Date().toISOString(),
         generated_by: 'system',
         type,
-        format: 'pdf'
+        format: 'pdf',
+        file_size: pdfBytes.length
       },
       version: '2.0',
       is_active: true,
@@ -650,6 +659,8 @@ END OF APP OVERVIEW
       document_id: doc.id,
       title,
       type,
+      file_url: uploadResult.file_url,
+      pdf_data: Array.from(pdfBytes),
       preview: pdfContent.substring(0, 200) + '...'
     });
   } catch (error) {
