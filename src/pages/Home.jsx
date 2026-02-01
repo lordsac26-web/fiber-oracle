@@ -424,7 +424,7 @@ export default function Home() {
             <div className="flex items-center gap-3">
                 <img
                 src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png"
-                alt="Fiber Oracle" className="mx-2 my-2 rounded-xl w-10 h-10 object-cover shadow-lg" />
+                alt="Fiber Oracle" className="mx-2 my-2 rounded-xl w-20 h-20 object-cover shadow-lg" />
 
 
                 <div>
