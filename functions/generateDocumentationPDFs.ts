@@ -635,26 +635,21 @@ END OF APP OVERVIEW
 
     // Generate actual PDF
     const pdfBytes = generatePDF(title, pdfContent);
-
-    // Write PDF to temp file
-    const tempPath = `/tmp/${type}-${Date.now()}.pdf`;
-    await Deno.writeFile(tempPath, pdfBytes);
-
-    // Read as File object
-    const fileData = await Deno.readFile(tempPath);
-    const file = new File([fileData], `${type}.pdf`, { type: 'application/pdf' });
+    
+    // Convert to base64 for upload
+    const base64Data = btoa(String.fromCharCode(...pdfBytes));
+    const dataUrl = `data:application/pdf;base64,${base64Data}`;
+    
+    // Use fetch to convert to blob then upload
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    
+    const file = new File([blob], `${type}.pdf`, { type: 'application/pdf' });
 
     // Upload PDF to storage
     const uploadResult = await base44.integrations.Core.UploadFile({ 
       file: file
     });
-
-    // Clean up temp file
-    try {
-      await Deno.remove(tempPath);
-    } catch (e) {
-      // Ignore cleanup errors
-    }
 
     // Create reference document record
     const doc = await base44.entities.ReferenceDocument.create({
