@@ -1,45 +1,65 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { jsPDF } from 'npm:jspdf@2.5.2';
 
-// Simple HTML to PDF converter (using text content)
 function generatePDF(title, content) {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
+  const maxWidth = pageWidth - (2 * margin);
+  let yPosition = margin;
+
+  // Title
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text(title, margin, yPosition);
+  yPosition += 15;
+
+  // Content
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+
   const lines = content.split('\n');
-  const pageHeight = 11 * 72; // 11 inches in points
-  const pageWidth = 8.5 * 72; // 8.5 inches in points
-  const margin = 0.5 * 72;
-  const textWidth = pageWidth - (2 * margin);
-  const lineHeight = 14;
-  
-  let pdfContent = `%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /Resources 4 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents 5 0 R >>
-endobj
-4 0 obj
-<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>
-endobj
-5 0 obj
-<< >>
-stream
-BT
-/F1 12 Tf
-${margin} ${pageHeight - margin} Td
-(${title}) Tj
-0 -${lineHeight * 2} Td
-`;
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    // Check for new page
+    if (yPosition > pageHeight - margin) {
+      doc.addPage();
+      yPosition = margin;
+    }
 
-  lines.forEach((line) => {
-    const trimmed = line.substring(0, 100);
-    pdfContent += `(${trimmed}) Tj\n0 -${lineHeight} Td\n`;
-  });
+    if (!trimmedLine) {
+      yPosition += 5;
+      continue;
+    }
 
-  pdfContent += `ET\nendstream\nendobj\nxref\n0 6\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\n0000000214 00000 n\n0000000301 00000 n\ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n400\n%%EOF`;
+    // Section headers (all caps lines or lines ending with :)
+    if (trimmedLine === trimmedLine.toUpperCase() && trimmedLine.length > 5 && trimmedLine.length < 60) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      yPosition += 5;
+    } else if (trimmedLine.match(/^[\d.]+\s+[A-Z]/)) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+    } else {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+    }
 
-  return new TextEncoder().encode(pdfContent);
+    // Wrap text
+    const splitText = doc.splitTextToSize(trimmedLine, maxWidth);
+    splitText.forEach(textLine => {
+      if (yPosition > pageHeight - margin) {
+        doc.addPage();
+        yPosition = margin;
+      }
+      doc.text(textLine, margin, yPosition);
+      yPosition += 6;
+    });
+  }
+
+  return new Uint8Array(doc.output('arraybuffer'));
 }
 
 Deno.serve(async (req) => {
