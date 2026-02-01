@@ -636,9 +636,14 @@ END OF APP OVERVIEW
     // Generate actual PDF
     const pdfBytes = generatePDF(title, pdfContent);
 
+    // Create FormData for file upload
+    const formData = new FormData();
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    formData.append('file', blob, `${type}.pdf`);
+
     // Upload PDF to storage
     const uploadResult = await base44.integrations.Core.UploadFile({ 
-      file: new Blob([pdfBytes], { type: 'application/pdf' }) 
+      file: blob
     });
 
     // Create reference document record
