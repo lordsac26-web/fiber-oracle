@@ -1,0 +1,219 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { 
+      query, 
+      filters = {},
+      max_results = 10,
+      include_content_preview = true,
+      highlight_keywords = true
+    } = await req.json();
+
+    if (!query) {
+      return Response.json({ error: 'query parameter required' }, { status: 400 });
+    }
+
+    // Build entity filter based on metadata
+    const entityFilter = {};
+    
+    if (filters.category) {
+      entityFilter.category = filters.category;
+    }
+    
+    if (filters.source_type) {
+      entityFilter.source_type = filters.source_type;
+    }
+    
+    if (filters.is_active !== undefined) {
+      entityFilter.is_active = filters.is_active;
+    }
+    
+    if (filters.is_latest_version !== undefined) {
+      entityFilter.is_latest_version = filters.is_latest_version;
+    }
+
+    // Fetch all matching documents
+    const allDocs = await base44.entities.ReferenceDocument.filter(
+      entityFilter,
+      '-created_date',
+      100
+    );
+
+    if (allDocs.length === 0) {
+      return Response.json({
+        query,
+        results: [],
+        total_results: 0,
+        message: 'No documents found matching the filters'
+      });
+    }
+
+    // Filter by date range if specified
+    let filteredDocs = allDocs;
+    
+    if (filters.date_from || filters.date_to) {
+      filteredDocs = allDocs.filter(doc => {
+        const docDate = new Date(doc.created_date);
+        if (filters.date_from && docDate < new Date(filters.date_from)) return false;
+        if (filters.date_to && docDate > new Date(filters.date_to)) return false;
+        return true;
+      });
+    }
+
+    if (filteredDocs.length === 0) {
+      return Response.json({
+        query,
+        results: [],
+        total_results: 0,
+        message: 'No documents found in the specified date range'
+      });
+    }
+
+    // Prepare documents for semantic ranking
+    const docSummaries = filteredDocs.map(doc => ({
+      id: doc.id,
+      title: doc.title,
+      category: doc.category,
+      content_preview: doc.content ? doc.content.substring(0, 500) : '',
+      metadata: doc.metadata || {}
+    }));
+
+    // Use AI for semantic search and ranking
+    const semanticPrompt = `You are analyzing a document search query and ranking documents by relevance.
+
+Search Query: "${query}"
+
+Documents to rank:
+${docSummaries.map((doc, idx) => `
+Document ${idx + 1}:
+- ID: ${doc.id}
+- Title: ${doc.title}
+- Category: ${doc.category}
+- Preview: ${doc.content_preview}
+`).join('\n')}
+
+Analyze the semantic meaning of the search query and rank these documents by relevance.
+Consider:
+1. Exact keyword matches in title
+2. Semantic similarity (e.g., "troubleshoot" matches "diagnostic procedures")
+3. Topic relevance
+4. Document category alignment with query intent
+
+Return a ranked list of document IDs with relevance scores (0-100).`;
+
+    const rankingResult = await base44.integrations.Core.InvokeLLM({
+      prompt: semanticPrompt,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          ranked_documents: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                document_id: { type: 'string' },
+                relevance_score: { type: 'number' },
+                match_reasoning: { type: 'string' }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const rankedDocs = rankingResult.ranked_documents || [];
+    
+    // Sort by relevance and limit results
+    const topResults = rankedDocs
+      .sort((a, b) => b.relevance_score - a.relevance_score)
+      .slice(0, max_results);
+
+    // Build final results with highlighting
+    const results = await Promise.all(topResults.map(async (ranked) => {
+      const doc = filteredDocs.find(d => d.id === ranked.document_id);
+      if (!doc) return null;
+
+      let contentPreview = '';
+      let highlightedPreview = '';
+      
+      if (include_content_preview && doc.content) {
+        // Extract relevant snippet
+        const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        const content = doc.content.toLowerCase();
+        
+        // Find first occurrence of any query word
+        let bestMatch = -1;
+        for (const word of queryWords) {
+          const idx = content.indexOf(word);
+          if (idx !== -1 && (bestMatch === -1 || idx < bestMatch)) {
+            bestMatch = idx;
+          }
+        }
+        
+        const startIdx = Math.max(0, bestMatch - 150);
+        const endIdx = Math.min(doc.content.length, bestMatch + 350);
+        contentPreview = doc.content.substring(startIdx, endIdx);
+        
+        // Add keyword highlighting
+        if (highlight_keywords) {
+          highlightedPreview = contentPreview;
+          for (const word of queryWords) {
+            const regex = new RegExp(`(${word})`, 'gi');
+            highlightedPreview = highlightedPreview.replace(regex, '**$1**');
+          }
+        } else {
+          highlightedPreview = contentPreview;
+        }
+      }
+
+      return {
+        document_id: doc.id,
+        title: doc.title,
+        category: doc.category,
+        source_type: doc.source_type,
+        source_url: doc.source_url,
+        version: doc.version,
+        created_date: doc.created_date,
+        relevance_score: ranked.relevance_score,
+        match_reasoning: ranked.match_reasoning,
+        content_preview: include_content_preview ? highlightedPreview : null,
+        metadata: {
+          is_active: doc.is_active,
+          is_latest_version: doc.is_latest_version,
+          ...doc.metadata
+        }
+      };
+    }));
+
+    // Filter out null results
+    const validResults = results.filter(Boolean);
+
+    return Response.json({
+      query,
+      filters_applied: filters,
+      total_documents_searched: filteredDocs.length,
+      total_results: validResults.length,
+      results: validResults,
+      search_metadata: {
+        semantic_search_used: true,
+        keyword_highlighting: highlight_keywords,
+        max_results: max_results
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in advancedDocumentSearch:', error);
+    return Response.json({ 
+      error: error.message,
+      stack: error.stack 
+    }, { status: 500 });
+  }
+});
