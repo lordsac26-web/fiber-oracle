@@ -2,319 +2,240 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 import { jsPDF } from 'npm:jspdf@2.5.2';
 import Handlebars from 'npm:handlebars@4.7.8';
 
-// Professional HTML template for PDFs
-function getTemplate(type) {
-  const baseTemplate = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    @page {
-      margin: 0;
-    }
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      padding: 0;
-      color: #1a1a1a;
-      line-height: 1.6;
-    }
-    .page {
-      position: relative;
-      padding: 60px 50px 80px 50px;
-      min-height: 100vh;
-    }
-    .header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      display: flex;
-      align-items: center;
-      padding: 0 50px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .header .logo {
-      font-size: 24px;
-      font-weight: bold;
-      color: white;
-      letter-spacing: 1px;
-    }
-    .header .doc-type {
-      margin-left: auto;
-      color: rgba(255,255,255,0.9);
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-    }
-    .footer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      background: #f8f9fa;
-      border-top: 2px solid #667eea;
-      display: flex;
-      align-items: center;
-      padding: 0 50px;
-      font-size: 12px;
-      color: #6c757d;
-    }
-    .footer .page-number {
-      margin-left: auto;
-    }
-    h1 {
-      font-size: 32px;
-      font-weight: 700;
-      color: #667eea;
-      margin: 30px 0 20px 0;
-      border-bottom: 3px solid #667eea;
-      padding-bottom: 10px;
-    }
-    h2 {
-      font-size: 24px;
-      font-weight: 600;
-      color: #764ba2;
-      margin: 25px 0 15px 0;
-      padding-left: 15px;
-      border-left: 4px solid #667eea;
-    }
-    h3 {
-      font-size: 18px;
-      font-weight: 600;
-      color: #495057;
-      margin: 20px 0 10px 0;
-    }
-    p {
-      margin: 10px 0;
-      text-align: justify;
-    }
-    .section {
-      margin-bottom: 30px;
-      page-break-inside: avoid;
-    }
-    .subsection {
-      margin-left: 20px;
-      margin-bottom: 20px;
-    }
-    ul, ol {
-      margin: 10px 0;
-      padding-left: 30px;
-    }
-    li {
-      margin: 5px 0;
-    }
-    .highlight-box {
-      background: #f8f9fa;
-      border-left: 4px solid #667eea;
-      padding: 15px 20px;
-      margin: 15px 0;
-      border-radius: 4px;
-    }
-    .note {
-      background: #fff3cd;
-      border-left: 4px solid #ffc107;
-      padding: 15px 20px;
-      margin: 15px 0;
-      border-radius: 4px;
-    }
-    .warning {
-      background: #f8d7da;
-      border-left: 4px solid #dc3545;
-      padding: 15px 20px;
-      margin: 15px 0;
-      border-radius: 4px;
-    }
-    code {
-      background: #e9ecef;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-family: 'Courier New', monospace;
-      font-size: 0.9em;
-    }
-    .cover-page {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      text-align: center;
-      padding: 50px;
-    }
-    .cover-page h1 {
-      font-size: 48px;
-      color: white;
-      border: none;
-      margin-bottom: 20px;
-    }
-    .cover-page .subtitle {
-      font-size: 24px;
-      opacity: 0.9;
-      margin-bottom: 40px;
-    }
-    .cover-page .meta {
-      font-size: 16px;
-      opacity: 0.8;
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="logo">FIBERORACLE</div>
-    <div class="doc-type">{{documentType}}</div>
-  </div>
-  
-  <div class="page">
-    {{{content}}}
-  </div>
-  
-  <div class="footer">
-    <span>© 2026 FiberOracle | Confidential & Proprietary</span>
-    <span class="page-number">Version {{version}}</span>
-  </div>
-</body>
-</html>
+// Brand colors
+const COLORS = {
+  primary: [102, 126, 234], // #667eea
+  secondary: [118, 75, 162], // #764ba2
+  text: [26, 26, 26],
+  lightText: [73, 80, 87],
+  border: [233, 236, 239],
+  highlight: [248, 249, 250]
+};
+
+// Parse content into structured sections using Handlebars templates
+function parseContentStructure(content) {
+  const template = `
+{{#each sections}}
+  {{#if isTitle}}[TITLE]{{text}}[/TITLE]{{/if}}
+  {{#if isSection}}[SECTION]{{text}}[/SECTION]{{/if}}
+  {{#if isSubsection}}[SUBSECTION]{{text}}[/SUBSECTION]{{/if}}
+  {{#if isParagraph}}[P]{{text}}[/P]{{/if}}
+  {{#if isList}}[LIST]{{text}}[/LIST]{{/if}}
+  {{#if isHighlight}}[HIGHLIGHT]{{text}}[/HIGHLIGHT]{{/if}}
+{{/each}}
   `;
 
-  return baseTemplate;
-}
-
-// Convert content to formatted HTML sections
-function formatContentToHTML(content, type) {
   const lines = content.trim().split('\n');
-  let html = '';
-  let inList = false;
+  const sections = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    
-    if (!line) {
-      if (inList) {
-        html += '</ul>';
-        inList = false;
-      }
-      continue;
-    }
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
 
-    // Main title (all caps, long)
-    if (line === line.toUpperCase() && line.length > 20 && !line.startsWith('✅') && !line.startsWith('❌')) {
-      if (inList) {
-        html += '</ul>';
-        inList = false;
-      }
-      html += `<h1>${line}</h1>`;
-    }
-    // Section headers (SECTION X:)
-    else if (line.match(/^SECTION \d+:/)) {
-      if (inList) {
-        html += '</ul>';
-        inList = false;
-      }
-      html += `<div class="section"><h2>${line}</h2>`;
-    }
-    // Subsection headers (numbered like 2.1)
-    else if (line.match(/^\d+\.\d+\s+[A-Z]/)) {
-      if (inList) {
-        html += '</ul>';
-        inList = false;
-      }
-      html += `<h3>${line}</h3>`;
-    }
-    // Question format
-    else if (line.startsWith('Q:')) {
-      if (inList) {
-        html += '</ul>';
-        inList = false;
-      }
-      html += `<div class="highlight-box"><strong>${line}</strong></div>`;
-    }
-    // Answer format
-    else if (line.startsWith('A:')) {
-      html += `<p>${line.substring(2).trim()}</p>`;
-    }
-    // List items with ✅ or ❌
-    else if (line.startsWith('✅') || line.startsWith('❌')) {
-      if (!inList) {
-        html += '<ul>';
-        inList = true;
-      }
-      html += `<li>${line}</li>`;
-    }
-    // Bullet points with - or •
-    else if (line.startsWith('-') || line.startsWith('•')) {
-      if (!inList) {
-        html += '<ul>';
-        inList = true;
-      }
-      html += `<li>${line.substring(1).trim()}</li>`;
-    }
-    // Numbered lists
-    else if (line.match(/^\d+\.\s/)) {
-      html += `<p>${line}</p>`;
-    }
-    // Warning/Note format
-    else if (line.includes('IMPORTANT:') || line.includes('CRITICAL:') || line.includes('NOTE:')) {
-      if (inList) {
-        html += '</ul>';
-        inList = false;
-      }
-      html += `<div class="warning">${line}</div>`;
-    }
-    // Regular paragraph
-    else {
-      if (inList) {
-        html += '</ul>';
-        inList = false;
-      }
-      html += `<p>${line}</p>`;
+    if (trimmed === trimmed.toUpperCase() && trimmed.length > 20 && !trimmed.startsWith('✅')) {
+      sections.push({ isTitle: true, text: trimmed });
+    } else if (trimmed.match(/^SECTION \d+:/)) {
+      sections.push({ isSection: true, text: trimmed });
+    } else if (trimmed.match(/^\d+\.\d+\s+[A-Z]/)) {
+      sections.push({ isSubsection: true, text: trimmed });
+    } else if (trimmed.startsWith('✅') || trimmed.startsWith('❌') || trimmed.startsWith('-')) {
+      sections.push({ isList: true, text: trimmed });
+    } else if (trimmed.includes('IMPORTANT:') || trimmed.includes('CRITICAL:')) {
+      sections.push({ isHighlight: true, text: trimmed });
+    } else {
+      sections.push({ isParagraph: true, text: trimmed });
     }
   }
 
-  if (inList) {
-    html += '</ul>';
-  }
-
-  return html;
+  return sections;
 }
 
-async function generatePDF(title, content, type, version = '2.0') {
+// Professional PDF generation with branded styling
+function generatePDF(title, content, type, version = '2.0') {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'pt',
     format: 'a4'
   });
 
-  // Prepare template data
-  const htmlContent = formatContentToHTML(content, type);
-  const template = Handlebars.compile(getTemplate(type));
-  const html = template({
-    title,
-    content: htmlContent,
-    documentType: type.toUpperCase().replace(/_/g, ' '),
-    version,
-    date: new Date().toLocaleDateString()
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 40;
+  const maxWidth = pageWidth - (2 * margin);
+  let yPosition = margin;
+  let currentPage = 1;
+
+  // Helper to add header on each page
+  function addHeader() {
+    // Gradient background effect (simulate with rectangles)
+    doc.setFillColor(...COLORS.primary);
+    doc.rect(0, 0, pageWidth, 50, 'F');
+    doc.setFillColor(...COLORS.secondary);
+    doc.rect(pageWidth * 0.7, 0, pageWidth * 0.3, 50, 'F');
+
+    // Logo text
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FIBERORACLE', margin, 32);
+
+    // Document type
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(type.toUpperCase().replace(/_/g, ' '), pageWidth - margin, 32, { align: 'right' });
+
+    yPosition = 70;
+  }
+
+  // Helper to add footer on each page
+  function addFooter() {
+    const footerY = pageHeight - 30;
+    
+    // Footer line
+    doc.setDrawColor(...COLORS.primary);
+    doc.setLineWidth(2);
+    doc.line(margin, footerY - 10, pageWidth - margin, footerY - 10);
+
+    // Footer text
+    doc.setTextColor(...COLORS.lightText);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('© 2026 FiberOracle | Confidential & Proprietary', margin, footerY);
+    doc.text(`Version ${version} | Page ${currentPage}`, pageWidth - margin, footerY, { align: 'right' });
+  }
+
+  // Check if new page needed
+  function checkNewPage(requiredSpace = 30) {
+    if (yPosition + requiredSpace > pageHeight - 50) {
+      addFooter();
+      doc.addPage();
+      currentPage++;
+      addHeader();
+      return true;
+    }
+    return false;
+  }
+
+  // Add first page header
+  addHeader();
+
+  // Cover title
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...COLORS.primary);
+  const titleLines = doc.splitTextToSize(title, maxWidth);
+  titleLines.forEach(line => {
+    checkNewPage(30);
+    doc.text(line, margin, yPosition);
+    yPosition += 30;
   });
 
-  // Use jsPDF's html method to render the HTML
-  await doc.html(html, {
-    callback: function(doc) {
-      // PDF generation complete
-    },
-    x: 0,
-    y: 0,
-    width: 595.28, // A4 width in points
-    windowWidth: 800,
-    margin: [0, 0, 0, 0]
+  // Add decorative line under title
+  doc.setDrawColor(...COLORS.primary);
+  doc.setLineWidth(3);
+  doc.line(margin, yPosition, pageWidth - margin, yPosition);
+  yPosition += 20;
+
+  // Parse and render content
+  const sections = parseContentStructure(content);
+
+  sections.forEach(section => {
+    checkNewPage(20);
+
+    if (section.isTitle) {
+      // Major section title
+      yPosition += 10;
+      checkNewPage(40);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.primary);
+      const lines = doc.splitTextToSize(section.text, maxWidth);
+      lines.forEach(line => {
+        doc.text(line, margin, yPosition);
+        yPosition += 20;
+      });
+      yPosition += 5;
+    } else if (section.isSection) {
+      // Section header
+      yPosition += 8;
+      checkNewPage(35);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.secondary);
+      
+      // Add colored left border
+      doc.setFillColor(...COLORS.primary);
+      doc.rect(margin, yPosition - 12, 4, 16, 'F');
+      
+      doc.text(section.text, margin + 10, yPosition);
+      yPosition += 18;
+    } else if (section.isSubsection) {
+      // Subsection
+      yPosition += 5;
+      checkNewPage(25);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.text);
+      doc.text(section.text, margin, yPosition);
+      yPosition += 16;
+    } else if (section.isList) {
+      // List item
+      checkNewPage(18);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.text);
+      
+      // Bullet point
+      doc.setFillColor(...COLORS.primary);
+      doc.circle(margin + 5, yPosition - 3, 2, 'F');
+      
+      const lines = doc.splitTextToSize(section.text.substring(1).trim(), maxWidth - 15);
+      lines.forEach((line, idx) => {
+        if (idx > 0) checkNewPage(14);
+        doc.text(line, margin + 15, yPosition);
+        yPosition += 14;
+      });
+    } else if (section.isHighlight) {
+      // Highlight box
+      checkNewPage(40);
+      const boxHeight = 30;
+      
+      // Background
+      doc.setFillColor(...COLORS.highlight);
+      doc.roundedRect(margin, yPosition - 10, maxWidth, boxHeight, 3, 3, 'F');
+      
+      // Left accent
+      doc.setFillColor(...COLORS.primary);
+      doc.rect(margin, yPosition - 10, 4, boxHeight, 'F');
+      
+      // Text
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.text);
+      const lines = doc.splitTextToSize(section.text, maxWidth - 20);
+      lines.forEach(line => {
+        doc.text(line, margin + 10, yPosition);
+        yPosition += 12;
+      });
+      yPosition += 15;
+    } else if (section.isParagraph) {
+      // Regular paragraph
+      checkNewPage(15);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...COLORS.text);
+      const lines = doc.splitTextToSize(section.text, maxWidth);
+      lines.forEach(line => {
+        checkNewPage(14);
+        doc.text(line, margin, yPosition);
+        yPosition += 14;
+      });
+      yPosition += 4;
+    }
   });
+
+  // Add footer to last page
+  addFooter();
 
   return new Uint8Array(doc.output('arraybuffer'));
 }
