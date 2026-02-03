@@ -16,6 +16,40 @@ const THRESHOLDS = {
   DownstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
 };
 
+// Detect technology type based on ONT model
+function detectTechTypeFromModel(model) {
+  if (!model) return null;
+  
+  const modelUpper = model.toUpperCase().trim();
+  
+  // XGS-PON models
+  const xgsModels = [
+    'GP1101X', 'GP4201X', 'GP4201XH',
+    'DZS 522', 'DZS522', '522X', 'DZS 522X', 'DZS 522XX', 'DZS 522XG'
+  ];
+  
+  // GPON models
+  const gponModels = [
+    '711GE', '717GE', '725G', '725GE', '725GX', '725'
+  ];
+  
+  // Check for XGS-PON
+  for (const xgsModel of xgsModels) {
+    if (modelUpper.includes(xgsModel.replace(/\s/g, ''))) {
+      return 'XGS-PON';
+    }
+  }
+  
+  // Check for GPON
+  for (const gponModel of gponModels) {
+    if (modelUpper.includes(gponModel.replace(/\s/g, ''))) {
+      return 'GPON';
+    }
+  }
+  
+  return null;
+}
+
 // Detect combo port and determine technology type
 // Combo ports have format like "0/1/xp3-4" where odd port = XGS-PON, even port = GPON
 function detectComboPort(shelfSlotPort) {
@@ -31,7 +65,7 @@ function detectComboPort(shelfSlotPort) {
       isCombo: true,
       port1,
       port2,
-      techType: port1 % 2 === 1 ? 'XGS-PON (odd)' : 'GPON (even)',
+      techType: port1 % 2 === 1 ? 'XGS-PON (combo odd)' : 'GPON (combo even)',
       comboLabel: `Combo ${comboMatch[1]}-${comboMatch[2]}`
     };
   }
@@ -407,12 +441,6 @@ Deno.serve(async (req) => {
         ont._lcpGpsLng = lcpMatch.gps_lng;
       }
       
-      // Add combo port detection info
-      const comboInfo = detectComboPort(shelfSlotPort);
-      ont._isCombo = comboInfo.isCombo;
-      ont._techType = comboInfo.techType;
-      ont._comboLabel = comboInfo.comboLabel;
-      
       // Detect DZS model based on FSAN prefix if model is unknown
       if ((!ont.model || ont.model === 'Unknown' || ont.model === 'N/A' || ont.model === '') && ont.SerialNumber) {
         const fsan = ont.SerialNumber;
@@ -420,6 +448,17 @@ Deno.serve(async (req) => {
           ont.model = 'DZS 522x XG';
         }
       }
+      
+      // Detect technology type from model (primary method)
+      const modelTechType = detectTechTypeFromModel(ont.model);
+      
+      // Add combo port detection info (secondary method for combo ports)
+      const comboInfo = detectComboPort(shelfSlotPort);
+      ont._isCombo = comboInfo.isCombo;
+      ont._comboLabel = comboInfo.comboLabel;
+      
+      // Priority: Model-based detection > Combo port detection
+      ont._techType = modelTechType || comboInfo.techType || null;
       
       return ont;
     });
