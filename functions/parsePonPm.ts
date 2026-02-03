@@ -408,7 +408,7 @@ Deno.serve(async (req) => {
       }
       
       // Add combo port detection info
-      const comboInfo = detectComboPort(port);
+      const comboInfo = detectComboPort(shelfSlotPort);
       ont._isCombo = comboInfo.isCombo;
       ont._techType = comboInfo.techType;
       ont._comboLabel = comboInfo.comboLabel;
