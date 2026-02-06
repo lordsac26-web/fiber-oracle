@@ -345,7 +345,6 @@ View in admin panel to approve or deny.
         </TabsList>
 
         <TabsContent value="local" className="space-y-4 mt-4">
-          {/* File limitations info */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2">Upload Limitations</h4>
             <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
@@ -357,7 +356,6 @@ View in admin panel to approve or deny.
             </ul>
           </div>
 
-          {/* File selector */}
           {files.length === 0 && (
             <label className="block">
               <div className="border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20">
@@ -382,7 +380,6 @@ View in admin panel to approve or deny.
             </label>
           )}
 
-          {/* File list with progress */}
           {files.length > 0 && (
             <div className="space-y-3">
               {files.map((fileObj, index) => (
@@ -452,7 +449,6 @@ View in admin panel to approve or deny.
             </div>
           )}
 
-          {/* Action buttons */}
           <div className="flex justify-between pt-4">
             <Button
               variant="outline"
