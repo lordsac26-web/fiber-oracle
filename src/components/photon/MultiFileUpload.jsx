@@ -332,17 +332,30 @@ View in admin panel to approve or deny.
 
   return (
     <div className="space-y-4">
-      {/* File limitations info */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2">Upload Limitations</h4>
-        <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
-          <li>• Maximum {MAX_FILES} files per batch upload</li>
-          <li>• Maximum 50MB per file (platform limit)</li>
-          <li>• Supported formats: {SUPPORTED_FORMATS.join(', ')}</li>
-          <li>• All documents are indexed and searchable</li>
-          <li>• For larger files (&gt;50MB), split into smaller chunks or compress</li>
-        </ul>
-      </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="local" className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            Upload Files
+          </TabsTrigger>
+          <TabsTrigger value="googledrive" className="flex items-center gap-2">
+            <LinkIcon className="h-4 w-4" />
+            Google Drive
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="local" className="space-y-4 mt-4">
+          {/* File limitations info */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2">Upload Limitations</h4>
+            <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+              <li>• Maximum {MAX_FILES} files per batch upload</li>
+              <li>• Maximum 50MB per file (platform limit)</li>
+              <li>• Supported formats: {SUPPORTED_FORMATS.join(', ')}</li>
+              <li>• All documents are indexed and searchable</li>
+              <li>• For larger files (&gt;50MB), split into smaller chunks or compress</li>
+            </ul>
+          </div>
 
       {/* File selector */}
       {files.length === 0 && (
