@@ -125,11 +125,13 @@ export default function PhotonChat() {
     queryFn: () => base44.entities.ReferenceDocument.filter({ is_active: true }),
   });
 
-  // Fetch conversations
-  const { data: conversations = [], isLoading: convsLoading } = useQuery({
+  // Fetch conversations (limit to 8)
+  const { data: allConversations = [], isLoading: convsLoading } = useQuery({
     queryKey: ['photonConversations'],
     queryFn: () => base44.agents.listConversations({ agent_name: 'photon' }),
   });
+  
+  const conversations = allConversations.slice(0, 8);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -283,7 +285,7 @@ export default function PhotonChat() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex">
+    <div className="h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex overflow-hidden">
       {/* AI Mode Sidebar - Desktop */}
       {isAICentricMode && !isMobile && (
         <AIModeSidebar isOpen={showSidebar} onClose={() => setShowSidebar(false)} />
