@@ -29,10 +29,18 @@ const CATEGORIES = ['installation', 'troubleshooting', 'maintenance', 'safety', 
 import DocumentMetadataForm from './DocumentMetadataForm';
 
 export default function MultiFileUpload({ onComplete, onClose, isAdmin = true }) {
+  const [activeTab, setActiveTab] = useState('local');
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [processedFiles, setProcessedFiles] = useState([]);
   const [currentMetadataFile, setCurrentMetadataFile] = useState(null);
+  
+  // Google Drive states
+  const [driveUrl, setDriveUrl] = useState('');
+  const [driveCategory, setDriveCategory] = useState('other');
+  const [driveComments, setDriveComments] = useState('');
+  const [driveLinked, setDriveLinked] = useState(null);
+  const [driveLinking, setDriveLinking] = useState(false);
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
