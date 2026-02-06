@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   Upload, 
   FileText, 
@@ -10,7 +14,9 @@ import {
   X,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  Link as LinkIcon,
+  ExternalLink
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
