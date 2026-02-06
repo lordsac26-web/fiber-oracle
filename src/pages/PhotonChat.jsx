@@ -132,7 +132,9 @@ export default function PhotonChat() {
 
   // Auto-scroll to bottom
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   }, [messages]);
 
   // Subscribe to conversation updates
@@ -497,11 +499,11 @@ export default function PhotonChat() {
                   </motion.div>
                 ) : (
                   <AnimatePresence>
-                    <div className="space-y-4">
+                    <div className="space-y-2 pb-4">
                       {messages.map((msg, idx) => (
                         <EnhancedMessageBubble key={msg.id || idx} message={msg} />
                       ))}
-                      <div ref={messagesEndRef} />
+                      <div ref={messagesEndRef} className="h-px" />
                     </div>
                   </AnimatePresence>
                 )}

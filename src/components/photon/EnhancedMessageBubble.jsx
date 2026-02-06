@@ -105,14 +105,14 @@ export default function EnhancedMessageBubble({ message }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className={cn("flex gap-3 mb-4", isUser ? "justify-end" : "justify-start")}
+      className={cn("flex gap-2 mb-3", isUser ? "justify-end" : "justify-start")}
     >
       {!isUser && (
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-          className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg flex-shrink-0 mt-0.5"
+          className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center shadow-md flex-shrink-0 mt-auto mb-1"
         >
           <Zap className="h-4 w-4 text-white" />
         </motion.div>
@@ -125,12 +125,19 @@ export default function EnhancedMessageBubble({ message }) {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
             className={cn(
-              "rounded-2xl px-4 py-3 shadow-lg",
+              "relative px-4 py-2.5 shadow-md",
               isUser
-                ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white"
-                : "bg-slate-800/80 border border-slate-700/50 text-slate-100 backdrop-blur-sm"
+                ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-2xl rounded-tr-sm"
+                : "bg-slate-700/80 text-slate-100 rounded-2xl rounded-tl-sm"
             )}
           >
+            {/* Tail pointer */}
+            <div className={cn(
+              "absolute top-0 w-0 h-0",
+              isUser 
+                ? "right-0 border-l-[12px] border-l-emerald-500 border-t-[12px] border-t-transparent translate-x-[6px]"
+                : "left-0 border-r-[12px] border-r-slate-700/80 border-t-[12px] border-t-transparent -translate-x-[6px]"
+            )} />
             {isUser ? (
               <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
             ) : (
