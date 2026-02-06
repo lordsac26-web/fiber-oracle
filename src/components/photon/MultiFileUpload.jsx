@@ -357,30 +357,30 @@ View in admin panel to approve or deny.
             </ul>
           </div>
 
-      {/* File selector */}
-      {files.length === 0 && (
-        <label className="block">
-          <div className="border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20">
-            <div className="flex flex-col items-center gap-3">
-              <Upload className="h-10 w-10 text-gray-400" />
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                Click to upload or drag and drop
-              </span>
-              <span className="text-xs text-gray-400">
-                Select up to {MAX_FILES} files
-              </span>
-            </div>
-          </div>
-          <input
-            type="file"
-            multiple
-            accept={SUPPORTED_FORMATS.join(',')}
-            onChange={handleFileSelect}
-            disabled={uploading}
-            className="hidden"
-          />
-        </label>
-      )}
+          {/* File selector */}
+          {files.length === 0 && (
+            <label className="block">
+              <div className="border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer border-gray-300 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/20">
+                <div className="flex flex-col items-center gap-3">
+                  <Upload className="h-10 w-10 text-gray-400" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Click to upload or drag and drop
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    Select up to {MAX_FILES} files
+                  </span>
+                </div>
+              </div>
+              <input
+                type="file"
+                multiple
+                accept={SUPPORTED_FORMATS.join(',')}
+                onChange={handleFileSelect}
+                disabled={uploading}
+                className="hidden"
+              />
+            </label>
+          )}
 
       {/* File list with progress */}
       {files.length > 0 && (
