@@ -382,75 +382,75 @@ View in admin panel to approve or deny.
             </label>
           )}
 
-      {/* File list with progress */}
-      {files.length > 0 && (
-        <div className="space-y-3">
-          {files.map((fileObj, index) => (
-            <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2 flex-1">
-                  <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate text-gray-900 dark:text-white">
-                      {fileObj.file.name}
+          {/* File list with progress */}
+          {files.length > 0 && (
+            <div className="space-y-3">
+              {files.map((fileObj, index) => (
+                <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate text-gray-900 dark:text-white">
+                          {fileObj.file.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {(fileObj.file.size / 1024 / 1024).toFixed(2)} MB
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {(fileObj.file.size / 1024 / 1024).toFixed(2)} MB
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {fileObj.status === 'success' && fileObj.documentId && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleDocumentActive(index)}
-                      disabled={uploading}
-                    >
-                      {fileObj.isActive ? (
-                        <Eye className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <EyeOff className="h-4 w-4 text-gray-400" />
+                    <div className="flex items-center gap-2">
+                      {fileObj.status === 'success' && fileObj.documentId && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleDocumentActive(index)}
+                          disabled={uploading}
+                        >
+                          {fileObj.isActive ? (
+                            <Eye className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <EyeOff className="h-4 w-4 text-gray-400" />
+                          )}
+                        </Button>
                       )}
-                    </Button>
-                  )}
-                  {fileObj.status === 'success' && (
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  )}
-                  {fileObj.status === 'error' && (
-                    <AlertCircle className="h-5 w-5 text-red-600" />
-                  )}
-                  {fileObj.status === 'pending' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setFiles(files.filter((_, i) => i !== index))}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                      {fileObj.status === 'success' && (
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      )}
+                      {fileObj.status === 'error' && (
+                        <AlertCircle className="h-5 w-5 text-red-600" />
+                      )}
+                      {fileObj.status === 'pending' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {fileObj.status !== 'pending' && (
+                    <>
+                      <Progress value={fileObj.progress} className="h-2 mb-2" />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                          {fileObj.stage}
+                        </span>
+                        {fileObj.status === 'success' && (
+                          <Badge variant="outline" className={fileObj.isActive ? 'bg-green-50 text-green-700 border-green-300' : 'bg-gray-50 text-gray-500 border-gray-300'}>
+                            {fileObj.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
-              </div>
-
-              {fileObj.status !== 'pending' && (
-                <>
-                  <Progress value={fileObj.progress} className="h-2 mb-2" />
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-600 dark:text-gray-400">
-                      {fileObj.stage}
-                    </span>
-                    {fileObj.status === 'success' && (
-                      <Badge variant="outline" className={fileObj.isActive ? 'bg-green-50 text-green-700 border-green-300' : 'bg-gray-50 text-gray-500 border-gray-300'}>
-                        {fileObj.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    )}
-                  </div>
-                </>
-              )}
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
       {/* Action buttons */}
       <div className="flex justify-between pt-4">
