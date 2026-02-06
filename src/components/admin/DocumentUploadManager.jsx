@@ -38,42 +38,42 @@ export default function DocumentUploadManager() {
 
   return (
     <>
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogTrigger asChild>
-           <div className="flex gap-2">
-             <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10">
-               <Plus className="w-4 h-4 mr-2" />
-               Add Documents
-             </Button>
-             <GoogleDriveLinkForm />
-             {unconfirmedDocs.length > 0 && (
-               <Button 
-                 size="sm" 
-                 variant="outline" 
-                 className="border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100"
-                 onClick={() => setReviewDoc(unconfirmedDocs[0])}
-               >
-                 <Tags className="w-4 h-4 mr-2" />
-                 Review Tags
-                 <Badge className="ml-2 bg-amber-500 text-white">{unconfirmedDocs.length}</Badge>
-               </Button>
-             )}
-           </div>
-         </DialogTrigger>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Upload Reference Documents
-            </DialogTitle>
-          </DialogHeader>
-          <MultiFileUpload 
-            onComplete={handleComplete}
-            onClose={() => setShowDialog(false)}
-            isAdmin={true}
-          />
-        </DialogContent>
-      </Dialog>
+      <div className="flex gap-2">
+        <Dialog open={showDialog} onOpenChange={setShowDialog}>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Documents
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Upload Reference Documents
+              </DialogTitle>
+            </DialogHeader>
+            <MultiFileUpload 
+              onComplete={handleComplete}
+              onClose={() => setShowDialog(false)}
+              isAdmin={true}
+            />
+          </DialogContent>
+        </Dialog>
+        <GoogleDriveLinkForm />
+        {unconfirmedDocs.length > 0 && (
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100"
+            onClick={() => setReviewDoc(unconfirmedDocs[0])}
+          >
+            <Tags className="w-4 h-4 mr-2" />
+            Review Tags
+            <Badge className="ml-2 bg-amber-500 text-white">{unconfirmedDocs.length}</Badge>
+          </Button>
+        )}
+      </div>
 
       <TagReviewDialog
         document={reviewDoc}
