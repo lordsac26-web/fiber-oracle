@@ -77,13 +77,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prepare documents for semantic ranking
+    // Prepare documents for semantic ranking with tags
     const docSummaries = filteredDocs.map(doc => ({
       id: doc.id,
       title: doc.title,
       category: doc.category,
       content_preview: doc.content ? doc.content.substring(0, 500) : '',
-      metadata: doc.metadata || {}
+      metadata: doc.metadata || {},
+      tags: doc.tags || []
     }));
 
     // Use AI for semantic search and ranking
@@ -97,15 +98,22 @@ Document ${idx + 1}:
 - ID: ${doc.id}
 - Title: ${doc.title}
 - Category: ${doc.category}
+- Tags: ${doc.tags.join(', ') || 'None'}
+- Metadata: ${JSON.stringify(doc.metadata).substring(0, 200)}
 - Preview: ${doc.content_preview}
 `).join('\n')}
 
 Analyze the semantic meaning of the search query and rank these documents by relevance.
 Consider:
-1. Exact keyword matches in title
-2. Semantic similarity (e.g., "troubleshoot" matches "diagnostic procedures")
-3. Topic relevance
-4. Document category alignment with query intent
+1. Exact keyword matches in title and tags
+2. Semantic similarity (e.g., "troubleshoot" matches "diagnostic procedures", "provision" matches "configuration" or "installation")
+3. Tag relevance (e.g., if query mentions "Huawei ONT", heavily weight documents tagged with both "Huawei" and "ONT")
+4. Metadata alignment (product_model, technology_type, manufacturer, etc.)
+5. Topic relevance in content preview
+6. Document category alignment with query intent
+
+For comparison queries (e.g., "differences between X and Y"), find documents covering both topics.
+For troubleshooting queries, prioritize documents with troubleshooting category or relevant problem-solving content.
 
 Return a ranked list of document IDs with relevance scores (0-100).`;
 
@@ -181,6 +189,7 @@ Return a ranked list of document IDs with relevance scores (0-100).`;
         source_type: doc.source_type,
         source_url: doc.source_url,
         version: doc.version,
+        tags: doc.tags || [],
         created_date: doc.created_date,
         relevance_score: ranked.relevance_score,
         match_reasoning: ranked.match_reasoning,
