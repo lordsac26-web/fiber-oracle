@@ -465,7 +465,7 @@ export default function PhotonChat() {
             </CardHeader>
             
             {/* Messages Container - Scrollable */}
-            <div className="flex-1 overflow-y-auto min-h-0 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+            <div className="h-[75vh] overflow-y-auto px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
               <div className="flex flex-col min-h-full max-w-4xl mx-auto w-full">
                 {!conversationId ? (
                   <motion.div
