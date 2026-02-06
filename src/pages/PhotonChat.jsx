@@ -448,7 +448,7 @@ export default function PhotonChat() {
           </motion.div>
 
           {/* Chat Area */}
-          <Card className="h-[85vh] border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col max-w-5xl mx-auto w-full">
+          <Card className="flex-1 border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col max-w-5xl mx-auto w-full min-h-0">
             <CardHeader className="pb-2 sm:pb-3 border-b border-slate-700 shrink-0">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-white flex items-center gap-2 text-sm sm:text-base">
@@ -465,7 +465,7 @@ export default function PhotonChat() {
             </CardHeader>
             
             {/* Messages Container - Scrollable */}
-            <div className="h-[75vh] overflow-y-auto px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+            <div className="flex-1 overflow-y-auto min-h-0 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
               <div className="flex flex-col min-h-full max-w-4xl mx-auto w-full">
                 {!conversationId ? (
                   <motion.div
