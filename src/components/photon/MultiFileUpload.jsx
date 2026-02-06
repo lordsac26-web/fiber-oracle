@@ -24,6 +24,7 @@ import { base44 } from '@/api/base44Client';
 const SUPPORTED_FORMATS = ['.pdf', '.txt', '.doc', '.docx', '.md', '.csv', '.json', '.xml'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB - Platform limit
 const MAX_FILES = 20; // Increased from 10
+const CATEGORIES = ['installation', 'troubleshooting', 'maintenance', 'safety', 'specifications', 'training', 'other'];
 
 import DocumentMetadataForm from './DocumentMetadataForm';
 
