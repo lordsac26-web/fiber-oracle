@@ -110,16 +110,18 @@ export default function PhotonHeader({
               </motion.button>
             </Link>
 
-            <Link to={createPageUrl('PhotonAuditLogs')} className="hidden lg:inline-block">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-400 text-blue-100 hover:bg-blue-500/30 font-medium text-sm transition-all"
-              >
-                <FileCheck className="h-4 w-4 inline mr-2" />
-                <span className="hidden md:inline">Audit</span>
-              </motion.button>
-            </Link>
+            {isAdmin && (
+              <Link to={createPageUrl('PhotonAuditLogs')} className="hidden lg:inline-block">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-400 text-blue-100 hover:bg-blue-500/30 font-medium text-sm transition-all"
+                >
+                  <FileCheck className="h-4 w-4 inline mr-2" />
+                  <span className="hidden md:inline">Audit</span>
+                </motion.button>
+              </Link>
+            )}
 
             {isAdmin && (
               <Link to={createPageUrl('DocumentReview')} className="hidden lg:inline-block">
@@ -134,15 +136,17 @@ export default function PhotonHeader({
               </Link>
             )}
 
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onOpenUploadDialog}
-              className="px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-100 hover:bg-emerald-500/30 font-medium text-sm transition-all"
-            >
-              <Upload className="h-4 w-4 inline sm:mr-2" />
-              <span className="hidden sm:inline">Add</span>
-            </motion.button>
+            {onOpenUploadDialog && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={onOpenUploadDialog}
+                className="px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-400 text-emerald-100 hover:bg-emerald-500/30 font-medium text-sm transition-all"
+              >
+                <Upload className="h-4 w-4 inline sm:mr-2" />
+                <span className="hidden sm:inline">Add</span>
+              </motion.button>
+            )}
 
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700">
               <Database className="h-4 w-4 text-slate-400" />
