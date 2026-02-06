@@ -118,7 +118,7 @@ export default function EnhancedMessageBubble({ message }) {
         </motion.div>
       )}
       
-      <div className={cn("max-w-[75%]", isUser && "flex flex-col items-end")}>
+      <div className={cn("max-w-[75%] sm:max-w-[80%] lg:max-w-[70%]", isUser && "flex flex-col items-end")}>
         {message.content && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
