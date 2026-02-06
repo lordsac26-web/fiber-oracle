@@ -384,8 +384,8 @@ export default function PhotonChat() {
           </DialogContent>
         </Dialog>
 
-      <main className="max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-6 h-[calc(100vh-80px)] sm:h-[calc(100vh-100px)]">
-        <div className="grid md:grid-cols-4 gap-2 sm:gap-4 h-full">
+      <main className="flex-1 flex flex-col max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-6 w-full min-h-0">
+        <div className="grid md:grid-cols-4 gap-2 sm:gap-4 flex-1 min-h-0">
           {/* Sidebar - Conversations - Static Container */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -440,8 +440,8 @@ export default function PhotonChat() {
           </motion.div>
 
           {/* Chat Area */}
-          <Card className="md:col-span-3 border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col h-full">
-            <CardHeader className="pb-2 sm:pb-3 border-b border-slate-700 flex-shrink-0">
+          <Card className="md:col-span-3 border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col min-h-0">
+            <CardHeader className="pb-2 sm:pb-3 border-b border-slate-700 shrink-0">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-white flex items-center gap-2 text-sm sm:text-base">
                   <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-cyan-400" />
@@ -456,13 +456,13 @@ export default function PhotonChat() {
               </div>
             </CardHeader>
             
-            <CardContent className="flex-1 flex flex-col py-4 px-3 sm:px-6 min-h-0">
+            <CardContent className="flex-1 flex flex-col py-4 px-3 sm:px-6 min-h-0 overflow-hidden">
               {/* Static Chat Frame - Fixed Container */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.4 }}
-                className="flex-1 bg-gradient-to-b from-slate-900/70 to-slate-900/50 rounded-xl border border-slate-700/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+                className="flex-1 bg-gradient-to-b from-slate-900/70 to-slate-900/50 rounded-xl border border-slate-700/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto min-h-0"
               >
                 {!conversationId ? (
                   <motion.div
@@ -515,7 +515,7 @@ export default function PhotonChat() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
-                className="border-t border-slate-700 p-3 flex-shrink-0 bg-gradient-to-r from-slate-800/50 to-slate-800/30 backdrop-blur-sm"
+                className="border-t border-slate-700 p-3 shrink-0 bg-gradient-to-r from-slate-800/50 to-slate-800/30 backdrop-blur-sm"
               >
                 <form onSubmit={sendMessage} className="flex gap-2">
                   <Textarea
