@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
     const patterns = [
       /\/d\/([a-zA-Z0-9_-]+)/,
       /id=([a-zA-Z0-9_-]+)/,
-      /^([a-zA-Z0-9_-]{25,})$/ // Direct file ID
+      /^([a-zA-Z0-9_-]{25,})$/
     ];
     
     let fileId = null;
