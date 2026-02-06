@@ -62,9 +62,14 @@ Extract as much metadata as possible from the document. If a field is not found,
                             },
                             document_type: { type: "string" }
                         }
+                    },
+                    suggested_tags: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "5-10 relevant tags for categorization and search (e.g., GPON, XGS-PON, ONT, OLT, Installation, Troubleshooting, Huawei, Nokia, Fiber Optic, Testing, Configuration)"
                     }
                 },
-                required: ["markdown_content", "metadata"]
+                required: ["markdown_content", "metadata", "suggested_tags"]
             }
         });
 
@@ -81,6 +86,9 @@ Extract as much metadata as possible from the document. If a field is not found,
                 word_count: extractionResult.markdown_content.split(/\s+/).length,
                 processing_method: 'llm_enhanced'
             },
+            suggested_tags: extractionResult.suggested_tags || [],
+            tags: [],
+            tags_confirmed: false,
             is_active: true,
             is_latest_version: true
         });
@@ -90,6 +98,8 @@ Extract as much metadata as possible from the document. If a field is not found,
             document_id: document.id,
             title: document.title,
             metadata: document.metadata,
+            suggested_tags: document.suggested_tags,
+            tags_confirmed: document.tags_confirmed,
             content_preview: extractionResult.markdown_content.substring(0, 500) + '...'
         });
 
