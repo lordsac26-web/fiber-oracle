@@ -286,6 +286,38 @@ View in admin panel to approve or deny.
     }
   };
 
+  const handleGoogleDriveLink = async () => {
+    if (!driveUrl.trim()) {
+      toast.error('Please enter a Google Drive URL');
+      return;
+    }
+
+    setDriveLinking(true);
+    try {
+      const { data } = await base44.functions.invoke('linkGoogleDriveDocument', {
+        googleDriveUrl: driveUrl,
+        category: driveCategory,
+        comments: driveComments
+      });
+      
+      setDriveLinked(data.document);
+      toast.success('Google Drive document linked successfully');
+      
+      // Reset form after 2 seconds
+      setTimeout(() => {
+        setDriveUrl('');
+        setDriveCategory('other');
+        setDriveComments('');
+        setDriveLinked(null);
+        onComplete();
+      }, 2000);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to link document');
+    } finally {
+      setDriveLinking(false);
+    }
+  };
+
   const allComplete = files.length > 0 && files.every(f => f.status === 'success' || f.status === 'error');
 
   if (currentMetadataFile !== null) {
