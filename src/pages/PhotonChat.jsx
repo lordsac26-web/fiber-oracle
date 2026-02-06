@@ -448,7 +448,7 @@ export default function PhotonChat() {
           </motion.div>
 
           {/* Chat Area */}
-          <Card className="flex-1 border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col min-h-0 max-w-5xl mx-auto w-full">
+          <Card className="h-[85vh] border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col max-w-5xl mx-auto w-full">
             <CardHeader className="pb-2 sm:pb-3 border-b border-slate-700 shrink-0">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-white flex items-center gap-2 text-sm sm:text-base">
