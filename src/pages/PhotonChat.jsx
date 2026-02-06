@@ -392,14 +392,14 @@ export default function PhotonChat() {
         </Dialog>
         )}
 
-      <main className="flex-1 flex flex-col max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-6 w-full min-h-0">
-        <div className="grid md:grid-cols-4 gap-2 sm:gap-4 flex-1 min-h-0">
+      <main className="flex-1 flex max-w-7xl mx-auto w-full min-h-0">
+        <div className="flex flex-1 gap-2 sm:gap-4 md:gap-6 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 min-h-0">
           {/* Sidebar - Conversations - Static Container */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.4 }}
-            className="hidden md:block"
+            className="hidden md:block w-64 lg:w-72 flex-shrink-0"
           >
             <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col h-full overflow-hidden">
               <CardHeader className="pb-3 flex-shrink-0">
@@ -448,7 +448,7 @@ export default function PhotonChat() {
           </motion.div>
 
           {/* Chat Area */}
-          <Card className="md:col-span-3 border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col min-h-0">
+          <Card className="flex-1 border-slate-700 bg-slate-800/50 backdrop-blur-sm flex flex-col min-h-0 max-w-5xl mx-auto w-full">
             <CardHeader className="pb-2 sm:pb-3 border-b border-slate-700 shrink-0">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-white flex items-center gap-2 text-sm sm:text-base">
@@ -465,8 +465,8 @@ export default function PhotonChat() {
             </CardHeader>
             
             {/* Messages Container - Scrollable */}
-            <div className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-4">
-              <div className="flex flex-col min-h-full">
+            <div className="flex-1 overflow-y-auto min-h-0 px-3 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+              <div className="flex flex-col min-h-full max-w-4xl mx-auto w-full">
                 {!conversationId ? (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -513,8 +513,8 @@ export default function PhotonChat() {
 
             {/* Input Area - Fixed at Bottom */}
             {conversationId && (
-              <div className="border-t border-slate-700 p-3 shrink-0 bg-slate-800/80 backdrop-blur-sm">
-                <form onSubmit={sendMessage} className="flex gap-2">
+              <div className="border-t border-slate-700 px-3 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-4 shrink-0 bg-slate-800/80 backdrop-blur-sm">
+                <form onSubmit={sendMessage} className="flex gap-2 max-w-4xl mx-auto w-full">
                   <Textarea
                     ref={textareaRef}
                     value={inputMessage}
