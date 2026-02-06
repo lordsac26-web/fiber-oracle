@@ -18,6 +18,7 @@ const DEFAULT_PREFERENCES = {
   logoUrl: '',
   customFields: ['Job Number', 'Technician', 'Location'],
   hasSeenTour: false,
+  fieldModeEnabled: false,
 };
 
 const UserPreferencesContext = createContext();
