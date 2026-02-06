@@ -159,7 +159,8 @@ const MODULES = [
   color: 'from-violet-500 to-purple-600',
   page: 'FieldMode',
   badge: 'Troubleshoot',
-  isNew: true
+  isNew: true,
+  requiresPreference: 'fieldModeEnabled'
 },
 {
   id: 'doctor',
@@ -403,7 +404,11 @@ export default function Home() {
     updatePreferences({ darkMode: value });
   };
 
-  const visibleModules = MODULES.filter((m) => !hiddenModules.includes(m.id));
+  const visibleModules = MODULES.filter((m) => {
+    const isHidden = hiddenModules.includes(m.id);
+    const hasRequiredPreference = !m.requiresPreference || preferences[m.requiresPreference];
+    return !isHidden && hasRequiredPreference;
+  });
 
   const filteredModules = selectedCategory === 'all' ?
   visibleModules :
