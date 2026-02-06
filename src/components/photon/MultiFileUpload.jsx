@@ -452,45 +452,160 @@ View in admin panel to approve or deny.
             </div>
           )}
 
-      {/* Action buttons */}
-      <div className="flex justify-between pt-4">
-        <Button
-          variant="outline"
-          onClick={onClose}
-          disabled={uploading}
-          className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
-        >
-          {allComplete ? 'Close' : 'Cancel'}
-        </Button>
-        <div className="flex gap-2">
-          {allComplete ? (
-            <Button 
-              onClick={() => { onComplete(); onClose(); }}
-              className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold shadow-lg"
-            >
-              Done
-            </Button>
-          ) : files.length > 0 && (
+          {/* Action buttons */}
+          <div className="flex justify-between pt-4">
             <Button
-              onClick={startMetadataCollection}
+              variant="outline"
+              onClick={onClose}
               disabled={uploading}
-              className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
             >
-              {uploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Continue Upload
-                </>
-              )}
+              {allComplete ? 'Close' : 'Cancel'}
             </Button>
+            <div className="flex gap-2">
+              {allComplete ? (
+                <Button 
+                  onClick={() => { onComplete(); onClose(); }}
+                  className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold shadow-lg"
+                >
+                  Done
+                </Button>
+              ) : files.length > 0 && (
+                <Button
+                  onClick={startMetadataCollection}
+                  disabled={uploading}
+                  className="bg-cyan-500 hover:bg-cyan-600 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Continue Upload
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="googledrive" className="space-y-4 mt-4">
+          {driveLinked ? (
+            <div className="space-y-4">
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-6">
+                <div className="text-center">
+                  <CheckCircle2 className="w-12 h-12 text-green-600 dark:text-green-400 mx-auto mb-3" />
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Document Linked!</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{driveLinked.title}</p>
+                  <div className="flex items-center justify-center gap-2 text-xs">
+                    <Badge className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700">
+                      {driveLinked.category}
+                    </Badge>
+                    <a 
+                      href={driveLinked.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
+                    >
+                      View <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2">Link Google Drive Document</h4>
+                <p className="text-xs text-blue-800 dark:text-blue-200">
+                  Link a document from Google Drive to make it searchable in your knowledge base. The document will remain in Google Drive.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                    Google Drive URL
+                  </label>
+                  <Input
+                    placeholder="https://drive.google.com/file/d/1ABC123.../view"
+                    value={driveUrl}
+                    onChange={(e) => setDriveUrl(e.target.value)}
+                    className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                    disabled={driveLinking}
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    You can use the link from Google Drive's "Share" button
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                    Category
+                  </label>
+                  <Select value={driveCategory} onValueChange={setDriveCategory} disabled={driveLinking}>
+                    <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
+                      {CATEGORIES.map((cat) => (
+                        <SelectItem key={cat} value={cat} className="capitalize">
+                          {cat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                    Notes (optional)
+                  </label>
+                  <Textarea
+                    placeholder="Add any notes about this document..."
+                    value={driveComments}
+                    onChange={(e) => setDriveComments(e.target.value)}
+                    className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 h-20"
+                    disabled={driveLinking}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between pt-4">
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                  disabled={driveLinking}
+                  className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleGoogleDriveLink}
+                  disabled={driveLinking || !driveUrl.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg"
+                >
+                  {driveLinking ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Linking...
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                      Link Document
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
           )}
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
