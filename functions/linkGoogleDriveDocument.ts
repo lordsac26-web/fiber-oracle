@@ -15,9 +15,21 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Google Drive URL is required' }, { status: 400 });
     }
 
-    // Extract file ID from URL
-    const fileIdMatch = googleDriveUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    const fileId = fileIdMatch ? fileIdMatch[1] : null;
+    // Extract file ID from various Google Drive URL formats
+    const patterns = [
+      /\/d\/([a-zA-Z0-9_-]+)/,
+      /id=([a-zA-Z0-9_-]+)/,
+      /^([a-zA-Z0-9_-]{25,})$/
+    ];
+    
+    let fileId = null;
+    for (const pattern of patterns) {
+      const match = googleDriveUrl.match(pattern);
+      if (match) {
+        fileId = match[1];
+        break;
+      }
+    }
 
     if (!fileId) {
       return Response.json({ error: 'Invalid Google Drive URL: Could not extract file ID' }, { status: 400 });
@@ -40,7 +52,7 @@ Deno.serve(async (req) => {
     if (!driveResponse.ok) {
       const errorData = await driveResponse.json();
       console.error('Google Drive API error:', errorData);
-      return Response.json({ error: `Failed to fetch file: ${errorData.error.message}` }, { status: driveResponse.status });
+      return Response.json({ error: `Failed to fetch file: ${errorData.error?.message || 'Unknown error'}` }, { status: driveResponse.status });
     }
 
     const fileMetadata = await driveResponse.json();
