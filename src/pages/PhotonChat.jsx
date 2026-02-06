@@ -92,12 +92,13 @@ export default function PhotonChat() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [conversationId]);
 
-  // Get current user for audit logging
+  // Get current user for audit logging and role check
   useEffect(() => {
     base44.auth.me().then(user => setCurrentUser(user)).catch(() => {});
   }, []);
 
   const isAdmin = currentUser?.role === 'admin';
+  const isRegularUser = currentUser?.role === 'user';
 
   // Audit logging helper
   const logAuditEvent = async (eventType, content, metadata = {}, status = 'success', errorMessage = null) => {
@@ -259,9 +260,12 @@ export default function PhotonChat() {
     queryClient.invalidateQueries({ queryKey: ['referenceDocs'] });
   };
 
-  // Delete reference doc
+  // Delete reference doc (admin only)
   const deleteReferenceMutation = useMutation({
     mutationFn: async (doc) => {
+      if (!isAdmin) {
+        throw new Error('Unauthorized: Admin access required');
+      }
       await logAuditEvent('document_reference', `Deleted document: ${doc.title}`, {
         document_id: doc.id,
         document_title: doc.title,
@@ -273,8 +277,8 @@ export default function PhotonChat() {
       queryClient.invalidateQueries({ queryKey: ['referenceDocs'] });
       toast.success('Reference document deleted');
     },
-    onError: () => {
-      toast.error('Failed to delete document');
+    onError: (error) => {
+      toast.error(error.message || 'Failed to delete document');
     }
   });
 
@@ -296,14 +300,15 @@ export default function PhotonChat() {
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
           showSidebar={showSidebar}
           isAICentricMode={isAICentricMode}
-          onOpenUploadDialog={() => setShowUploadDialog(true)}
+          onOpenUploadDialog={isAdmin ? () => setShowUploadDialog(true) : null}
           docsCount={referenceDocs.length}
         />
-        <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-          <DialogTrigger asChild>
-            <span />
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-slate-900/95 border-slate-700">
+        {isAdmin && (
+          <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+            <DialogTrigger asChild>
+              <span />
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-slate-900/95 border-slate-700">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-white">
                 <FileText className="h-5 w-5" />
@@ -370,19 +375,22 @@ export default function PhotonChat() {
                         </Badge>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteReferenceMutation.mutate(doc)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-400 hover:text-red-300" />
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteReferenceMutation.mutate(doc)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-400 hover:text-red-300" />
+                      </Button>
+                    )}
                   </motion.div>
                 ))}
               </div>
             </div>
           </DialogContent>
         </Dialog>
+        )}
 
       <main className="flex-1 flex flex-col max-w-7xl mx-auto px-1 sm:px-4 py-2 sm:py-6 w-full min-h-0">
         <div className="grid md:grid-cols-4 gap-2 sm:gap-4 flex-1 min-h-0">
