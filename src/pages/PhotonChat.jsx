@@ -456,20 +456,15 @@ export default function PhotonChat() {
               </div>
             </CardHeader>
             
-            <CardContent className="flex-1 flex flex-col py-4 px-3 sm:px-6 min-h-0 overflow-hidden">
-              {/* Static Chat Frame - Fixed Container */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.4 }}
-                className="flex-1 bg-gradient-to-b from-slate-900/70 to-slate-900/50 rounded-xl border border-slate-700/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto min-h-0"
-              >
+            {/* Messages Container - Scrollable */}
+            <div className="flex-1 overflow-y-auto min-h-0 p-3 sm:p-4">
+              <div className="flex flex-col min-h-full">
                 {!conversationId ? (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5 }}
-                    className="flex flex-col items-center justify-center h-full text-center space-y-4 sm:space-y-6 px-4"
+                    className="flex flex-col items-center justify-center flex-1 text-center space-y-4 sm:space-y-6 px-4"
                   >
                     <motion.div
                       animate={{ scale: [1, 1.05, 1], rotate: [0, 5, -5, 0] }}
@@ -498,25 +493,19 @@ export default function PhotonChat() {
                     </motion.div>
                   </motion.div>
                 ) : (
-                  <AnimatePresence>
-                    <div className="space-y-2 pb-4">
-                      {messages.map((msg, idx) => (
-                        <EnhancedMessageBubble key={msg.id || idx} message={msg} />
-                      ))}
-                      <div ref={messagesEndRef} className="h-px" />
-                    </div>
-                  </AnimatePresence>
+                  <div className="space-y-2">
+                    {messages.map((msg, idx) => (
+                      <EnhancedMessageBubble key={msg.id || idx} message={msg} />
+                    ))}
+                    <div ref={messagesEndRef} className="h-px" />
+                  </div>
                 )}
-              </motion.div>
-            </CardContent>
+              </div>
+            </div>
 
+            {/* Input Area - Fixed at Bottom */}
             {conversationId && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="border-t border-slate-700 p-3 shrink-0 bg-gradient-to-r from-slate-800/50 to-slate-800/30 backdrop-blur-sm"
-              >
+              <div className="border-t border-slate-700 p-3 shrink-0 bg-slate-800/80 backdrop-blur-sm">
                 <form onSubmit={sendMessage} className="flex gap-2">
                   <Textarea
                     ref={textareaRef}
@@ -543,7 +532,7 @@ export default function PhotonChat() {
                     {!isSending && <Send className="h-4 w-4" />}
                   </PremiumButton>
                 </form>
-              </motion.div>
+              </div>
             )}
           </Card>
         </div>
