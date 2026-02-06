@@ -76,10 +76,24 @@ export default function PhotonAuditLogs() {
   const [eventTypeFilter, setEventTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedLog, setSelectedLog] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+
+  // Check user role
+  React.useEffect(() => {
+    base44.auth.me().then(user => {
+      const adminAccess = user?.role === 'admin';
+      setIsAdmin(adminAccess);
+      setIsAuthorized(adminAccess);
+    }).catch(() => {
+      setIsAuthorized(false);
+    });
+  }, []);
 
   const { data: auditLogs = [], isLoading } = useQuery({
     queryKey: ['auditLogs'],
     queryFn: () => base44.entities.AuditLog.list('-created_date', 500),
+    enabled: isAuthorized,
   });
 
   const filteredLogs = auditLogs.filter(log => {
@@ -126,6 +140,27 @@ export default function PhotonAuditLogs() {
   };
 
   const errorCount = auditLogs.filter(l => l.status === 'error').length;
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center p-6">
+        <Card className="max-w-md bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Access Denied</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-white/70 mb-4">Audit logs are only accessible to administrators.</p>
+            <Link to={createPageUrl('PhotonChat')}>
+              <Button variant="outline" className="w-full">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Chat
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
