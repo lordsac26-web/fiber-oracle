@@ -123,20 +123,44 @@ export default function MultiFileUpload({ onComplete, onClose, isAdmin = true })
       });
 
       if (extraction.status === 'success' && extraction.output) {
-        updateFileStatus(index, { stage: 'Creating document entry...', progress: 70 });
+        updateFileStatus(index, { stage: 'Analyzing content...', progress: 60 });
+        
+        // Get AI category and tag suggestions
+        let aiSuggestions = null;
+        try {
+          const suggestResult = await base44.functions.invoke('suggestDocumentCategories', {
+            content: extraction.output.full_text || JSON.stringify(extraction.output),
+            title: fileObj.file.name.replace(/\.[^/.]+$/, '')
+          });
+          aiSuggestions = suggestResult.data.suggestions;
+        } catch (error) {
+          console.error('AI suggestion failed:', error);
+        }
+
+      updateFileStatus(index, { stage: 'Creating document entry...', progress: 75 });
         
         // Create reference document or submission based on user role
         let doc;
         if (isAdmin) {
           doc = await base44.entities.ReferenceDocument.create({
             title: fileObj.file.name.replace(/\.[^/.]+$/, ''),
-            category: userMetadata.category || 'other',
+            category: aiSuggestions?.primary_category || userMetadata.category || 'other',
+            custom_categories: aiSuggestions?.additional_categories || [],
             version: userMetadata.version || '1.0',
             comments: userMetadata.comments || '',
             annotations: userMetadata.annotations || [],
             source_type: 'pdf',
             source_url: file_url,
             content: extraction.output.full_text || JSON.stringify(extraction.output),
+            suggested_tags: aiSuggestions?.suggested_tags || [],
+            tags_confirmed: false,
+            ai_category_suggestions: aiSuggestions ? [{
+              primary_category: aiSuggestions.primary_category,
+              additional_categories: aiSuggestions.additional_categories,
+              confidence_score: aiSuggestions.confidence_score,
+              reasoning: aiSuggestions.reasoning,
+              suggested_at: new Date().toISOString()
+            }] : [],
             metadata: {
               page_count: extraction.output.sections?.length || 0,
               upload_date: new Date().toISOString(),
