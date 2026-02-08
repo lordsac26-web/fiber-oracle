@@ -135,10 +135,12 @@ Return a ranked list of document IDs with relevance scores (0-100).`;
                 document_id: { type: 'string' },
                 relevance_score: { type: 'number' },
                 match_reasoning: { type: 'string' }
-              }
+              },
+              required: ['document_id', 'relevance_score']
             }
           }
-        }
+        },
+        required: ['ranked_documents']
       }
     });
 
