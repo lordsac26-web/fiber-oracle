@@ -41,11 +41,16 @@ Deno.serve(async (req) => {
     }
 
     // Fetch all matching documents
-    const allDocs = await base44.entities.ReferenceDocument.filter(
+    let allDocs = await base44.entities.ReferenceDocument.filter(
       entityFilter,
       '-created_date',
       100
     );
+
+    // Ensure allDocs is always an array
+    if (!Array.isArray(allDocs)) {
+      allDocs = [];
+    }
 
     if (allDocs.length === 0) {
       return Response.json({
