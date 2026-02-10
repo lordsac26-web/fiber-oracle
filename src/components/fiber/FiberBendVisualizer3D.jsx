@@ -339,13 +339,21 @@ export default function FiberBendVisualizer3D({ minBendRadius = 30 }) {
             />
             
             {/* Slider tick marks */}
-            <div className="flex justify-between mt-1 px-1">
-              {[10, 15, 20, 30, 50].map(mark => (
-                <div key={mark} className="flex flex-col items-center">
-                  <div className="w-px h-2 bg-slate-600" />
-                  <span className="text-xs text-slate-500 mt-0.5">{mark}</span>
-                </div>
-              ))}
+            <div className="relative mt-1">
+              {[10, 15, 20, 30, 50].map(mark => {
+                // Calculate position as percentage along slider (5 to 60 range)
+                const position = ((mark - 5) / (60 - 5)) * 100;
+                return (
+                  <div 
+                    key={mark} 
+                    className="absolute flex flex-col items-center"
+                    style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
+                  >
+                    <div className="w-px h-2 bg-slate-600" />
+                    <span className="text-xs text-slate-500 mt-0.5">{mark}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
