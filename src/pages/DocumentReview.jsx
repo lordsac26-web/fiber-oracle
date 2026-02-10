@@ -1,413 +1,204 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, CheckCircle, XCircle, Shield, AlertTriangle, FileText, Clock, Loader2, Tag, MessageSquare } from 'lucide-react';
-import { toast } from 'sonner';
-import { createPageUrl } from '@/utils';
-import { Link } from 'react-router-dom';
+import TagReviewDialog from '@/components/admin/TagReviewDialog';
+import { FileText, Search, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 
 export default function DocumentReview() {
-    const [selectedSubmission, setSelectedSubmission] = useState(null);
-    const [showDenyDialog, setShowDenyDialog] = useState(false);
-    const [denialReason, setDenialReason] = useState('');
-    const [scanning, setScanning] = useState(null);
-    const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
 
-    const { data: user } = useQuery({
-        queryKey: ['user'],
-        queryFn: () => base44.auth.me()
-    });
+  // Fetch documents needing review
+  const { data: unreviewedDocs = [], isLoading, refetch } = useQuery({
+    queryKey: ['unreviewedDocuments'],
+    queryFn: () => base44.entities.ReferenceDocument.filter({ tags_confirmed: false }),
+  });
 
-    const { data: submissions = [], isLoading } = useQuery({
-        queryKey: ['documentSubmissions'],
-        queryFn: () => base44.entities.DocumentSubmission.list('-created_date')
-    });
+  // Fetch all feedback for stats
+  const { data: allFeedback = [] } = useQuery({
+    queryKey: ['tagFeedback'],
+    queryFn: () => base44.entities.TagFeedback.list(),
+  });
 
-    const scanMutation = useMutation({
-        mutationFn: async (submissionId) => {
-            const response = await base44.functions.invoke('scanDocumentSecurity', { submission_id: submissionId });
-            return response.data;
-        },
-        onSuccess: (data, submissionId) => {
-            queryClient.invalidateQueries(['documentSubmissions']);
-            toast.success('Security scan completed');
-            setScanning(null);
-        },
-        onError: (error) => {
-            toast.error('Security scan failed: ' + error.message);
-            setScanning(null);
-        }
-    });
+  const filteredDocs = unreviewedDocs.filter(doc =>
+    doc.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-    const approveMutation = useMutation({
-        mutationFn: async (submission) => {
-            const user = await base44.auth.me();
-            
-            // Create the reference document
-            await base44.entities.ReferenceDocument.create({
-                title: submission.title,
-                category: submission.category || 'other',
-                version: submission.version || '1.0',
-                comments: submission.comments,
-                annotations: submission.annotations,
-                source_type: submission.source_type,
-                source_url: submission.source_url,
-                content: submission.content,
-                metadata: submission.metadata,
-                is_active: true
-            });
+  const handleOpenReview = (doc) => {
+    setSelectedDoc(doc);
+    setReviewDialogOpen(true);
+  };
 
-            // Update submission status - this will trigger notification automation
-            await base44.entities.DocumentSubmission.update(submission.id, {
-                status: 'approved',
-                reviewed_by: user.email,
-                review_date: new Date().toISOString()
-            });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries(['documentSubmissions']);
-            toast.success('Document approved and added to knowledge base');
-            setSelectedSubmission(null);
-        },
-        onError: (error) => {
-            toast.error('Approval failed: ' + error.message);
-        }
-    });
+  const handleReviewComplete = () => {
+    refetch();
+    setReviewDialogOpen(false);
+  };
 
-    const denyMutation = useMutation({
-        mutationFn: async ({ submissionId, reason }) => {
-            const currentUser = await base44.auth.me();
-            
-            // Update submission status - this will trigger notification automation
-            await base44.entities.DocumentSubmission.update(submissionId, {
-                status: 'denied',
-                reviewed_by: currentUser.email,
-                review_date: new Date().toISOString(),
-                denial_reason: reason
-            });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries(['documentSubmissions']);
-            toast.success('Document submission denied');
-            setSelectedSubmission(null);
-            setShowDenyDialog(false);
-            setDenialReason('');
-        },
-        onError: (error) => {
-            toast.error('Denial failed: ' + error.message);
-        }
-    });
+  const acceptedCount = allFeedback.filter(f => f.feedback_type === 'accepted').length;
+  const modifiedCount = allFeedback.filter(f => f.feedback_type === 'modified').length;
+  const rejectedCount = allFeedback.filter(f => f.feedback_type === 'rejected').length;
 
-    const handleScan = (submissionId) => {
-        setScanning(submissionId);
-        scanMutation.mutate(submissionId);
-    };
-
-    const handleApprove = (submission) => {
-        if (submission.security_scan_status !== 'passed') {
-            toast.error('Please run security scan first');
-            return;
-        }
-        approveMutation.mutate(submission);
-    };
-
-    const handleDeny = () => {
-        if (!denialReason.trim()) {
-            toast.error('Please provide a reason for denial');
-            return;
-        }
-        denyMutation.mutate({ submissionId: selectedSubmission.id, reason: denialReason });
-    };
-
-    const pendingSubmissions = submissions.filter(s => s.status === 'pending');
-    const reviewedSubmissions = submissions.filter(s => s.status !== 'pending');
-
-    const getStatusBadge = (status) => {
-        const configs = {
-            pending: { icon: Clock, color: 'bg-yellow-100 text-yellow-800', label: 'Pending' },
-            approved: { icon: CheckCircle, color: 'bg-green-100 text-green-800', label: 'Approved' },
-            denied: { icon: XCircle, color: 'bg-red-100 text-red-800', label: 'Denied' }
-        };
-        const config = configs[status] || configs.pending;
-        const Icon = config.icon;
-        return (
-            <Badge className={config.color}>
-                <Icon className="w-3 h-3 mr-1" />
-                {config.label}
-            </Badge>
-        );
-    };
-
-    const getScanBadge = (scanStatus) => {
-        const configs = {
-            pending: { icon: Shield, color: 'bg-gray-100 text-gray-800', label: 'Not Scanned' },
-            scanning: { icon: Loader2, color: 'bg-blue-100 text-blue-800', label: 'Scanning...', spin: true },
-            passed: { icon: CheckCircle, color: 'bg-green-100 text-green-800', label: 'Passed' },
-            failed: { icon: AlertTriangle, color: 'bg-red-100 text-red-800', label: 'Failed' }
-        };
-        const config = configs[scanStatus] || configs.pending;
-        const Icon = config.icon;
-        return (
-            <Badge className={config.color}>
-                <Icon className={`w-3 h-3 mr-1 ${config.spin ? 'animate-spin' : ''}`} />
-                {config.label}
-            </Badge>
-        );
-    };
-
-    if (user?.role !== 'admin') {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-6">
-                <Card className="max-w-md">
-                    <CardHeader>
-                        <CardTitle>Access Denied</CardTitle>
-                        <CardDescription>This page is only accessible to administrators.</CardDescription>
-                    </CardHeader>
-                </Card>
-            </div>
-        );
-    }
-
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
-            <div className="max-w-7xl mx-auto">
-                <div className="flex items-center gap-4 mb-6">
-                    <Link to={createPageUrl('PhotonChat')}>
-                        <Button variant="outline" size="icon" className="border-white/30 bg-white/10 text-white hover:bg-white/20">
-                            <ArrowLeft className="w-4 h-4" />
-                        </Button>
-                    </Link>
-                    <img 
-                        src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
-                        alt="Fiber Oracle" 
-                        className="w-12 h-12 rounded-xl object-cover shadow-lg"
-                    />
-                    <div>
-                        <h1 className="text-3xl font-bold text-white">Document Review Center</h1>
-                        <p className="text-white/70">Review and approve user-submitted documents</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-white text-sm">Pending Review</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-white">{pendingSubmissions.length}</div>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-white text-sm">Approved</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-green-400">
-                                {submissions.filter(s => s.status === 'approved').length}
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-white text-sm">Denied</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-3xl font-bold text-red-400">
-                                {submissions.filter(s => s.status === 'denied').length}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {isLoading ? (
-                    <div className="flex justify-center items-center py-12">
-                        <Loader2 className="w-8 h-8 animate-spin text-white" />
-                    </div>
-                ) : (
-                    <>
-                        <Card className="bg-white/10 backdrop-blur-md border-white/20 mb-6">
-                            <CardHeader>
-                                <CardTitle className="text-white">Pending Submissions</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {pendingSubmissions.length === 0 ? (
-                                    <p className="text-white/60 text-center py-8">No pending submissions</p>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {pendingSubmissions.map(submission => (
-                                            <div key={submission.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                                <div className="flex items-start justify-between mb-3">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <FileText className="w-4 h-4 text-white/70" />
-                                                            <h3 className="font-semibold text-white">{submission.title}</h3>
-                                                        </div>
-                                                        <p className="text-sm text-white/60 mb-2">
-                                                            Submitted by: {submission.submitted_by} • {new Date(submission.created_date).toLocaleDateString()}
-                                                        </p>
-                                                        <div className="flex flex-wrap gap-2 mb-3">
-                                                            {getStatusBadge(submission.status)}
-                                                            {getScanBadge(submission.security_scan_status)}
-                                                            {submission.category && (
-                                                                <Badge className="bg-purple-100 text-purple-800">
-                                                                    <Tag className="w-3 h-3 mr-1" />
-                                                                    {submission.category}
-                                                                </Badge>
-                                                            )}
-                                                            {submission.version && (
-                                                                <Badge variant="outline" className="border-white/30 text-white">
-                                                                    v{submission.version}
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                        {submission.comments && (
-                                                            <div className="bg-black/20 rounded p-2 mb-2 text-sm text-white/80">
-                                                                <MessageSquare className="w-3 h-3 inline mr-1" />
-                                                                {submission.comments}
-                                                            </div>
-                                                        )}
-                                                        {submission.annotations && submission.annotations.length > 0 && (
-                                                            <div className="text-xs text-white/70 mb-2">
-                                                                {submission.annotations.length} annotation(s) attached
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {submission.security_scan_result && (
-                                                    <div className="bg-black/20 rounded p-3 mb-3 text-sm">
-                                                        <p className="text-white/90 font-medium mb-2">Security Scan Results:</p>
-                                                        {submission.security_scan_result.threats_found?.length > 0 && (
-                                                            <div className="text-red-300 mb-2">
-                                                                <p className="font-medium">Threats:</p>
-                                                                <ul className="list-disc ml-5">
-                                                                    {submission.security_scan_result.threats_found.map((t, i) => (
-                                                                        <li key={i}>{t}</li>
-                                                                    ))}
-                                                                </ul>
-                                                            </div>
-                                                        )}
-                                                        {submission.security_scan_result.warnings?.length > 0 && (
-                                                            <div className="text-yellow-300 mb-2">
-                                                                <p className="font-medium">Warnings:</p>
-                                                                <ul className="list-disc ml-5">
-                                                                    {submission.security_scan_result.warnings.map((w, i) => (
-                                                                        <li key={i}>{w}</li>
-                                                                    ))}
-                                                                </ul>
-                                                            </div>
-                                                        )}
-                                                        {submission.security_scan_result.llm_analysis && (
-                                                            <div className="text-white/70">
-                                                                <p>Risk Level: <span className="font-medium">{submission.security_scan_result.llm_analysis.risk_level}</span></p>
-                                                                <p>{submission.security_scan_result.llm_analysis.recommendation}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                <div className="flex gap-2">
-                                                   {submission.security_scan_status === 'pending' && (
-                                                       <Badge className="bg-yellow-100 text-yellow-800 mr-2">
-                                                           <Clock className="w-3 h-3 mr-1 animate-pulse" />
-                                                           Auto-scanning...
-                                                       </Badge>
-                                                   )}
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => handleApprove(submission)}
-                                                        disabled={submission.security_scan_status !== 'passed'}
-                                                        className="bg-green-600 hover:bg-green-700"
-                                                    >
-                                                        <CheckCircle className="w-4 h-4 mr-2" />
-                                                        Approve
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => {
-                                                            setSelectedSubmission(submission);
-                                                            setShowDenyDialog(true);
-                                                        }}
-                                                        className="border-red-300/30 bg-red-500/20 text-red-200 hover:bg-red-500/30"
-                                                    >
-                                                        <XCircle className="w-4 h-4 mr-2" />
-                                                        Deny
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        <Card className="bg-white/10 backdrop-blur-md border-white/20">
-                            <CardHeader>
-                                <CardTitle className="text-white">Review History</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {reviewedSubmissions.length === 0 ? (
-                                    <p className="text-white/60 text-center py-8">No reviewed submissions</p>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {reviewedSubmissions.map(submission => (
-                                            <div key={submission.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
-                                                <div className="flex items-start justify-between">
-                                                    <div>
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <FileText className="w-4 h-4 text-white/70" />
-                                                            <h3 className="font-semibold text-white">{submission.title}</h3>
-                                                        </div>
-                                                        <p className="text-sm text-white/60 mb-2">
-                                                            Submitted by: {submission.submitted_by} • Reviewed by: {submission.reviewed_by}
-                                                        </p>
-                                                        {submission.denial_reason && (
-                                                            <p className="text-sm text-red-300">Reason: {submission.denial_reason}</p>
-                                                        )}
-                                                    </div>
-                                                    {getStatusBadge(submission.status)}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </>
-                )}
-            </div>
-
-            <Dialog open={showDenyDialog} onOpenChange={setShowDenyDialog}>
-                <DialogContent className="bg-slate-900 text-white border-white/20">
-                    <DialogHeader>
-                        <DialogTitle>Deny Document Submission</DialogTitle>
-                        <DialogDescription className="text-white/70">
-                            Please provide a reason for denying this document submission.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <Textarea
-                        placeholder="Reason for denial..."
-                        value={denialReason}
-                        onChange={(e) => setDenialReason(e.target.value)}
-                        className="bg-white/10 border-white/20 text-white"
-                        rows={4}
-                    />
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowDenyDialog(false)}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleDeny} className="bg-red-600 hover:bg-red-700">
-                            Deny Submission
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-white mb-2">Document Review Center</h1>
+          <p className="text-slate-300">Review and confirm AI-generated categories and tags</p>
         </div>
-    );
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-400 text-sm">Pending Review</p>
+                  <p className="text-2xl font-bold text-white">{unreviewedDocs.length}</p>
+                </div>
+                <AlertCircle className="h-8 w-8 text-yellow-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-400 text-sm">Accepted</p>
+                  <p className="text-2xl font-bold text-white">{acceptedCount}</p>
+                </div>
+                <CheckCircle2 className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-400 text-sm">Modified</p>
+                  <p className="text-2xl font-bold text-white">{modifiedCount}</p>
+                </div>
+                <Sparkles className="h-8 w-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-400 text-sm">AI Accuracy</p>
+                  <p className="text-2xl font-bold text-white">
+                    {allFeedback.length > 0
+                      ? Math.round((acceptedCount / allFeedback.length) * 100)
+                      : 0}%
+                  </p>
+                </div>
+                <Sparkles className="h-8 w-8 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search */}
+        <Card className="bg-slate-800/50 border-slate-700 mb-6">
+          <CardContent className="p-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search documents..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-slate-900/50 border-slate-600 text-white"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Documents List */}
+        <Card className="bg-slate-800/50 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Documents Awaiting Review</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="text-center py-8 text-slate-400">Loading...</div>
+            ) : filteredDocs.length === 0 ? (
+              <div className="text-center py-8">
+                <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-green-500" />
+                <p className="text-slate-400">All documents reviewed!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="bg-slate-900/50 border border-slate-700 rounded-lg p-4 hover:bg-slate-900/70 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3 flex-1">
+                        <FileText className="h-5 w-5 text-blue-400 mt-1 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-white mb-2">{doc.title}</h3>
+                          
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            <Badge className="bg-blue-900/50 text-blue-200 border-blue-700">
+                              {doc.category}
+                            </Badge>
+                            {doc.ai_category_suggestions?.[0] && (
+                              <Badge variant="outline" className="border-purple-500 text-purple-300">
+                                AI: {doc.ai_category_suggestions[0].confidence_score}% confident
+                              </Badge>
+                            )}
+                          </div>
+
+                          {doc.suggested_tags?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {doc.suggested_tags.map((tag, idx) => (
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
+                                  className="text-xs border-slate-600 text-slate-300"
+                                >
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+
+                          <p className="text-xs text-slate-500 mt-2">
+                            Uploaded: {new Date(doc.created_date).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={() => handleOpenReview(doc)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        Review
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <TagReviewDialog
+        document={selectedDoc}
+        open={reviewDialogOpen}
+        onOpenChange={setReviewDialogOpen}
+        onConfirm={handleReviewComplete}
+      />
+    </div>
+  );
 }

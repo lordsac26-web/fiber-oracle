@@ -246,6 +246,15 @@ View in admin panel to approve or deny.
           documentId: doc.id
         });
 
+        // Chunk and embed document for better retrieval (async, non-blocking)
+        if (isAdmin) {
+          base44.functions.invoke('chunkAndEmbedDocument', {
+            document_id: doc.id
+          }).catch(error => {
+            console.error('Background chunking failed:', error);
+          });
+        }
+
         return { success: true, doc };
       } else {
         throw new Error('Failed to extract content');

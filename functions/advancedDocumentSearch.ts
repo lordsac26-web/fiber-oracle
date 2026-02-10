@@ -40,11 +40,11 @@ Deno.serve(async (req) => {
       entityFilter.is_latest_version = filters.is_latest_version;
     }
 
-    // Fetch all matching documents
+    // STAGE 1: Fetch and filter documents by metadata
     let allDocs = await base44.entities.ReferenceDocument.filter(
       entityFilter,
       '-created_date',
-      100
+      500
     );
 
     // Ensure allDocs is always an array
@@ -82,8 +82,41 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Prepare documents for semantic ranking with tags
-    const docSummaries = filteredDocs.map(doc => ({
+    // STAGE 1: Keyword-based pre-filtering to narrow down corpus
+    const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const keywordFilteredDocs = filteredDocs.map(doc => {
+      let score = 0;
+      const searchText = `${doc.title} ${doc.content || ''} ${(doc.tags || []).join(' ')} ${doc.category}`.toLowerCase();
+      
+      // Score based on keyword matches
+      for (const word of queryWords) {
+        if (doc.title.toLowerCase().includes(word)) score += 10;
+        if ((doc.tags || []).some(tag => tag.toLowerCase().includes(word))) score += 5;
+        if (doc.category.toLowerCase().includes(word)) score += 3;
+        if (searchText.includes(word)) score += 1;
+      }
+      
+      return { doc, score };
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 100); // Take top 100 by keyword relevance
+
+    if (keywordFilteredDocs.length === 0) {
+      return Response.json({
+        query,
+        results: [],
+        total_results: 0,
+        message: 'No documents matched the search keywords',
+        stage: 'keyword_filtering'
+      });
+    }
+
+    // Use keyword-filtered docs for semantic ranking
+    filteredDocs = keywordFilteredDocs.map(item => item.doc);
+
+    // STAGE 2: Prepare documents for semantic ranking with tags
+    const docSummaries = filteredDocs.slice(0, 50).map(doc => ({
       id: doc.id,
       title: doc.title,
       category: doc.category,
@@ -219,6 +252,9 @@ Return a ranked list of document IDs with relevance scores (0-100).`;
       total_results: validResults.length,
       results: validResults,
       search_metadata: {
+        two_stage_search: true,
+        stage_1_results: keywordFilteredDocs.length,
+        stage_2_results: validResults.length,
         semantic_search_used: true,
         keyword_highlighting: highlight_keywords,
         max_results: max_results
