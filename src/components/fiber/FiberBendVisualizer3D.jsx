@@ -361,10 +361,10 @@ export default function FiberBendVisualizer3D({ minBendRadius = 30 }) {
           <div className="text-xs font-semibold text-white mb-2">Quick Size Reference</div>
           <div className="grid grid-cols-4 gap-2">
             {[
-              { size: 5, emoji: '✏️', label: 'Pencil', radius: '5mm' },
-              { size: 10, emoji: '🪙', label: 'Quarter', radius: '10mm' },
-              { size: 30, emoji: '⚾', label: 'Baseball', radius: '30mm' },
-              { size: 100, emoji: '🥎', label: 'Softball', radius: '100mm' },
+              { size: 7, emoji: '✏️', label: 'Pencil', radius: '7mm' },
+              { size: 15, emoji: '🪙', label: 'Quarter', radius: '15mm' },
+              { size: 25, emoji: '⚪', label: 'Golf Ball', radius: '25mm' },
+              { size: 40, emoji: '⚾', label: 'Baseball', radius: '40mm' },
             ].map((ref) => (
               <div 
                 key={ref.size} 
