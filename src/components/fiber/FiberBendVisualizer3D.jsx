@@ -356,6 +356,33 @@ export default function FiberBendVisualizer3D({ minBendRadius = 30 }) {
           </div>
         </div>
 
+        {/* Quick Size Reference Chart */}
+        <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+          <div className="text-xs font-semibold text-white mb-2">Quick Size Reference</div>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { size: 5, emoji: '✏️', label: 'Pencil', radius: '5mm' },
+              { size: 10, emoji: '🪙', label: 'Quarter', radius: '10mm' },
+              { size: 30, emoji: '⚾', label: 'Baseball', radius: '30mm' },
+              { size: 100, emoji: '🥎', label: 'Softball', radius: '100mm' },
+            ].map((ref) => (
+              <div 
+                key={ref.size} 
+                className={`text-center p-2 bg-slate-900/50 rounded-lg border transition-all cursor-pointer hover:scale-105 ${
+                  Math.abs(bendRadius - ref.size) <= 5 
+                    ? 'border-cyan-500 shadow-lg shadow-cyan-500/20' 
+                    : 'border-slate-700'
+                }`}
+                onClick={() => setBendRadius(ref.size)}
+              >
+                <div className="text-2xl mb-1">{ref.emoji}</div>
+                <div className="text-sm font-bold font-mono text-cyan-400">{ref.radius}</div>
+                <div className="text-[9px] text-slate-400">{ref.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Loss comparison */}
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
