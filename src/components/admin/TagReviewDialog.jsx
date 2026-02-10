@@ -1,143 +1,181 @@
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { X, Plus, Sparkles, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function TagReviewDialog({ document, isOpen, onClose, onConfirm }) {
-    const [tags, setTags] = useState(document?.suggested_tags || []);
-    const [newTag, setNewTag] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
+export default function TagReviewDialog({ document, open, onOpenChange, onConfirm }) {
+  const queryClient = useQueryClient();
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [newTag, setNewTag] = useState('');
+  const [notes, setNotes] = useState('');
 
-    const addTag = () => {
-        const trimmedTag = newTag.trim();
-        if (trimmedTag && !tags.includes(trimmedTag)) {
-            setTags([...tags, trimmedTag]);
-            setNewTag('');
-        }
-    };
+  useEffect(() => {
+    if (document) {
+      setSelectedTags(document.suggested_tags || []);
+      setSelectedCategory(document.category || 'other');
+      setNotes('');
+    }
+  }, [document]);
 
-    const removeTag = (tagToRemove) => {
-        setTags(tags.filter(tag => tag !== tagToRemove));
-    };
+  const confirmMutation = useMutation({
+    mutationFn: async ({ documentId, category, tags, notes }) => {
+      return base44.functions.invoke('submitTagFeedback', {
+        document_id: documentId,
+        confirmed_category: category,
+        confirmed_tags: tags,
+        user_notes: notes
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['referenceDocs'] });
+      queryClient.invalidateQueries({ queryKey: ['unreviewedDocuments'] });
+      toast.success('Feedback submitted successfully');
+      onConfirm?.();
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to submit feedback');
+    }
+  });
 
-    const handleConfirm = async () => {
-        setIsSubmitting(true);
-        try {
-            await base44.entities.ReferenceDocument.update(document.id, {
-                tags: tags,
-                tags_confirmed: true,
-                suggested_tags: []
-            });
-            toast.success('Tags confirmed successfully');
-            onConfirm?.();
-            onClose();
-        } catch (error) {
-            toast.error('Failed to update tags');
-            console.error(error);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    if (!document) return null;
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-blue-500" />
-                        Review AI-Suggested Tags
-                    </DialogTitle>
-                    <DialogDescription>
-                        The AI has suggested tags for "{document.title}". Review, edit, or add more tags to improve searchability.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-4">
-                    {/* Current Tags */}
-                    <div>
-                        <label className="text-sm font-medium mb-2 block">Tags</label>
-                        <div className="flex flex-wrap gap-2 p-3 border rounded-lg min-h-[80px] bg-slate-50 dark:bg-slate-900">
-                            {tags.length === 0 ? (
-                                <p className="text-sm text-gray-400">No tags yet. Add some below.</p>
-                            ) : (
-                                tags.map((tag, idx) => (
-                                    <Badge 
-                                        key={idx} 
-                                        className="bg-blue-500 text-white hover:bg-blue-600 flex items-center gap-1 px-3 py-1"
-                                    >
-                                        {tag}
-                                        <button
-                                            onClick={() => removeTag(tag)}
-                                            className="ml-1 hover:bg-white/20 rounded-full p-0.5"
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </Badge>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Add New Tag */}
-                    <div>
-                        <label className="text-sm font-medium mb-2 block">Add Custom Tag</label>
-                        <div className="flex gap-2">
-                            <Input
-                                placeholder="Enter tag name..."
-                                value={newTag}
-                                onChange={(e) => setNewTag(e.target.value)}
-                                onKeyPress={(e) => {
-                                    if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        addTag();
-                                    }
-                                }}
-                            />
-                            <Button onClick={addTag} variant="outline">
-                                <Plus className="h-4 w-4 mr-1" />
-                                Add
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Document Metadata Preview */}
-                    {document.metadata && (
-                        <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border">
-                            <p className="text-xs font-semibold text-gray-500 mb-2">DOCUMENT METADATA</p>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                {document.metadata.product_model && (
-                                    <div><span className="text-gray-500">Model:</span> <span className="font-medium">{document.metadata.product_model}</span></div>
-                                )}
-                                {document.metadata.manufacturer && (
-                                    <div><span className="text-gray-500">Manufacturer:</span> <span className="font-medium">{document.metadata.manufacturer}</span></div>
-                                )}
-                                {document.metadata.technology_type && (
-                                    <div><span className="text-gray-500">Technology:</span> <span className="font-medium">{document.metadata.technology_type}</span></div>
-                                )}
-                                {document.metadata.product_category && (
-                                    <div><span className="text-gray-500">Category:</span> <span className="font-medium">{document.metadata.product_category}</span></div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <DialogFooter>
-                    <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-                        Cancel
-                    </Button>
-                    <Button onClick={handleConfirm} disabled={isSubmitting}>
-                        <Check className="h-4 w-4 mr-2" />
-                        {isSubmitting ? 'Confirming...' : 'Confirm Tags'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+  const toggleTag = (tag) => {
+    setSelectedTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     );
+  };
+
+  const handleAddTag = () => {
+    const trimmed = newTag.trim();
+    if (trimmed && !selectedTags.includes(trimmed)) {
+      setSelectedTags([...selectedTags, trimmed]);
+      setNewTag('');
+    }
+  };
+
+  const handleConfirm = () => {
+    confirmMutation.mutate({ 
+      documentId: document.id,
+      category: selectedCategory,
+      tags: selectedTags,
+      notes: notes
+    });
+  };
+
+  if (!document) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-800">
+        <DialogHeader>
+          <DialogTitle className="text-gray-900 dark:text-white">Review AI Suggestions</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-2">Document</h3>
+            <p className="text-gray-700 dark:text-gray-300">{document?.title}</p>
+            {document?.ai_category_suggestions?.[0] && (
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                AI Confidence: {document.ai_category_suggestions[0].confidence_score}%
+                {document.ai_category_suggestions[0].reasoning && (
+                  <p className="mt-1 italic">{document.ai_category_suggestions[0].reasoning}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-2">Category</h3>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white dark:bg-gray-800">
+                <SelectItem value="installation">Installation</SelectItem>
+                <SelectItem value="troubleshooting">Troubleshooting</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="safety">Safety</SelectItem>
+                <SelectItem value="specifications">Specifications</SelectItem>
+                <SelectItem value="training">Training</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-2">
+              Tags {document?.suggested_tags?.length > 0 && <span className="text-xs text-gray-500 dark:text-gray-400">(AI suggested)</span>}
+            </h3>
+            <div className="flex flex-wrap gap-2 p-3 border border-gray-300 dark:border-gray-600 rounded-lg min-h-[60px] bg-gray-50 dark:bg-gray-900">
+              {selectedTags.length === 0 ? (
+                <span className="text-sm text-gray-400">No tags selected</span>
+              ) : (
+                selectedTags.map((tag, idx) => (
+                  <Badge
+                    key={idx}
+                    className="bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                    onClick={() => toggleTag(tag)}
+                  >
+                    {tag}
+                    <X className="h-3 w-3 ml-1" />
+                  </Badge>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Input
+              placeholder="Add new tag..."
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddTag();
+                }
+              }}
+              className="bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600"
+            />
+            <Button onClick={handleAddTag} type="button">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-sm text-gray-900 dark:text-white mb-2">Feedback Notes (Optional)</h3>
+            <Textarea
+              placeholder="Any notes about why you made changes to the AI suggestions..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 h-20"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={confirmMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirm}
+              disabled={confirmMutation.isPending}
+            >
+              {confirmMutation.isPending ? 'Submitting...' : 'Confirm & Submit Feedback'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
