@@ -308,58 +308,8 @@ export default function FiberBendVisualizer3D({ minBendRadius = 30 }) {
                   shadowColor="#ff4444"
                 />
               ))}
-
-              {/* Quick Reference Safety Levels - Overlay */}
-              <Group x={10} y={dimensions.height - 80}>
-                {/* Background */}
-                <Line
-                  points={[0, 0, 280, 0, 280, 70, 0, 70]}
-                  fill="rgba(15, 23, 42, 0.85)"
-                  stroke="rgba(6, 182, 212, 0.3)"
-                  strokeWidth={1}
-                  closed={true}
-                />
-                
-                {/* Title */}
-                <Circle x={8} y={12} radius={3} fill="#00f5ff" />
-                <Circle x={8} y={12} radius={6} stroke="#00f5ff" strokeWidth={1} opacity={0.3} />
-                
-                {/* Safety level indicators */}
-                <Circle x={12} y={32} radius={4} fill="#ef4444" />
-                <Circle x={12} y={50} radius={4} fill="#f97316" />
-                <Circle x={152} y={32} radius={4} fill="#eab308" />
-                <Circle x={152} y={50} radius={4} fill="#22c55e" />
-              </Group>
             </Layer>
           </Stage>
-          
-          {/* Text overlay (HTML for better font rendering) */}
-          <div className="absolute bottom-2 left-2 text-[10px] text-white pointer-events-none">
-            <div className="bg-slate-900/85 border border-cyan-500/30 rounded px-2 py-1.5 backdrop-blur-sm">
-              <div className="font-semibold text-cyan-400 mb-1 flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                Safety Levels
-              </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
-                  <span className="text-slate-300">&lt;10mm: Severe</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0" />
-                  <span className="text-slate-300">15-20mm: Moderate</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />
-                  <span className="text-slate-300">10-15mm: High</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-                  <span className="text-slate-300">&gt;20mm: Safe</span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Bend Radius Slider */}
@@ -426,7 +376,28 @@ export default function FiberBendVisualizer3D({ minBendRadius = 30 }) {
           </div>
         </div>
 
-
+        {/* Quick Reference Safety Levels */}
+        <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 space-y-2">
+          <div className="text-xs font-semibold text-white mb-2">Bend Radius Safety Levels</div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-red-500" />
+              <span className="text-slate-300">&lt;10mm: Severe</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-orange-500" />
+              <span className="text-slate-300">10-15mm: High</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-yellow-500" />
+              <span className="text-slate-300">15-20mm: Moderate</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500" />
+              <span className="text-slate-300">&gt;20mm: Safe</span>
+            </div>
+          </div>
+        </div>
 
         {/* Formula Explanation */}
         <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 text-xs text-slate-400 space-y-2">
