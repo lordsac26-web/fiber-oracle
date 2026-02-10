@@ -88,7 +88,6 @@ import ReportManagement from './pages/ReportManagement';
 import Settings from './pages/Settings';
 import SplitterLoss from './pages/SplitterLoss';
 import StudyGuide from './pages/StudyGuide';
-import TechAssistant from './pages/TechAssistant';
 import UserGuide from './pages/UserGuide';
 import __Layout from './Layout.jsx';
 
@@ -135,7 +134,6 @@ export const PAGES = {
     "Settings": Settings,
     "SplitterLoss": SplitterLoss,
     "StudyGuide": StudyGuide,
-    "TechAssistant": TechAssistant,
     "UserGuide": UserGuide,
 }
 
