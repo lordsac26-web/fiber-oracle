@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React from 'react';
 import * as THREE from 'three';
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
@@ -6,12 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle } from 'lucide-react';
 
 export default function FiberBendVisualizer3D({ minBendRadius = 30 }) {
-  const mountRef = useRef(null);
-  const sceneRef = useRef(null);
-  const [bendRadius, setBendRadius] = useState(minBendRadius * 2);
-  const [signalLoss, setSignalLoss] = useState(0);
+  const mountRef = React.useRef(null);
+  const sceneRef = React.useRef(null);
+  const [bendRadius, setBendRadius] = React.useState(minBendRadius * 2);
+  const [signalLoss, setSignalLoss] = React.useState(0);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!mountRef.current) return;
 
     // Scene setup
@@ -170,7 +170,7 @@ export default function FiberBendVisualizer3D({ minBendRadius = 30 }) {
   }, []);
 
   // Update fiber curve when bend radius changes
-  useEffect(() => {
+  React.useEffect(() => {
     if (!sceneRef.current) return;
 
     const scene = sceneRef.current;
