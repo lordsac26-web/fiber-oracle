@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { useUserPreferences } from '@/components/UserPreferencesContext';
 import HiddenContentBanner from '@/components/HiddenContentBanner';
+import FiberBendVisualizer3D from '@/components/fiber/FiberBendVisualizer3D';
 
 const CABLE_TYPES = {
   indoor: [
@@ -112,6 +113,9 @@ export default function BendRadius() {
             </div>
           </div>
         </div>
+
+        {/* Interactive 3D Visualizer */}
+        <FiberBendVisualizer3D minBendRadius={selectedCable?.minBend || 30} />
 
         {/* Cable Type Tabs */}
         {visibleTabs.length === 0 ? (
