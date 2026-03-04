@@ -41,15 +41,23 @@ Deno.serve(async (req) => {
     }
 
     // STAGE 1: Fetch and filter documents by metadata
-    let allDocs = await base44.entities.ReferenceDocument.filter(
-      entityFilter,
-      '-created_date',
-      500
-    );
+    // Ensure we get all documents, not just filtered by is_active
+    const searchFilter = filters.is_active !== undefined ? entityFilter : { ...entityFilter };
+    let allDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 500);
 
     // Ensure allDocs is always an array
     if (!Array.isArray(allDocs)) {
       allDocs = [];
+    }
+
+    // Apply additional filters if specified
+    if (Object.keys(entityFilter).length > 0) {
+      allDocs = allDocs.filter(doc => {
+        for (const [key, value] of Object.entries(entityFilter)) {
+          if (doc[key] !== value) return false;
+        }
+        return true;
+      });
     }
 
     if (allDocs.length === 0) {
@@ -155,7 +163,7 @@ For troubleshooting queries, prioritize documents with troubleshooting category 
 
 Return a ranked list of document IDs with relevance scores (0-100).`;
 
-    const rankingResult = await base44.integrations.Core.InvokeLLM({
+    const rankingResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: semanticPrompt,
       response_json_schema: {
         type: 'object',
