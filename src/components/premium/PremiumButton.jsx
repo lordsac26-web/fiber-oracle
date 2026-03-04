@@ -11,7 +11,7 @@ export default function PremiumButton({
   isLoading = false,
   glow = false,
   animated = true,
-  onClick,
+  onClick = null,
   ...props
 }) {
   const glowClasses = glow ? 'shadow-lg shadow-blue-500/50 dark:shadow-blue-400/30' : '';

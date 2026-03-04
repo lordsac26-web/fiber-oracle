@@ -9,7 +9,7 @@ export default function PremiumBadge({
   className,
   pulse = false,
   animated = true,
-  icon: Icon,
+  icon: Icon = null,
   ...props
 }) {
   const pulseClasses = pulse ? 'animate-pulse' : '';
