@@ -125,10 +125,13 @@ export default function PhotonChat() {
     queryFn: () => base44.entities.ReferenceDocument.filter({ is_active: true }),
   });
 
-  // Fetch conversations (limit to 8)
+  // Fetch conversations (limit to 8) with polling
   const { data: allConversations = [], isLoading: convsLoading } = useQuery({
     queryKey: ['photonConversations'],
     queryFn: () => base44.agents.listConversations({ agent_name: 'photon' }),
+    refetchInterval: 5000, // Refresh every 5 seconds
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   });
   
   const conversations = allConversations.slice(0, 8);
@@ -184,6 +187,13 @@ export default function PhotonChat() {
       });
       setConversationId(conv.id);
       setMessages(conv.messages || []);
+      
+      // Add greeting message from agent
+      await base44.agents.addMessage(conv, {
+        role: 'user',
+        content: 'Hi, I need help'
+      });
+      
       queryClient.invalidateQueries({ queryKey: ['photonConversations'] });
       toast.success('New conversation started');
       
