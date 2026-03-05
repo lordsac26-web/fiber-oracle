@@ -61,9 +61,26 @@ export default function KMLParser() {
     const file = e.target.files[0];
     if (!file) return;
 
-    const ext = file.name.toLowerCase();
-    if (!ext.endsWith('.kml') && !ext.endsWith('.kmz')) {
-      toast.error('Please upload a .kml or .kmz file');
+    // ── File type validation ──────────────────────────────────────────────────
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.kml') && !name.endsWith('.kmz')) {
+      toast.error(
+        `Invalid file type: "${file.name}". This parser only accepts Google Earth files (.kml or .kmz). Please export your data from Google Earth or Maps as a KML/KMZ file.`,
+        { duration: 7000 }
+      );
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size === 0) {
+      toast.error('The selected file is empty. Please choose a valid KML or KMZ file.', { duration: 5000 });
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File is too large (max 50 MB). Please upload a smaller KML/KMZ file.', { duration: 5000 });
+      e.target.value = '';
       return;
     }
 
