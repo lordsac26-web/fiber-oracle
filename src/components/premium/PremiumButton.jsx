@@ -3,17 +3,20 @@ import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-export default function PremiumButton({
-  children,
-  variant = 'default',
-  size = 'default',
-  className,
-  isLoading = false,
-  glow = false,
-  animated = true,
-  onClick = null,
-  ...props
-}) {
+export default function PremiumButton(props) {
+  const {
+    children,
+    variant = 'default',
+    size = 'default',
+    className,
+    isLoading = false,
+    glow = false,
+    animated = true,
+    onClick = null,
+    disabled,
+    ...rest
+  } = props;
+
   const glowClasses = glow ? 'shadow-lg shadow-blue-500/50 dark:shadow-blue-400/30' : '';
 
   const content = (
@@ -26,8 +29,8 @@ export default function PremiumButton({
         className
       )}
       onClick={onClick}
-      disabled={isLoading || props.disabled}
-      {...props}
+      disabled={isLoading || disabled}
+      {...rest}
     >
       {animated && (
         <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
