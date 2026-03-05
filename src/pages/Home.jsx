@@ -425,7 +425,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="text-center py-4">
-          <p className="text-xs text-slate-600">Fiber Oracle © 2025</p>
+          <p className={`text-xs ${darkMode ? 'text-slate-600' : 'text-slate-400'}`}>Fiber Oracle © 2025</p>
         </div>
       </main>
 
