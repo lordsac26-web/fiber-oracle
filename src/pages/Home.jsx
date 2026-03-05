@@ -402,19 +402,19 @@ export default function Home() {
         {/* Quick reference bar */}
         <FadeSection>
           <div className="hidden lg:block">
-            <div className="rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm p-4">
+            <div className={`rounded-2xl border backdrop-blur-sm p-4 ${darkMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200 shadow-sm'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-6">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Quick Ref</span>
                   {QUICK_REFS.map((ref, i) => (
                     <div key={i} className="flex items-center gap-1.5">
-                      <span className="text-xs text-slate-400">{ref.label}</span>
-                      <span className="text-xs font-mono font-bold text-cyan-300">{ref.value}</span>
+                      <span className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{ref.label}</span>
+                      <span className={`text-xs font-mono font-bold ${darkMode ? 'text-cyan-300' : 'text-blue-700'}`}>{ref.value}</span>
                     </div>
                   ))}
                 </div>
                 <Link to={createPageUrl('ReferenceTables')}>
-                  <button className="text-xs text-slate-400 hover:text-cyan-300 flex items-center gap-1 transition-colors">
+                  <button className={`text-xs flex items-center gap-1 transition-colors ${darkMode ? 'text-slate-400 hover:text-cyan-300' : 'text-slate-500 hover:text-blue-700'}`}>
                     All Standards <ChevronRight className="h-3 w-3" />
                   </button>
                 </Link>
