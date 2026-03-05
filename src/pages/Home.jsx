@@ -170,7 +170,7 @@ export default function Home() {
   }, {});
 
   return (
-    <div className="min-h-screen relative overflow-x-hidden" style={{ background: '#07071a' }}>
+    <div className={`min-h-screen relative overflow-x-hidden ${darkMode ? '' : 'bg-slate-100'}`} style={darkMode ? { background: '#07071a' } : {}}>
       {/* Animated canvas background */}
       <AnimatedBackground />
 
