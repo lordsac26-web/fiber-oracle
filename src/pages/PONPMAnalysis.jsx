@@ -1055,23 +1055,7 @@ Be specific, technical, and actionable.`;
                 </div>
 
                 <div className="max-w-md mx-auto space-y-4">
-                  <label className="block">
-                    <div className="border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer border-gray-300 hover:border-blue-400 hover:bg-blue-50/50">
-                      <div className="flex flex-col items-center gap-3">
-                        <Upload className="h-10 w-10 text-gray-400" />
-                        <span className="text-sm text-gray-600">
-                          Click to upload or drag and drop
-                        </span>
-                        <span className="text-xs text-gray-400">CSV files only</span>
-                      </div>
-                    </div>
-                    <Input
-                      type="file"
-                      accept=".csv"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </label>
+                  <FileUploadZone onChange={handleFileUpload} isLoading={isLoading} />
 
                   {savedReports.length > 0 && (
                     <>
