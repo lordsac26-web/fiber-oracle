@@ -680,7 +680,7 @@ Thank you for reaching out!
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-slate-800/50 border-slate-700">
+                    <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                         <CardHeader>
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-white flex items-center gap-2">
@@ -747,7 +747,7 @@ Thank you for reaching out!
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-slate-800/50 border-slate-700">
+                    <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
                                 <CheckCircle className="w-5 h-5 text-green-400" />
@@ -796,7 +796,7 @@ Thank you for reaching out!
 
                     {/* Users Tab */}
                     <TabsContent value="users" className="space-y-6">
-                        <Card className="bg-slate-800/50 border-slate-700">
+                        <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                             <CardHeader>
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <CardTitle className="text-white flex items-center gap-2">
@@ -894,7 +894,7 @@ Thank you for reaching out!
                         </Card>
                         
                         {/* Document Audit Trail */}
-                         <Card className="bg-slate-800/50 border-slate-700" data-tour="audit-section">
+                         <Card className="bg-white/5 border border-white/10 backdrop-blur-sm" data-tour="audit-section">
                             <CardHeader>
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-white flex items-center gap-2">
@@ -979,7 +979,7 @@ Thank you for reaching out!
                         </Card>
 
                         {/* Conversation Management */}
-                         <Card className="bg-slate-800/50 border-slate-700" data-tour="conversations-section">
+                         <Card className="bg-white/5 border border-white/10 backdrop-blur-sm" data-tour="conversations-section">
                             <CardHeader>
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                                     <CardTitle className="text-white flex items-center gap-2">
@@ -1061,7 +1061,7 @@ Thank you for reaching out!
 
                         {/* User Stats Cards Below */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Card className="bg-slate-800/50 border-slate-700">
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-sm">Total Users</CardTitle>
                                 </CardHeader>
@@ -1069,7 +1069,7 @@ Thank you for reaching out!
                                     <div className="text-3xl font-bold text-blue-400">{analytics.users.total}</div>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-slate-800/50 border-slate-700">
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-sm">Admins</CardTitle>
                                 </CardHeader>
@@ -1077,7 +1077,7 @@ Thank you for reaching out!
                                     <div className="text-3xl font-bold text-purple-400">{analytics.users.admins}</div>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-slate-800/50 border-slate-700">
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-sm">Active (7d)</CardTitle>
                                 </CardHeader>
@@ -1087,7 +1087,7 @@ Thank you for reaching out!
                             </Card>
                         </div>
 
-                        <Card className="bg-slate-800/50 border-slate-700">
+                        <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                             <CardHeader>
                                 <CardTitle className="text-white flex items-center gap-2">
                                     <Users className="w-5 h-5" />
@@ -1122,7 +1122,7 @@ Thank you for reaching out!
                     {/* Analytics Tab */}
                     <TabsContent value="analytics" className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <Card className="bg-slate-800/50 border-slate-700">
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="text-white text-xs">Total Queries</CardTitle>
                                 </CardHeader>
@@ -1161,7 +1161,7 @@ Thank you for reaching out!
                         </div>
 
                         <div className="grid md:grid-cols-2 gap-6">
-                            <Card className="bg-slate-800/50 border-slate-700">
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                                 <CardHeader>
                                     <CardTitle className="text-white flex items-center gap-2">
                                         <FileText className="w-5 h-5" />
@@ -1196,7 +1196,7 @@ Thank you for reaching out!
                                 </CardContent>
                             </Card>
 
-                            <Card className="bg-slate-800/50 border-slate-700">
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                                 <CardHeader>
                                     <CardTitle className="text-white flex items-center gap-2">
                                         <TrendingUp className="w-5 h-5" />
@@ -1216,7 +1216,7 @@ Thank you for reaching out!
                             </Card>
                         </div>
 
-                        <Card className="bg-slate-800/50 border-slate-700">
+                        <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                             <CardHeader>
                                 <CardTitle className="text-white flex items-center gap-2">
                                     <Activity className="w-5 h-5" />
@@ -1253,7 +1253,7 @@ Thank you for reaching out!
             </div>
 
             <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
-                <DialogContent className="bg-slate-800/50 border-slate-700">
+                <DialogContent className="bg-white/5 border border-white/10 backdrop-blur-sm">
                     <DialogHeader>
                         <DialogTitle>Resolve Request</DialogTitle>
                         <DialogDescription className="sr-only">
