@@ -263,13 +263,13 @@ export default function Home() {
               </button>
 
               <Link to={createPageUrl('Brochure')} className="hidden md:block">
-                <button className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-white/10 transition-all flex items-center justify-center" title="About">
+                <button className={`p-2 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`} title="About">
                   <Info className="h-4 w-4" />
                 </button>
               </Link>
 
               <Link to={createPageUrl('Settings')} className="hidden md:block">
-                <button className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-white/10 transition-all flex items-center justify-center" title="Settings">
+                <button className={`p-2 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`} title="Settings">
                   <Settings className="h-4 w-4" />
                 </button>
               </Link>
