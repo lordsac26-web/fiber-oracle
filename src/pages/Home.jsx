@@ -317,7 +317,7 @@ export default function Home() {
                 >
                   <cat.icon className="h-4 w-4" />
                   {cat.label}
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${active ? 'bg-cyan-400/20 text-cyan-300' : 'bg-white/10 text-slate-400'}`}>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${active ? (darkMode ? 'bg-cyan-400/20 text-cyan-300' : 'bg-white/30 text-white') : (darkMode ? 'bg-white/10 text-slate-400' : 'bg-slate-100 text-slate-500')}`}>
                     {count}
                   </span>
                 </button>
