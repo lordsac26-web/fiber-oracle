@@ -196,9 +196,9 @@ export default function Home() {
             {/* Desktop quick refs */}
             <div className="hidden lg:flex items-center gap-2.5 flex-1 justify-center max-w-2xl mx-8">
               {QUICK_REFS.slice(0, 4).map((ref, i) => (
-                <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10">
-                  <span className="text-[10px] text-slate-400 uppercase tracking-wide">{ref.label}</span>
-                  <span className="text-[11px] font-mono font-bold text-cyan-300">{ref.value}</span>
+                <div key={i} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${darkMode ? 'bg-white/5 border-white/10' : 'bg-slate-100 border-slate-200'}`}>
+                  <span className={`text-[10px] uppercase tracking-wide ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>{ref.label}</span>
+                  <span className={`text-[11px] font-mono font-bold ${darkMode ? 'text-cyan-300' : 'text-blue-700'}`}>{ref.value}</span>
                 </div>
               ))}
             </div>
