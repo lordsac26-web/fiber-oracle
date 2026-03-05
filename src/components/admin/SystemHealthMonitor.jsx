@@ -33,31 +33,29 @@ export default function SystemHealthMonitor() {
   });
 
   useEffect(() => {
-    if (recentLogs.length > 0) {
-      // Calculate metrics
-      const last5Min = moment().subtract(5, 'minutes');
-      const recentQueries = recentLogs.filter(l => 
-        l.event_type === 'query' && moment(l.created_date).isAfter(last5Min)
-      );
-      
-      const recentResponses = recentLogs.filter(l => 
-        l.event_type === 'response' && moment(l.created_date).isAfter(last5Min)
-      );
+    // Calculate metrics — run regardless of recentLogs length so documents/conversations always render
+    const last5Min = moment().subtract(5, 'minutes');
+    const recentQueries = recentLogs.filter(l =>
+      l.event_type === 'query' && moment(l.created_date).isAfter(last5Min)
+    );
 
-      const errors = recentLogs.filter(l => 
-        l.status === 'error' && moment(l.created_date).isAfter(last5Min)
-      );
+    const recentResponses = recentLogs.filter(l =>
+      l.event_type === 'response' && moment(l.created_date).isAfter(last5Min)
+    );
 
-      const avgTime = recentResponses.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / (recentResponses.length || 1);
-      const errorRate = recentQueries.length > 0 ? (errors.length / recentQueries.length) * 100 : 0;
+    const errors = recentLogs.filter(l =>
+      l.status === 'error' && moment(l.created_date).isAfter(last5Min)
+    );
 
-      setRealtimeStats({
-        activeConversations: conversations.length,
-        avgResponseTime: Math.round(avgTime),
-        errorRate: errorRate.toFixed(1),
-        documentsIndexed: documents.length
-      });
-    }
+    const avgTime = recentResponses.reduce((sum, r) => sum + (r.duration_ms || 0), 0) / (recentResponses.length || 1);
+    const errorRate = recentQueries.length > 0 ? (errors.length / recentQueries.length) * 100 : 0;
+
+    setRealtimeStats({
+      activeConversations: conversations.length,
+      avgResponseTime: Math.round(avgTime),
+      errorRate: errorRate.toFixed(1),
+      documentsIndexed: documents.length   // documents query is always fetched, so this is always accurate
+    });
   }, [recentLogs, conversations, documents]);
 
   const getHealthStatus = () => {
