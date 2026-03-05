@@ -143,11 +143,37 @@ export default function OTDRAnalysis() {
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    const isSorFile = file.name.toLowerCase().endsWith('.sor');
-    const isIOLMFile = file.name.toLowerCase().includes('iolm') || 
-                       file.name.toLowerCase().includes('exfo') ||
-                       (file.type === 'application/pdf' && file.name.toLowerCase().includes('report'));
+
+    // ── File type validation ──────────────────────────────────────────────────
+    const name = file.name.toLowerCase();
+    const ALLOWED_EXTS = ['.sor', '.pdf', '.png', '.jpg', '.jpeg'];
+    const isAllowed = ALLOWED_EXTS.some(ext => name.endsWith(ext));
+
+    if (!isAllowed) {
+      toast.error(
+        `Invalid file type: "${file.name}". Accepted formats: .sor (OTDR trace), .pdf (iOLM/EXFO report), or image (.png, .jpg, .jpeg).`,
+        { duration: 7000 }
+      );
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size === 0) {
+      toast.error('The selected file is empty. Please choose a valid OTDR file.', { duration: 5000 });
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('File is too large (max 50 MB). Please upload a smaller file.', { duration: 5000 });
+      e.target.value = '';
+      return;
+    }
+
+    const isSorFile = name.endsWith('.sor');
+    const isIOLMFile = name.includes('iolm') || 
+                       name.includes('exfo') ||
+                       (file.type === 'application/pdf' && name.includes('report'));
     
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
@@ -157,16 +183,14 @@ export default function OTDRAnalysis() {
       if (isSorFile) {
         updateTraceData('inputMethod', 'sor');
         setSorFileData({ fileName: file.name, url: file_url });
-        // Parse .SOR file to auto-fill form fields
         await parseIOLMReport(file_url, file.name);
       } else if (isIOLMFile || file.type === 'application/pdf') {
-        // Try to parse as iOLM report
         await parseIOLMReport(file_url, file.name);
       } else {
-        toast.success('File uploaded successfully');
+        toast.success('File uploaded. The AI will analyze it alongside any manually entered event data.');
       }
     } catch (error) {
-      toast.error('Failed to upload file');
+      toast.error('Failed to upload file. Please try again.');
     }
   };
 
