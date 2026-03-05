@@ -5,15 +5,16 @@ import { Badge } from '@/components/ui/badge';
 import { FlaskConical, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function ModuleCard({ module, compact = false }) {
+export default function ModuleCard({ module, compact = false, darkMode = true }) {
   return (
     <Link to={createPageUrl(module.page)} className="block h-full">
       <div
         className={cn(
           'group relative overflow-hidden rounded-2xl h-full cursor-pointer transition-all duration-300',
-          'bg-white/5 border border-white/10 hover:border-cyan-400/40',
-          'backdrop-blur-sm hover:shadow-[0_0_24px_rgba(0,240,255,0.15)]',
-          'hover:-translate-y-1 hover:bg-white/10',
+          darkMode
+            ? 'bg-white/5 border border-white/10 hover:border-cyan-400/40 backdrop-blur-sm hover:shadow-[0_0_24px_rgba(0,240,255,0.15)] hover:bg-white/10'
+            : 'bg-white border border-slate-200 hover:border-blue-400/60 shadow-sm hover:shadow-md hover:bg-slate-50',
+          'hover:-translate-y-1',
           compact ? 'p-2.5 md:p-3' : 'p-3 md:p-5'
         )}
       >
