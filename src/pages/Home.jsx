@@ -186,10 +186,10 @@ export default function Home() {
                 className="rounded-xl w-14 h-14 object-cover shadow-[0_0_14px_rgba(0,240,255,0.25)]"
               />
               <div>
-                <h1 className="text-base md:text-lg font-bold text-white tracking-wide" style={{ letterSpacing: '0.04em' }}>
+                <h1 className={`text-base md:text-lg font-bold tracking-wide ${darkMode ? 'text-white' : 'text-slate-900'}`} style={{ letterSpacing: '0.04em' }}>
                   Fiber Oracle
                 </h1>
-                <p className="text-[11px] text-cyan-400/70 hidden sm:block">When you need to know, ask the Oracle.</p>
+                <p className={`text-[11px] hidden sm:block ${darkMode ? 'text-cyan-400/70' : 'text-slate-500'}`}>When you need to know, ask the Oracle.</p>
               </div>
             </div>
 
