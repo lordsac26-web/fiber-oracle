@@ -8,30 +8,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { Shield, Sun, Moon } from 'lucide-react';
-import { ThemeProvider, useTheme } from 'next-themes';
 
 const queryClient = new QueryClient();
-
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
-
-  return (
-    <button
-      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="p-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
-      aria-label="Toggle theme"
-    >
-      {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-    </button>
-  );
-}
 
 function LayoutContent({ children, currentPageName }) {
   const { preferences, isAuthenticated } = useUserPreferences();
