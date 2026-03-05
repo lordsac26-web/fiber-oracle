@@ -15,7 +15,7 @@ export default function PremiumButton({
   ...props
 }) {
   const glowClasses = glow ? 'shadow-lg shadow-blue-500/50 dark:shadow-blue-400/30' : '';
-  
+
   const content = (
     <Button
       variant={variant}
@@ -29,11 +29,9 @@ export default function PremiumButton({
       disabled={isLoading || props.disabled}
       {...props}
     >
-      {/* Animated background shimmer effect */}
       {animated && (
         <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
       )}
-      
       <span className="relative flex items-center gap-2">
         {isLoading && (
           <div className="w-4 h-4 border-2 border-transparent border-t-current rounded-full animate-spin" />
