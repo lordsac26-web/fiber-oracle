@@ -602,6 +602,9 @@ ${sorFileData ? `\nSOR FILE: ${sorFileData.fileName} - Extract all event data fr
                       disabled={isParsingIOLM}
                     />
                   </div>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Only .sor, .pdf, .png, .jpg, .jpeg are accepted. Other formats will be rejected.
+                  </p>
                   {isParsingIOLM && (
                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
                       <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center gap-1">
