@@ -596,29 +596,41 @@ Thank you for reaching out!
 
                     {/* Overview Tab */}
                     <TabsContent value="overview" className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <Card className="bg-slate-800/50 border-slate-700">
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-white text-sm">Pending Requests</CardTitle>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+                                <CardHeader className="pb-2 pt-4 px-4">
+                                    <CardTitle className="text-slate-400 text-xs uppercase tracking-widest">Pending Requests</CardTitle>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="px-4 pb-4">
                                     <div className="text-3xl font-bold text-yellow-400">{pendingRequests.length}</div>
+                                    <p className="text-xs text-slate-500 mt-1">Awaiting action</p>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-slate-800/50 border-slate-700">
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-white text-sm">Master List Submissions</CardTitle>
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+                                <CardHeader className="pb-2 pt-4 px-4">
+                                    <CardTitle className="text-slate-400 text-xs uppercase tracking-widest">Knowledge Base</CardTitle>
                                 </CardHeader>
-                                <CardContent>
-                                    <div className="text-3xl font-bold text-blue-400">{pendingDocuments.length}</div>
+                                <CardContent className="px-4 pb-4">
+                                    <div className="text-3xl font-bold text-cyan-400">{allReferenceDocs.length}</div>
+                                    <p className="text-xs text-slate-500 mt-1">{allReferenceDocs.filter(d => d.is_active).length} active docs</p>
                                 </CardContent>
                             </Card>
-                            <Card className="bg-slate-800/50 border-slate-700">
-                                <CardHeader className="pb-3">
-                                    <CardTitle className="text-white text-sm">Recent Approvals</CardTitle>
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+                                <CardHeader className="pb-2 pt-4 px-4">
+                                    <CardTitle className="text-slate-400 text-xs uppercase tracking-widest">Total Users</CardTitle>
                                 </CardHeader>
-                                <CardContent>
-                                    <div className="text-3xl font-bold text-green-400">{recentApprovals.length}</div>
+                                <CardContent className="px-4 pb-4">
+                                    <div className="text-3xl font-bold text-purple-400">{allUsers.length}</div>
+                                    <p className="text-xs text-slate-500 mt-1">{allUsers.filter(u => u.role === 'admin').length} admins</p>
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
+                                <CardHeader className="pb-2 pt-4 px-4">
+                                    <CardTitle className="text-slate-400 text-xs uppercase tracking-widest">AI Sessions</CardTitle>
+                                </CardHeader>
+                                <CardContent className="px-4 pb-4">
+                                    <div className="text-3xl font-bold text-blue-400">{allConversations.length}</div>
+                                    <p className="text-xs text-slate-500 mt-1">{analytics.ai.totalQueries} queries</p>
                                 </CardContent>
                             </Card>
                         </div>
