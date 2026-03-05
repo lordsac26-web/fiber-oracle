@@ -285,8 +285,8 @@ export default function Home() {
         <div className={`text-center py-4 md:py-6 transition-all duration-700 ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <h2 className="text-2xl md:text-4xl font-bold tracking-tight mb-2"
             style={darkMode
-              ? { background: 'linear-gradient(90deg, #00f0ff 0%, #a855f7 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }
-              : { background: 'linear-gradient(90deg, #0369a1 0%, #7c3aed 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }
+              ? { background: 'linear-gradient(90deg, #00f0ff 0%, #a855f7 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }
+              : { background: 'linear-gradient(90deg, #0369a1 0%, #7c3aed 100%)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }
             }>
             Fiber Optics Intelligence Suite
           </h2>
