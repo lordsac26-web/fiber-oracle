@@ -3,15 +3,17 @@ import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-export default function PremiumBadge({
-  children,
-  variant = 'default',
-  className,
-  pulse = false,
-  animated = true,
-  icon: Icon = null,
-  ...props
-}) {
+export default function PremiumBadge(props) {
+  const {
+    children,
+    variant = 'default',
+    className,
+    pulse = false,
+    animated = true,
+    icon: Icon = null,
+    ...rest
+  } = props;
+
   const pulseClasses = pulse ? 'animate-pulse' : '';
 
   const content = (
@@ -22,7 +24,7 @@ export default function PremiumBadge({
         pulseClasses,
         className
       )}
-      {...props}
+      {...rest}
     >
       <span className="relative flex items-center gap-1.5">
         {Icon && <Icon className="h-3 w-3" />}

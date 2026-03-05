@@ -3,13 +3,15 @@ import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-export default function PremiumCard({
-  children,
-  className,
-  hover = true,
-  glow = false,
-  ...props
-}) {
+export default function PremiumCard(props) {
+  const {
+    children,
+    className,
+    hover = true,
+    glow = false,
+    ...rest
+  } = props;
+
   const glowClasses = glow
     ? 'shadow-lg shadow-blue-500/20 dark:shadow-blue-400/10'
     : 'shadow-md';
@@ -21,7 +23,7 @@ export default function PremiumCard({
         glowClasses,
         className
       )}
-      {...props}
+      {...rest}
     >
       {children}
     </Card>
