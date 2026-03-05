@@ -1,908 +1,1097 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
-// Helper function to sanitize text for PDF (handle special characters)
-function sanitizeText(text) {
+// ─── Text Sanitizer ───────────────────────────────────────────────────────────
+function s(text) {
   if (!text) return '';
   return String(text)
-    .replace(/['']/g, "'")
-    .replace(/[""]/g, '"')
-    .replace(/[–—]/g, '-')
-    .replace(/…/g, '...')
-    .replace(/•/g, '*')
-    .replace(/≤/g, '<=')
-    .replace(/≥/g, '>=')
-    .replace(/±/g, '+/-')
-    .replace(/×/g, 'x')
-    .replace(/÷/g, '/')
-    .replace(/°/g, 'deg')
-    // CRITICAL: Properly handle micrometers - convert μm to "micrometers" or "um"
-    .replace(/(\d+\.?\d*)\s*μm/g, '$1 micrometers')  // 9μm -> 9 micrometers
-    .replace(/(\d+\.?\d*)\s*µm/g, '$1 micrometers')  // 9µm -> 9 micrometers (alternate symbol)
-    .replace(/μm/g, 'micrometers')  // standalone μm
-    .replace(/µm/g, 'micrometers')  // standalone µm
-    .replace(/μ/g, 'micro')   // standalone micro symbol
-    .replace(/µ/g, 'micro')   // standalone micro symbol (alternate)
-    .replace(/[^\x00-\x7F]/g, ''); // Remove any remaining non-ASCII characters
+    .replace(/['']/g, "'").replace(/[""]/g, '"').replace(/[–—]/g, '-')
+    .replace(/…/g, '...').replace(/•/g, '*').replace(/≤/g, '<=')
+    .replace(/≥/g, '>=').replace(/±/g, '+/-').replace(/×/g, 'x')
+    .replace(/÷/g, '/').replace(/°/g, 'deg')
+    .replace(/(\d+\.?\d*)\s*[μµ]m/g, '$1um')
+    .replace(/[μµ]/g, 'u')
+    .replace(/[^\x00-\x7F]/g, '');
 }
 
-// Format measurements with proper unit notation
-function formatMeasurement(text) {
-  if (!text) return '';
-  // Convert common fiber measurements to readable format
-  return String(text)
-    .replace(/(\d+)\s*μm/g, '$1 micrometers')      // 9μm -> 9 micrometers
-    .replace(/(\d+)\s*µm/g, '$1 micrometers')      // 9µm -> 9 micrometers
-    .replace(/(\d+)\s*um/g, '$1 micrometers')      // 9um -> 9 micrometers
-    .replace(/(\d+\.?\d*)\s*micron/gi, '$1 micrometers'); // micron -> micrometers
+// ─── Layout Helpers ───────────────────────────────────────────────────────────
+function drawPageHeader(doc, pageWidth, title, subtitle, colors) {
+  // Deep gradient background
+  doc.setFillColor(...colors.headerBg);
+  doc.rect(0, 0, pageWidth, 28, 'F');
+  // Accent stripe
+  doc.setFillColor(...colors.accent);
+  doc.rect(0, 28, pageWidth, 3, 'F');
+  // Logo text
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('FIBER ORACLE', 14, 13);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(255, 255, 255);
+  doc.text(s(title), 14, 21);
+  // Right-side subtitle
+  if (subtitle) {
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text(s(subtitle), pageWidth - 14, 17, { align: 'right' });
+  }
 }
 
+function drawPageFooter(doc, pageWidth, pageHeight, pageNum, totalPages, colors) {
+  doc.setFillColor(...colors.footerBg);
+  doc.rect(0, pageHeight - 14, pageWidth, 14, 'F');
+  doc.setTextColor(180, 190, 210);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.text('fiberoracle.com', 14, pageHeight - 5);
+  doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
+  doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), pageWidth - 14, pageHeight - 5, { align: 'right' });
+}
+
+function sectionHeader(doc, label, x, y, w, colors) {
+  doc.setFillColor(...colors.sectionBar);
+  doc.roundedRect(x, y, w, 7, 1, 1, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(s(label).toUpperCase(), x + 4, y + 5);
+  return y + 11;
+}
+
+// ─── Entry Point ──────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { type, data } = await req.json();
-
     let pdfBytes;
 
     switch (type) {
-      case 'brochure':
-        pdfBytes = generateBrochurePDF();
-        break;
-      case 'studyGuide':
-        pdfBytes = generateStudyGuidePDF(data);
-        break;
-      case 'jobReport':
-        pdfBytes = generateJobReportPDF(data);
-        break;
-      case 'certificate':
-        pdfBytes = generateCertificatePDF(data);
-        break;
-      default:
-        return Response.json({ error: 'Invalid PDF type' }, { status: 400 });
+      case 'brochure':    pdfBytes = generateBrochurePDF(); break;
+      case 'studyGuide':  pdfBytes = generateStudyGuidePDF(data); break;
+      case 'jobReport':   pdfBytes = generateJobReportPDF(data); break;
+      case 'certificate': pdfBytes = generateCertificatePDF(data); break;
+      default: return Response.json({ error: 'Invalid PDF type' }, { status: 400 });
     }
 
     return new Response(pdfBytes, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename=${type}-${Date.now()}.pdf`
-      }
+        'Content-Disposition': `attachment; filename=FiberOracle-${type}-${Date.now()}.pdf`,
+      },
     });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  BROCHURE PDF — flashy 4-page marketing document
+// ═══════════════════════════════════════════════════════════════════════════════
 function generateBrochurePDF() {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 15;
-  let y = margin;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();   // 210
+  const H = doc.internal.pageSize.getHeight();  // 297
+  const M = 16; // margin
+  const CW = W - 2 * M; // content width
 
-  // Color palette
-  const colors = {
-    primary: [79, 70, 229],      // Indigo
-    secondary: [139, 92, 246],   // Purple
-    accent: [236, 72, 153],      // Pink
-    dark: [30, 41, 59],          // Slate
-    light: [248, 250, 252],
-    emerald: [16, 185, 129],
-    blue: [59, 130, 246],
-    amber: [245, 158, 11],
+  const C = {
+    indigo:   [79,  70, 229],
+    purple:   [124,  58, 237],
+    pink:     [219,  39, 119],
+    emerald:  [16, 185, 129],
+    blue:     [59, 130, 246],
+    amber:    [245,158,  11],
+    teal:     [20, 184, 166],
+    rose:     [244, 63,  94],
+    dark:     [15,  23,  42],
+    slate:    [71,  85, 105],
+    muted:    [100,116,139],
+    light:    [241,245,249],
+    white:    [255,255,255],
   };
 
-  // ========== PAGE 1: Cover ==========
-  // Gradient header
-  doc.setFillColor(...colors.primary);
-  doc.rect(0, 0, pageWidth, 80, 'F');
-  doc.setFillColor(...colors.secondary);
-  doc.rect(0, 60, pageWidth, 30, 'F');
-  
-  // Decorative lines
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.3);
-  for (let i = 0; i < 8; i++) {
-    doc.line(pageWidth - 50 + i * 8, 0, pageWidth - 20 + i * 8, 90);
-  }
+  // ── PAGE 1: COVER ──────────────────────────────────────────────────────────
+  // Full-bleed gradient background
+  doc.setFillColor(...C.dark);
+  doc.rect(0, 0, W, H, 'F');
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(36);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Fiber Oracle', margin, 40);
-  
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'normal');
-  doc.text('When you need to know, ask the Oracle.', margin, 55);
-  
-  doc.setFontSize(11);
-  doc.text('The Complete Field Reference for Fiber Optic Professionals', margin, 75);
-
-  y = 100;
-  doc.setTextColor(...colors.dark);
-
-  // Intro paragraph
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  const intro = sanitizeText('Fiber Oracle consolidates everything a fiber technician needs into one powerful, offline-capable app. From PON power calculations to AI-powered OTDR analysis, from comprehensive glossaries to certification courses - it\'s all here, designed by fiber professionals for fiber professionals.');
-  const introLines = doc.splitTextToSize(intro, pageWidth - 2 * margin);
-  doc.text(introLines, margin, y);
-  y += introLines.length * 6 + 12;
-
-  // Stats bar
-  doc.setFillColor(...colors.light);
-  doc.roundedRect(margin, y, pageWidth - 2 * margin, 20, 3, 3, 'F');
-  
-  const stats = [
-    { value: '15+', label: 'Tools' },
-    { value: '200+', label: 'Glossary Terms' },
-    { value: '3', label: 'Courses' },
-    { value: '100%', label: 'Offline' },
+  // Diagonal accent bands (fiber optic light streaks)
+  const streaks = [
+    { x: -20, angle: 15, color: C.indigo, alpha: 0.35, w: 18 },
+    { x: 30,  angle: 15, color: C.purple, alpha: 0.25, w: 10 },
+    { x: 70,  angle: 15, color: C.pink,   alpha: 0.20, w: 6  },
+    { x: 160, angle: 15, color: C.indigo, alpha: 0.18, w: 12 },
+    { x: 190, angle: 15, color: C.purple, alpha: 0.22, w: 8  },
   ];
-  
-  const statWidth = (pageWidth - 2 * margin) / 4;
-  stats.forEach((stat, i) => {
-    const x = margin + statWidth * i + statWidth / 2;
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...colors.primary);
-    doc.text(stat.value, x, y + 9, { align: 'center' });
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 116, 139);
-    doc.text(stat.label, x, y + 15, { align: 'center' });
-  });
-  y += 30;
+  // Draw top-right glowing corner
+  doc.setFillColor(124, 58, 237);
+  doc.setGState && doc.setGState(doc.GState({ opacity: 0.15 }));
+  doc.ellipse(W, 0, 80, 80, 'F');
+  doc.setGState && doc.setGState(doc.GState({ opacity: 1 }));
 
-  // Module Categories
-  doc.setFontSize(14);
+  // Horizontal accent bar at top
+  doc.setFillColor(...C.indigo);
+  doc.rect(0, 0, W, 2, 'F');
+
+  // Large title block
+  const titleY = 70;
+  doc.setTextColor(...C.white);
+  doc.setFontSize(52);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...colors.dark);
-  doc.text('Five Powerful Categories', margin, y);
-  y += 10;
+  doc.text('Fiber Oracle', M, titleY);
 
-  const categories = [
-    { name: 'CALCULATORS', color: colors.emerald, items: ['Power Level Calculator', 'Loss Budget Calculator', 'Splitter Loss Reference', 'Bend Radius Guide'] },
-    { name: 'TESTING', color: colors.blue, items: ['OLTS Tier-1 Wizard', 'OTDR Tier-2 Wizard', 'Cleaning & Inspection', 'Job Reports'] },
-    { name: 'TROUBLESHOOTING', color: [239, 68, 68], items: ['Fiber Doctor Flowchart', 'AI OTDR Analysis (Beta)', 'Impairment Library'] },
-    { name: 'REFERENCE', color: colors.amber, items: ['Fiber Locator (3456 fibers)', 'PON Power Levels', 'Reference Tables', 'LCP/CLCP Database', 'Industry Links'] },
-    { name: 'EDUCATION', color: colors.secondary, items: ['Fiber 101: Foundations', 'Fiber 102: PON & FTTH', 'Fiber 103: Troubleshooting', 'Certification Exams'] },
-  ];
-
-  categories.forEach((cat, idx) => {
-    if (y > pageHeight - 40) {
-      doc.addPage();
-      y = margin;
-    }
-    
-    doc.setFillColor(...cat.color);
-    doc.roundedRect(margin, y, 3, 18, 1, 1, 'F');
-    
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...cat.color);
-    doc.text(cat.name, margin + 6, y + 5);
-    
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(71, 85, 105);
-    doc.text(cat.items.join('  |  '), margin + 6, y + 12);
-    y += 22;
-  });
-
-  // Footer
-  doc.setFillColor(...colors.primary);
-  doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.text('Fiber Oracle 2025  |  Page 1 of 3', pageWidth / 2, pageHeight - 8, { align: 'center' });
-
-  // ========== PAGE 2: Features Deep Dive ==========
-  doc.addPage();
-  y = margin;
-
-  // Header
-  doc.setFillColor(...colors.secondary);
-  doc.rect(0, 0, pageWidth, 25, 'F');
-  doc.setTextColor(255, 255, 255);
+  // Tagline
   doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Feature Highlights', margin, 17);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(180, 190, 230);
+  doc.text('When You Need to Know, Ask the Oracle.', M, titleY + 14);
 
-  y = 35;
-  doc.setTextColor(...colors.dark);
+  // Divider line
+  doc.setDrawColor(...C.indigo);
+  doc.setLineWidth(0.8);
+  doc.line(M, titleY + 20, M + 90, titleY + 20);
 
-  // Feature blocks
-  const features = [
-    {
-      title: 'Power Level Calculator',
-      color: colors.emerald,
-      desc: 'Instantly estimate ONT receive power for GPON and XGS-PON networks. Enter OLT transmit power, splitter ratio, fiber length, and connector count to get accurate predictions with pass/fail status.',
-    },
-    {
-      title: 'Fiber Locator',
-      color: colors.amber,
-      desc: 'Identify any fiber from 12 to 3,456 count cables using TIA-598 color codes. Supports loose tube, ribbon, and high-count configurations with visual color displays.',
-    },
-    {
-      title: 'Fiber Doctor',
-      color: [239, 68, 68],
-      desc: 'Interactive troubleshooting flowchart guides you through diagnosing fiber issues. Answer questions about symptoms and get targeted solutions with required tools and procedures.',
-    },
-    {
-      title: 'AI OTDR Analysis',
-      color: colors.secondary,
-      desc: 'Upload OTDR traces or enter event data for AI-powered diagnostics. Get event-by-event analysis, confidence scores, and prioritized action items based on industry standards.',
-    },
-    {
-      title: 'Reference Tables & Glossary',
-      color: colors.blue,
-      desc: 'Comprehensive reference including 200+ glossary terms, attenuation coefficients, connector specs, splice values, color codes, PON specifications, and interactive diagrams.',
-    },
-    {
-      title: 'Education Center',
-      color: colors.primary,
-      desc: 'Three progressive courses: Fiber 101 (Foundations), Fiber 102 (PON & FTTH), Fiber 103 (Advanced Troubleshooting). Each includes study guides and certification exams.',
-    },
-  ];
-
-  features.forEach((f, idx) => {
-    if (y > pageHeight - 50) {
-      doc.addPage();
-      y = margin;
-      doc.setFillColor(...colors.secondary);
-      doc.rect(0, 0, pageWidth, 25, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Feature Highlights (continued)', margin, 17);
-      y = 35;
-    }
-
-    // Feature box
-    doc.setFillColor(...colors.light);
-    doc.roundedRect(margin, y, pageWidth - 2 * margin, 35, 2, 2, 'F');
-    
-    // Color accent
-    doc.setFillColor(...f.color);
-    doc.roundedRect(margin, y, 4, 35, 2, 0, 'F');
-    
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...colors.dark);
-    doc.text(f.title, margin + 8, y + 8);
-    
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(71, 85, 105);
-    const descLines = doc.splitTextToSize(f.desc, pageWidth - 2 * margin - 12);
-    doc.text(descLines, margin + 8, y + 15);
-    
-    y += 40;
-  });
-
-  // Footer
-  doc.setFillColor(...colors.primary);
-  doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.text('Fiber Oracle 2025  |  Page 2 of 3', pageWidth / 2, pageHeight - 8, { align: 'center' });
-
-  // ========== PAGE 3: Standards & Quick Reference ==========
-  doc.addPage();
-  y = margin;
-
-  // Header
-  doc.setFillColor(...colors.accent);
-  doc.rect(0, 0, pageWidth, 25, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Standards & Quick Reference', margin, 17);
-
-  y = 35;
-
-  // Standards compliance
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...colors.dark);
-  doc.text('Industry Standards Compliance', margin, y);
-  y += 8;
-
-  const standardGroups = [
-    { org: 'TIA', standards: ['TIA-568-D (Cabling)', 'TIA-526-14-C (OLTS)', 'TIA-598-D (Color Codes)', 'TIA-758-B (OSP)'] },
-    { org: 'ITU-T', standards: ['G.652/G.657 (Fiber)', 'G.984 (GPON)', 'G.9807 (XGS-PON)', 'G.9804 (25G/50G PON)'] },
-    { org: 'IEC', standards: ['IEC 61300-3-35 (Inspection)', 'IEC 60794 (Cable)', 'IEC 61280 (Testing)'] },
-    { org: 'FOA', standards: ['CFOT Guidelines', 'Testing Best Practices', 'Safety Standards'] },
-    { org: 'Other', standards: ['IEEE 802.3', 'Telcordia GR-326/20', 'NEC 770', 'OSHA 1926'] },
-  ];
-
-  doc.setFontSize(8);
-  standardGroups.forEach(group => {
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...colors.primary);
-    doc.text(group.org + ':', margin, y);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(71, 85, 105);
-    doc.text(group.standards.join('  |  '), margin + 15, y);
-    y += 6;
-  });
-
-  y += 10;
-
-  // Quick Reference Table
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...colors.dark);
-  doc.text('Quick Reference Values', margin, y);
-  y += 8;
-
-  // Table header
-  doc.setFillColor(...colors.primary);
-  doc.rect(margin, y, pageWidth - 2 * margin, 8, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Parameter', margin + 3, y + 5.5);
-  doc.text('Value', pageWidth / 2, y + 5.5);
-  doc.text('Standard', pageWidth - margin - 30, y + 5.5);
-  y += 8;
-
-  const refValues = [
-    ['SMF Attenuation @1310nm', '<=0.35 dB/km', 'TIA-568-D'],
-    ['SMF Attenuation @1550nm', '<=0.25 dB/km', 'TIA-568-D'],
-    ['MMF Attenuation @850nm', '<=3.0 dB/km', 'TIA-568-D'],
-    ['Elite Connector Loss', '<=0.15 dB', 'TIA-568-D'],
-    ['Standard Connector Loss', '<=0.50 dB', 'TIA-568-D'],
-    ['Fusion Splice Loss', '<=0.10 dB', 'TIA-568-D'],
-    ['UPC Reflectance', '<-50 dB', 'GR-326'],
-    ['APC Reflectance', '<-60 dB', 'GR-326'],
-    ['GPON Budget (B+)', '28 dB', 'G.984.2'],
-    ['GPON Budget (C+)', '32 dB', 'G.984.2'],
-    ['XGS-PON Budget (N1)', '29 dB', 'G.9807.1'],
-    ['XGS-PON Budget (N2)', '31 dB', 'G.9807.1'],
-  ].map(row => row.map(cell => sanitizeText(cell)));
-
-  doc.setTextColor(...colors.dark);
-  refValues.forEach((row, idx) => {
-    if (idx % 2 === 0) {
-      doc.setFillColor(248, 250, 252);
-      doc.rect(margin, y, pageWidth - 2 * margin, 6, 'F');
-    }
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text(row[0], margin + 3, y + 4.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text(row[1], pageWidth / 2, y + 4.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 116, 139);
-    doc.text(row[2], pageWidth - margin - 30, y + 4.5);
-    doc.setTextColor(...colors.dark);
-    y += 6;
-  });
-
-  y += 10;
-
-  // Splitter Loss Quick Ref
+  // Sub-tagline
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...colors.dark);
-  doc.text('Splitter Loss Reference', margin, y);
-  y += 6;
+  doc.setTextColor(120, 140, 180);
+  doc.text('The Complete Field Reference for Fiber Optic Professionals', M, titleY + 29);
 
-  doc.setFillColor(...colors.light);
-  doc.roundedRect(margin, y, pageWidth - 2 * margin, 18, 2, 2, 'F');
-  
-  const splitters = ['1:2 = 3.5 dB', '1:4 = 7.0 dB', '1:8 = 10.5 dB', '1:16 = 14.0 dB', '1:32 = 17.5 dB', '1:64 = 21.0 dB'];
+  // Version badge pill
+  const bx = M, by = titleY + 38;
+  doc.setFillColor(...C.indigo);
+  doc.roundedRect(bx, by, 42, 8, 4, 4, 'F');
+  doc.setTextColor(...C.white);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text('VERSION 2.0  |  2025', bx + 21, by + 5.5, { align: 'center' });
+
+  // ── STATS ROW ────────────────────────────────────────────────────────────
+  const statsY = 135;
+  const statItems = [
+    { val: '15+',   lbl: 'Professional Tools', color: C.indigo },
+    { val: '200+',  lbl: 'Glossary Terms',      color: C.purple },
+    { val: '3',     lbl: 'Course Levels',        color: C.emerald },
+    { val: '100%',  lbl: 'Offline Capable',      color: C.amber },
+  ];
+  const sw = CW / 4;
+  statItems.forEach((st, i) => {
+    const sx = M + sw * i + sw / 2;
+    // Pill background
+    doc.setFillColor(30, 40, 70);
+    doc.roundedRect(M + sw * i + 2, statsY, sw - 4, 22, 3, 3, 'F');
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...st.color);
+    doc.text(st.val, sx, statsY + 12, { align: 'center' });
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 140, 180);
+    doc.text(st.lbl, sx, statsY + 19, { align: 'center' });
+  });
+
+  // ── FEATURE GRID (2×3) ───────────────────────────────────────────────────
+  const features = [
+    { icon: '~',  title: 'Power Calculator',    desc: 'Predict ONT Rx power for GPON & XGS-PON with pass/fail.', color: C.emerald },
+    { icon: 'L',  title: 'Fiber Locator',       desc: 'TIA-598 color coding up to 3,456 fibers. Instant ID.',    color: C.purple  },
+    { icon: 'T',  title: 'OLTS / OTDR Wizards', desc: 'Guided Tier-1/2 testing with auto pass/fail analysis.',  color: C.blue    },
+    { icon: '+',  title: 'Fiber Doctor',         desc: 'Interactive flowchart diagnosis for any field problem.',  color: C.rose    },
+    { icon: 'AI', title: 'AI OTDR Analysis',    desc: 'Upload traces for AI event ID and action items.',         color: C.indigo  },
+    { icon: 'Ed', title: 'Education Center',    desc: 'Fiber 101/102/103 courses + certification exams.',       color: C.teal    },
+  ];
+
+  const gridTop = 168;
+  const cols = 2;
+  const rows = 3;
+  const fw = CW / cols - 3;
+  const fh = 22;
+
+  features.forEach((f, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const fx = M + col * (fw + 6);
+    const fy = gridTop + row * (fh + 4);
+
+    doc.setFillColor(20, 28, 55);
+    doc.roundedRect(fx, fy, fw, fh, 2, 2, 'F');
+
+    // color accent left bar
+    doc.setFillColor(...f.color);
+    doc.roundedRect(fx, fy, 3, fh, 1, 1, 'F');
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.white);
+    doc.text(f.title, fx + 7, fy + 7);
+
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 140, 180);
+    const descLines = doc.splitTextToSize(f.desc, fw - 10);
+    doc.text(descLines, fx + 7, fy + 13);
+  });
+
+  // ── WHY SECTION (bottom callout) ─────────────────────────────────────────
+  const whyY = 252;
+  doc.setFillColor(30, 20, 60);
+  doc.roundedRect(M, whyY, CW, 24, 3, 3, 'F');
+  doc.setFillColor(...C.purple);
+  doc.roundedRect(M, whyY, 3, 24, 1, 1, 'F');
+
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  const splitterText = splitters.join('    |    ');
-  doc.text(splitterText, pageWidth / 2, y + 10, { align: 'center' });
-
-  y += 25;
-
-  // FOA Guidelines Callout
-  doc.setFillColor(139, 92, 246); // Purple
-  doc.roundedRect(margin, y, pageWidth - 2 * margin, 22, 2, 2, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text('FOA Recommended Practices Integrated', margin + 5, y + 7);
-  
+  doc.setTextColor(...C.white);
+  doc.text('Why Fiber Oracle?', M + 7, whyY + 7);
+
+  const whyItems = ['Works 100% Offline', 'Mobile-First Design', 'Current 2025 Standards', 'Free to Use', 'Built by Fiber Techs'];
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  const foaText = '* 1-Jumper Reference Method  * Bidirectional OTDR Testing  * Inspect Before Connection  * Complete Documentation  * Safety Protocols';
-  doc.text(foaText, margin + 5, y + 14);
+  doc.setTextColor(150, 165, 200);
+  doc.text(whyItems.join('   |   '), M + 7, whyY + 14);
 
-  y += 28;
+  doc.setFontSize(6.5);
+  doc.setTextColor(80, 100, 140);
+  doc.text('Works on phones, tablets, and desktops. No account required for basic tools. TIA / ITU-T / IEC / IEEE compliant.', M + 7, whyY + 20);
 
-  // Why Fiber Oracle box
-  doc.setFillColor(...colors.emerald);
-  doc.roundedRect(margin, y, pageWidth - 2 * margin, 35, 3, 3, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Why Fiber Oracle?', margin + 5, y + 10);
-  
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  const whyText = '* Works 100% offline after first load  * Mobile-first responsive design  * Current 2025 standards  * Free to use  * No account required for basic tools  * Built by fiber techs, for fiber techs';
-  const whyLines = doc.splitTextToSize(whyText, pageWidth - 2 * margin - 10);
-  doc.text(whyLines, margin + 5, y + 18);
+  // ── COVER FOOTER ──────────────────────────────────────────────────────────
+  doc.setFillColor(10, 14, 35);
+  doc.rect(0, H - 12, W, 12, 'F');
+  doc.setTextColor(80, 100, 140);
+  doc.setFontSize(7);
+  doc.text('fiberoracle.com', M, H - 4);
+  doc.text('1 of 4', W / 2, H - 4, { align: 'center' });
+  doc.text(new Date().getFullYear().toString(), W - M, H - 4, { align: 'right' });
 
-  // Footer
-  doc.setFillColor(...colors.primary);
-  doc.rect(0, pageHeight - 20, pageWidth, 20, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.text('Fiber Oracle 2025  |  Page 3 of 3  |  fiberoracle.com', pageWidth / 2, pageHeight - 8, { align: 'center' });
 
-  return doc.output('arraybuffer');
-}
-
-function generateStudyGuidePDF(data) {
-  const { courseId, title, subtitle, passingScore, sections } = data;
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 20;
-  let y = margin;
+  // ══ PAGE 2: FEATURE DEEP DIVE ════════════════════════════════════════════
+  doc.addPage();
 
   // Header
-  doc.setFillColor(16, 185, 129); // Green
-  doc.rect(0, 0, pageWidth, 45, 'F');
-  
-  doc.setTextColor(255, 255, 255);
+  doc.setFillColor(15, 10, 40);
+  doc.rect(0, 0, W, H, 'F');
+  doc.setFillColor(...C.indigo);
+  doc.rect(0, 0, W, 2, 'F');
+
+  doc.setTextColor(...C.white);
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text(sanitizeText(title), margin, 25);
-  
-  doc.setFontSize(11);
+  doc.text('Feature Highlights', M, 22);
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text(sanitizeText(subtitle + ' | Passing Score: ' + passingScore + '%'), margin, 37);
+  doc.setTextColor(120, 140, 180);
+  doc.text('A closer look at what makes Fiber Oracle the essential tool for field technicians.', M, 30);
+  doc.setDrawColor(...C.indigo);
+  doc.setLineWidth(0.5);
+  doc.line(M, 34, W - M, 34);
 
-  y = 60;
-  doc.setTextColor(0, 0, 0);
+  let y2 = 42;
+  const deepFeatures = [
+    {
+      title: 'Power Level Calculator',
+      color: C.emerald,
+      tags: ['GPON', 'XGS-PON', 'Pass/Fail'],
+      desc: 'Enter OLT Tx power, splitter ratio, fiber length, and connector count. Get instant ONT Rx power predictions with color-coded pass/fail status per ITU-T G.984 and G.9807 budget classes.',
+    },
+    {
+      title: 'Advanced Fiber Locator',
+      color: C.purple,
+      tags: ['TIA-598-D', 'Up to 3456 Fibers', 'Loose Tube & Ribbon'],
+      desc: 'Identify any fiber from 12 to 3,456 count cables using TIA-598 standardized color codes. Visual tube/fiber color display with support for loose tube, ribbon, and high-count configurations.',
+    },
+    {
+      title: 'OLTS Tier-1 & OTDR Tier-2 Wizards',
+      color: C.blue,
+      tags: ['TIA-526-14-C', 'Guided Steps', 'Auto Analysis'],
+      desc: 'Step-by-step guided testing for Tier-1 (insertion loss) and Tier-2 (OTDR) certification. Automatic pass/fail based on TIA-568-D channel loss limits. Generates a signed test report.',
+    },
+    {
+      title: 'Fiber Doctor — Interactive Diagnostics',
+      color: C.rose,
+      tags: ['Flowchart', 'Root Cause', 'Tools List'],
+      desc: 'Answer questions about your symptoms and get targeted solutions with required tools and step-by-step procedures. Covers low signal, high BER, physical damage, splice issues, and more.',
+    },
+    {
+      title: 'AI-Powered OTDR Analysis',
+      color: C.indigo,
+      tags: ['AI/ML', 'Event Analysis', 'Action Items'],
+      desc: 'Upload your OTDR trace or enter event data for AI-powered diagnostics. Receive event-by-event analysis with confidence scores, root cause identification, and prioritized corrective actions.',
+    },
+    {
+      title: 'Education Center — Fiber 101 / 102 / 103',
+      color: C.teal,
+      tags: ['Certification', '3 Courses', 'Study Guides'],
+      desc: 'Progressive courses covering Foundations (101), PON & FTTH (102), and Advanced Troubleshooting (103). Each includes interactive slides, downloadable study guides, and a timed certification exam.',
+    },
+  ];
 
-  // Sections
-  sections.forEach((section, sectionIndex) => {
-    // Check if we need a new page
-    if (y > pageHeight - 40) {
-      doc.addPage();
-      y = margin;
-    }
+  deepFeatures.forEach((f) => {
+    if (y2 > H - 42) { doc.addPage(); y2 = 20; }
+    const bh = 36;
+    doc.setFillColor(22, 28, 60);
+    doc.roundedRect(M, y2, CW, bh, 2, 2, 'F');
 
-    doc.setFontSize(13);
+    // left accent
+    doc.setFillColor(...f.color);
+    doc.roundedRect(M, y2, 4, bh, 1, 1, 'F');
+
+    // title
+    doc.setFontSize(9.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(16, 185, 129);
-    doc.text(sanitizeText((sectionIndex + 1) + '. ' + section.title), margin, y);
-    y += 10;
+    doc.setTextColor(...C.white);
+    doc.text(f.title, M + 8, y2 + 8);
 
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-
-    section.content.forEach(item => {
-      if (y > pageHeight - 30) {
-        doc.addPage();
-        y = margin;
-      }
-
+    // tags
+    let tagX = M + 8;
+    const tagY = y2 + 14;
+    f.tags.forEach(tag => {
+      const tw = doc.getTextWidth(tag) + 6;
+      doc.setFillColor(f.color[0], f.color[1], f.color[2]);
+      doc.setDrawColor(...f.color);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(tagX, tagY - 3.5, tw, 5.5, 2, 2, 'S');
+      doc.setFontSize(5.5);
       doc.setFont('helvetica', 'bold');
-      const termLines = doc.splitTextToSize(sanitizeText(item.term), pageWidth - 2 * margin);
-      doc.text(termLines, margin, y);
-      y += termLines.length * 5;
-
-      doc.setFont('helvetica', 'normal');
-      const defLines = doc.splitTextToSize(sanitizeText(item.definition), pageWidth - 2 * margin);
-      doc.text(defLines, margin, y);
-      y += defLines.length * 5 + 6;
+      doc.setTextColor(...f.color);
+      doc.text(tag, tagX + tw / 2, tagY + 0.5, { align: 'center' });
+      tagX += tw + 3;
     });
 
-    y += 5;
+    // description
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(150, 165, 200);
+    const dLines = doc.splitTextToSize(f.desc, CW - 14);
+    doc.text(dLines, M + 8, y2 + 22);
+
+    y2 += bh + 5;
   });
 
-  // Footer on last page
-  doc.setFontSize(8);
-  doc.setTextColor(128, 128, 128);
-  doc.text('Fiber Oracle Study Guide | fiberoracle.com', margin, pageHeight - 10);
+  // footer p2
+  doc.setFillColor(10, 14, 35);
+  doc.rect(0, H - 12, W, 12, 'F');
+  doc.setTextColor(80, 100, 140);
+  doc.setFontSize(7);
+  doc.text('fiberoracle.com', M, H - 4);
+  doc.text('2 of 4', W / 2, H - 4, { align: 'center' });
+  doc.text(new Date().getFullYear().toString(), W - M, H - 4, { align: 'right' });
+
+
+  // ══ PAGE 3: STANDARDS + QUICK REFERENCE ═════════════════════════════════
+  doc.addPage();
+  doc.setFillColor(15, 10, 40);
+  doc.rect(0, 0, W, H, 'F');
+  doc.setFillColor(...C.purple);
+  doc.rect(0, 0, W, 2, 'F');
+
+  doc.setTextColor(...C.white);
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Standards & Quick Reference', M, 22);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(120, 140, 180);
+  doc.text('All values in Fiber Oracle are sourced from current industry standards.', M, 30);
+  doc.setDrawColor(...C.purple);
+  doc.setLineWidth(0.5);
+  doc.line(M, 34, W - M, 34);
+
+  let y3 = 42;
+
+  // Standards grid
+  const stdGroups = [
+    { org: 'TIA',      color: C.blue,    stds: ['TIA-568-D (Premises Cabling)', 'TIA-526-14-C (OLTS Testing)', 'TIA-598-D (Color Codes)', 'TIA-758-B (OSP Plant)'] },
+    { org: 'ITU-T',    color: C.indigo,  stds: ['G.652 / G.657 (Fiber Types)', 'G.984 (GPON)', 'G.9807.1 (XGS-PON)', 'G.9804 (25G / 50G PON)'] },
+    { org: 'IEC',      color: C.teal,    stds: ['IEC 61300-3-35 (Inspection)', 'IEC 60794 (Cable Specs)', 'IEC 61280-4-x (Testing)'] },
+    { org: 'Other',    color: C.amber,   stds: ['IEEE 802.3 (Ethernet)', 'Telcordia GR-326 / GR-20', 'NEC Article 770', 'OSHA 1926'] },
+  ];
+
+  const sgW = (CW - 6) / 2;
+  stdGroups.forEach((g, i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const gx = M + col * (sgW + 6);
+    const gy = y3 + row * 30;
+
+    doc.setFillColor(22, 28, 60);
+    doc.roundedRect(gx, gy, sgW, 28, 2, 2, 'F');
+    doc.setFillColor(...g.color);
+    doc.roundedRect(gx, gy, 4, 28, 1, 1, 'F');
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...g.color);
+    doc.text(g.org, gx + 7, gy + 7);
+
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(150, 165, 200);
+    g.stds.forEach((st, j) => {
+      doc.text(st, gx + 7, gy + 13 + j * 4.5);
+    });
+  });
+
+  y3 += 65;
+
+  // Quick Reference Table
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...C.white);
+  doc.text('Quick Reference Values', M, y3);
+  y3 += 7;
+
+  // Table header
+  doc.setFillColor(...C.indigo);
+  doc.roundedRect(M, y3, CW, 7, 1, 1, 'F');
+  doc.setTextColor(...C.white);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  const col1 = M + 3, col2 = M + CW * 0.55, col3 = M + CW * 0.78;
+  doc.text('Parameter', col1, y3 + 5);
+  doc.text('Value', col2, y3 + 5);
+  doc.text('Standard', col3, y3 + 5);
+  y3 += 7;
+
+  const refRows = [
+    ['SMF Attenuation @ 1310nm', '<= 0.35 dB/km', 'TIA-568-D'],
+    ['SMF Attenuation @ 1550nm', '<= 0.25 dB/km', 'TIA-568-D'],
+    ['MMF Attenuation @ 850nm',  '<= 3.0 dB/km',  'TIA-568-D'],
+    ['Connector Loss (Elite)',    '<= 0.15 dB',    'TIA-568-D'],
+    ['Connector Loss (Standard)', '<= 0.50 dB',   'TIA-568-D'],
+    ['Fusion Splice Loss',        '<= 0.10 dB',   'TIA-568-D'],
+    ['Mechanical Splice Loss',   '<= 0.20 dB',    'TIA-568-D'],
+    ['UPC Return Loss',          '< -50 dB',      'GR-326-CORE'],
+    ['APC Return Loss',          '< -60 dB',      'GR-326-CORE'],
+    ['GPON Budget Class B+',     '28 dB',          'ITU-T G.984.2'],
+    ['GPON Budget Class C+',     '32 dB',          'ITU-T G.984.2'],
+    ['XGS-PON N1 Budget',        '29 dB',          'ITU-T G.9807.1'],
+    ['XGS-PON N2 Budget',        '31 dB',          'ITU-T G.9807.1'],
+    ['GPON ONT Rx Range',        '-28 to -8 dBm',  'ITU-T G.984'],
+    ['XGS-PON ONT Rx Range',     '-28 to -9 dBm',  'ITU-T G.9807'],
+  ];
+
+  refRows.forEach((row, i) => {
+    if (y3 > H - 40) { doc.addPage(); y3 = 20; }
+    if (i % 2 === 0) {
+      doc.setFillColor(22, 28, 60);
+      doc.rect(M, y3, CW, 5.5, 'F');
+    }
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(180, 195, 220);
+    doc.text(s(row[0]), col1, y3 + 4);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.amber);
+    doc.text(s(row[1]), col2, y3 + 4);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 120, 160);
+    doc.text(s(row[2]), col3, y3 + 4);
+    y3 += 5.5;
+  });
+
+  y3 += 8;
+
+  // Splitter loss box
+  if (y3 < H - 40) {
+    doc.setFillColor(20, 12, 50);
+    doc.roundedRect(M, y3, CW, 18, 2, 2, 'F');
+    doc.setFillColor(...C.purple);
+    doc.roundedRect(M, y3, 4, 18, 1, 1, 'F');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.white);
+    doc.text('Splitter Loss Reference', M + 8, y3 + 6);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(150, 165, 200);
+    doc.text('1:2 = 3.5 dB   |   1:4 = 7.0 dB   |   1:8 = 10.5 dB   |   1:16 = 14.0 dB   |   1:32 = 17.5 dB   |   1:64 = 21.0 dB', M + 8, y3 + 13);
+  }
+
+  // footer p3
+  doc.setFillColor(10, 14, 35);
+  doc.rect(0, H - 12, W, 12, 'F');
+  doc.setTextColor(80, 100, 140);
+  doc.setFontSize(7);
+  doc.text('fiberoracle.com', M, H - 4);
+  doc.text('3 of 4', W / 2, H - 4, { align: 'center' });
+  doc.text(new Date().getFullYear().toString(), W - M, H - 4, { align: 'right' });
+
+
+  // ══ PAGE 4: CATEGORIES + CTA ═════════════════════════════════════════════
+  doc.addPage();
+  doc.setFillColor(15, 10, 40);
+  doc.rect(0, 0, W, H, 'F');
+  doc.setFillColor(...C.emerald);
+  doc.rect(0, 0, W, 2, 'F');
+
+  doc.setTextColor(...C.white);
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Module Categories', M, 22);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(120, 140, 180);
+  doc.text('Five organized categories covering every aspect of fiber optic fieldwork.', M, 30);
+  doc.setDrawColor(...C.emerald);
+  doc.setLineWidth(0.5);
+  doc.line(M, 34, W - M, 34);
+
+  const cats = [
+    { name: 'CALCULATORS', color: C.emerald, items: ['Power Level Calculator (GPON/XGS-PON)', 'Loss Budget Calculator', 'Splitter Loss Reference', 'Optical Calculator', 'Bend Radius Guide'] },
+    { name: 'TESTING',     color: C.blue,    items: ['OLTS Tier-1 Wizard', 'OTDR Tier-2 Wizard', 'Fiber Cleaning & Inspection', 'Job Reports', 'PON PM Analysis'] },
+    { name: 'TROUBLESHOOT',color: C.rose,    items: ['Fiber Doctor Flowchart', 'AI OTDR Analysis (Beta)', 'Impairment Library', 'PON Levels Reference'] },
+    { name: 'REFERENCE',   color: C.amber,   items: ['Fiber Locator (12 to 3,456 fibers)', 'Reference Tables & Glossary', 'LCP / CLCP Database', 'LCP Map View', 'Industry Links'] },
+    { name: 'EDUCATION',   color: C.teal,    items: ['Fiber 101: Foundations', 'Fiber 102: PON & FTTH', 'Fiber 103: Troubleshooting', 'Study Guides', 'Certification Exams'] },
+  ];
+
+  let y4 = 42;
+  cats.forEach((cat) => {
+    if (y4 > H - 40) return;
+    const catH = 10 + cat.items.length * 5;
+    doc.setFillColor(22, 28, 60);
+    doc.roundedRect(M, y4, CW, catH, 2, 2, 'F');
+    doc.setFillColor(...cat.color);
+    doc.roundedRect(M, y4, 4, catH, 1, 1, 'F');
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...cat.color);
+    doc.text(cat.name, M + 8, y4 + 6);
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(150, 165, 200);
+    cat.items.forEach((item, j) => {
+      doc.text(`  * ${item}`, M + 8, y4 + 11 + j * 5);
+    });
+    y4 += catH + 4;
+  });
+
+  // Bottom CTA box
+  const ctaY = H - 70;
+  doc.setFillColor(...C.indigo);
+  doc.roundedRect(M, ctaY, CW, 46, 3, 3, 'F');
+
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...C.white);
+  doc.text('Ready to get started?', CW / 2 + M, ctaY + 13, { align: 'center' });
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(200, 210, 255);
+  doc.text('Visit fiberoracle.com — free, no account required for basic tools.', CW / 2 + M, ctaY + 22, { align: 'center' });
+  doc.text('Works on any device, online or offline.', CW / 2 + M, ctaY + 29, { align: 'center' });
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(160, 180, 255);
+  doc.text('Standards: TIA-568-D  |  ITU-T G.984 / G.9807  |  IEC 61300  |  IEEE 802.3  |  FOA Best Practices', CW / 2 + M, ctaY + 38, { align: 'center' });
+
+  // footer p4
+  doc.setFillColor(10, 14, 35);
+  doc.rect(0, H - 12, W, 12, 'F');
+  doc.setTextColor(80, 100, 140);
+  doc.setFontSize(7);
+  doc.text('fiberoracle.com', M, H - 4);
+  doc.text('4 of 4', W / 2, H - 4, { align: 'center' });
+  doc.text('© ' + new Date().getFullYear() + ' Fiber Oracle', W - M, H - 4, { align: 'right' });
 
   return doc.output('arraybuffer');
 }
 
-function generateJobReportPDF(data) {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 20;
-  const contentWidth = pageWidth - 2 * margin;
-  let y = margin;
+// ═══════════════════════════════════════════════════════════════════════════════
+//  STUDY GUIDE PDF — clean professional document
+// ═══════════════════════════════════════════════════════════════════════════════
+function generateStudyGuidePDF(data) {
+  const { courseId, title, subtitle, passingScore, sections } = data;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 20;
+  const CW = W - 2 * M;
 
-  // Header
-  doc.setFillColor(71, 85, 105); // Slate
-  doc.rect(0, 0, pageWidth, 40, 'F');
-  
+  const courseColors = {
+    fiber101: [16, 185, 129],
+    fiber102: [59, 130, 246],
+    fiber103: [168, 85, 247],
+  };
+  const accent = courseColors[courseId] || courseColors.fiber101;
+
+  // ── COVER ──────────────────────────────────────────────────────────────────
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, W, H, 'F');
+  doc.setFillColor(...accent);
+  doc.rect(0, 0, W, 3, 'F');
+
+  doc.setFillColor(20, 30, 55);
+  doc.roundedRect(M, 60, CW, 80, 4, 4, 'F');
+  doc.setFillColor(...accent);
+  doc.roundedRect(M, 60, 4, 80, 2, 2, 'F');
+
+  doc.setTextColor(...accent);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('FIBER ORACLE EDUCATION CENTER', M + 8, 76);
+
   doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.text(s(title), M + 8, 92);
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(150, 165, 200);
+  doc.text(s(subtitle), M + 8, 103);
+
+  doc.setFillColor(...accent);
+  doc.roundedRect(M + 8, 112, 50, 8, 4, 4, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`PASSING SCORE: ${passingScore}%`, M + 33, 117.5, { align: 'center' });
+
+  // Footer
+  doc.setFillColor(10, 14, 30);
+  doc.rect(0, H - 12, W, 12, 'F');
+  doc.setTextColor(80, 100, 140);
+  doc.setFontSize(7);
+  doc.text('fiberoracle.com', M, H - 4);
+  doc.text(new Date().toLocaleDateString(), W - M, H - 4, { align: 'right' });
+
+  // ── CONTENT PAGES ──────────────────────────────────────────────────────────
+  doc.addPage();
+  let y = 22;
+  const CONTENT_H = H - 24; // leave footer room
+
+  const addPageHeader = () => {
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, W, 16, 'F');
+    doc.setFillColor(...accent);
+    doc.rect(0, 16, W, 1, 'F');
+    doc.setTextColor(...accent);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FIBER ORACLE', M, 10);
+    doc.setTextColor(150, 165, 200);
+    doc.setFont('helvetica', 'normal');
+    doc.text(s(title), W - M, 10, { align: 'right' });
+    y = 22;
+  };
+
+  const addPageFooter = () => {
+    doc.setFillColor(10, 14, 30);
+    doc.rect(0, H - 10, W, 10, 'F');
+    doc.setTextColor(80, 100, 140);
+    doc.setFontSize(6.5);
+    doc.text('fiberoracle.com', M, H - 3.5);
+    doc.text(new Date().toLocaleDateString(), W - M, H - 3.5, { align: 'right' });
+  };
+
+  addPageHeader();
+
+  sections.forEach((section, si) => {
+    if (y > CONTENT_H - 20) { addPageFooter(); doc.addPage(); addPageHeader(); }
+
+    // Section header
+    doc.setFillColor(...accent);
+    doc.roundedRect(M, y, CW, 8, 1, 1, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${si + 1}. ${s(section.title)}`, M + 4, y + 5.5);
+    y += 12;
+
+    section.content.forEach(item => {
+      if (y > CONTENT_H - 16) { addPageFooter(); doc.addPage(); addPageHeader(); }
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(220, 235, 255);
+      const termLines = doc.splitTextToSize(s(item.term), CW);
+      doc.text(termLines, M, y);
+      y += termLines.length * 5;
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(150, 165, 200);
+      const defLines = doc.splitTextToSize(s(item.definition), CW);
+      doc.text(defLines, M, y);
+      y += defLines.length * 5 + 5;
+    });
+
+    y += 4;
+  });
+
+  addPageFooter();
+  return doc.output('arraybuffer');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  JOB REPORT PDF — professional dark-header report
+// ═══════════════════════════════════════════════════════════════════════════════
+function generateJobReportPDF(data) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 18;
+  const CW = W - 2 * M;
+
+  const C = {
+    header:  [15, 23, 42],
+    accent:  [79, 70, 229],
+    slate:   [71, 85, 105],
+    muted:   [100,116,139],
+    light:   [241,245,249],
+    dark:    [30, 41, 59],
+    white:   [255,255,255],
+    emerald: [16, 185, 129],
+    red:     [239, 68, 68],
+    amber:   [245,158, 11],
+  };
+
+  // ── HEADER ─────────────────────────────────────────────────────────────────
+  doc.setFillColor(...C.header);
+  doc.rect(0, 0, W, 40, 'F');
+  doc.setFillColor(...C.accent);
+  doc.rect(0, 40, W, 2, 'F');
+
+  doc.setTextColor(...C.white);
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.text('Job Report', margin, 25);
-  
-  doc.setFontSize(10);
+  doc.text('Job Report', M, 18);
+
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.text('Job #' + sanitizeText(data.job_number || 'N/A'), pageWidth - margin - 40, 25);
+  doc.setTextColor(150, 170, 210);
+  doc.text('Fiber Oracle Field Documentation', M, 26);
+  doc.text(new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }), M, 33);
 
-  y = 55;
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(...C.accent);
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Job #${s(data.job_number || 'N/A')}`, W - M, 24, { align: 'right' });
 
-  // Helper to add field with proper text wrapping
-  const addField = (label, value, isMultiline = false) => {
-    if (y > pageHeight - 30) {
+  let y = 52;
+  const FOOTER_H = H - 14;
+
+  // ── HELPERS ────────────────────────────────────────────────────────────────
+  const checkPage = (needed = 14) => {
+    if (y > FOOTER_H - needed) {
+      // footer
+      doc.setFillColor(...C.header);
+      doc.rect(0, H - 12, W, 12, 'F');
+      doc.setTextColor(80, 100, 140);
+      doc.setFontSize(6.5);
+      doc.text('Fiber Oracle  |  fiberoracle.com', M, H - 4);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, W - M, H - 4, { align: 'right' });
+
       doc.addPage();
-      y = margin;
-    }
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(sanitizeText(label) + ':', margin, y);
-    
-    doc.setFont('helvetica', 'normal');
-    const sanitizedValue = sanitizeText(String(value || 'N/A'));
-    
-    if (isMultiline || sanitizedValue.length > 80) {
-      // Multi-line with wrapping
-      const lines = doc.splitTextToSize(sanitizedValue, contentWidth - 50);
-      doc.text(lines, margin + 50, y);
-      y += lines.length * 6 + 2;
-    } else {
-      // Single line
-      doc.text(sanitizedValue, margin + 50, y);
-      y += 8;
+      // mini header
+      doc.setFillColor(...C.header);
+      doc.rect(0, 0, W, 16, 'F');
+      doc.setFillColor(...C.accent);
+      doc.rect(0, 16, W, 1.5, 'F');
+      doc.setTextColor(...C.white);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('FIBER ORACLE JOB REPORT', M, 10);
+      doc.setTextColor(150, 170, 210);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Job #${s(data.job_number || 'N/A')}`, W - M, 10, { align: 'right' });
+      y = 24;
     }
   };
 
-  addField('Technician', data.technician_name);
-  addField('Location', data.location);
-  addField('Status', data.status);
-  addField('Date', data.completion_date ? new Date(data.completion_date).toLocaleDateString() : data.created_date ? new Date(data.created_date).toLocaleDateString() : 'N/A');
+  const infoRow = (label, value, valColor = null) => {
+    checkPage(8);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.slate);
+    doc.text(s(label), M, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...(valColor || C.dark));
+    const vLines = doc.splitTextToSize(s(String(value || 'N/A')), CW - 50);
+    doc.text(vLines, M + 48, y);
+    y += Math.max(6, vLines.length * 5.5);
+  };
 
-  y += 5;
+  const sectionTitle = (label, accentColor = null) => {
+    checkPage(14);
+    y += 4;
+    const ac = accentColor || C.accent;
+    doc.setFillColor(...ac);
+    doc.roundedRect(M, y, CW, 7.5, 1, 1, 'F');
+    doc.setTextColor(...C.white);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(s(label).toUpperCase(), M + 4, y + 5.3);
+    y += 11;
+  };
 
-  // Fiber Info Section (if available from PON PM)
+  // ── JOB DETAILS ────────────────────────────────────────────────────────────
+  sectionTitle('Job Details');
+  infoRow('Technician', data.technician_name);
+  infoRow('Location', data.location);
+  const statusColor = data.status === 'completed' ? C.emerald : data.status === 'needs_followup' ? C.red : C.amber;
+  infoRow('Status', (data.status || 'N/A').replace(/_/g, ' ').toUpperCase(), statusColor);
+  infoRow('Date', data.completion_date ? new Date(data.completion_date).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) : data.created_date ? new Date(data.created_date).toLocaleDateString() : 'N/A');
+
+  // ── ONT INFORMATION ───────────────────────────────────────────────────────
   if (data.fiber_info) {
-    if (y > pageHeight - 50) {
-      doc.addPage();
-      y = margin;
-    }
-    
-    doc.setFillColor(59, 130, 246);
-    doc.rect(margin, y - 2, 3, 8, 'F');
-    
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(71, 85, 105);
-    doc.text('ONT Information', margin + 6, y + 3);
-    y += 10;
-
-    doc.setTextColor(0, 0, 0);
-    addField('FSAN Serial', data.fiber_info.fsan);
-    addField('ONT ID', data.fiber_info.ont_id);
-    addField('Model', data.fiber_info.model);
-    addField('OLT / Port', `${data.fiber_info.olt} / ${data.fiber_info.port}`);
-    if (data.fiber_info.lcp) {
-      addField('LCP/Splitter', `${data.fiber_info.lcp}${data.fiber_info.splitter ? ' / ' + data.fiber_info.splitter : ''}`);
-    }
-    y += 5;
+    sectionTitle('ONT Information', [59, 130, 246]);
+    infoRow('FSAN Serial', data.fiber_info.fsan);
+    infoRow('ONT ID', data.fiber_info.ont_id);
+    infoRow('Model', data.fiber_info.model);
+    infoRow('OLT / Port', `${data.fiber_info.olt || 'N/A'} / ${data.fiber_info.port || 'N/A'}`);
+    if (data.fiber_info.lcp) infoRow('LCP / Splitter', `${data.fiber_info.lcp}${data.fiber_info.splitter ? ' / ' + data.fiber_info.splitter : ''}`);
   }
 
-  // Historical Trends Section
-  if (data.historical_trends && data.historical_trends.length > 0) {
-    if (y > pageHeight - 60) {
-      doc.addPage();
-      y = margin;
-    }
-    
-    doc.setFillColor(168, 85, 247);
-    doc.rect(margin, y - 2, 3, 8, 'F');
-    
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(71, 85, 105);
-    doc.text('Historical Performance Trends', margin + 6, y + 3);
-    y += 10;
-
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    
-    data.historical_trends.forEach((trend, i) => {
-      if (y > pageHeight - 25) {
-        doc.addPage();
-        y = margin;
-      }
-      const trendLines = doc.splitTextToSize(sanitizeText(trend), contentWidth);
-      doc.text(trendLines, margin, y);
-      y += trendLines.length * 5 + 2;
-    });
-    y += 5;
+  // ── POWER READINGS ────────────────────────────────────────────────────────
+  sectionTitle('Power Readings', C.emerald);
+  infoRow('Start Power Level', data.start_power_level != null ? data.start_power_level + ' dBm' : 'N/A');
+  infoRow('End Power Level',   data.end_power_level   != null ? data.end_power_level   + ' dBm' : 'N/A');
+  if (data.start_power_level != null && data.end_power_level != null) {
+    const imp = (data.end_power_level - data.start_power_level).toFixed(2);
+    infoRow('Improvement', (imp > 0 ? '+' : '') + imp + ' dB', imp >= 0 ? C.emerald : C.red);
   }
 
-  // Power Readings Section
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(71, 85, 105);
-  doc.text('Power Readings', margin, y);
-  y += 8;
-
-  doc.setTextColor(0, 0, 0);
-  addField('Start Power', data.start_power_level ? data.start_power_level + ' dBm' : 'N/A');
-  addField('End Power', data.end_power_level ? data.end_power_level + ' dBm' : 'N/A');
-  
-  if (data.start_power_level && data.end_power_level) {
-    const improvement = data.end_power_level - data.start_power_level;
-    addField('Improvement', (improvement > 0 ? '+' : '') + improvement.toFixed(2) + ' dB');
-  }
-
-  y += 5;
-
-  // Diagnosis Section
+  // ── DIAGNOSIS ─────────────────────────────────────────────────────────────
   if (data.diagnosis_used && data.diagnosis_result) {
-    if (y > pageHeight - 50) {
-      doc.addPage();
-      y = margin;
-    }
-    
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(71, 85, 105);
-    doc.text('Fiber Doctor Diagnosis', margin, y);
-    y += 8;
-
-    doc.setTextColor(0, 0, 0);
+    sectionTitle('Fiber Doctor Diagnosis', [168, 85, 247]);
+    checkPage(16);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    
-    // Use proper text wrapping for diagnosis result
-    const diagnosisLines = doc.splitTextToSize(sanitizeText(data.diagnosis_result), contentWidth);
-    doc.text(diagnosisLines, margin, y);
-    y += diagnosisLines.length * 6 + 5;
-    
+    doc.setTextColor(...C.dark);
+    const diagLines = doc.splitTextToSize(s(data.diagnosis_result), CW);
+    doc.text(diagLines, M, y);
+    y += diagLines.length * 5.5 + 3;
+
     if (data.diagnosis_steps && data.diagnosis_steps.length > 0) {
+      checkPage(10);
       doc.setFont('helvetica', 'bold');
-      doc.text('Steps Taken:', margin, y);
-      y += 6;
+      doc.setFontSize(8);
+      doc.setTextColor(...C.slate);
+      doc.text('Steps Taken:', M, y);
+      y += 5;
       doc.setFont('helvetica', 'normal');
       data.diagnosis_steps.forEach((step, i) => {
-        if (y > pageHeight - 30) {
-          doc.addPage();
-          y = margin;
-        }
-        const stepText = sanitizeText((i + 1) + '. ' + step);
-        const stepLines = doc.splitTextToSize(stepText, contentWidth);
-        doc.text(stepLines, margin, y);
+        checkPage(8);
+        const stepLines = doc.splitTextToSize(s(`${i + 1}. ${step}`), CW);
+        doc.setTextColor(...C.dark);
+        doc.text(stepLines, M, y);
         y += stepLines.length * 5 + 2;
       });
     }
-    y += 5;
   }
 
-  // Equipment Used Section
+  // ── EQUIPMENT USED ────────────────────────────────────────────────────────
   if (data.equipment_used && data.equipment_used.length > 0) {
-    if (y > pageHeight - 30) {
-      doc.addPage();
-      y = margin;
-    }
-    
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(71, 85, 105);
-    doc.text('Equipment Used', margin, y);
-    y += 8;
-
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    data.equipment_used.forEach((equipment, i) => {
-      if (y > pageHeight - 30) {
-        doc.addPage();
-        y = margin;
-      }
-      const equipmentLines = doc.splitTextToSize(sanitizeText(`* ${equipment}`), contentWidth);
-      doc.text(equipmentLines, margin, y);
-      y += equipmentLines.length * 5 + 2;
+    sectionTitle('Equipment Used', C.amber);
+    data.equipment_used.forEach(eq => {
+      checkPage(7);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.dark);
+      const eqLines = doc.splitTextToSize(s(`• ${eq}`), CW);
+      doc.text(eqLines, M, y);
+      y += eqLines.length * 5 + 1;
     });
-    y += 5;
   }
 
-  // Notes Section
+  // ── HISTORICAL TRENDS ─────────────────────────────────────────────────────
+  if (data.historical_trends && data.historical_trends.length > 0) {
+    sectionTitle('Historical Performance', [20, 184, 166]);
+    data.historical_trends.forEach(trend => {
+      checkPage(7);
+      const tLines = doc.splitTextToSize(s(trend), CW);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.dark);
+      doc.text(tLines, M, y);
+      y += tLines.length * 5 + 2;
+    });
+  }
+
+  // ── NOTES ─────────────────────────────────────────────────────────────────
   if (data.notes) {
-    if (y > pageHeight - 50) {
-      doc.addPage();
-      y = margin;
-    }
-    
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(71, 85, 105);
-    doc.text('Notes', margin, y);
-    y += 8;
-
-    doc.setTextColor(0, 0, 0);
+    sectionTitle('Technician Notes');
+    checkPage(14);
+    doc.setFillColor(241, 245, 249);
+    const noteLines = doc.splitTextToSize(s(data.notes), CW - 8);
+    const noteH = noteLines.length * 5.5 + 8;
+    doc.roundedRect(M, y, CW, noteH, 2, 2, 'F');
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    const noteLines = doc.splitTextToSize(sanitizeText(data.notes), contentWidth);
-    doc.text(noteLines, margin, y);
-    y += noteLines.length * 6;
+    doc.setTextColor(...C.dark);
+    doc.text(noteLines, M + 4, y + 6);
+    y += noteH + 4;
   }
 
-  // Footer
-  doc.setFontSize(8);
-  doc.setTextColor(128, 128, 128);
-  doc.text('Generated by Fiber Oracle | ' + new Date().toLocaleDateString(), margin, pageHeight - 10);
+  // ── FINAL FOOTER ──────────────────────────────────────────────────────────
+  doc.setFillColor(...C.header);
+  doc.rect(0, H - 12, W, 12, 'F');
+  doc.setTextColor(80, 100, 140);
+  doc.setFontSize(6.5);
+  doc.text('Fiber Oracle  |  fiberoracle.com', M, H - 4);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, W - M, H - 4, { align: 'right' });
 
   return doc.output('arraybuffer');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  CERTIFICATE PDF — landscape, professional
+// ═══════════════════════════════════════════════════════════════════════════════
 function generateCertificatePDF(data) {
   const { learnerName, courseTitle, courseSubtitle, score, certificateId, completionDate, courseId } = data;
-  // Use letter size (8.5x11 inches) in landscape orientation with mm units
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'letter' });
-  const pageWidth = doc.internal.pageSize.getWidth();   // 279.4mm (11 inches)
-  const pageHeight = doc.internal.pageSize.getHeight(); // 215.9mm (8.5 inches)
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
 
-  // Sanitize all input data
-  const safeLearnerName = sanitizeText(learnerName) || 'Learner Name';
-  const safeCourseTitle = sanitizeText(courseTitle) || 'Fiber Optics Course';
-  const safeCourseSubtitle = sanitizeText(courseSubtitle) || 'Professional Training';
-  const safeCertificateId = sanitizeText(certificateId) || 'FO-CERT-000000';
+  const safeName     = s(learnerName)    || 'Learner Name';
+  const safeTitle    = s(courseTitle)    || 'Fiber Optics Course';
+  const safeSub      = s(courseSubtitle) || 'Professional Training';
+  const safeCertId   = s(certificateId)  || 'FO-CERT-000000';
 
-  // Course colors
   const courseColors = {
-    fiber101: { r: 34, g: 197, b: 94 },   // Green
-    fiber102: { r: 59, g: 130, b: 246 },  // Blue
-    fiber103: { r: 168, g: 85, b: 247 },  // Purple
+    fiber101: [16, 185, 129],
+    fiber102: [59, 130, 246],
+    fiber103: [168, 85, 247],
   };
-  const color = courseColors[courseId] || courseColors.fiber101;
+  const [r, g, b] = courseColors[courseId] || courseColors.fiber101;
 
-  // Background - light wash
-  doc.setFillColor(248, 250, 252);
-  doc.rect(0, 0, pageWidth, pageHeight, 'F');
+  // Background
+  doc.setFillColor(10, 14, 35);
+  doc.rect(0, 0, W, H, 'F');
 
-  // Decorative fiber optic lines (top left corner)
-  doc.setDrawColor(color.r, color.g, color.b);
-  doc.setLineWidth(0.4);
-  for (let i = 0; i < 5; i++) {
-    doc.line(0, 12 + i * 3, 30 + i * 6, 0);
-  }
+  // Corner accents
+  doc.setFillColor(r, g, b);
+  doc.rect(0, 0, W, 2, 'F');
+  doc.rect(0, H - 2, W, 2, 'F');
+  doc.rect(0, 0, 2, H, 'F');
+  doc.rect(W - 2, 0, 2, H, 'F');
 
-  // Decorative fiber optic lines (bottom right corner)
-  for (let i = 0; i < 5; i++) {
-    doc.line(pageWidth - 30 - i * 6, pageHeight, pageWidth, pageHeight - 12 - i * 3);
-  }
-
-  // Main border
-  doc.setDrawColor(color.r, color.g, color.b);
-  doc.setLineWidth(1.5);
-  doc.roundedRect(8, 8, pageWidth - 16, pageHeight - 16, 3, 3, 'S');
-
-  // Inner border
+  // Fiber streak decorations
+  doc.setDrawColor(r, g, b);
   doc.setLineWidth(0.3);
-  doc.setDrawColor(200, 200, 200);
-  doc.roundedRect(12, 12, pageWidth - 24, pageHeight - 24, 2, 2, 'S');
+  for (let i = 0; i < 6; i++) {
+    doc.setDrawColor(r, g, b);
+    doc.line(0, 15 + i * 4, 20 + i * 5, 0);
+    doc.line(W - (20 + i * 5), H, W, H - (15 + i * 4));
+  }
 
-  // Header accent bar
-  doc.setFillColor(color.r, color.g, color.b);
-  doc.rect(14, 14, pageWidth - 28, 6, 'F');
+  // Outer border
+  doc.setDrawColor(r, g, b);
+  doc.setLineWidth(1.2);
+  doc.roundedRect(6, 6, W - 12, H - 12, 3, 3, 'S');
 
-  // "CERTIFICATE OF COMPLETION" header
-  doc.setTextColor(color.r, color.g, color.b);
-  doc.setFontSize(16);
+  // Inner subtle border
+  doc.setDrawColor(40, 55, 90);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(10, 10, W - 20, H - 20, 2, 2, 'S');
+
+  // Header color bar
+  doc.setFillColor(r, g, b);
+  doc.roundedRect(12, 12, W - 24, 5, 1, 1, 'F');
+
+  // "CERTIFICATE OF COMPLETION"
+  doc.setTextColor(r, g, b);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text('CERTIFICATE OF COMPLETION', pageWidth / 2, 35, { align: 'center' });
+  doc.text('CERTIFICATE OF COMPLETION', W / 2, 30, { align: 'center' });
 
   // Fiber Oracle branding
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(28);
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(30);
   doc.setFont('helvetica', 'bold');
-  doc.text('Fiber Oracle', pageWidth / 2, 50, { align: 'center' });
+  doc.text('Fiber Oracle', W / 2, 46, { align: 'center' });
 
-  doc.setFontSize(12);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 116, 139);
-  doc.text('Education Center', pageWidth / 2, 58, { align: 'center' });
+  doc.setTextColor(120, 140, 180);
+  doc.text('Education Center', W / 2, 54, { align: 'center' });
 
-  // Decorative line
-  doc.setDrawColor(color.r, color.g, color.b);
-  doc.setLineWidth(0.8);
-  doc.line(pageWidth / 2 - 50, 65, pageWidth / 2 + 50, 65);
+  // Decorative rule
+  doc.setDrawColor(r, g, b);
+  doc.setLineWidth(0.6);
+  doc.line(W / 2 - 45, 60, W / 2 + 45, 60);
 
   // "This certifies that"
-  doc.setTextColor(100, 116, 139);
-  doc.setFontSize(12);
-  doc.text('This is to certify that', pageWidth / 2, 78, { align: 'center' });
+  doc.setTextColor(120, 140, 180);
+  doc.setFontSize(10);
+  doc.text('This is to certify that', W / 2, 72, { align: 'center' });
 
-  // Learner Name (prominent)
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(36);
+  // Name (prominent)
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(34);
   doc.setFont('helvetica', 'bold');
-  doc.text(safeLearnerName, pageWidth / 2, 95, { align: 'center' });
+  doc.text(safeName, W / 2, 88, { align: 'center' });
 
-  // Underline for name
-  const nameWidth = doc.getTextWidth(safeLearnerName);
-  doc.setDrawColor(color.r, color.g, color.b);
+  const nw = doc.getTextWidth(safeName);
+  doc.setDrawColor(r, g, b);
   doc.setLineWidth(0.4);
-  doc.line(pageWidth / 2 - nameWidth / 2 - 8, 100, pageWidth / 2 + nameWidth / 2 + 8, 100);
+  doc.line(W / 2 - nw / 2 - 5, 93, W / 2 + nw / 2 + 5, 93);
 
   // "has successfully completed"
-  doc.setTextColor(100, 116, 139);
+  doc.setTextColor(120, 140, 180);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('has successfully completed the certification exam for', W / 2, 103, { align: 'center' });
+
+  // Course title
+  doc.setTextColor(r, g, b);
+  doc.setFontSize(22);
+  doc.setFont('helvetica', 'bold');
+  doc.text(safeTitle, W / 2, 117, { align: 'center' });
+
+  doc.setTextColor(150, 165, 200);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text('has successfully completed the certification exam for', pageWidth / 2, 112, { align: 'center' });
-
-  // Course Title
-  doc.setTextColor(color.r, color.g, color.b);
-  doc.setFontSize(24);
-  doc.setFont('helvetica', 'bold');
-  doc.text(safeCourseTitle, pageWidth / 2, 128, { align: 'center' });
-
-  // Course Subtitle
-  doc.setTextColor(71, 85, 105);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'normal');
-  doc.text(safeCourseSubtitle, pageWidth / 2, 138, { align: 'center' });
+  doc.text(safeSub, W / 2, 126, { align: 'center' });
 
   // Score badge
-  const scoreX = pageWidth / 2;
-  const scoreY = 155;
-  doc.setFillColor(color.r, color.g, color.b);
-  doc.roundedRect(scoreX - 25, scoreY - 6, 50, 12, 6, 6, 'F');
+  const scoreY = 140;
+  doc.setFillColor(r, g, b);
+  doc.roundedRect(W / 2 - 22, scoreY - 5.5, 44, 11, 5.5, 5.5, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Score: ' + score + '%', scoreX, scoreY + 2, { align: 'center' });
-
-  // Footer section with two columns
-  const footerY = pageHeight - 38;
-
-  // Left: Date
-  doc.setTextColor(100, 116, 139);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Date of Completion', 35, footerY);
-  doc.setTextColor(30, 41, 59);
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  const formattedDate = completionDate ? new Date(completionDate).toLocaleDateString('en-US', { 
-    year: 'numeric', month: 'long', day: 'numeric' 
-  }) : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  doc.text(formattedDate, 35, footerY + 7);
+  doc.text(`Score: ${score}%`, W / 2, scoreY + 2.5, { align: 'center' });
 
-  // Right: Certificate ID
-  doc.setTextColor(100, 116, 139);
+  // Footer row
+  const footerY = H - 30;
+  doc.setTextColor(100, 120, 160);
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Date of Completion', 30, footerY);
+  doc.setTextColor(220, 235, 255);
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Certificate ID', pageWidth - 35, footerY, { align: 'right' });
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text(safeCertificateId, pageWidth - 35, footerY + 7, { align: 'right' });
+  const fd = completionDate
+    ? new Date(completionDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  doc.text(fd, 30, footerY + 7);
 
-  // Bottom accent bar
-  doc.setFillColor(color.r, color.g, color.b);
-  doc.rect(14, pageHeight - 20, pageWidth - 28, 6, 'F');
-
-  // Standards footer
-  doc.setTextColor(148, 163, 184);
-  doc.setFontSize(8);
+  doc.setTextColor(100, 120, 160);
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
-  doc.text('Standards: TIA-568-D | IEC 61300 | ITU-T G.984/G.9807 | IEEE 802.3', pageWidth / 2, pageHeight - 10, { align: 'center' });
-  doc.text('fiberoracle.com', pageWidth / 2, pageHeight - 5, { align: 'center' });
+  doc.text('Certificate ID', W - 30, footerY, { align: 'right' });
+  doc.setTextColor(220, 235, 255);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(safeCertId, W - 30, footerY + 7, { align: 'right' });
+
+  // Bottom color bar
+  doc.setFillColor(r, g, b);
+  doc.roundedRect(12, H - 17, W - 24, 4, 1, 1, 'F');
+
+  // Standards micro text
+  doc.setTextColor(60, 80, 120);
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Standards: TIA-568-D  |  IEC 61300  |  ITU-T G.984 / G.9807  |  IEEE 802.3  |  fiberoracle.com', W / 2, H - 8, { align: 'center' });
 
   return doc.output('arraybuffer');
 }

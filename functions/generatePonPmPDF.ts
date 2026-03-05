@@ -1,177 +1,288 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import { jsPDF } from 'npm:jspdf@2.5.1';
+
+function s(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/['']/g, "'").replace(/[""]/g, '"').replace(/[–—]/g, '-')
+    .replace(/[μµ]/g, 'u').replace(/[^\x00-\x7F]/g, '');
+}
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { reportData } = await req.json();
-
     if (!reportData || !reportData.summary || !reportData.onts) {
       return Response.json({ error: 'Invalid report data' }, { status: 400 });
     }
 
-    const doc = new jsPDF();
-    let y = 20;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+    const M = 16;
+    const CW = W - 2 * M;
 
-    // Helper to add new page if needed
-    const checkPage = () => {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
+    const C = {
+      header:  [15, 23, 42],
+      accent:  [30, 58, 138],   // navy blue
+      indigo:  [79, 70, 229],
+      red:     [220, 38, 38],
+      amber:   [245,158, 11],
+      green:   [34, 197, 94],
+      slate:   [71, 85, 105],
+      muted:   [100,116,139],
+      light:   [241,245,249],
+      dark:    [15, 23, 42],
+      white:   [255,255,255],
     };
 
-    // Title
-    doc.setFontSize(20);
-    doc.setTextColor(30, 58, 138);
-    doc.text('PON PM Analysis Report', 20, y);
-    y += 10;
+    const { summary, onts } = reportData;
 
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 20, y);
-    y += 15;
+    let pageNum = 1;
+    const renderPageHeader = (doc, title, sub) => {
+      doc.setFillColor(...C.header);
+      doc.rect(0, 0, W, 26, 'F');
+      doc.setFillColor(...C.indigo);
+      doc.rect(0, 26, W, 2, 'F');
+      doc.setTextColor(...C.white);
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text('FIBER ORACLE', M, 12);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(150, 170, 210);
+      doc.text(s(title), M, 20);
+      if (sub) doc.text(s(sub), W - M, 16, { align: 'right' });
+    };
 
-    // Summary Section
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Summary', 20, y);
+    const renderPageFooter = (doc, current, total) => {
+      doc.setFillColor(...C.header);
+      doc.rect(0, H - 11, W, 11, 'F');
+      doc.setTextColor(80, 100, 140);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Fiber Oracle  |  fiberoracle.com', M, H - 4);
+      doc.text(`Page ${current} of ${total}`, W / 2, H - 4, { align: 'center' });
+      doc.text(new Date().toLocaleString(), W - M, H - 4, { align: 'right' });
+    };
+
+    const FOOTER_LIMIT = H - 18;
+    let y = 0;
+    const newPage = () => {
+      doc.addPage();
+      pageNum++;
+      renderPageHeader(doc, 'PON PM Analysis Report', `Generated: ${new Date().toLocaleDateString()}`);
+      y = 34;
+    };
+    const checkY = (needed = 12) => { if (y > FOOTER_LIMIT - needed) newPage(); };
+
+    // ── PAGE 1: COVER / SUMMARY ─────────────────────────────────────────────
+    renderPageHeader(doc, 'PON PM Analysis Report', `Generated: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}`);
+    y = 36;
+
+    // Report name / date block
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.dark);
+    doc.text(s(summary.reportName || 'PON PM Report'), M, y);
     y += 8;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...C.muted);
+    doc.text(`Uploaded: ${summary.uploadDate ? new Date(summary.uploadDate).toLocaleString() : 'N/A'}`, M, y);
+    y += 12;
 
-    doc.setFontSize(10);
-    doc.text(`Total ONTs: ${reportData.summary.totalOnts}`, 30, y);
-    y += 6;
-    doc.setTextColor(220, 38, 38);
-    doc.text(`Critical Issues: ${reportData.summary.criticalCount}`, 30, y);
-    y += 6;
-    doc.setTextColor(245, 158, 11);
-    doc.text(`Warnings: ${reportData.summary.warningCount}`, 30, y);
-    y += 6;
-    doc.setTextColor(34, 197, 94);
-    doc.text(`Healthy: ${reportData.summary.okCount}`, 30, y);
-    y += 6;
-    doc.setTextColor(0, 0, 0);
-    doc.text(`OLTs: ${reportData.summary.oltCount}`, 30, y);
-    y += 15;
+    // KPI cards row
+    const kpiItems = [
+      { label: 'Total ONTs', val: String(summary.totalOnts || 0),    color: C.indigo },
+      { label: 'Critical',   val: String(summary.criticalCount || 0), color: C.red   },
+      { label: 'Warnings',   val: String(summary.warningCount || 0),  color: C.amber },
+      { label: 'Healthy',    val: String(summary.okCount || 0),       color: C.green },
+      { label: 'OLTs',       val: String(summary.oltCount || 0),      color: C.slate },
+    ];
+    const kw = CW / kpiItems.length - 2;
+    kpiItems.forEach((k, i) => {
+      const kx = M + i * (kw + 2.5);
+      doc.setFillColor(...C.light);
+      doc.roundedRect(kx, y, kw, 20, 2, 2, 'F');
+      doc.setFillColor(...k.color);
+      doc.roundedRect(kx, y, kw, 2, 1, 1, 'F');
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...k.color);
+      doc.text(k.val, kx + kw / 2, y + 13, { align: 'center' });
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.muted);
+      doc.text(k.label, kx + kw / 2, y + 18, { align: 'center' });
+    });
+    y += 26;
 
-    // Critical Issues
-    const criticalOnts = reportData.onts.filter(o => o._analysis.status === 'critical');
+    // OLT list
+    if (summary.olts && summary.olts.length > 0) {
+      doc.setFillColor(...C.light);
+      doc.roundedRect(M, y, CW, 12, 2, 2, 'F');
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.slate);
+      doc.text('OLTs in Report:', M + 4, y + 5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(summary.olts.join('  |  '), M + 30, y + 5);
+      if (summary.avgOntRx != null) {
+        doc.setTextColor(...C.muted);
+        doc.text(`Avg ONT Rx: ${summary.avgOntRx?.toFixed(1)} dBm   Min: ${summary.minOntRx?.toFixed(1)} dBm   Max: ${summary.maxOntRx?.toFixed(1)} dBm`, M + 4, y + 10);
+      }
+      y += 16;
+    }
+
+    // ── CRITICAL SECTION ────────────────────────────────────────────────────
+    const criticalOnts = onts.filter(o => o._analysis?.status === 'critical');
     if (criticalOnts.length > 0) {
-      checkPage();
-      doc.setFontSize(14);
-      doc.setTextColor(220, 38, 38);
-      doc.text(`CRITICAL ISSUES (${criticalOnts.length})`, 20, y);
-      y += 8;
+      checkY(14);
+      // section header
+      doc.setFillColor(...C.red);
+      doc.roundedRect(M, y, CW, 8, 1, 1, 'F');
+      doc.setTextColor(...C.white);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`CRITICAL ISSUES  (${criticalOnts.length})`, M + 4, y + 5.5);
+      y += 12;
 
-      criticalOnts.slice(0, 50).forEach(ont => {
-        checkPage();
-        doc.setFontSize(9);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`ONT: ${ont.OntID || 'N/A'} | Serial: ${ont.SerialNumber || 'N/A'}`, 25, y);
-        y += 5;
+      criticalOnts.slice(0, 60).forEach((ont, idx) => {
+        checkY(24);
+
+        // ONT row header
+        doc.setFillColor(254, 242, 242);
+        doc.roundedRect(M, y, CW, 8, 1, 1, 'F');
+        doc.setFillColor(...C.red);
+        doc.roundedRect(M, y, 2, 8, 1, 0, 'F');
         doc.setFontSize(8);
-        doc.setTextColor(100, 116, 139);
-        doc.text(`Location: ${ont._oltName} / ${ont._port}`, 25, y);
-        y += 4;
-        doc.text(`Model: ${ont.model || 'N/A'}`, 25, y);
-        y += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(153, 27, 27);
+        doc.text(`ONT: ${s(ont.OntID || ont.ont_id || 'N/A')}  |  Serial: ${s(ont.SerialNumber || ont.serial_number || 'N/A')}`, M + 4, y + 5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.muted);
+        doc.setFontSize(7);
+        doc.text(`${s(ont._oltName || ont.olt_name || 'N/A')} / ${s(ont._port || ont.shelf_slot_port || 'N/A')}  |  Model: ${s(ont.model || 'N/A')}`, W - M - 2, y + 5.5, { align: 'right' });
+        y += 9;
 
-        if (ont._analysis.issues.length > 0) {
-          doc.setTextColor(220, 38, 38);
-          doc.text('Issues:', 25, y);
-          y += 4;
-          ont._analysis.issues.forEach(issue => {
-            checkPage();
-            doc.setTextColor(0, 0, 0);
-            doc.text(`  - ${issue.field}: ${issue.value}`, 30, y);
-            y += 4;
-            doc.setTextColor(100, 116, 139);
-            doc.text(`    ${issue.message}`, 30, y);
-            y += 4;
+        // Issues
+        const issues = ont._analysis?.issues || [];
+        if (issues.length > 0) {
+          issues.forEach(issue => {
+            checkY(8);
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...C.dark);
+            doc.text(`• ${s(issue.field)}: ${s(String(issue.value))}`, M + 4, y);
+            doc.setTextColor(...C.muted);
+            const msgLines = doc.splitTextToSize(s(issue.message), CW - 10);
+            doc.text(msgLines, M + 12, y + 4.5);
+            y += 4.5 + msgLines.length * 4 + 1;
           });
         }
         y += 3;
       });
 
-      if (criticalOnts.length > 50) {
-        doc.setFontSize(8);
-        doc.setTextColor(100, 116, 139);
-        doc.text(`... and ${criticalOnts.length - 50} more critical issues (see full export)`, 25, y);
-        y += 10;
+      if (criticalOnts.length > 60) {
+        checkY(8);
+        doc.setFontSize(7.5);
+        doc.setTextColor(...C.muted);
+        doc.text(`... and ${criticalOnts.length - 60} more critical issues omitted for brevity.`, M, y);
+        y += 7;
       }
     }
 
-    // Warnings
-    const warningOnts = reportData.onts.filter(o => o._analysis.status === 'warning');
+    // ── WARNING SECTION ─────────────────────────────────────────────────────
+    const warningOnts = onts.filter(o => o._analysis?.status === 'warning');
     if (warningOnts.length > 0) {
-      checkPage();
-      y += 5;
-      doc.setFontSize(14);
-      doc.setTextColor(245, 158, 11);
-      doc.text(`WARNINGS (${warningOnts.length})`, 20, y);
-      y += 8;
+      checkY(14);
+      doc.setFillColor(...C.amber);
+      doc.roundedRect(M, y, CW, 8, 1, 1, 'F');
+      doc.setTextColor(...C.white);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`WARNINGS  (${warningOnts.length})`, M + 4, y + 5.5);
+      y += 12;
 
-      warningOnts.slice(0, 50).forEach(ont => {
-        checkPage();
-        doc.setFontSize(9);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`ONT: ${ont.OntID || 'N/A'} | Serial: ${ont.SerialNumber || 'N/A'}`, 25, y);
-        y += 5;
+      warningOnts.slice(0, 60).forEach((ont) => {
+        checkY(20);
+
+        doc.setFillColor(255, 251, 235);
+        doc.roundedRect(M, y, CW, 8, 1, 1, 'F');
+        doc.setFillColor(...C.amber);
+        doc.roundedRect(M, y, 2, 8, 1, 0, 'F');
         doc.setFontSize(8);
-        doc.setTextColor(100, 116, 139);
-        doc.text(`Location: ${ont._oltName} / ${ont._port}`, 25, y);
-        y += 4;
-        doc.text(`Model: ${ont.model || 'N/A'}`, 25, y);
-        y += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(146, 64, 14);
+        doc.text(`ONT: ${s(ont.OntID || ont.ont_id || 'N/A')}  |  Serial: ${s(ont.SerialNumber || ont.serial_number || 'N/A')}`, M + 4, y + 5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.muted);
+        doc.setFontSize(7);
+        doc.text(`${s(ont._oltName || ont.olt_name || 'N/A')} / ${s(ont._port || ont.shelf_slot_port || 'N/A')}`, W - M - 2, y + 5.5, { align: 'right' });
+        y += 9;
 
-        if (ont._analysis.warnings.length > 0) {
-          doc.setTextColor(245, 158, 11);
-          doc.text('Warnings:', 25, y);
-          y += 4;
-          ont._analysis.warnings.forEach(warn => {
-            checkPage();
-            doc.setTextColor(0, 0, 0);
-            doc.text(`  - ${warn.field}: ${warn.value}`, 30, y);
-            y += 4;
-            doc.setTextColor(100, 116, 139);
-            doc.text(`    ${warn.message}`, 30, y);
-            y += 4;
-          });
-        }
+        const warnings = ont._analysis?.warnings || [];
+        warnings.forEach(warn => {
+          checkY(8);
+          doc.setFontSize(7.5);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(...C.dark);
+          doc.text(`• ${s(warn.field)}: ${s(String(warn.value))}`, M + 4, y);
+          doc.setTextColor(...C.muted);
+          const msgLines = doc.splitTextToSize(s(warn.message), CW - 10);
+          doc.text(msgLines, M + 12, y + 4.5);
+          y += 4.5 + msgLines.length * 4 + 1;
+        });
         y += 3;
       });
 
-      if (warningOnts.length > 50) {
-        doc.setFontSize(8);
-        doc.setTextColor(100, 116, 139);
-        doc.text(`... and ${warningOnts.length - 50} more warnings (see full export)`, 25, y);
-        y += 10;
+      if (warningOnts.length > 60) {
+        checkY(8);
+        doc.setFontSize(7.5);
+        doc.setTextColor(...C.muted);
+        doc.text(`... and ${warningOnts.length - 60} more warnings omitted for brevity.`, M, y);
+        y += 7;
       }
     }
 
-    // Footer
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-    const pageCount = doc.internal.pages.length - 1;
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.text(`Page ${i} of ${pageCount} | Fiber Oracle PON PM Report`, 20, 285);
+    // ── HEALTHY SUMMARY ─────────────────────────────────────────────────────
+    const okOnts = onts.filter(o => o._analysis?.status === 'ok');
+    if (okOnts.length > 0) {
+      checkY(14);
+      doc.setFillColor(22, 163, 74);
+      doc.roundedRect(M, y, CW, 8, 1, 1, 'F');
+      doc.setTextColor(...C.white);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`HEALTHY ONTs  (${okOnts.length})`, M + 4, y + 5.5);
+      y += 12;
+
+      doc.setFillColor(240, 253, 244);
+      doc.roundedRect(M, y, CW, 10, 1, 1, 'F');
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(21, 128, 61);
+      doc.text(`${okOnts.length} ONTs are operating within normal parameters. No action required.`, M + 4, y + 7);
+      y += 14;
     }
 
-    const pdfBytes = doc.output('arraybuffer');
+    // ── APPLY FOOTERS ───────────────────────────────────────────────────────
+    const totalPages = doc.internal.pages.length - 1;
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      renderPageFooter(doc, i, totalPages);
+    }
 
-    return new Response(pdfBytes, {
+    return new Response(doc.output('arraybuffer'), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename=pon-pm-report-${new Date().toISOString().slice(0,10)}.pdf`
-      }
+        'Content-Disposition': `attachment; filename=FiberOracle-PON-PM-Report-${new Date().toISOString().slice(0,10)}.pdf`,
+      },
     });
   } catch (error) {
     console.error('PDF generation error:', error);
