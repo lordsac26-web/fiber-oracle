@@ -688,7 +688,7 @@ Thank you for reaching out!
                                     Master List Submissions ({pendingDocuments.length})
                                 </CardTitle>
                                 <Link to={createPageUrl('DocumentReview')}>
-                                    <Button size="sm" variant="outline" className="border-slate-600 text-white hover:bg-slate-700">
+                                    <Button size="sm" variant="outline" className="bg-white text-slate-800 px-3 text-xs font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border dark:border-gray-600 dark:bg-gray-800 dark:text-white shadow-sm dark:hover:bg-gray-700 h-8 border-slate-600 hover:bg-slate-700">
                                         Review All Docs
                                     </Button>
                                 </Link>
