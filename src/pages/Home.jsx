@@ -171,8 +171,8 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen relative overflow-x-hidden ${darkMode ? '' : 'bg-slate-100'}`} style={darkMode ? { background: '#07071a' } : {}}>
-      {/* Animated canvas background */}
-      <AnimatedBackground />
+      {/* Animated canvas background — only in dark mode */}
+      {darkMode && <AnimatedBackground />}
 
       {/* ── Header ── */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/30 border-b border-white/10 shadow-[0_1px_0_rgba(0,240,255,0.08)]">
