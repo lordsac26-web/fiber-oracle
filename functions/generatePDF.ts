@@ -2,16 +2,44 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
 // ─── Text Sanitizer ───────────────────────────────────────────────────────────
+// jsPDF built-in helvetica only covers Latin-1 (ISO 8859-1, code points 0x00-0xFF).
+// Any character outside that range renders as a garbled replacement glyph (e.g. "ï¿½").
+// We must explicitly map every known special character before the final catch-all strip.
 function s(text) {
   if (!text) return '';
   return String(text)
-    .replace(/['']/g, "'").replace(/[""]/g, '"').replace(/[–—]/g, '-')
-    .replace(/…/g, '...').replace(/•/g, '*').replace(/≤/g, '<=')
-    .replace(/≥/g, '>=').replace(/±/g, '+/-').replace(/×/g, 'x')
-    .replace(/÷/g, '/').replace(/°/g, 'deg')
-    .replace(/(\d+\.?\d*)\s*[μµ]m/g, '$1um')
-    .replace(/[μµ]/g, 'u')
-    .replace(/[^\x00-\x7F]/g, '');
+    // Typographic quotes -> straight quotes
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    // Dashes: en-dash, em-dash, figure dash, horizontal bar -> hyphen
+    .replace(/[\u2013\u2014\u2012\u2015]/g, '-')
+    // Ellipsis
+    .replace(/\u2026/g, '...')
+    // Bullet / middle dot
+    .replace(/[\u2022\u00B7\u2027]/g, '*')
+    // Math symbols
+    .replace(/\u2264/g, '<=')   // ≤
+    .replace(/\u2265/g, '>=')   // ≥
+    .replace(/\u00B1/g, '+/-')  // ±
+    .replace(/\u00D7/g, 'x')    // ×
+    .replace(/\u00F7/g, '/')    // ÷
+    .replace(/\u00B0/g, 'deg')  // °
+    // Micro / mu symbols before um handling
+    .replace(/(\d+\.?\d*)\s*[\u03BC\u00B5]m/g, '$1um')
+    .replace(/[\u03BC\u00B5]/g, 'u')
+    // Copyright, registered, trademark
+    .replace(/\u00A9/g, '(c)')
+    .replace(/\u00AE/g, '(R)')
+    .replace(/\u2122/g, '(TM)')
+    // Non-breaking space -> regular space
+    .replace(/\u00A0/g, ' ')
+    // Fraction slash, division slash
+    .replace(/[\u2044\u2215]/g, '/')
+    // Superscript numbers (e.g. 1st, 2nd)
+    .replace(/\u00B9/g, '1').replace(/\u00B2/g, '2').replace(/\u00B3/g, '3')
+    // Common accented Latin chars that DO exist in Latin-1 (0x80-0xFF) pass through fine.
+    // Strip anything remaining outside Latin-1 (> 0xFF) that jsPDF/helvetica cannot render.
+    .replace(/[^\x00-\xFF]/g, '');
 }
 
 // ─── Layout Helpers ───────────────────────────────────────────────────────────
