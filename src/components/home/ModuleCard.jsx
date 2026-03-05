@@ -57,7 +57,8 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
               )}
             </h3>
             <p className={cn(
-              'text-slate-400 mt-0.5 line-clamp-2',
+              'mt-0.5 line-clamp-2',
+              darkMode ? 'text-slate-400' : 'text-slate-500',
               compact ? 'text-[10px] md:text-xs' : 'text-xs hidden md:block'
             )}>
               {module.description}
