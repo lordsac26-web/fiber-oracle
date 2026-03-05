@@ -174,7 +174,7 @@ export default function Brochure() {
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to={createPageUrl('Home')}>
-                <Button size="lg" className="bg-white text-indigo-700 hover:bg-white/90 shadow-xl font-semibold">
+                <Button size="lg" className="bg-white text-slate-800 px-8 text-sm font-semibold rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 h-10 hover:bg-white/90 shadow-xl">
                   <Zap className="h-5 w-5 mr-2" />
                   Launch App
                   <ArrowRight className="h-5 w-5 ml-2" />
@@ -348,14 +348,14 @@ export default function Brochure() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to={createPageUrl('Home')}>
-              <Button size="lg" className="bg-white text-indigo-700 hover:bg-white/90 shadow-xl font-semibold">
+              <Button size="lg" className="bg-white text-slate-800 px-8 text-sm font-semibold rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700 h-10 hover:bg-white/90 shadow-xl">
                 <Zap className="h-5 w-5 mr-2" />
                 Launch Fiber Oracle
                 <ChevronRight className="h-5 w-5 ml-1" />
               </Button>
             </Link>
             <Link to={createPageUrl('UserGuide')}>
-              <Button size="lg" variant="outline" className="border-2 border-white/60 text-white hover:bg-white/10 transition-all">
+              <Button size="lg" variant="outline" className="bg-white text-slate-800 px-8 text-sm font-medium rounded-md inline-flex items-center justify-center gap-2 whitespace-nowrap focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 dark:border-gray-600 dark:bg-gray-800 dark:text-white shadow-sm dark:hover:bg-gray-700 h-10 border-2 border-white/60 hover:bg-white/10 transition-all">
                 <BookOpen className="h-5 w-5 mr-2" />
                 Read the User Guide
               </Button>
