@@ -253,15 +253,14 @@ export default function Home() {
                 </DialogContent>
               </Dialog>
 
-              {[
-                { icon: darkMode ? Sun : Moon, action: () => setDarkMode(!darkMode), label: 'Toggle theme' },
-                { icon: HelpCircle, action: () => setShowTour(true), label: 'Start Tour', hideOnMobile: true },
-              ].map(({ icon: Icon, action, label, hideOnMobile }, i) => (
-                <button key={i} onClick={action} title={label}
-                  className={`p-2 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-white/10 transition-all ${hideOnMobile ? 'hidden md:flex items-center justify-center' : 'flex items-center justify-center'}`}>
-                  <Icon className="h-4 w-4" />
-                </button>
-              ))}
+              <button onClick={() => setDarkMode(!darkMode)} title="Toggle theme"
+                className={`p-2 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`}>
+                {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+              <button onClick={() => setShowTour(true)} title="Start Tour"
+                className={`p-2 rounded-lg transition-all hidden md:flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`}>
+                <HelpCircle className="h-4 w-4" />
+              </button>
 
               <Link to={createPageUrl('Brochure')} className="hidden md:block">
                 <button className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-white/10 transition-all flex items-center justify-center" title="About">
