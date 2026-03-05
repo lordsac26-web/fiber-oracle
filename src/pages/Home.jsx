@@ -350,12 +350,12 @@ export default function Home() {
                   <section id={`section-${category.id}`} className="scroll-mt-20">
                     {/* Category header */}
                     <div className="flex items-center gap-3 mb-4">
-                      <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${CATEGORY_COLORS[category.id]} flex items-center justify-center shadow-[0_0_12px_rgba(0,240,255,0.15)]`}>
+                      <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${CATEGORY_COLORS[category.id]} flex items-center justify-center shadow-md`}>
                         <category.icon className="h-4 w-4 text-white" />
                       </div>
                       <div>
-                        <h2 className="text-base md:text-lg font-semibold text-white">{category.label}</h2>
-                        <p className="text-xs text-slate-500 hidden sm:block">{category.description}</p>
+                        <h2 className={`text-base md:text-lg font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>{category.label}</h2>
+                        <p className={`text-xs hidden sm:block ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>{category.description}</p>
                       </div>
                       <div className="ml-auto flex items-center gap-2">
                         <div className="h-px flex-1 min-w-[40px] bg-gradient-to-r from-white/10 to-transparent" />
