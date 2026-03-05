@@ -533,7 +533,7 @@ Thank you for reaching out!
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
+        <div className="min-h-screen p-6" style={{ background: '#07071a' }}>
             {showTour && (
                 <AdminOnboardingTour 
                     onComplete={() => setShowTour(false)}
@@ -542,21 +542,24 @@ Thank you for reaching out!
             )}
             
             <div className="max-w-7xl mx-auto">
-                <div className="flex items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-4">
+                {/* Header — matches Home page style */}
+                <div className="flex items-center justify-between gap-4 mb-6 pb-4 border-b border-white/10">
+                    <div className="flex items-center gap-3">
                         <Link to={createPageUrl('Home')}>
-                            <Button variant="outline" size="icon" className="border-white/30 bg-white/10 text-white hover:bg-white/20">
+                            <Button variant="outline" size="icon" className="border-white/20 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white">
                                 <ArrowLeft className="w-4 h-4" />
                             </Button>
                         </Link>
-                    <img 
-                        src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png" 
-                        alt="Fiber Oracle" 
-                        className="w-12 h-12 rounded-xl object-cover shadow-lg"
-                    />
+                        <img 
+                            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png" 
+                            alt="Fiber Oracle" 
+                            className="w-12 h-12 rounded-xl object-cover shadow-[0_0_14px_rgba(0,240,255,0.25)]"
+                        />
                         <div>
-                            <h1 className="text-3xl font-bold text-white">Admin Control Panel</h1>
-                            <p className="text-white/70">Manage requests and approvals</p>
+                            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">
+                                Admin Control Panel
+                            </h1>
+                            <p className="text-slate-400 text-sm">Fiber Oracle · System Management</p>
                         </div>
                     </div>
                     
@@ -564,7 +567,7 @@ Thank you for reaching out!
                         variant="outline"
                         size="sm"
                         onClick={() => setShowTour(true)}
-                        className="border-white/20 text-white hover:bg-white/10"
+                        className="border-white/20 text-slate-300 hover:bg-white/10 hover:text-white"
                     >
                         <Sparkles className="w-4 h-4 mr-2" />
                         Tour
@@ -572,20 +575,20 @@ Thank you for reaching out!
                 </div>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="bg-slate-800/50 border-slate-700 mb-6">
-                        <TabsTrigger value="overview" className="data-[state=active]:bg-blue-600" data-tour="overview-tab">
+                    <TabsList className="bg-white/5 border border-white/10 mb-6 p-1">
+                        <TabsTrigger value="overview" className="text-slate-400 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-300 data-[state=active]:border-cyan-400/50" data-tour="overview-tab">
                             <AlertCircle className="w-4 h-4 mr-2" />
                             Overview
                         </TabsTrigger>
-                        <TabsTrigger value="users" className="data-[state=active]:bg-blue-600" data-tour="users-tab">
+                        <TabsTrigger value="users" className="text-slate-400 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-300 data-[state=active]:border-cyan-400/50" data-tour="users-tab">
                             <Users className="w-4 h-4 mr-2" />
-                            Users
+                            Documents & Users
                         </TabsTrigger>
-                        <TabsTrigger value="analytics" className="data-[state=active]:bg-blue-600" data-tour="analytics-tab">
+                        <TabsTrigger value="analytics" className="text-slate-400 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-300 data-[state=active]:border-cyan-400/50" data-tour="analytics-tab">
                             <BarChart3 className="w-4 h-4 mr-2" />
                             Analytics
                         </TabsTrigger>
-                        <TabsTrigger value="health" className="data-[state=active]:bg-blue-600" data-tour="health-tab">
+                        <TabsTrigger value="health" className="text-slate-400 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-300 data-[state=active]:border-cyan-400/50" data-tour="health-tab">
                             <Activity className="w-4 h-4 mr-2" />
                             System Health
                         </TabsTrigger>
