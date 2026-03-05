@@ -358,8 +358,8 @@ export default function Home() {
                         <p className={`text-xs hidden sm:block ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>{category.description}</p>
                       </div>
                       <div className="ml-auto flex items-center gap-2">
-                        <div className="h-px flex-1 min-w-[40px] bg-gradient-to-r from-white/10 to-transparent" />
-                        <span className="text-xs text-slate-500 border border-white/10 px-2 py-0.5 rounded-full">{mods.length}</span>
+                        <div className={`h-px flex-1 min-w-[40px] bg-gradient-to-r to-transparent ${darkMode ? 'from-white/10' : 'from-slate-200'}`} />
+                        <span className={`text-xs px-2 py-0.5 rounded-full border ${darkMode ? 'text-slate-500 border-white/10' : 'text-slate-500 border-slate-200 bg-white'}`}>{mods.length}</span>
                       </div>
                     </div>
 
