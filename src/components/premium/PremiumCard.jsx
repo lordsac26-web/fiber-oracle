@@ -27,7 +27,9 @@ export default function PremiumCard({
     </Card>
   );
 
-  return hover ? (
+  if (!hover) return content;
+
+  return (
     <motion.div
       whileHover={{ y: -4, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -35,7 +37,5 @@ export default function PremiumCard({
     >
       {content}
     </motion.div>
-  ) : (
-    content
   );
 }

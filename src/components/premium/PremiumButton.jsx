@@ -41,7 +41,9 @@ export default function PremiumButton({
     </Button>
   );
 
-  return animated ? (
+  if (!animated) return content;
+
+  return (
     <motion.div
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
@@ -50,7 +52,5 @@ export default function PremiumButton({
     >
       {content}
     </motion.div>
-  ) : (
-    content
   );
 }
