@@ -636,7 +636,7 @@ Thank you for reaching out!
                         </div>
 
                         <div className="grid gap-6">
-                            <Card className="bg-slate-800/50 border-slate-700">
+                            <Card className="bg-white/5 border border-white/10 backdrop-blur-sm">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
                                 <AlertCircle className="w-5 h-5 text-yellow-400" />
