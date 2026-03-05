@@ -42,8 +42,8 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
 
           <div className="min-w-0 flex-1">
             <h3 className={cn(
-              'font-semibold text-white leading-tight transition-colors duration-200',
-              'group-hover:text-cyan-300',
+              'font-semibold leading-tight transition-colors duration-200',
+              darkMode ? 'text-white group-hover:text-cyan-300' : 'text-slate-900 group-hover:text-blue-700',
               compact ? 'text-xs md:text-sm' : 'text-sm md:text-base'
             )}>
               {module.title}
