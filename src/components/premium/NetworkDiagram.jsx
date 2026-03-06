@@ -6,8 +6,8 @@ import ReactFlow, {
   useEdgesState,
   Handle,
   Position,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { motion } from 'framer-motion';
 
 const CustomNode = ({ data }) => (
