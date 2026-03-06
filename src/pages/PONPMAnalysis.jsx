@@ -88,7 +88,7 @@ import ReportForm from '@/components/jobreports/ReportForm';
 import ONTDetailView from '@/components/ponpm/ONTDetailView';
 import KPIStatistics from '@/components/ponpm/KPIStatistics';
 import PowerDistributionChart from '@/components/ponpm/PowerDistributionChart';
-import FileUploadZone from '@/components/ponpm/FileUploadZone';
+import FileUploadZone from '@/components/ponpm/FileUploadZone';import PortHeaderLabel from '@/components/ponpm/PortHeaderLabel';
 const STATUS_COLORS = {
   critical: 'bg-red-500',
   warning: 'bg-amber-500',
