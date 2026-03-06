@@ -994,6 +994,14 @@ Be specific, technical, and actionable.`;
         {/* Results Section */}
         {result && (
           <>
+            {/* Background processing progress bar */}
+            <ProcessingProgressBar
+              status={processingStatus}
+              progress={processingProgress}
+              savedCount={processingSavedCount}
+              totalCount={result?.summary?.totalOnts}
+            />
+
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               <Card className="border-0 shadow">
