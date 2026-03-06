@@ -398,6 +398,46 @@ export default function PONPMAnalysis() {
     }));
   };
 
+  const exportOfflineCSV = () => {
+    if (!result?.onts) return;
+    const offlineOnts = result.onts
+      .filter(ont => ont._analysis.status === 'offline')
+      .sort((a, b) => {
+        // Sort by OLT name first, then by shelf/slot/port numerically
+        const oltCmp = (a._oltName || '').localeCompare(b._oltName || '', undefined, { numeric: true });
+        if (oltCmp !== 0) return oltCmp;
+        return (a['Shelf/Slot/Port'] || '').localeCompare(b['Shelf/Slot/Port'] || '', undefined, { numeric: true });
+      });
+
+    if (offlineOnts.length === 0) {
+      toast.error('No offline ONTs found in this report');
+      return;
+    }
+
+    const headers = ['OLT', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'Model', 'LCP', 'Splitter', 'Location', 'Address'];
+    const rows = offlineOnts.map(ont => [
+      ont._oltName || '',
+      ont['Shelf/Slot/Port'] || '',
+      ont.OntID || '',
+      ont.SerialNumber || '',
+      ont.model || '',
+      ont._lcpNumber || '',
+      ont._splitterNumber || '',
+      ont._lcpLocation || '',
+      ont._lcpAddress || '',
+    ]);
+
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `offline-onts-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${offlineOnts.length} offline ONTs`);
+  };
+
   const exportCSV = (filterType = 'all') => {
     if (!result?.onts) return;
 
