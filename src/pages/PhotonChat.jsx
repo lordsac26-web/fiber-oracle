@@ -125,16 +125,21 @@ export default function PhotonChat() {
     queryFn: () => base44.entities.ReferenceDocument.filter({ is_active: true }),
   });
 
-  // Fetch conversations (limit to 8) with polling
+  // Fetch conversations - last 5, always fresh
   const { data: allConversations = [], isLoading: convsLoading } = useQuery({
     queryKey: ['photonConversations'],
-    queryFn: () => base44.agents.listConversations({ agent_name: 'photon' }),
-    refetchInterval: 5000, // Refresh every 5 seconds
+    queryFn: async () => {
+      const convs = await base44.agents.listConversations({ agent_name: 'photon' });
+      // Sort by most recent first, take only last 5
+      return [...convs].sort((a, b) => new Date(b.created_date) - new Date(a.created_date)).slice(0, 5);
+    },
+    refetchInterval: 5000,
     refetchOnWindowFocus: true,
-    refetchOnMount: true
+    refetchOnMount: true,
+    staleTime: 0,
   });
   
-  const conversations = allConversations.slice(0, 8);
+  const conversations = allConversations;
 
   // Auto-scroll to bottom
   useEffect(() => {
