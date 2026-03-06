@@ -98,19 +98,27 @@ function buildOntKey(oltName, shelfSlotPort) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user   = await base44.auth.me();
-
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Only admins or service role should be able to run enrichment
-    if (user.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: admin access required' }, { status: 403 });
-    }
 
     const body = await req.json().catch(() => ({}));
-    const { report_id, backfill } = body;
+
+    // Support three calling conventions:
+    //   1. Entity automation payload:  { event: { entity_id }, data: { ... } }
+    //   2. Direct call with report_id: { report_id: "<id>" }
+    //   3. Backfill mode:              { backfill: true }
+    const report_id = body.report_id || body.event?.entity_id || null;
+    const backfill  = body.backfill || false;
+
+    // For direct (non-automation) calls, require an authenticated admin user
+    const isAutomation = !!body.event;
+    if (!isAutomation) {
+      const user = await base44.auth.me().catch(() => null);
+      if (!user) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      if (user.role !== 'admin') {
+        return Response.json({ error: 'Forbidden: admin access required' }, { status: 403 });
+      }
+    }
 
     if (!report_id && !backfill) {
       return Response.json(
