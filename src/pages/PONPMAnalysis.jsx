@@ -924,6 +924,10 @@ Be specific, technical, and actionable.`;
                       <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
                       Warnings Only (CSV)
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportOfflineCSV}>
+                      <Router className="h-4 w-4 mr-2 text-purple-500" />
+                      Offline ONTs (CSV)
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
