@@ -1,5 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
+// Safe batched ONT record deletion
+// Uses small concurrent batches with delays to avoid MongoDB timeouts
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -15,28 +17,35 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'record_ids array is required' }, { status: 400 });
     }
 
-    // Limit to 500 records at a time to prevent timeouts
     if (record_ids.length > 500) {
       return Response.json({ 
         error: 'Too many records. Please delete in batches of 500 or fewer.' 
       }, { status: 400 });
     }
 
+    const CONCURRENT = 5;   // parallel deletes per micro-batch (conservative)
+    const BATCH_DELAY = 150; // ms pause between micro-batches
     let deletedCount = 0;
     const errors = [];
 
-    // Delete records one by one with small delays
-    for (const id of record_ids) {
-      try {
-        await base44.asServiceRole.entities.ONTPerformanceRecord.delete(id);
-        deletedCount++;
-        
-        // Small delay every 10 records to avoid rate limits
-        if (deletedCount % 10 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 50));
+    for (let i = 0; i < record_ids.length; i += CONCURRENT) {
+      const slice = record_ids.slice(i, i + CONCURRENT);
+
+      const results = await Promise.allSettled(
+        slice.map(id => base44.asServiceRole.entities.ONTPerformanceRecord.delete(id))
+      );
+
+      for (let j = 0; j < results.length; j++) {
+        if (results[j].status === 'fulfilled') {
+          deletedCount++;
+        } else {
+          errors.push({ id: slice[j], error: results[j].reason?.message || 'unknown' });
         }
-      } catch (err) {
-        errors.push({ id, error: err.message });
+      }
+
+      // Pause between micro-batches to avoid overwhelming the DB
+      if (i + CONCURRENT < record_ids.length) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
       }
     }
 
@@ -44,7 +53,7 @@ Deno.serve(async (req) => {
       success: true,
       deleted: deletedCount,
       failed: errors.length,
-      errors: errors.slice(0, 10) // Only return first 10 errors
+      errors: errors.slice(0, 10)
     });
 
   } catch (error) {
