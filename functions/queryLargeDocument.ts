@@ -15,8 +15,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'document_id required' }, { status: 400 });
     }
 
-    // Fetch the document metadata
-    const doc = await base44.entities.ReferenceDocument.get(document_id);
+    // Fetch the document metadata using service role so any user can read docs
+    const doc = await base44.asServiceRole.entities.ReferenceDocument.get(document_id);
     
     if (!doc) {
       return Response.json({ error: 'Document not found' }, { status: 404 });
@@ -24,7 +24,6 @@ Deno.serve(async (req) => {
 
     let fullContent = '';
     
-    // Check if it's a Google Drive file
     if (doc.source_url && doc.source_url.includes('drive.google.com')) {
       // Extract file ID from Google Drive URL
       const fileIdMatch = doc.source_url.match(/[-\w]{25,}/);
@@ -35,17 +34,13 @@ Deno.serve(async (req) => {
 
       const fileId = fileIdMatch[0];
       
-      // Get access token for Google Drive
-      const accessToken = await base44.asServiceRole.connectors.getAccessToken('googledrive');
+      // Get access token for Google Drive via proper connector API
+      const { accessToken } = await base44.asServiceRole.connectors.getConnection('googledrive');
       
       // Download file from Google Drive
       const driveResponse = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        }
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
       );
 
       if (!driveResponse.ok) {
@@ -56,46 +51,66 @@ Deno.serve(async (req) => {
       }
 
       const fileBlob = await driveResponse.blob();
+      const arrayBuffer = await fileBlob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
       
-      // Extract text from PDF using InvokeLLM with file support
-      const extractResult = await base44.integrations.Core.InvokeLLM({
-        prompt: 'Extract all text content from this PDF document. Return the raw text.',
-        file_urls: [URL.createObjectURL(fileBlob)]
+      // Re-upload the file so we have a stable Base44 URL for InvokeLLM
+      const formData = new FormData();
+      formData.append('file', new Blob([uint8Array], { type: 'application/pdf' }), 'document.pdf');
+      
+      const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({
+        file: new Blob([uint8Array], { type: 'application/pdf' })
       });
-      
-      fullContent = extractResult || '';
-      
-    } else if (doc.source_url) {
-      // Fetch from regular URL
-      const response = await fetch(doc.source_url);
-      
-      if (!response.ok) {
-        return Response.json({ error: 'Failed to fetch document' }, { status: 500 });
-      }
 
-      const fileBlob = await response.blob();
-      
-      // Use Core.UploadFile to get a stable URL
-      const uploadResult = await base44.integrations.Core.UploadFile({
-        file: new File([fileBlob], 'temp.pdf', { type: 'application/pdf' })
-      });
-      
-      // Extract text using InvokeLLM
-      const extractResult = await base44.integrations.Core.InvokeLLM({
-        prompt: 'Extract all text content from this PDF document. Return the raw text.',
+      const extractResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: 'Extract all text content from this PDF document. Return the complete raw text only, no formatting or commentary.',
         file_urls: [uploadResult.file_url]
       });
       
-      fullContent = extractResult || '';
+      fullContent = typeof extractResult === 'string' ? extractResult : (extractResult?.text || '');
+      
+    } else if (doc.source_url && !doc.source_url.includes('drive.google.com')) {
+      // Fetch from regular URL (Base44 hosted file)
+      const response = await fetch(doc.source_url);
+      
+      if (!response.ok) {
+        // Fall back to stored content if available
+        if (doc.content) {
+          fullContent = doc.content;
+        } else {
+          return Response.json({ error: 'Failed to fetch document from URL' }, { status: 500 });
+        }
+      } else {
+        const fileBlob = await response.blob();
+        const arrayBuffer = await fileBlob.arrayBuffer();
+        
+        // Re-upload so we have a fresh URL for InvokeLLM vision/file support
+        const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({
+          file: new Blob([arrayBuffer], { type: 'application/pdf' })
+        });
+        
+        const extractResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+          prompt: 'Extract all text content from this PDF document. Return the complete raw text only, no formatting or commentary.',
+          file_urls: [uploadResult.file_url]
+        });
+        
+        fullContent = typeof extractResult === 'string' ? extractResult : (extractResult?.text || '');
+      }
       
     } else if (doc.content) {
-      // Use stored content
       fullContent = doc.content;
     } else {
       return Response.json({ error: 'No content available for this document' }, { status: 404 });
     }
 
-    // If no query, return chunked content
+    if (!fullContent || fullContent.length < 10) {
+      return Response.json({ 
+        error: 'Document content could not be extracted',
+        document_title: doc.title 
+      }, { status: 422 });
+    }
+
+    // If no query, return first N chunks
     if (!query) {
       const chunkSize = 5000;
       const chunks = [];
@@ -108,13 +123,14 @@ Deno.serve(async (req) => {
       
       return Response.json({
         document_title: doc.title,
+        document_id: doc.id,
         total_chunks: chunks.length,
         chunks: chunks.slice(0, max_chunks),
-        message: 'Returning first chunks. Provide a query for relevant section extraction.'
+        message: 'Returning first chunks. Provide a query for targeted section extraction.'
       });
     }
 
-    // Chunk the content for processing
+    // Chunk the content for targeted retrieval
     const chunkSize = 4000;
     const chunks = [];
     for (let i = 0; i < fullContent.length; i += chunkSize) {
@@ -129,14 +145,15 @@ Deno.serve(async (req) => {
     // Use AI to find most relevant chunks
     const relevancePrompt = `Given this search query: "${query}"
 
-Analyze these document chunks and identify which chunks are most relevant to the query.
-Return a JSON array of chunk indices (numbers) ordered by relevance, with the most relevant first.
-Only include chunks that contain information directly relevant to the query.
+Analyze these document chunks and identify which chunks are most relevant.
+Return only chunk indices that directly answer or relate to the query.
 
-Document chunks:
-${chunks.map(c => `Chunk ${c.index}: ${c.text.substring(0, 300)}...`).join('\n\n')}`;
+Document: "${doc.title}"
 
-    const relevanceResult = await base44.integrations.Core.InvokeLLM({
+Chunks (showing first 400 chars each):
+${chunks.map(c => `Chunk ${c.index}: ${c.text.substring(0, 400)}...`).join('\n\n')}`;
+
+    const relevanceResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: relevancePrompt,
       response_json_schema: {
         type: 'object',
@@ -146,7 +163,8 @@ ${chunks.map(c => `Chunk ${c.index}: ${c.text.substring(0, 300)}...`).join('\n\n
             items: { type: 'number' }
           },
           reasoning: { type: 'string' }
-        }
+        },
+        required: ['relevant_chunk_indices']
       }
     });
 
@@ -157,17 +175,21 @@ ${chunks.map(c => `Chunk ${c.index}: ${c.text.substring(0, 300)}...`).join('\n\n
       .filter(Boolean);
 
     if (relevantChunks.length === 0) {
+      // Fallback: return first chunk so agent isn't left empty-handed
       return Response.json({
         document_title: doc.title,
+        document_id: doc.id,
         query,
-        message: 'No relevant sections found for this query',
-        suggestion: 'Try a different search term or broader query'
+        message: 'No highly relevant sections found. Returning document introduction.',
+        relevant_content: chunks[0]?.text || '',
+        relevant_chunks_count: 1,
+        chunk_indices: [0],
+        fallback: true
       });
     }
 
-    // Extract and combine relevant sections
     const relevantContent = relevantChunks
-      .map(chunk => `[Section ${chunk.index + 1}]\n${chunk.text}`)
+      .map(chunk => `[Section ${chunk.index + 1} of ${doc.title}]\n${chunk.text}`)
       .join('\n\n---\n\n');
 
     return Response.json({
@@ -184,8 +206,7 @@ ${chunks.map(c => `Chunk ${c.index}: ${c.text.substring(0, 300)}...`).join('\n\n
   } catch (error) {
     console.error('Error in queryLargeDocument:', error);
     return Response.json({ 
-      error: error.message,
-      stack: error.stack 
+      error: error.message 
     }, { status: 500 });
   }
 });
