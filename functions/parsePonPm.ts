@@ -472,36 +472,20 @@ Deno.serve(async (req) => {
       .map(ont => ont.SerialNumber)
       .filter(s => s != null);
 
+    // Skip expensive historical trend fetching when skip_trends is set
+    // (used when loading saved reports — trends were already computed on original upload)
     let historicalRecords = [];
-    if (serialNumbers.length > 0) {
+    if (serialNumbers.length > 0 && !skip_trends) {
       try {
-        // Fetch all historical records for these ONTs with pagination for scalability (100k+)
-        const batchSize = 5000;
-        let skip = 0;
-        let hasMore = true;
-        
-        while (hasMore) {
-          const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-            { serial_number: { $in: serialNumbers } },
-            '-report_date', // Sort by most recent first
-            batchSize,
-            skip
-          );
-          
-          if (batch.length === 0) {
-            hasMore = false;
-          } else {
-            historicalRecords.push(...batch);
-            skip += batchSize;
-            
-            // If we got fewer records than batch size, we've reached the end
-            if (batch.length < batchSize) {
-              hasMore = false;
-            }
-          }
-        }
-        
-        console.log(`Loaded ${historicalRecords.length} historical records for trend analysis (fetched in batches of ${batchSize})`);
+        // Limit trend lookback to a single batch to stay within CPU limits on large datasets
+        const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+          { serial_number: { $in: serialNumbers } },
+          '-report_date',
+          5000,
+          0
+        );
+        historicalRecords = batch;
+        console.log(`Loaded ${historicalRecords.length} historical records for trend analysis`);
       } catch (err) {
         console.log('No historical data available for trend analysis:', err.message);
       }
