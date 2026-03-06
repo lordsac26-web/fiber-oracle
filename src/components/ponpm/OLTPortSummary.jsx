@@ -420,10 +420,14 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger>
-                            <span className="text-blue-600 font-medium">{port.lcpNumber}</span>
+                            <span className="text-blue-600 font-medium">
+                              {port.lcpNumber}{port.lcpSplitter ? `/${port.lcpSplitter}` : ''}
+                            </span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            {port.lcpLocation || 'No location info'}
+                            {port.lcpLocation && <div>{port.lcpLocation}</div>}
+                            {port.lcpAddress && <div className="text-gray-400">{port.lcpAddress}</div>}
+                            {!port.lcpLocation && !port.lcpAddress && <div>No location info</div>}
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
