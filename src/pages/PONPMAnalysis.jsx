@@ -1916,8 +1916,8 @@ Be specific, technical, and actionable.`;
               setIsLoading(true);
               toast.loading('Loading report...', { id: 'load-report' });
               try {
-                // Re-parse the saved file to get full analysis (doesn't save to sessionStorage anymore)
-                const response = await base44.functions.invoke('parsePonPm', { file_url: report.file_url });
+                // Re-parse the saved file — skip trend computation to avoid CPU timeout on large datasets
+                const response = await base44.functions.invoke('parsePonPm', { file_url: report.file_url, skip_trends: true });
                 
                 if (response.data?.success && response.data?.onts && response.data?.summary) {
                   setResult(response.data);
