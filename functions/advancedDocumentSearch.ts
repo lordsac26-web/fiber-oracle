@@ -260,7 +260,8 @@ Return a ranked list of document IDs with relevance scores (0-100).`;
       results: validResults,
       search_metadata: {
         two_stage_search: true,
-        stage_1_results: keywordFilteredDocs.length,
+        keyword_hits_found: hasKeywordHits,
+      stage_1_results: keywordFilteredDocs.length,
         stage_2_results: validResults.length,
         semantic_search_used: true,
         keyword_highlighting: highlight_keywords,
