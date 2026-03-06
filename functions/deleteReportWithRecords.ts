@@ -15,26 +15,32 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing report_id' }, { status: 400 });
     }
 
-    // Delete all ONT records for this report using service role
-    const records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter({ report_id }, '-created_date', 10000);
-    
-    // Delete in small batches with delays to avoid rate limits and timeouts
-    const chunkSize = 50;
+    // Paginate through all ONT records for this report (may exceed 5000)
+    const PAGE_SIZE = 2000;
+    let skip = 0;
     let deletedCount = 0;
-    
-    for (let i = 0; i < records.length; i += chunkSize) {
-      const chunk = records.slice(i, i + chunkSize);
-      
-      // Delete chunk sequentially with delay
-      for (const record of chunk) {
-        await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
-        deletedCount++;
+    const CONCURRENT = 10;   // parallel deletes per micro-batch
+    const BATCH_DELAY = 300; // ms between micro-batches to avoid rate limits
+
+    while (true) {
+      const page = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+        { report_id }, '-created_date', PAGE_SIZE, skip
+      );
+      if (!page || page.length === 0) break;
+
+      // Delete CONCURRENT records at a time within the page
+      for (let i = 0; i < page.length; i += CONCURRENT) {
+        const slice = page.slice(i, i + CONCURRENT);
+        await Promise.all(
+          slice.map(r => base44.asServiceRole.entities.ONTPerformanceRecord.delete(r.id))
+        );
+        deletedCount += slice.length;
+        // Brief pause between micro-batches
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
       }
-      
-      // Add delay between chunks to avoid rate limiting
-      if (i + chunkSize < records.length) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
+
+      if (page.length < PAGE_SIZE) break;
+      skip += PAGE_SIZE;
     }
 
     // Delete the report itself
