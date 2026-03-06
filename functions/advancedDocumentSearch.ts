@@ -92,33 +92,32 @@ Deno.serve(async (req) => {
 
     // STAGE 1: Keyword-based pre-filtering to narrow down corpus
     const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const keywordFilteredDocs = filteredDocs.map(doc => {
+    const keywordScoredDocs = filteredDocs.map(doc => {
       let score = 0;
-      const searchText = `${doc.title} ${doc.content || ''} ${(doc.tags || []).join(' ')} ${doc.category}`.toLowerCase();
+      // Guard against null/undefined fields
+      const title = (doc.title || '').toLowerCase();
+      const content = (doc.content || '').toLowerCase();
+      const tags = (doc.tags || []).join(' ').toLowerCase();
+      const category = (doc.category || '').toLowerCase();
+      const searchText = `${title} ${content} ${tags} ${category}`;
       
-      // Score based on keyword matches
       for (const word of queryWords) {
-        if (doc.title.toLowerCase().includes(word)) score += 10;
-        if ((doc.tags || []).some(tag => tag.toLowerCase().includes(word))) score += 5;
-        if (doc.category.toLowerCase().includes(word)) score += 3;
-        if (searchText.includes(word)) score += 1;
+        if (title.includes(word)) score += 10;
+        if (tags.includes(word)) score += 5;
+        if (category.includes(word)) score += 3;
+        if (content.includes(word)) score += 1;
       }
       
       return { doc, score };
     })
-    .filter(item => item.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 100); // Take top 100 by keyword relevance
+    .sort((a, b) => b.score - a.score);
 
-    if (keywordFilteredDocs.length === 0) {
-      return Response.json({
-        query,
-        results: [],
-        total_results: 0,
-        message: 'No documents matched the search keywords',
-        stage: 'keyword_filtering'
-      });
-    }
+    // Only filter by keyword if we get hits; otherwise pass ALL docs to semantic stage
+    // This prevents the agent from seeing empty results when docs exist but lack keyword overlap
+    const hasKeywordHits = keywordScoredDocs.some(item => item.score > 0);
+    const keywordFilteredDocs = hasKeywordHits
+      ? keywordScoredDocs.filter(item => item.score > 0).slice(0, 100)
+      : keywordScoredDocs.slice(0, 50); // Fall through to semantic with top 50
 
     // Use keyword-filtered docs for semantic ranking
     filteredDocs = keywordFilteredDocs.map(item => item.doc);
