@@ -224,9 +224,14 @@ export default function PONPMAnalysis() {
 
       return report;
     },
-    onSuccess: () => {
+    onSuccess: (report) => {
       queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
       toast.success('Report saved — ONT records are being indexed in the background');
+      // Begin real-time progress tracking via subscription
+      setProcessingReportId(report.id);
+      setProcessingProgress(0);
+      setProcessingSavedCount(0);
+      setProcessingStatus('saving');
     },
     onError: (error) => {
       console.error('Save report error:', error);
