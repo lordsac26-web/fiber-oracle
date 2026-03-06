@@ -18,39 +18,34 @@ Deno.serve(async (req) => {
     console.log(`Deleting ONT records for report ${report_id} in batches...`);
 
     let totalDeleted = 0;
-    const batchSize = 100;
-    let hasMore = true;
+    const PAGE_SIZE = 200;
+    const CONCURRENT = 5;   // parallel deletes per micro-batch
+    const BATCH_DELAY = 200; // ms between micro-batches
 
-    while (hasMore) {
-      // Fetch a batch of records for this report
+    while (true) {
       const records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
         { report_id },
         null,
-        batchSize
+        PAGE_SIZE
       );
 
-      if (records.length === 0) {
-        hasMore = false;
-        break;
-      }
+      if (!records || records.length === 0) break;
 
       console.log(`Deleting batch of ${records.length} records...`);
 
-      // Delete in smaller chunks
-      for (const record of records) {
-        try {
-          await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
-          totalDeleted++;
-        } catch (err) {
-          console.error(`Failed to delete record ${record.id}:`, err.message);
-        }
+      // Process in small concurrent slices to avoid DB timeouts
+      for (let i = 0; i < records.length; i += CONCURRENT) {
+        const slice = records.slice(i, i + CONCURRENT);
+        const results = await Promise.allSettled(
+          slice.map(r => base44.asServiceRole.entities.ONTPerformanceRecord.delete(r.id))
+        );
+        totalDeleted += results.filter(r => r.status === 'fulfilled').length;
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
       }
 
       console.log(`Progress: ${totalDeleted} records deleted`);
 
-      if (records.length < batchSize) {
-        hasMore = false;
-      }
+      if (records.length < PAGE_SIZE) break;
     }
 
     // Now delete the report itself
