@@ -522,14 +522,20 @@ export default function OLTPortSummary({ result, onDrillDown }) {
               {/* LCP Info */}
               {selectedPort.lcpNumber && (
                 <Card className="border bg-blue-50">
-                  <CardContent className="p-3">
+                  <CardContent className="p-3 space-y-1">
                     <div className="flex items-center gap-2 text-blue-800">
                       <BarChart3 className="h-4 w-4" />
                       <span className="font-medium">LCP: {selectedPort.lcpNumber}</span>
-                      {selectedPort.lcpLocation && (
-                        <span className="text-sm text-blue-600">• {selectedPort.lcpLocation}</span>
+                      {selectedPort.lcpSplitter && (
+                        <span className="text-sm text-blue-600">/ Splitter: {selectedPort.lcpSplitter}</span>
                       )}
                     </div>
+                    {selectedPort.lcpLocation && (
+                      <div className="text-sm text-blue-700 pl-6">{selectedPort.lcpLocation}</div>
+                    )}
+                    {selectedPort.lcpAddress && (
+                      <div className="text-xs text-blue-600 pl-6">{selectedPort.lcpAddress}</div>
+                    )}
                   </CardContent>
                 </Card>
               )}
