@@ -316,7 +316,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { file_url } = await req.json();
+    const body = await req.json();
+    const { file_url, skip_trends } = body;
 
     if (!file_url) {
       return Response.json({ error: 'No file URL provided' }, { status: 400 });
