@@ -284,7 +284,7 @@ export default function Home() {
         {/* Hero tagline — fade in on mount */}
         <div className={`text-center py-4 md:py-6 transition-all duration-700 ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
           <h2 className={`text-2xl md:text-4xl font-bold tracking-tight mb-2 bg-clip-text text-transparent ${darkMode ? 'bg-gradient-to-r from-cyan-400 to-purple-500' : 'bg-gradient-to-r from-blue-700 to-violet-600'}`}>
-            Fiber Optics Intelligence Suite
+            Fiber Oracle Intelligence Suite
           </h2>
           <p className={`text-sm md:text-base max-w-xl mx-auto ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
             Calculators, diagnostics, and reference tools — built for the field.
