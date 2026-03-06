@@ -39,6 +39,7 @@ Deno.serve(async (req) => {
         ds_fec_uncorrected: parseInt(ont.DownstreamFecUncorrectedCodeWords) || 0,
         status: ont._analysis?.status || 'ok',
         lcp_number: ont._lcpNumber || '',
+        splitter_number: ont._splitterNumber || '',
       }));
 
       await base44.asServiceRole.entities.ONTPerformanceRecord.bulkCreate(records);
