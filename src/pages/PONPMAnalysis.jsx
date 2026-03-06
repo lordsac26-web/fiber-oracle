@@ -151,6 +151,33 @@ export default function PONPMAnalysis() {
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
   });
 
+  // Track the report currently being processed in the background
+  const [processingReportId, setProcessingReportId] = useState(null);
+  const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingSavedCount, setProcessingSavedCount] = useState(0);
+  const [processingStatus, setProcessingStatus] = useState(null);
+
+  // Real-time subscription to PONPMReport updates while background indexing is active
+  useEffect(() => {
+    if (!processingReportId) return;
+    const unsubscribe = base44.entities.PONPMReport.subscribe((event) => {
+      if (event.id !== processingReportId || !event.data) return;
+      const { processing_status, processing_progress, processing_saved_count } = event.data;
+      setProcessingStatus(processing_status);
+      setProcessingProgress(processing_progress ?? 0);
+      setProcessingSavedCount(processing_saved_count ?? 0);
+      if (processing_status === 'completed') {
+        toast.success('ONT records fully indexed and searchable');
+        queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
+        setTimeout(() => setProcessingReportId(null), 3000);
+      } else if (processing_status === 'failed') {
+        toast.error('Background ONT indexing failed — live analysis still available');
+        setTimeout(() => setProcessingReportId(null), 4000);
+      }
+    });
+    return () => unsubscribe();
+  }, [processingReportId, queryClient]);
+
 
 
   // Fetch saved reports
