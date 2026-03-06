@@ -156,10 +156,10 @@ export default function PONPMAnalysis() {
     queryFn: () => base44.entities.PONPMReport.list('-upload_date'),
   });
 
-  // Save report mutation - saves summary, then ONT records via backend
+  // Save report metadata, then kick off async background processing for ONT records
   const saveReportMutation = useMutation({
     mutationFn: async (reportData) => {
-      // First create the report record
+      // Create the report summary record immediately (fast)
       const report = await base44.entities.PONPMReport.create({
         report_name: reportData.report_name,
         upload_date: reportData.upload_date,
@@ -173,33 +173,30 @@ export default function PONPMAnalysis() {
         avg_ont_rx: reportData.avg_ont_rx,
         min_ont_rx: reportData.min_ont_rx,
         max_ont_rx: reportData.max_ont_rx,
+        processing_status: 'pending',
+        processing_progress: 0,
+        processing_saved_count: 0,
       });
-      
-      // Save all ONT records via backend (handles large datasets up to 50k+)
-      if (reportData.onts && reportData.onts.length > 0) {
-        toast.loading(`Saving ${reportData.onts.length.toLocaleString()} ONT records for trends...`, { id: 'save-onts' });
-        
-        try {
-          // Send all ONTs to backend - it handles batching internally
-          const saveResponse = await base44.functions.invoke('saveOntRecords', {
-            report_id: report.id,
-            report_date: reportData.upload_date,
-            onts: reportData.onts,
-          });
-          
-          console.log('ONT records saved:', saveResponse.data);
-          toast.success(`Saved ${saveResponse.data?.savedCount || reportData.onts.length} ONT records for historical analysis`, { id: 'save-onts' });
-        } catch (err) {
-          console.error('Failed to save ONT records:', err);
-          toast.error(`Failed to save ONT records: ${err.message}`, { id: 'save-onts' });
-        }
-      }
-      
+
+      // Fire-and-forget: kick off background batch processing for ONT records.
+      // processPonPmRecords handles datasets of any size in 500-row batches,
+      // updating processing_progress on each batch so the UI can poll/subscribe.
+      base44.functions.invoke('processPonPmRecords', {
+        report_id: report.id,
+        file_url: reportData.file_url,
+        report_date: reportData.upload_date,
+      }).then(res => {
+        console.log('Background ONT processing complete:', res.data);
+        queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
+      }).catch(err => {
+        console.error('Background ONT processing failed:', err);
+      });
+
       return report;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
-      toast.success('Report saved to history');
+      toast.success('Report saved — ONT records are being indexed in the background');
     },
     onError: (error) => {
       console.error('Save report error:', error);
