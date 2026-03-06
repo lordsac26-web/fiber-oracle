@@ -66,8 +66,9 @@ export default function LCPSummarySection({ result, onPortClick }) {
     });
 
     // Then, aggregate ONT data
+    // Live-parsed ONTs use _lcpNumber (underscore prefix); saved records use lcp_number
     result.onts.forEach(ont => {
-      const lcpNumber = ont.lcp_number;
+      const lcpNumber = ont._lcpNumber || ont.lcp_number;
       if (!lcpNumber) return;
 
       // Create entry if not found in database (for LCPs not yet in database)
