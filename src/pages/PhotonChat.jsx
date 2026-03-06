@@ -199,7 +199,8 @@ export default function PhotonChat() {
         content: 'Hi, I need help'
       });
       
-      queryClient.invalidateQueries({ queryKey: ['photonConversations'] });
+      await queryClient.invalidateQueries({ queryKey: ['photonConversations'] });
+      await queryClient.refetchQueries({ queryKey: ['photonConversations'] });
       toast.success('New conversation started');
       
       await logAuditEvent('conversation_start', 'New conversation created', {
