@@ -88,7 +88,10 @@ import ReportForm from '@/components/jobreports/ReportForm';
 import ONTDetailView from '@/components/ponpm/ONTDetailView';
 import KPIStatistics from '@/components/ponpm/KPIStatistics';
 import PowerDistributionChart from '@/components/ponpm/PowerDistributionChart';
-import FileUploadZone from '@/components/ponpm/FileUploadZone';import PortHeaderLabel from '@/components/ponpm/PortHeaderLabel';
+import FileUploadZone from '@/components/ponpm/FileUploadZone';
+import PortHeaderLabel from '@/components/ponpm/PortHeaderLabel';
+import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
+import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
 const STATUS_COLORS = {
   critical: 'bg-red-500',
   warning: 'bg-amber-500',
