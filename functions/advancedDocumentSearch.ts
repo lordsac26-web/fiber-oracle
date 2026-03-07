@@ -4,13 +4,6 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    // Allow both authenticated users and agent/service-role callers.
-    // All entity reads use asServiceRole below, so end-user RLS is not a concern.
-    const isAuthenticated = await base44.auth.isAuthenticated();
-    if (!isAuthenticated) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { 
       query, 
       filters = {},
