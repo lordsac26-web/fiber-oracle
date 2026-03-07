@@ -4,13 +4,20 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
+    let body = {};
+    try {
+      body = await req.json();
+    } catch (_) {
+      return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
     const {
       query,
       filters = {},
       max_results = 10,
       include_content_preview = true,
       highlight_keywords = true
-    } = await req.json();
+    } = body;
 
     if (!query) {
       return Response.json({ error: 'query parameter required' }, { status: 400 });
