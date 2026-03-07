@@ -1,7 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
 
-// Strategy: fetch metadata-only first (small response, no Brotli trigger),
-// then fetch full content only for top keyword-matched docs.
+// v3 - sdk@0.8.4 - metadata-first strategy to avoid large response Brotli trigger
 
 Deno.serve(async (req) => {
   let step = 'init';
