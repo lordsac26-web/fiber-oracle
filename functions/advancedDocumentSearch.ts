@@ -4,8 +4,8 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    const { 
-      query, 
+    const {
+      query,
       filters = {},
       max_results = 10,
       include_content_preview = true,
@@ -16,19 +16,18 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'query parameter required' }, { status: 400 });
     }
 
-    // Build entity filter based on metadata
+    // Build entity filter
     const entityFilter = {};
-    
     if (filters.category) entityFilter.category = filters.category;
     if (filters.source_type) entityFilter.source_type = filters.source_type;
     if (filters.is_active !== undefined) entityFilter.is_active = filters.is_active;
     if (filters.is_latest_version !== undefined) entityFilter.is_latest_version = filters.is_latest_version;
 
-    // Fetch all documents via service role (bypasses RLS for agent calls)
+    // Fetch all documents via service role (works for both user and agent callers)
     let allDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 500);
     if (!Array.isArray(allDocs)) allDocs = [];
 
-    // Apply metadata filters if specified
+    // Apply metadata filters
     if (Object.keys(entityFilter).length > 0) {
       allDocs = allDocs.filter(doc => {
         for (const [key, value] of Object.entries(entityFilter)) {
@@ -42,7 +41,7 @@ Deno.serve(async (req) => {
       return Response.json({ query, results: [], total_results: 0, message: 'No documents found matching the filters' });
     }
 
-    // Apply date range filter if specified
+    // Apply date range filter
     let filteredDocs = allDocs;
     if (filters.date_from || filters.date_to) {
       filteredDocs = allDocs.filter(doc => {
@@ -74,7 +73,6 @@ Deno.serve(async (req) => {
       return { doc, score };
     }).sort((a, b) => b.score - a.score);
 
-    // Fall through to semantic stage with all docs if no keyword hits
     const hasKeywordHits = keywordScoredDocs.some(item => item.score > 0);
     const keywordFilteredDocs = hasKeywordHits
       ? keywordScoredDocs.filter(item => item.score > 0).slice(0, 100)
@@ -143,10 +141,10 @@ Return a ranked list of document IDs with relevance scores (0-100).`;
 
       let highlightedPreview = '';
       if (include_content_preview && doc.content) {
-        const content = doc.content.toLowerCase();
+        const contentLower = doc.content.toLowerCase();
         let bestMatch = -1;
         for (const word of queryWords) {
-          const idx = content.indexOf(word);
+          const idx = contentLower.indexOf(word);
           if (idx !== -1 && (bestMatch === -1 || idx < bestMatch)) bestMatch = idx;
         }
         const startIdx = Math.max(0, bestMatch - 150);
