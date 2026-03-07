@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+// SDK 0.8.20 pinned — matches processPonPmRecords and other working functions
 
 Deno.serve(async (req) => {
   try {
