@@ -164,15 +164,19 @@ export default function PONPMAnalysis() {
       if (event.id !== processingReportId || !event.data) return;
       const { processing_status, processing_progress, processing_saved_count } = event.data;
       setProcessingStatus(processing_status);
-      setProcessingProgress(processing_progress ?? 0);
       setProcessingSavedCount(processing_saved_count ?? 0);
+      // Explicitly force progress to 100% on completion to avoid stale intermediate values
       if (processing_status === 'completed') {
+        setProcessingProgress(100);
         toast.success('ONT records fully indexed and searchable');
         queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
         setTimeout(() => setProcessingReportId(null), 3000);
       } else if (processing_status === 'failed') {
+        setProcessingProgress(0);
         toast.error('Background ONT indexing failed — live analysis still available');
         setTimeout(() => setProcessingReportId(null), 4000);
+      } else {
+        setProcessingProgress(processing_progress ?? 0);
       }
     });
     return () => unsubscribe();
