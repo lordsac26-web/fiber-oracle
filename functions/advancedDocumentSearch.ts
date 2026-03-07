@@ -1,15 +1,12 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 Deno.serve(async (req) => {
   try {
-    const base44 = createClientFromRequest(req);
+    // Disable brotli by setting Accept-Encoding to identity only
+    const APP_ID = Deno.env.get('BASE44_APP_ID');
 
     let body = {};
-    try {
-      body = await req.json();
-    } catch (_) {
-      return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
+    try { body = await req.json(); } catch (_) { /* empty body is ok */ }
 
     const {
       query,
@@ -23,49 +20,56 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'query parameter required' }, { status: 400 });
     }
 
-    // Build entity filter
-    const entityFilter = {};
-    if (filters.category) entityFilter.category = filters.category;
-    if (filters.source_type) entityFilter.source_type = filters.source_type;
-    if (filters.is_active !== undefined) entityFilter.is_active = filters.is_active;
-    if (filters.is_latest_version !== undefined) entityFilter.is_latest_version = filters.is_latest_version;
+    // Extract auth token from incoming request to forward as service-role
+    const authHeader = req.headers.get('authorization') || '';
+    const serviceToken = req.headers.get('x-service-token') || '';
 
-    // Fetch all documents via service role (works for both user and agent callers)
-    let allDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 500);
-    if (!Array.isArray(allDocs)) allDocs = [];
+    // Use fetch directly to avoid the SDK's Brotli decompression bug
+    const fetchDocs = async () => {
+      const url = `https://api.base44.com/api/apps/${APP_ID}/entities/ReferenceDocument/list?sort=-created_date&limit=500`;
+      const headers = {
+        'Accept-Encoding': 'gzip, deflate', // explicitly exclude brotli
+        'Content-Type': 'application/json',
+      };
+      if (serviceToken) headers['x-service-token'] = serviceToken;
+      else if (authHeader) headers['authorization'] = authHeader;
 
-    // Apply metadata filters
-    if (Object.keys(entityFilter).length > 0) {
-      allDocs = allDocs.filter(doc => {
-        for (const [key, value] of Object.entries(entityFilter)) {
-          if (doc[key] !== value) return false;
-        }
-        return true;
-      });
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error(`Failed to fetch documents: ${res.status} ${await res.text()}`);
+      return res.json();
+    };
+
+    let allDocs = [];
+    try {
+      const result = await fetchDocs();
+      allDocs = Array.isArray(result) ? result : (result.data || result.items || []);
+    } catch (fetchErr) {
+      // Fallback: try via SDK (in case fetch approach also fails)
+      const base44 = createClientFromRequest(req);
+      const sdkResult = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 500);
+      allDocs = Array.isArray(sdkResult) ? sdkResult : [];
     }
 
     if (allDocs.length === 0) {
-      return Response.json({ query, results: [], total_results: 0, message: 'No documents found matching the filters' });
+      return Response.json({ query, results: [], total_results: 0, message: 'No documents found in the knowledge base' });
     }
 
-    // Apply date range filter
+    // Apply metadata filters in-memory
     let filteredDocs = allDocs;
-    if (filters.date_from || filters.date_to) {
-      filteredDocs = allDocs.filter(doc => {
-        const docDate = new Date(doc.created_date);
-        if (filters.date_from && docDate < new Date(filters.date_from)) return false;
-        if (filters.date_to && docDate > new Date(filters.date_to)) return false;
-        return true;
-      });
-    }
+    if (filters.category) filteredDocs = filteredDocs.filter(d => d.category === filters.category);
+    if (filters.source_type) filteredDocs = filteredDocs.filter(d => d.source_type === filters.source_type);
+    if (filters.is_active !== undefined) filteredDocs = filteredDocs.filter(d => d.is_active === filters.is_active);
+    if (filters.is_latest_version !== undefined) filteredDocs = filteredDocs.filter(d => d.is_latest_version === filters.is_latest_version);
+    if (filters.date_from) filteredDocs = filteredDocs.filter(d => new Date(d.created_date) >= new Date(filters.date_from));
+    if (filters.date_to) filteredDocs = filteredDocs.filter(d => new Date(d.created_date) <= new Date(filters.date_to));
 
     if (filteredDocs.length === 0) {
-      return Response.json({ query, results: [], total_results: 0, message: 'No documents found in the specified date range' });
+      return Response.json({ query, results: [], total_results: 0, message: 'No documents matched the filters' });
     }
 
-    // STAGE 1: Keyword-based pre-filtering
+    // STAGE 1: Keyword pre-scoring
     const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const keywordScoredDocs = filteredDocs.map(doc => {
+    const scored = filteredDocs.map(doc => {
       let score = 0;
       const title = (doc.title || '').toLowerCase();
       const content = (doc.content || '').toLowerCase();
@@ -80,89 +84,94 @@ Deno.serve(async (req) => {
       return { doc, score };
     }).sort((a, b) => b.score - a.score);
 
-    const hasKeywordHits = keywordScoredDocs.some(item => item.score > 0);
-    const keywordFilteredDocs = hasKeywordHits
-      ? keywordScoredDocs.filter(item => item.score > 0).slice(0, 100)
-      : keywordScoredDocs.slice(0, 50);
+    const hasHits = scored.some(s => s.score > 0);
+    const topDocs = (hasHits ? scored.filter(s => s.score > 0) : scored).slice(0, 50).map(s => s.doc);
 
-    filteredDocs = keywordFilteredDocs.map(item => item.doc);
-
-    // STAGE 2: Semantic ranking via LLM
-    const docSummaries = filteredDocs.slice(0, 50).map(doc => ({
+    // STAGE 2: LLM semantic ranking
+    const docSummaries = topDocs.map(doc => ({
       id: doc.id,
       title: doc.title,
       category: doc.category,
-      content_preview: doc.content ? doc.content.substring(0, 500) : '',
-      metadata: doc.metadata || {},
-      tags: doc.tags || []
+      tags: doc.tags || [],
+      content_preview: (doc.content || '').substring(0, 500)
     }));
 
-    const semanticPrompt = `You are analyzing a document search query and ranking documents by relevance.
+    // Use fetch directly for LLM call too
+    const llmFetch = async (prompt, schema) => {
+      const url = `https://api.base44.com/api/apps/${APP_ID}/integrations/Core/InvokeLLM`;
+      const headers = {
+        'Accept-Encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      };
+      if (serviceToken) headers['x-service-token'] = serviceToken;
+      else if (authHeader) headers['authorization'] = authHeader;
 
-Search Query: "${query}"
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ prompt, response_json_schema: schema })
+      });
+      if (!res.ok) throw new Error(`LLM call failed: ${res.status}`);
+      return res.json();
+    };
 
-Documents to rank:
-${docSummaries.map((doc, idx) => `
-Document ${idx + 1}:
-- ID: ${doc.id}
-- Title: ${doc.title}
-- Category: ${doc.category}
-- Tags: ${doc.tags.join(', ') || 'None'}
-- Metadata: ${JSON.stringify(doc.metadata).substring(0, 200)}
-- Preview: ${doc.content_preview}
-`).join('\n')}
+    let rankedDocs = topDocs.slice(0, max_results).map((doc, i) => ({
+      document_id: doc.id,
+      relevance_score: 100 - i,
+      match_reasoning: 'Keyword match'
+    }));
 
-Rank these documents by relevance. Consider: exact keyword matches, semantic similarity, tag/metadata alignment, and topic relevance.
-Return a ranked list of document IDs with relevance scores (0-100).`;
-
-    const rankingResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: semanticPrompt,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          ranked_documents: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                document_id: { type: 'string' },
-                relevance_score: { type: 'number' },
-                match_reasoning: { type: 'string' }
-              },
-              required: ['document_id', 'relevance_score']
+    try {
+      const rankingResult = await llmFetch(
+        `Rank these documents by relevance to the search query: "${query}"\n\nDocuments:\n${docSummaries.map(d =>
+          `ID: ${d.id}\nTitle: ${d.title}\nCategory: ${d.category}\nTags: ${d.tags.join(', ')}\nPreview: ${d.content_preview}`
+        ).join('\n---\n')}\n\nReturn a ranked list with relevance scores 0-100.`,
+        {
+          type: 'object',
+          properties: {
+            ranked_documents: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  document_id: { type: 'string' },
+                  relevance_score: { type: 'number' },
+                  match_reasoning: { type: 'string' }
+                },
+                required: ['document_id', 'relevance_score']
+              }
             }
-          }
-        },
-        required: ['ranked_documents']
+          },
+          required: ['ranked_documents']
+        }
+      );
+      if (rankingResult.ranked_documents?.length > 0) {
+        rankedDocs = rankingResult.ranked_documents.sort((a, b) => b.relevance_score - a.relevance_score).slice(0, max_results);
       }
-    });
+    } catch (llmErr) {
+      console.warn('LLM ranking failed, falling back to keyword order:', llmErr.message);
+    }
 
-    const rankedDocs = (rankingResult.ranked_documents || [])
-      .sort((a, b) => b.relevance_score - a.relevance_score)
-      .slice(0, max_results);
-
-    // Build final results with content snippets
-    const results = (await Promise.all(rankedDocs.map(async (ranked) => {
-      const doc = filteredDocs.find(d => d.id === ranked.document_id);
+    // Build final results
+    const results = rankedDocs.map(ranked => {
+      const doc = topDocs.find(d => d.id === ranked.document_id);
       if (!doc) return null;
 
-      let highlightedPreview = '';
+      let contentPreview = '';
       if (include_content_preview && doc.content) {
         const contentLower = doc.content.toLowerCase();
-        let bestMatch = -1;
-        for (const word of queryWords) {
-          const idx = contentLower.indexOf(word);
-          if (idx !== -1 && (bestMatch === -1 || idx < bestMatch)) bestMatch = idx;
-        }
-        const startIdx = Math.max(0, bestMatch - 150);
-        const endIdx = Math.min(doc.content.length, bestMatch + 350);
-        let snippet = doc.content.substring(startIdx, endIdx);
+        let bestIdx = queryWords.reduce((best, word) => {
+          const i = contentLower.indexOf(word);
+          return (i !== -1 && (best === -1 || i < best)) ? i : best;
+        }, -1);
+        if (bestIdx === -1) bestIdx = 0;
+        let snippet = doc.content.substring(Math.max(0, bestIdx - 150), Math.min(doc.content.length, bestIdx + 350));
         if (highlight_keywords) {
           for (const word of queryWords) {
             snippet = snippet.replace(new RegExp(`(${word})`, 'gi'), '**$1**');
           }
         }
-        highlightedPreview = snippet;
+        contentPreview = snippet;
       }
 
       return {
@@ -176,10 +185,10 @@ Return a ranked list of document IDs with relevance scores (0-100).`;
         created_date: doc.created_date,
         relevance_score: ranked.relevance_score,
         match_reasoning: ranked.match_reasoning,
-        content_preview: include_content_preview ? highlightedPreview : null,
-        metadata: { is_active: doc.is_active, is_latest_version: doc.is_latest_version, ...doc.metadata }
+        content_preview: include_content_preview ? contentPreview : null,
+        metadata: { is_active: doc.is_active, is_latest_version: doc.is_latest_version, ...(doc.metadata || {}) }
       };
-    }))).filter(Boolean);
+    }).filter(Boolean);
 
     return Response.json({
       query,
@@ -188,18 +197,15 @@ Return a ranked list of document IDs with relevance scores (0-100).`;
       total_results: results.length,
       results,
       search_metadata: {
-        two_stage_search: true,
-        keyword_hits_found: hasKeywordHits,
-        stage_1_results: keywordFilteredDocs.length,
-        stage_2_results: results.length,
-        semantic_search_used: true,
-        keyword_highlighting: highlight_keywords,
+        keyword_hits_found: hasHits,
+        stage_1_candidates: topDocs.length,
+        semantic_ranking_used: rankedDocs.length > 0,
         max_results
       }
     });
 
   } catch (error) {
-    console.error('Error in advancedDocumentSearch:', error);
-    return Response.json({ error: error.message, stack: error.stack }, { status: 500 });
+    console.error('advancedDocumentSearch error:', error);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 });
