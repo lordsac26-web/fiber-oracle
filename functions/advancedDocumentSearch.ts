@@ -1,9 +1,12 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.3';
 
 Deno.serve(async (req) => {
+  let step = 'init';
   try {
+    step = 'create_client';
     const base44 = createClientFromRequest(req);
 
+    step = 'parse_body';
     let body = {};
     try { body = await req.json(); } catch (_) { /* empty body ok */ }
 
@@ -19,9 +22,11 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'query parameter required' }, { status: 400 });
     }
 
-    // Fetch all reference documents via service role
+    step = 'fetch_docs';
     let allDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 500);
     if (!Array.isArray(allDocs)) allDocs = [];
+
+    console.log(`Fetched ${allDocs.length} documents`);
 
     if (allDocs.length === 0) {
       return Response.json({ query, results: [], total_results: 0, message: 'No documents in knowledge base' });
@@ -32,34 +37,30 @@ Deno.serve(async (req) => {
     if (filters.category) filteredDocs = filteredDocs.filter(d => d.category === filters.category);
     if (filters.source_type) filteredDocs = filteredDocs.filter(d => d.source_type === filters.source_type);
     if (filters.is_active !== undefined) filteredDocs = filteredDocs.filter(d => d.is_active === filters.is_active);
-    if (filters.date_from) filteredDocs = filteredDocs.filter(d => new Date(d.created_date) >= new Date(filters.date_from));
-    if (filters.date_to) filteredDocs = filteredDocs.filter(d => new Date(d.created_date) <= new Date(filters.date_to));
 
     if (filteredDocs.length === 0) {
       return Response.json({ query, results: [], total_results: 0, message: 'No documents matched the filters' });
     }
 
-    // Stage 1: keyword scoring
+    step = 'keyword_score';
     const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     const scored = filteredDocs.map(doc => {
       let score = 0;
       const title = (doc.title || '').toLowerCase();
       const content = (doc.content || '').toLowerCase();
       const tags = (doc.tags || []).join(' ').toLowerCase();
-      const category = (doc.category || '').toLowerCase();
       for (const word of queryWords) {
         if (title.includes(word)) score += 10;
         if (tags.includes(word)) score += 5;
-        if (category.includes(word)) score += 3;
         if (content.includes(word)) score += 1;
       }
       return { doc, score };
     }).sort((a, b) => b.score - a.score);
 
     const hasHits = scored.some(s => s.score > 0);
-    const topDocs = (hasHits ? scored.filter(s => s.score > 0) : scored).slice(0, 50).map(s => s.doc);
+    const topDocs = (hasHits ? scored.filter(s => s.score > 0) : scored).slice(0, 30).map(s => s.doc);
 
-    // Stage 2: LLM semantic ranking
+    step = 'llm_rank';
     let rankedDocs = topDocs.slice(0, max_results).map((doc, i) => ({
       document_id: doc.id,
       relevance_score: 100 - i,
@@ -68,8 +69,8 @@ Deno.serve(async (req) => {
 
     try {
       const llmResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: `Rank these documents by relevance to: "${query}"\n\n${topDocs.slice(0, 30).map(d =>
-          `ID: ${d.id}\nTitle: ${d.title}\nCategory: ${d.category || ''}\nTags: ${(d.tags || []).join(', ')}\nPreview: ${(d.content || '').substring(0, 400)}`
+        prompt: `Rank these documents by relevance to: "${query}"\n\n${topDocs.map(d =>
+          `ID: ${d.id}\nTitle: ${d.title}\nPreview: ${(d.content || '').substring(0, 300)}`
         ).join('\n---\n')}\n\nReturn ranked list with relevance scores 0-100.`,
         response_json_schema: {
           type: 'object',
@@ -94,10 +95,10 @@ Deno.serve(async (req) => {
         rankedDocs = llmResult.ranked_documents.sort((a, b) => b.relevance_score - a.relevance_score).slice(0, max_results);
       }
     } catch (llmErr) {
-      console.warn('LLM ranking failed, using keyword order:', llmErr.message);
+      console.warn('LLM ranking failed:', llmErr.message);
     }
 
-    // Build final results
+    step = 'build_results';
     const results = rankedDocs.map(ranked => {
       const doc = topDocs.find(d => d.id === ranked.document_id);
       if (!doc) return null;
@@ -124,32 +125,23 @@ Deno.serve(async (req) => {
         category: doc.category,
         source_type: doc.source_type,
         source_url: doc.source_url,
-        version: doc.version,
         tags: doc.tags || [],
         created_date: doc.created_date,
         relevance_score: ranked.relevance_score,
         match_reasoning: ranked.match_reasoning,
-        content_preview: include_content_preview ? contentPreview : null,
-        metadata: { is_active: doc.is_active, is_latest_version: doc.is_latest_version, ...(doc.metadata || {}) }
+        content_preview: include_content_preview ? contentPreview : null
       };
     }).filter(Boolean);
 
     return Response.json({
       query,
-      filters_applied: filters,
       total_documents_searched: filteredDocs.length,
       total_results: results.length,
-      results,
-      search_metadata: {
-        keyword_hits_found: hasHits,
-        stage_1_candidates: topDocs.length,
-        semantic_ranking_used: true,
-        max_results
-      }
+      results
     });
 
   } catch (error) {
-    console.error('advancedDocumentSearch error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error(`advancedDocumentSearch error at step [${step}]:`, error.message, error.stack);
+    return Response.json({ error: error.message, step }, { status: 500 });
   }
 });
