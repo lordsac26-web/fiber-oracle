@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     }).sort((a, b) => b.score - a.score);
 
     // Take top candidates for chunk search (title matches first, then all if no hits)
-    const hasTitle Hits = titleScoredDocs.some(d => d.score > 0);
+    const hasTitleHits = titleScoredDocs.some(d => d.score > 0);
     const candidateDocIds = hasTitleHits
       ? titleScoredDocs.filter(d => d.score > 0).slice(0, 30).map(d => d.id)
       : titleScoredDocs.slice(0, 30).map(d => d.id);
