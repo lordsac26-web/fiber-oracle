@@ -1,10 +1,8 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+// No SDK import — uses native Deno fetch only to avoid Brotli decompression bug
 
 Deno.serve(async (req) => {
   try {
     const APP_ID = Deno.env.get('BASE44_APP_ID');
-    const authHeader = req.headers.get('authorization') || '';
-    const serviceToken = req.headers.get('x-service-token') || '';
 
     let body = {};
     try { body = await req.json(); } catch (_) { /* ok */ }
@@ -15,28 +13,28 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Query is required' }, { status: 400 });
     }
 
-    // Fetch docs via direct fetch to avoid Brotli decompression bug in SDK
-    const baseHeaders = {
-      'Accept-Encoding': 'gzip, deflate',
-      'Content-Type': 'application/json',
-    };
-    if (serviceToken) baseHeaders['x-service-token'] = serviceToken;
-    else if (authHeader) baseHeaders['authorization'] = authHeader;
+    const authHeader = req.headers.get('authorization') || '';
+    const serviceToken = req.headers.get('x-service-token') || '';
 
-    let docs = [];
-    try {
-      const url = `https://api.base44.com/api/apps/${APP_ID}/entities/ReferenceDocument/list?sort=-created_date&limit=200`;
-      const res = await fetch(url, { headers: baseHeaders });
-      if (!res.ok) throw new Error(`${res.status}`);
-      const data = await res.json();
-      docs = Array.isArray(data) ? data : (data.data || data.items || []);
-      docs = docs.filter(d => d.is_active !== false);
-    } catch (fetchErr) {
-      // SDK fallback
-      const base44 = createClientFromRequest(req);
-      const result = await base44.asServiceRole.entities.ReferenceDocument.filter({ is_active: true });
-      docs = Array.isArray(result) ? result : [];
+    const apiHeaders = {
+      'Accept-Encoding': 'identity',
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (serviceToken) apiHeaders['x-service-token'] = serviceToken;
+    if (authHeader) apiHeaders['authorization'] = authHeader;
+
+    // Fetch active reference documents
+    const docsRes = await fetch(
+      `https://api.base44.com/api/apps/${APP_ID}/entities/ReferenceDocument?sort=-created_date&limit=200`,
+      { headers: apiHeaders }
+    );
+    if (!docsRes.ok) {
+      return Response.json({ error: `Failed to fetch documents: ${docsRes.status}`, success: false }, { status: 502 });
     }
+    const docsData = await docsRes.json();
+    let docs = Array.isArray(docsData) ? docsData : (docsData.data || docsData.items || docsData.results || []);
+    docs = docs.filter(d => d.is_active !== false);
 
     if (docs.length === 0) {
       return Response.json({
@@ -54,28 +52,15 @@ Deno.serve(async (req) => {
       content_preview: (doc.content || '').substring(0, 2000)
     }));
 
-    // LLM analysis via direct fetch
-    const analysisPrompt = `You are analyzing multiple technical reference documents to answer a query.
-
-Query: ${query}
-
-Available Documents:
-${documentSummaries.map((doc, i) => `
-${i + 1}. ${doc.title} (${doc.source})
-   Metadata: ${JSON.stringify(doc.metadata)}
-   Content Preview: ${doc.content_preview}
-`).join('\n')}
-
-Analyze and provide: relevant documents, key extracted information, conflicts, synthesized answer, safety warnings, and recommended procedure.`;
-
-    let aiResponse = {};
-    try {
-      const llmUrl = `https://api.base44.com/api/apps/${APP_ID}/integrations/Core/InvokeLLM`;
-      const llmRes = await fetch(llmUrl, {
+    const llmRes = await fetch(
+      `https://api.base44.com/api/apps/${APP_ID}/integrations/Core/InvokeLLM`,
+      {
         method: 'POST',
-        headers: baseHeaders,
+        headers: apiHeaders,
         body: JSON.stringify({
-          prompt: analysisPrompt,
+          prompt: `You are analyzing multiple technical reference documents to answer a query.\n\nQuery: ${query}\n\nAvailable Documents:\n${documentSummaries.map((doc, i) =>
+            `${i + 1}. ${doc.title} (${doc.source})\n   Content Preview: ${doc.content_preview}`
+          ).join('\n\n')}\n\nProvide: relevant documents, synthesized answer, safety warnings, recommended procedure, confidence level, and any knowledge gaps.`,
           add_context_from_internet: false,
           response_json_schema: {
             type: 'object',
@@ -89,17 +74,10 @@ Analyze and provide: relevant documents, key extracted information, conflicts, s
             }
           }
         })
-      });
-      if (llmRes.ok) aiResponse = await llmRes.json();
-    } catch (llmErr) {
-      console.warn('LLM direct fetch failed:', llmErr.message);
-      // fallback via SDK
-      const base44 = createClientFromRequest(req);
-      aiResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: analysisPrompt,
-        add_context_from_internet: false
-      });
-    }
+      }
+    );
+
+    const aiResponse = llmRes.ok ? await llmRes.json() : { synthesized_answer: 'LLM analysis unavailable', confidence_level: 'low' };
 
     return Response.json({
       success: true,

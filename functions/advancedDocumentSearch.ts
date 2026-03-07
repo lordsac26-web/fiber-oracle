@@ -1,12 +1,11 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+// No SDK import — uses native Deno fetch only to avoid Brotli decompression bug
 
 Deno.serve(async (req) => {
   try {
-    // Disable brotli by setting Accept-Encoding to identity only
     const APP_ID = Deno.env.get('BASE44_APP_ID');
 
     let body = {};
-    try { body = await req.json(); } catch (_) { /* empty body is ok */ }
+    try { body = await req.json(); } catch (_) { /* empty body ok */ }
 
     const {
       query,
@@ -20,46 +19,39 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'query parameter required' }, { status: 400 });
     }
 
-    // Extract auth token from incoming request to forward as service-role
+    // Forward auth from the incoming request
     const authHeader = req.headers.get('authorization') || '';
     const serviceToken = req.headers.get('x-service-token') || '';
 
-    // Use fetch directly to avoid the SDK's Brotli decompression bug
-    const fetchDocs = async () => {
-      const url = `https://api.base44.com/api/apps/${APP_ID}/entities/ReferenceDocument/list?sort=-created_date&limit=500`;
-      const headers = {
-        'Accept-Encoding': 'gzip, deflate', // explicitly exclude brotli
-        'Content-Type': 'application/json',
-      };
-      if (serviceToken) headers['x-service-token'] = serviceToken;
-      else if (authHeader) headers['authorization'] = authHeader;
-
-      const res = await fetch(url, { headers });
-      if (!res.ok) throw new Error(`Failed to fetch documents: ${res.status} ${await res.text()}`);
-      return res.json();
+    const apiHeaders = {
+      'Accept-Encoding': 'identity', // no compression at all — avoids Brotli bug
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
     };
+    if (serviceToken) apiHeaders['x-service-token'] = serviceToken;
+    if (authHeader) apiHeaders['authorization'] = authHeader;
 
-    let allDocs = [];
-    try {
-      const result = await fetchDocs();
-      allDocs = Array.isArray(result) ? result : (result.data || result.items || []);
-    } catch (fetchErr) {
-      // Fallback: try via SDK (in case fetch approach also fails)
-      const base44 = createClientFromRequest(req);
-      const sdkResult = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 500);
-      allDocs = Array.isArray(sdkResult) ? sdkResult : [];
+    // Fetch all reference documents
+    const docsRes = await fetch(
+      `https://api.base44.com/api/apps/${APP_ID}/entities/ReferenceDocument?sort=-created_date&limit=500`,
+      { headers: apiHeaders }
+    );
+    if (!docsRes.ok) {
+      const errText = await docsRes.text();
+      return Response.json({ error: `Failed to fetch documents: ${docsRes.status} ${errText}` }, { status: 502 });
     }
+    const docsData = await docsRes.json();
+    let allDocs = Array.isArray(docsData) ? docsData : (docsData.data || docsData.items || docsData.results || []);
 
     if (allDocs.length === 0) {
-      return Response.json({ query, results: [], total_results: 0, message: 'No documents found in the knowledge base' });
+      return Response.json({ query, results: [], total_results: 0, message: 'No documents in knowledge base' });
     }
 
-    // Apply metadata filters in-memory
+    // Apply filters in-memory
     let filteredDocs = allDocs;
     if (filters.category) filteredDocs = filteredDocs.filter(d => d.category === filters.category);
     if (filters.source_type) filteredDocs = filteredDocs.filter(d => d.source_type === filters.source_type);
     if (filters.is_active !== undefined) filteredDocs = filteredDocs.filter(d => d.is_active === filters.is_active);
-    if (filters.is_latest_version !== undefined) filteredDocs = filteredDocs.filter(d => d.is_latest_version === filters.is_latest_version);
     if (filters.date_from) filteredDocs = filteredDocs.filter(d => new Date(d.created_date) >= new Date(filters.date_from));
     if (filters.date_to) filteredDocs = filteredDocs.filter(d => new Date(d.created_date) <= new Date(filters.date_to));
 
@@ -67,7 +59,7 @@ Deno.serve(async (req) => {
       return Response.json({ query, results: [], total_results: 0, message: 'No documents matched the filters' });
     }
 
-    // STAGE 1: Keyword pre-scoring
+    // Stage 1: keyword scoring
     const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     const scored = filteredDocs.map(doc => {
       let score = 0;
@@ -87,34 +79,7 @@ Deno.serve(async (req) => {
     const hasHits = scored.some(s => s.score > 0);
     const topDocs = (hasHits ? scored.filter(s => s.score > 0) : scored).slice(0, 50).map(s => s.doc);
 
-    // STAGE 2: LLM semantic ranking
-    const docSummaries = topDocs.map(doc => ({
-      id: doc.id,
-      title: doc.title,
-      category: doc.category,
-      tags: doc.tags || [],
-      content_preview: (doc.content || '').substring(0, 500)
-    }));
-
-    // Use fetch directly for LLM call too
-    const llmFetch = async (prompt, schema) => {
-      const url = `https://api.base44.com/api/apps/${APP_ID}/integrations/Core/InvokeLLM`;
-      const headers = {
-        'Accept-Encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      };
-      if (serviceToken) headers['x-service-token'] = serviceToken;
-      else if (authHeader) headers['authorization'] = authHeader;
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ prompt, response_json_schema: schema })
-      });
-      if (!res.ok) throw new Error(`LLM call failed: ${res.status}`);
-      return res.json();
-    };
-
+    // Stage 2: LLM semantic ranking
     let rankedDocs = topDocs.slice(0, max_results).map((doc, i) => ({
       document_id: doc.id,
       relevance_score: 100 - i,
@@ -122,34 +87,44 @@ Deno.serve(async (req) => {
     }));
 
     try {
-      const rankingResult = await llmFetch(
-        `Rank these documents by relevance to the search query: "${query}"\n\nDocuments:\n${docSummaries.map(d =>
-          `ID: ${d.id}\nTitle: ${d.title}\nCategory: ${d.category}\nTags: ${d.tags.join(', ')}\nPreview: ${d.content_preview}`
-        ).join('\n---\n')}\n\nReturn a ranked list with relevance scores 0-100.`,
+      const llmRes = await fetch(
+        `https://api.base44.com/api/apps/${APP_ID}/integrations/Core/InvokeLLM`,
         {
-          type: 'object',
-          properties: {
-            ranked_documents: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  document_id: { type: 'string' },
-                  relevance_score: { type: 'number' },
-                  match_reasoning: { type: 'string' }
-                },
-                required: ['document_id', 'relevance_score']
-              }
+          method: 'POST',
+          headers: apiHeaders,
+          body: JSON.stringify({
+            prompt: `Rank these documents by relevance to: "${query}"\n\n${topDocs.slice(0, 30).map(d =>
+              `ID: ${d.id}\nTitle: ${d.title}\nCategory: ${d.category || ''}\nTags: ${(d.tags || []).join(', ')}\nPreview: ${(d.content || '').substring(0, 400)}`
+            ).join('\n---\n')}\n\nReturn ranked list with relevance scores 0-100.`,
+            response_json_schema: {
+              type: 'object',
+              properties: {
+                ranked_documents: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      document_id: { type: 'string' },
+                      relevance_score: { type: 'number' },
+                      match_reasoning: { type: 'string' }
+                    },
+                    required: ['document_id', 'relevance_score']
+                  }
+                }
+              },
+              required: ['ranked_documents']
             }
-          },
-          required: ['ranked_documents']
+          })
         }
       );
-      if (rankingResult.ranked_documents?.length > 0) {
-        rankedDocs = rankingResult.ranked_documents.sort((a, b) => b.relevance_score - a.relevance_score).slice(0, max_results);
+      if (llmRes.ok) {
+        const llmData = await llmRes.json();
+        if (llmData.ranked_documents?.length > 0) {
+          rankedDocs = llmData.ranked_documents.sort((a, b) => b.relevance_score - a.relevance_score).slice(0, max_results);
+        }
       }
     } catch (llmErr) {
-      console.warn('LLM ranking failed, falling back to keyword order:', llmErr.message);
+      console.warn('LLM ranking failed, using keyword order:', llmErr.message);
     }
 
     // Build final results
@@ -159,9 +134,8 @@ Deno.serve(async (req) => {
 
       let contentPreview = '';
       if (include_content_preview && doc.content) {
-        const contentLower = doc.content.toLowerCase();
         let bestIdx = queryWords.reduce((best, word) => {
-          const i = contentLower.indexOf(word);
+          const i = doc.content.toLowerCase().indexOf(word);
           return (i !== -1 && (best === -1 || i < best)) ? i : best;
         }, -1);
         if (bestIdx === -1) bestIdx = 0;
@@ -199,7 +173,7 @@ Deno.serve(async (req) => {
       search_metadata: {
         keyword_hits_found: hasHits,
         stage_1_candidates: topDocs.length,
-        semantic_ranking_used: rankedDocs.length > 0,
+        semantic_ranking_used: true,
         max_results
       }
     });
