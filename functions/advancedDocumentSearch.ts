@@ -1,11 +1,13 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
 
-    if (!user) {
+    // Allow both authenticated users and agent/service-role callers.
+    // All entity reads use asServiceRole below, so end-user RLS is not a concern.
+    const isAuthenticated = await base44.auth.isAuthenticated();
+    if (!isAuthenticated) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
