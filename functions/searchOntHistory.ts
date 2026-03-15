@@ -93,6 +93,10 @@ Deno.serve(async (req) => {
         ds_bip_errors: record.ds_bip_errors,
         us_fec_uncorrected: record.us_fec_uncorrected,
         ds_fec_uncorrected: record.ds_fec_uncorrected,
+        us_fec_corrected: record.us_fec_corrected,
+        ds_fec_corrected: record.ds_fec_corrected,
+        us_gem_hec_errors: record.us_gem_hec_errors,
+        us_missed_bursts: record.us_missed_bursts,
         status: record.status,
         lcp_number: record.lcp_number
       });
