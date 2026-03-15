@@ -1751,6 +1751,22 @@ Be specific, technical, and actionable.`;
                                                     )}
                                                   </div>
                                                 </TableCell>
+                                                <TableCell className="text-right font-mono text-xs">
+                                                  {ont.UpstreamFecCorrectedCodeWords || '0'}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-xs">
+                                                  {ont.DownstreamFecCorrectedCodeWords || '0'}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-xs">
+                                                  <span className={parseInt(ont.UpstreamMissedBursts) >= 10 ? 'text-amber-600' : ''}>
+                                                    {ont.UpstreamMissedBursts || '0'}
+                                                  </span>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-xs">
+                                                  <span className={parseInt(ont.UpstreamGemHecErrors) >= 10 ? 'text-amber-600' : ''}>
+                                                    {ont.UpstreamGemHecErrors || '0'}
+                                                  </span>
+                                                </TableCell>
                                                 <TableCell>
                                                   <TooltipProvider>
                                                     <div className="flex flex-wrap gap-1">
