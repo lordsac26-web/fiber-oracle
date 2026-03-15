@@ -1769,7 +1769,7 @@ Be specific, technical, and actionable.`;
                                                   </span>
                                                 </TableCell>
                                                 <TableCell className="text-xs text-gray-500 whitespace-nowrap">
-                                                  {ont.OntUpTime || '-'}
+                                                  {ont.upTime || '-'}
                                                 </TableCell>
                                                 <TableCell>
                                                   <TooltipProvider>
