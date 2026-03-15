@@ -101,7 +101,7 @@ const FIELDS = [
   'DownstreamFecCorrectedBytes',
   'DownstreamFecCorrectedCodeWords',
   'DownstreamFecUncorrectedCodeWords',
-  'OntUpTime',
+  'upTime',
 ];
 
 function parseNumeric(value) {
