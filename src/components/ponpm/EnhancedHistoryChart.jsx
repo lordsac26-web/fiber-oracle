@@ -35,8 +35,11 @@ const METRIC_CONFIGS = {
   'ONT Tx': { yAxisId: 'power', color: '#8b5cf6', strokeWidth: 2 },
   'US BIP': { yAxisId: 'errors', color: '#f59e0b', strokeWidth: 1, thresholds: { critical: 1000, warning: 100 } },
   'DS BIP': { yAxisId: 'errors', color: '#ef4444', strokeWidth: 1, thresholds: { critical: 1000, warning: 100 } },
-  'US FEC': { yAxisId: 'errors', color: '#ec4899', strokeWidth: 1, thresholds: { critical: 10, warning: 1 } },
-  'DS FEC': { yAxisId: 'errors', color: '#f97316', strokeWidth: 1, thresholds: { critical: 10, warning: 1 } },
+  'US FEC Unc': { yAxisId: 'errors', color: '#ec4899', strokeWidth: 1, thresholds: { critical: 10, warning: 1 } },
+  'DS FEC Unc': { yAxisId: 'errors', color: '#f97316', strokeWidth: 1, thresholds: { critical: 10, warning: 1 } },
+  'US FEC Cor': { yAxisId: 'errors', color: '#06b6d4', strokeWidth: 1 },
+  'DS FEC Cor': { yAxisId: 'errors', color: '#0891b2', strokeWidth: 1 },
+  'GEM HEC': { yAxisId: 'errors', color: '#dc2626', strokeWidth: 1, thresholds: { critical: 100, warning: 10 } },
 };
 
 export default function EnhancedHistoryChart({ historicalData, title, serialNumber }) {
