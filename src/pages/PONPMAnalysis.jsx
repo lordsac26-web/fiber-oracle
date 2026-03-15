@@ -1768,6 +1768,9 @@ Be specific, technical, and actionable.`;
                                                     {ont.UpstreamGemHecErrors || '0'}
                                                   </span>
                                                 </TableCell>
+                                                <TableCell className="text-xs text-gray-500 whitespace-nowrap">
+                                                  {ont.OntUpTime || '-'}
+                                                </TableCell>
                                                 <TableCell>
                                                   <TooltipProvider>
                                                     <div className="flex flex-wrap gap-1">
