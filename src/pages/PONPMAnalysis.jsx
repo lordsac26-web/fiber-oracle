@@ -92,6 +92,7 @@ import FileUploadZone from '@/components/ponpm/FileUploadZone';
 import PortHeaderLabel from '@/components/ponpm/PortHeaderLabel';
 import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
 import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
+import { formatUptime } from '@/components/ponpm/formatUptime';
 const STATUS_COLORS = {
   critical: 'bg-red-500',
   warning: 'bg-amber-500',
