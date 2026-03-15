@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import { parse } from 'npm:csv-parse@5.5.2/sync';
 
 // Thresholds for analysis
