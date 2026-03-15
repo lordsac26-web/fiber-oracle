@@ -501,11 +501,27 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <div className="text-xs text-gray-500">US FEC Uncorrected</div>
-                    <div className="text-lg font-bold font-mono">{ont.UpstreamFecUncorrectedCodeWords || 0}</div>
+                    <div className={`text-lg font-bold font-mono ${parseInt(ont.UpstreamFecUncorrectedCodeWords) > 0 ? 'text-amber-600' : ''}`}>{ont.UpstreamFecUncorrectedCodeWords || 0}</div>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg">
                     <div className="text-xs text-gray-500">DS FEC Uncorrected</div>
-                    <div className="text-lg font-bold font-mono">{ont.DownstreamFecUncorrectedCodeWords || 0}</div>
+                    <div className={`text-lg font-bold font-mono ${parseInt(ont.DownstreamFecUncorrectedCodeWords) > 0 ? 'text-amber-600' : ''}`}>{ont.DownstreamFecUncorrectedCodeWords || 0}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-xs text-gray-500">US FEC Corrected</div>
+                    <div className="text-lg font-bold font-mono">{ont.UpstreamFecCorrectedCodeWords || 0}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-xs text-gray-500">DS FEC Corrected</div>
+                    <div className="text-lg font-bold font-mono">{ont.DownstreamFecCorrectedCodeWords || 0}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-xs text-gray-500">Missed Bursts (US)</div>
+                    <div className={`text-lg font-bold font-mono ${parseInt(ont.UpstreamMissedBursts) >= 10 ? 'text-amber-600' : ''}`}>{ont.UpstreamMissedBursts || 0}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-xs text-gray-500">GEM HEC Errors (US)</div>
+                    <div className={`text-lg font-bold font-mono ${parseInt(ont.UpstreamGemHecErrors) >= 10 ? 'text-amber-600' : ''}`}>{ont.UpstreamGemHecErrors || 0}</div>
                   </div>
                 </div>
               </CardContent>
