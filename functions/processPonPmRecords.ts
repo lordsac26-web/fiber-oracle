@@ -36,8 +36,9 @@ const FIELDS = [
   'OntRxOptPwr', 'OntTxPwr', 'OLTRXOptPwr',
   'UsSdberRate', 'DsSdberRate',
   'UpstreamBipErrors', 'UpstreamMissedBursts', 'UpstreamGemHecErrors',
-  'UpstreamFecUncorrectedCodeWords', 'DownstreamBipErrors',
-  'DownstreamFecUncorrectedCodeWords',
+  'UpstreamFecUncorrectedCodeWords', 'UpstreamFecCorrectedCodeWords',
+  'DownstreamBipErrors', 'DownstreamFecUncorrectedCodeWords',
+  'DownstreamFecCorrectedCodeWords', 'OntUpTime',
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
