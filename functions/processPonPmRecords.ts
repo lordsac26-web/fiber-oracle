@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
           ds_fec_corrected: parseInt(ont.DownstreamFecCorrectedCodeWords) || 0,
           us_gem_hec_errors: parseInt(ont.UpstreamGemHecErrors) || 0,
           us_missed_bursts: parseInt(ont.UpstreamMissedBursts) || 0,
-          ont_uptime: ont.OntUpTime || null,
+          ont_uptime: ont.upTime || null,
           status: analysis.status,
           lcp_number: lcpData?.lcp_number || '',
           splitter_number: lcpData?.splitter_number || '',
