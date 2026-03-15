@@ -38,7 +38,7 @@ const FIELDS = [
   'UpstreamBipErrors', 'UpstreamMissedBursts', 'UpstreamGemHecErrors',
   'UpstreamFecUncorrectedCodeWords', 'UpstreamFecCorrectedCodeWords',
   'DownstreamBipErrors', 'DownstreamFecUncorrectedCodeWords',
-  'DownstreamFecCorrectedCodeWords', 'OntUpTime',
+  'DownstreamFecCorrectedCodeWords', 'upTime',
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
