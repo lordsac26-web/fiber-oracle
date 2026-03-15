@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
         ds_fec_corrected: record.ds_fec_corrected,
         us_gem_hec_errors: record.us_gem_hec_errors,
         us_missed_bursts: record.us_missed_bursts,
+        ont_uptime: record.ont_uptime,
         status: record.status,
         lcp_number: record.lcp_number
       });
