@@ -43,7 +43,7 @@ const METRIC_CONFIGS = {
 };
 
 export default function EnhancedHistoryChart({ historicalData, title, serialNumber }) {
-  const [selectedMetrics, setSelectedMetrics] = useState(['ONT Rx', 'OLT Rx']);
+  const [selectedMetrics, setSelectedMetrics] = useState(['ONT Rx', 'OLT Rx', 'US FEC Unc', 'DS FEC Unc']);
   const [chartType, setChartType] = useState('line'); // 'line' or 'area'
   const [showThresholds, setShowThresholds] = useState(true);
   const [showAverages, setShowAverages] = useState(true);
