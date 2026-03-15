@@ -67,8 +67,11 @@ export default function EnhancedHistoryChart({ historicalData, title, serialNumb
       'ONT Tx': d.ont_tx_power,
       'US BIP': d.us_bip_errors || 0,
       'DS BIP': d.ds_bip_errors || 0,
-      'US FEC': d.us_fec_uncorrected || 0,
-      'DS FEC': d.ds_fec_uncorrected || 0,
+      'US FEC Unc': d.us_fec_uncorrected || 0,
+      'DS FEC Unc': d.ds_fec_uncorrected || 0,
+      'US FEC Cor': d.us_fec_corrected || 0,
+      'DS FEC Cor': d.ds_fec_corrected || 0,
+      'GEM HEC': d.us_gem_hec_errors || 0,
     })).sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
   }, [historicalData, dateRange]);
 
