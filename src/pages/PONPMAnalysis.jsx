@@ -1630,6 +1630,7 @@ Be specific, technical, and actionable.`;
                                               <TableHead className="text-right">DS FEC Cor</TableHead>
                                               <TableHead className="text-right">Missed Burst</TableHead>
                                               <TableHead className="text-right">GEM HEC</TableHead>
+                                              <TableHead>Uptime</TableHead>
                                               <TableHead>Issues</TableHead>
                                               <TableHead></TableHead>
                                             </TableRow>
