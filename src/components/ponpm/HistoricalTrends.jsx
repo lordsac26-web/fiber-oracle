@@ -543,20 +543,20 @@ export default function HistoricalTrends({ reports, onClose }) {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               <Card className="border">
                 <CardContent className="p-3 text-center">
-                  <div className="text-2xl font-bold text-gray-600">{allUniqueOnts.toLocaleString()}</div>
-                  <div className="text-xs text-gray-500">Total Unique ONTs</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{allUniqueOnts.toLocaleString()}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Total Unique ONTs</div>
                 </CardContent>
               </Card>
               <Card className="border">
                 <CardContent className="p-3 text-center">
                   <div className="text-2xl font-bold text-blue-600">{allOnts.length}</div>
-                  <div className="text-xs text-gray-500">With History</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">With History</div>
                 </CardContent>
               </Card>
               <Card className="border">
                 <CardContent className="p-3 text-center">
                   <div className="text-2xl font-bold text-amber-600">{degradingOnts.length}</div>
-                  <div className="text-xs text-gray-500">Degrading</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Degrading</div>
                 </CardContent>
               </Card>
               <Card className="border border-purple-300 bg-purple-50">
