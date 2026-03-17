@@ -694,12 +694,6 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
               </Card>
             ) : (
               <>
-                {/* Date Range Filter */}
-                <DateRangeFilter 
-                  onRangeChange={setDateRange}
-                  availableDates={historicalData.map(d => d.date)}
-                />
-
                 {/* Enhanced Chart */}
                 <EnhancedHistoryChart
                   historicalData={historicalData}
