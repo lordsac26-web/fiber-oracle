@@ -729,13 +729,13 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                           {ont.OLTRXOptPwr || '-'}
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs text-gray-900 dark:text-white">
-                          {parseInt(ont.UpstreamBipErrors) || 0 > 0 ? <span className="text-amber-700 dark:text-amber-400">{ont.UpstreamBipErrors}</span> : '0'}
+                          {(parseInt(ont.UpstreamBipErrors) || 0) > 0 ? <span className="text-amber-700 dark:text-amber-400">{ont.UpstreamBipErrors}</span> : '0'}
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs text-gray-900 dark:text-white">
-                          {parseInt(ont.DownstreamBipErrors) || 0 > 0 ? <span className="text-amber-700 dark:text-amber-400">{ont.DownstreamBipErrors}</span> : '0'}
+                          {(parseInt(ont.DownstreamBipErrors) || 0) > 0 ? <span className="text-amber-700 dark:text-amber-400">{ont.DownstreamBipErrors}</span> : '0'}
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs text-gray-900 dark:text-white">
-                          {parseInt(ont.UpstreamFecUncorrectedCodeWords) || 0 > 0 ? <span className="text-red-600">{ont.UpstreamFecUncorrectedCodeWords}</span> : '0'}
+                          {(parseInt(ont.UpstreamFecUncorrectedCodeWords) || 0) > 0 ? <span className="text-red-600">{ont.UpstreamFecUncorrectedCodeWords}</span> : '0'}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
