@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
 
     let allDocs;
     try {
-      allDocs = await base44.asServiceRole.entities.ReferenceDocument.filter(docFilter, '-created_date', 100);
+      allDocs = await base44.asServiceRole.entities.ReferenceDocument.filter(docFilter);
       console.log('[search] Found', allDocs.length, 'docs');
     } catch (fetchErr) {
       console.error('[search] Failed to fetch docs:', fetchErr.message);
