@@ -298,13 +298,13 @@ export default function DataManagement() {
                     <Database className="h-6 w-6 text-blue-600" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold">{totalCount.toLocaleString()}</div>
-                    <div className="text-sm text-gray-500">Total Records Stored</div>
+                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{totalCount.toLocaleString()}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Total Records Stored</div>
                   </div>
                 </div>
                 <div className="border-l border-gray-200 dark:border-gray-700 pl-6">
-                  <div className="text-lg font-semibold">{records.length}</div>
-                  <div className="text-xs text-gray-500">On this page</div>
+                  <div className="text-lg font-semibold text-gray-900 dark:text-white">{records.length}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">On this page</div>
                 </div>
               </div>
               {selectedRecords.size > 0 && (
