@@ -376,12 +376,12 @@ export default function HistoricalDataManager({
                     <div className="border rounded-lg overflow-hidden">
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-gray-50">
-                            <TableHead>Serial / FSAN</TableHead>
-                            <TableHead>OLT / Port</TableHead>
-                            <TableHead>Model</TableHead>
-                            <TableHead className="text-center">Data Points</TableHead>
-                            <TableHead className="text-center">Trend</TableHead>
+                          <TableRow className="bg-gray-100 dark:bg-gray-800">
+                            <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">Serial / FSAN</TableHead>
+                            <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">OLT / Port</TableHead>
+                            <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">Model</TableHead>
+                            <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Data Points</TableHead>
+                            <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Trend</TableHead>
                             <TableHead></TableHead>
                           </TableRow>
                         </TableHeader>
