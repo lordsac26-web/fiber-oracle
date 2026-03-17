@@ -135,14 +135,18 @@ function recordToOnt(rec) {
     _lcpLocation:     '',
     _lcpAddress:      '',
 
+    // Re-derive technology type from model (same priority as parsePonPm)
+    const modelTech = detectTechType(rec.model);
+    const comboInfo = detectComboPort(rec.shelf_slot_port);
+
     // Analysis & routing
     _analysis:  analysis,
     _oltName:   rec.olt_name       || 'Unknown OLT',
     _port:      rec.shelf_slot_port || 'Unknown',
     _trends:    null,  // trends not computed for saved report loads
-    _techType:  null,
-    _isCombo:   false,
-    _comboLabel: null,
+    _techType:  modelTech || comboInfo.techType || null,
+    _isCombo:   comboInfo.isCombo,
+    _comboLabel: comboInfo.comboLabel,
   };
 }
 
