@@ -222,30 +222,30 @@ export default function OLTPortSummary({ result, onDrillDown }) {
           <CardContent className="p-3 text-center">
             <Router className="h-5 w-5 mx-auto text-blue-500 mb-1" />
             <div className="text-xl font-bold">{summaryData.olts.length}</div>
-            <div className="text-xs text-gray-500">OLTs</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">OLTs</div>
           </CardContent>
         </Card>
         <Card className="border shadow-sm">
           <CardContent className="p-3 text-center">
             <Activity className="h-5 w-5 mx-auto text-purple-500 mb-1" />
-            <div className="text-xl font-bold">{summaryData.ports.length}</div>
-            <div className="text-xs text-gray-500">PON Ports</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-white">{summaryData.ports.length}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">PON Ports</div>
           </CardContent>
         </Card>
         <Card className="border shadow-sm">
           <CardContent className="p-3 text-center">
             <TrendingDown className="h-5 w-5 mx-auto text-amber-500 mb-1" />
-            <div className="text-xl font-bold">
+            <div className="text-xl font-bold text-gray-900 dark:text-white">
               {summaryData.ports.reduce((sum, p) => sum + p.degradingCount, 0)}
             </div>
-            <div className="text-xs text-gray-500">Degrading ONTs</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Degrading ONTs</div>
           </CardContent>
         </Card>
         <Card className="border shadow-sm">
           <CardContent className="p-3 text-center">
             <AlertTriangle className="h-5 w-5 mx-auto text-red-500 mb-1" />
-            <div className="text-xl font-bold">{correlatedIssuePorts.length}</div>
-            <div className="text-xs text-gray-500">Correlated Issues</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-white">{correlatedIssuePorts.length}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">Correlated Issues</div>
           </CardContent>
         </Card>
       </div>
