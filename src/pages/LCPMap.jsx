@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, List, Loader2, MapPin } from 'lucide-react';
+import { ArrowLeft, Download, FileText, List, Loader2, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
@@ -10,6 +10,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import LCPMapDetails from '@/components/lcp/LCPMapDetails';
 import LCPMapFilters from '@/components/lcp/LCPMapFilters';
+import { downloadLcpAuditCsv, downloadLcpAuditPdf } from '@/utils/lcpMapAuditExport';
 
 // Fix default marker icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -331,12 +332,42 @@ export default function LCPMap() {
               </div>
             </div>
 
-            <Link to={createPageUrl('LCPInfo')}>
-              <Button variant="outline" size="sm">
-                <List className="h-4 w-4 mr-2" />
-                List View
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={groups.length === 0}
+                onClick={() => downloadLcpAuditCsv({
+                  groups,
+                  latestReport,
+                  searchTerm,
+                  selectedStatuses,
+                })}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
               </Button>
-            </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={groups.length === 0}
+                onClick={() => downloadLcpAuditPdf({
+                  groups,
+                  latestReport,
+                  searchTerm,
+                  selectedStatuses,
+                })}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Export PDF
+              </Button>
+              <Link to={createPageUrl('LCPInfo')}>
+                <Button variant="outline" size="sm">
+                  <List className="h-4 w-4 mr-2" />
+                  List View
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
