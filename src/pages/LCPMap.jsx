@@ -194,8 +194,7 @@ function matchesFilters(group, viewFilter, severityFilter) {
 
 export default function LCPMap() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewFilter, setViewFilter] = useState('all');
-  const [severityFilter, setSeverityFilter] = useState('all');
+  const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
 
   const { data: lcpEntries = [], isLoading: isLoadingLcpEntries } = useQuery({
@@ -258,30 +257,47 @@ export default function LCPMap() {
     return groupByLcp(filteredEntries, ontRecordsByLcp, latestReport?.report_name || null);
   }, [filteredEntries, ontRecordsByLcp, latestReport?.report_name]);
 
-  const groups = useMemo(() => {
-    return baseGroups.filter((group) => matchesFilters(group, viewFilter, severityFilter));
-  }, [baseGroups, viewFilter, severityFilter]);
-
-  const issueTotals = useMemo(() => {
+  const groupStatusCounts = useMemo(() => {
     const totals = {
       critical: 0,
       warning: 0,
       offline: 0,
       ok: 0,
-      impacted: 0,
-      total: 0,
+      total: baseGroups.length,
     };
 
-    for (const record of latestOntRecords) {
-      if (!record.lcp_number) continue;
-      const status = normalizeOntStatus(record.status);
+    for (const group of baseGroups) {
+      const status = group.issueSummary.impacted > 0 ? group.issueSummary.highestSeverity : 'ok';
       totals[status] += 1;
-      totals.total += 1;
     }
 
-    totals.impacted = totals.critical + totals.warning + totals.offline;
     return totals;
-  }, [latestOntRecords]);
+  }, [baseGroups]);
+
+  const groups = useMemo(() => {
+    if (selectedStatuses.length === 0) return [];
+
+    return baseGroups.filter((group) => {
+      const status = group.issueSummary.impacted > 0 ? group.issueSummary.highestSeverity : 'ok';
+      return selectedStatuses.includes(status);
+    });
+  }, [baseGroups, selectedStatuses]);
+
+  const networkStatusTotals = useMemo(() => {
+    const critical = Number(latestReport?.critical_count || 0);
+    const warning = Number(latestReport?.warning_count || 0);
+    const ok = Number(latestReport?.ok_count || 0);
+    const total = Number(latestReport?.ont_count || critical + warning + ok);
+    const offline = Math.max(0, total - critical - warning - ok);
+
+    return {
+      critical,
+      warning,
+      offline,
+      ok,
+      total,
+    };
+  }, [latestReport]);
 
   const positions = useMemo(() => groups.map((group) => [group.gps_lat, group.gps_lng]), [groups]);
   const fallbackCenter = entriesWithCoords.length > 0 ? [entriesWithCoords[0].gps_lat, entriesWithCoords[0].gps_lng] : [39.8283, -98.5795];
@@ -330,12 +346,17 @@ export default function LCPMap() {
           <LCPMapFilters
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
-            viewFilter={viewFilter}
-            onViewFilterChange={setViewFilter}
-            severityFilter={severityFilter}
-            onSeverityFilterChange={setSeverityFilter}
             latestReport={latestReport}
-            issueTotals={issueTotals}
+            networkStatusTotals={networkStatusTotals}
+            groupStatusCounts={groupStatusCounts}
+            selectedStatuses={selectedStatuses}
+            onStatusToggle={(status) => {
+              setSelectedStatuses((current) =>
+                current.includes(status)
+                  ? current.filter((value) => value !== status)
+                  : [...current, status]
+              );
+            }}
           />
 
           {isLoading ? (
@@ -354,6 +375,14 @@ export default function LCPMap() {
                 <Link to={createPageUrl('LCPInfo')}>
                   <Button className="mt-4">Go to LCP List</Button>
                 </Link>
+              </div>
+            </div>
+          ) : selectedStatuses.length === 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center px-6">
+                <MapPin className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-600">No pins selected yet</h3>
+                <p className="text-sm text-gray-500 mt-1">Use the status checkboxes above to show the LCP pins you want on the map.</p>
               </div>
             </div>
           ) : groups.length > 0 ? (
