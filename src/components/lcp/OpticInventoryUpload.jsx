@@ -183,7 +183,9 @@ export default function OpticInventoryUpload({ open, onOpenChange, lcpEntries, o
             row[header] = values[idx].replace(/^["']|["']$/g, '');
           }
         });
-        if (row.systemName && row.port) {
+        // Include row if it has at least a systemName — even if port is missing,
+        // we may still have optic data worth importing
+        if (row.systemName) {
           rows.push(row);
         }
       }
@@ -217,43 +219,61 @@ export default function OpticInventoryUpload({ open, onOpenChange, lcpEntries, o
     setIsApplying(true);
 
     // Deduplicate: group by entry ID, take last CSV row per entry (in case multiple CSV rows map to same LCP)
+    // Only include non-null/non-empty values — skip nulls so we don't overwrite existing data
     const updateMap = new Map();
     for (const row of toUpdate) {
       for (const entry of row.matchedEntries) {
-        updateMap.set(entry.id, {
-          entryId: entry.id,
-          optic_make: row.opticMake || '',
-          optic_model: row.opticModel || '',
-          optic_serial: row.opticSerial || '',
-          optic_type: row.opticType || '',
-        });
+        const payload = {};
+        if (row.opticMake && row.opticMake.trim()) payload.optic_make = row.opticMake.trim();
+        if (row.opticModel && row.opticModel.trim()) payload.optic_model = row.opticModel.trim();
+        if (row.opticSerial && row.opticSerial.trim()) payload.optic_serial = row.opticSerial.trim();
+        if (row.opticType && row.opticType.trim()) payload.optic_type = row.opticType.trim();
+
+        // Only queue if there's something to update
+        if (Object.keys(payload).length > 0) {
+          updateMap.set(entry.id, { entryId: entry.id, payload });
+        }
       }
     }
 
     const updates = Array.from(updateMap.values());
     let successCount = 0;
     let failCount = 0;
+    const BATCH_SIZE = 5;
+    const MAX_RETRIES = 3;
 
-    // Update in batches of 5 to avoid rate limits
-    for (let i = 0; i < updates.length; i += 5) {
-      const batch = updates.slice(i, i + 5);
+    for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+      const batch = updates.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
-        batch.map(u =>
-          base44.entities.LCPEntry.update(u.entryId, {
-            optic_make: u.optic_make,
-            optic_model: u.optic_model,
-            optic_serial: u.optic_serial,
-            optic_type: u.optic_type,
-          })
-        )
+        batch.map(async (u) => {
+          for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+              await base44.entities.LCPEntry.update(u.entryId, u.payload);
+              return;
+            } catch (err) {
+              const msg = (err.message || '').toLowerCase();
+              if (msg.includes('rate limit') || msg.includes('429') || msg.includes('timeout')) {
+                // Exponential backoff before retry
+                await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+              } else {
+                throw err; // non-retryable
+              }
+            }
+          }
+          // Final attempt without catching
+          await base44.entities.LCPEntry.update(u.entryId, u.payload);
+        })
       );
       for (const r of results) {
         if (r.status === 'fulfilled') successCount++;
-        else failCount++;
+        else {
+          failCount++;
+          console.warn('[OpticImport] Update failed:', r.reason?.message || r.reason);
+        }
       }
-      // Small delay between batches
-      if (i + 5 < updates.length) {
-        await new Promise(r => setTimeout(r, 500));
+      // Delay between batches to stay under rate limits
+      if (i + BATCH_SIZE < updates.length) {
+        await new Promise(r => setTimeout(r, 800));
       }
     }
 
