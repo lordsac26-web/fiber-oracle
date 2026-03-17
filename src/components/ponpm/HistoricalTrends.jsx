@@ -223,9 +223,13 @@ export default function HistoricalTrends({ reports, onClose }) {
       }).filter(ont => ont.dataPoints.length > 0); // Only keep ONTs with data points in the range
     }
 
-    setCurrentPage(1); // Reset to page 1 when filters change
     return currentFiltered;
   }, [allOnts, searchSerial, selectedOlt, dateRange]);
+
+  // Reset to page 1 when filters change (separate effect, not inside useMemo)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchSerial, selectedOlt, dateRange]);
 
   // Clear selected ONT when filters change
   useEffect(() => {
