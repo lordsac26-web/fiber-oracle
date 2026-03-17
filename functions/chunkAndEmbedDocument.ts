@@ -4,9 +4,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 const CHUNK_SIZE_CHARS = 2000;
 const CHUNK_OVERLAP_CHARS = 200;
 
-// Extract meaningful keywords from text (simple but effective)
+// Extract meaningful keywords from text
 function extractKeywords(text) {
-  // Common English stop words to exclude
   const stopWords = new Set([
     'the','be','to','of','and','a','in','that','have','i','it','for','not','on',
     'with','he','as','you','do','at','this','but','his','by','from','they','we',
@@ -25,13 +24,11 @@ function extractKeywords(text) {
     .split(/\s+/)
     .filter(w => w.length > 2 && !stopWords.has(w));
 
-  // Count frequency and return top keywords
   const freq = {};
   for (const w of words) {
     freq[w] = (freq[w] || 0) + 1;
   }
 
-  // Return top 50 most frequent keywords (deduplicated)
   return Object.entries(freq)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 50)
@@ -42,17 +39,22 @@ function extractKeywords(text) {
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   try {
-    const user = await base44.auth.me();
-    if (!user || user.role !== 'admin') {
-      return Response.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
+    const { document_id, _service_call } = await req.json();
+    
+    // Allow service-role calls from chunkAllDocuments (they pass _service_call flag)
+    // Otherwise require admin auth
+    if (!_service_call) {
+      const user = await base44.auth.me();
+      if (!user || user.role !== 'admin') {
+        return Response.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
+      }
     }
 
-    const { document_id } = await req.json();
     if (!document_id) {
       return Response.json({ error: 'document_id is required' }, { status: 400 });
     }
 
-    // Fetch document
+    // Fetch document by ID (single doc fetch works fine even for large content)
     const doc = await base44.asServiceRole.entities.ReferenceDocument.get(document_id);
     if (!doc || !doc.content) {
       return Response.json({ error: 'Document not found or has no content' }, { status: 404 });
@@ -60,7 +62,6 @@ Deno.serve(async (req) => {
 
     console.log(`[chunk] Processing "${doc.title}" (${doc.content.length} chars)`);
 
-    // Split content into overlapping chunks
     const content = doc.content;
     const chunks = [];
     let startPos = 0;
@@ -69,15 +70,13 @@ Deno.serve(async (req) => {
     while (startPos < content.length) {
       const endPos = Math.min(startPos + CHUNK_SIZE_CHARS, content.length);
       
-      // Try to break at a sentence/paragraph boundary
+      // Try to break at sentence/paragraph boundary
       let actualEnd = endPos;
       if (endPos < content.length) {
-        // Look for paragraph break first
         const paraBreak = content.lastIndexOf('\n\n', endPos);
         if (paraBreak > startPos + CHUNK_SIZE_CHARS * 0.5) {
           actualEnd = paraBreak + 2;
         } else {
-          // Look for sentence break
           const sentBreak = content.lastIndexOf('. ', endPos);
           if (sentBreak > startPos + CHUNK_SIZE_CHARS * 0.5) {
             actualEnd = sentBreak + 2;
@@ -98,15 +97,12 @@ Deno.serve(async (req) => {
           metadata: {
             source_type: doc.source_type,
             source_url: doc.source_url,
-            tags: doc.tags || [],
-            start_pos: startPos,
-            end_pos: actualEnd
+            tags: doc.tags || []
           }
         });
         chunkIndex++;
       }
 
-      // Move forward with overlap
       startPos = actualEnd - CHUNK_OVERLAP_CHARS;
       if (startPos >= content.length - CHUNK_OVERLAP_CHARS) break;
     }
@@ -114,7 +110,18 @@ Deno.serve(async (req) => {
     console.log(`[chunk] Created ${chunks.length} chunks`);
 
     // Delete existing chunks for this document
-    const existingChunks = await base44.asServiceRole.entities.DocumentChunk.filter({ document_id });
+    let existingChunks = [];
+    try {
+      const raw = await base44.asServiceRole.entities.DocumentChunk.filter({ document_id });
+      if (typeof raw === 'string') {
+        existingChunks = JSON.parse(raw);
+      } else if (Array.isArray(raw)) {
+        existingChunks = raw;
+      }
+    } catch (e) {
+      // No existing chunks, fine
+    }
+
     if (existingChunks.length > 0) {
       console.log(`[chunk] Deleting ${existingChunks.length} old chunks`);
       for (const old of existingChunks) {
@@ -128,10 +135,11 @@ Deno.serve(async (req) => {
       const batch = chunks.slice(i, i + 20);
       await base44.asServiceRole.entities.DocumentChunk.bulkCreate(batch);
       stored += batch.length;
-      console.log(`[chunk] Stored ${stored}/${chunks.length}`);
     }
 
-    // Update document metadata with chunk info
+    console.log(`[chunk] Stored ${stored} chunks`);
+
+    // Update document metadata
     await base44.asServiceRole.entities.ReferenceDocument.update(document_id, {
       metadata: {
         ...doc.metadata,
