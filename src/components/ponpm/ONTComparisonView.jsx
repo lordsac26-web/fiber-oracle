@@ -113,7 +113,7 @@ export default function ONTComparisonView({ onts, onClose, onAddOnt }) {
 
       return dataPoint;
     });
-  }, [onts, selectedMetric, dateRange]);
+  }, [onts, selectedMetrics, dateRange]);
 
   // Calculate statistics for each ONT and metric
   const ontStats = useMemo(() => {
