@@ -38,6 +38,7 @@ import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUserPreferences } from '@/components/UserPreferencesContext';
+import OpticInventoryUpload from '@/components/lcp/OpticInventoryUpload';
 
 export default function LCPInfo() {
   const queryClient = useQueryClient();
@@ -54,6 +55,7 @@ export default function LCPInfo() {
   const [editingId, setEditingId] = useState(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [showOpticImport, setShowOpticImport] = useState(false);
   const [formData, setFormData] = useState({
     entryType: 'LCP',
     lcpNumber: '',
@@ -833,6 +835,10 @@ export default function LCPInfo() {
                       )}
                     </Button>
                   </Link>
+                  <Button variant="outline" onClick={() => setShowOpticImport(true)}>
+                    <Server className="h-4 w-4 mr-2" />
+                    Optic Inventory
+                  </Button>
                   <Button variant="outline" onClick={() => setShowImportDialog(true)}>
                     <Upload className="h-4 w-4 mr-2" />
                     Import
@@ -1014,6 +1020,14 @@ export default function LCPInfo() {
                 </div>
                 </DialogContent>
               </Dialog>
+
+              {/* Optic Inventory Import Dialog */}
+              <OpticInventoryUpload
+                open={showOpticImport}
+                onOpenChange={setShowOpticImport}
+                lcpEntries={lcpEntries}
+                onComplete={() => queryClient.invalidateQueries({ queryKey: ['lcpEntries'] })}
+              />
 
               {/* Import Dialog */}
               <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) { setImportPreview([]); setImportError(''); setImportWarnings([]); } }}>
@@ -1393,12 +1407,23 @@ export default function LCPInfo() {
                         )}
                       </div>
 
-                      {(entry.optic_make || entry.optic_model || entry.optic_serial) && (
+                      {(entry.optic_make || entry.optic_model || entry.optic_serial || entry.optic_type) && (
                         <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
                           <div className="text-xs text-gray-500 mb-1">Optic Info</div>
-                          <div className="text-sm">
-                            {[entry.optic_make, entry.optic_model].filter(Boolean).join(' ')}
-                            {entry.optic_serial && <span className="text-gray-500 ml-2">S/N: {entry.optic_serial}</span>}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm">
+                              {[entry.optic_make, entry.optic_model].filter(Boolean).join(' ')}
+                              {entry.optic_serial && <span className="text-gray-500 ml-2">S/N: {entry.optic_serial}</span>}
+                            </span>
+                            {entry.optic_type && (
+                              <Badge className={
+                                entry.optic_type === 'XGS-DD' ? 'bg-purple-600' :
+                                entry.optic_type === 'XGS-COMBO' ? 'bg-emerald-600' :
+                                entry.optic_type === 'XGS-COMBO-EXT' ? 'bg-amber-600' : 'bg-gray-500'
+                              }>
+                                {entry.optic_type}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       )}
