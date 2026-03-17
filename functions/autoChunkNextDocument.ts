@@ -32,7 +32,13 @@ function extractKeywords(text) {
  * and use asServiceRole for all entity operations.
  */
 Deno.serve(async (req) => {
-  const base44 = createClientFromRequest(req);
+  let base44;
+  try {
+    base44 = createClientFromRequest(req);
+  } catch (initErr) {
+    console.error('[autoChunk] SDK init error:', initErr.message);
+    return Response.json({ error: 'SDK init failed: ' + initErr.message }, { status: 500 });
+  }
   try {
     // Find next unchunked document by scanning in batches
     // We fetch lightweight metadata only (no content field) to avoid JSON parse failures
