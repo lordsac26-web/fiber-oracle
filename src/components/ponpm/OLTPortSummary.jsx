@@ -399,10 +399,10 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                       {port.avgOntRx?.toFixed(1) || '-'} dBm
                     </span>
                   </TableCell>
-                  <TableCell className="text-right font-mono text-xs text-gray-500">
+                  <TableCell className="text-right font-mono text-xs text-gray-600 dark:text-gray-400">
                     {port.minOntRx?.toFixed(1)} ~ {port.maxOntRx?.toFixed(1)}
                   </TableCell>
-                  <TableCell className="text-right font-mono text-sm">
+                  <TableCell className="text-right font-mono text-sm text-gray-800 dark:text-gray-200">
                     {port.avgOltRx?.toFixed(1) || '-'} dBm
                   </TableCell>
                   <TableCell className="text-center">
