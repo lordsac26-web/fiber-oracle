@@ -204,11 +204,11 @@ export default function LCPMap() {
 
   const { data: latestReports = [], isLoading: isLoadingReports } = useQuery({
     queryKey: ['latestPonPmReport'],
-    queryFn: () => base44.entities.PONPMReport.list('-created_date', 1),
+    queryFn: () => base44.entities.PONPMReport.list('-created_date', 5),
     initialData: [],
   });
 
-  const latestReport = latestReports[0] || null;
+  const latestReport = latestReports.find((report) => report.processing_status === 'completed') || latestReports[0] || null;
 
   const { data: latestOntRecords = [], isLoading: isLoadingOntRecords } = useQuery({
     queryKey: ['lcpMapLatestOntRecords', latestReport?.id],
