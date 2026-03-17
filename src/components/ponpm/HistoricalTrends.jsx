@@ -877,7 +877,7 @@ export default function HistoricalTrends({ reports, onClose }) {
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-gray-600 dark:text-gray-400">
                     {selectedOnt.olt} / {selectedOnt.port} • {selectedOnt.dataPoints.length} data points
                   </div>
                 </CardHeader>
