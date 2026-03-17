@@ -11,7 +11,6 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
-import LCPMapPin from '@/components/lcp/LCPMapPin';
 import LCPMapDetails from '@/components/lcp/LCPMapDetails';
 
 // Fix default marker icon issue
