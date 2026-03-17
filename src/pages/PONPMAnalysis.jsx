@@ -1872,9 +1872,9 @@ Be specific, technical, and actionable.`;
               setIsLoading(true);
               toast.loading('Loading report...', { id: 'load-report' });
               try {
-                // Re-parse the saved file — skip trend computation to avoid CPU timeout on large datasets
-                const response = await base44.functions.invoke('parsePonPm', { file_url: report.file_url, skip_trends: true });
-                
+                // Load from indexed DB records — avoids re-parsing the CSV and hitting CPU limits
+                const response = await base44.functions.invoke('loadSavedReport', { report_id: report.id });
+
                 if (response.data?.success && response.data?.onts && response.data?.summary) {
                   setResult(response.data);
                   setSelectedReportId(report.id);
@@ -1882,8 +1882,23 @@ Be specific, technical, and actionable.`;
                   setExpandedPorts([]);
                   setIsLoading(false);
                   toast.success('Report loaded', { id: 'load-report' });
+                } else if (response.data?.error === 'NO_RECORDS') {
+                  // Records not yet indexed — fall back to CSV re-parse
+                  toast.loading('Records not yet indexed, parsing CSV...', { id: 'load-report' });
+                  const fallback = await base44.functions.invoke('parsePonPm', { file_url: report.file_url, skip_trends: true });
+                  if (fallback.data?.success && fallback.data?.onts && fallback.data?.summary) {
+                    setResult(fallback.data);
+                    setSelectedReportId(report.id);
+                    setExpandedOlts([]);
+                    setExpandedPorts([]);
+                    setIsLoading(false);
+                    toast.success('Report loaded (from CSV)', { id: 'load-report' });
+                  } else {
+                    toast.error(fallback.data?.error || 'Failed to load report', { id: 'load-report' });
+                    setIsLoading(false);
+                  }
                 } else {
-                  toast.error(response.data?.error || 'Failed to parse report', { id: 'load-report' });
+                  toast.error(response.data?.error || 'Failed to load report', { id: 'load-report' });
                   setIsLoading(false);
                 }
               } catch (error) {
