@@ -39,7 +39,6 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import moment from 'moment';
 import EnhancedHistoryChart from './EnhancedHistoryChart';
-import DateRangeFilter from './DateRangeFilter';
 
 const STATUS_COLORS = {
   critical: 'bg-red-100 text-red-800 border-red-300',
