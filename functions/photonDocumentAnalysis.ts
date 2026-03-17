@@ -15,7 +15,13 @@ Deno.serve(async (req) => {
     let docs;
     try {
       const rawDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 20);
-      docs = Array.isArray(rawDocs) ? rawDocs.filter(d => d.is_active) : [];
+      if (typeof rawDocs === 'string') {
+        docs = JSON.parse(rawDocs).filter(d => d.is_active !== false);
+      } else if (Array.isArray(rawDocs)) {
+        docs = rawDocs.filter(d => d.is_active !== false);
+      } else {
+        docs = [];
+      }
       console.log('[analysis] Found', docs.length, 'active documents');
     } catch (fetchErr) {
       console.error('[analysis] Fetch error:', fetchErr.message);
