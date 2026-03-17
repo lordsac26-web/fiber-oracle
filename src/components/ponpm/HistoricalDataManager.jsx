@@ -277,7 +277,7 @@ export default function HistoricalDataManager({
                           </div>
                         </div>
                         {report.avg_ont_rx && (
-                          <div className="mt-2 pt-2 border-t text-xs text-gray-500 flex gap-4">
+                          <div className="mt-2 pt-2 border-t text-xs text-gray-600 dark:text-gray-400 flex gap-4">
                             <span>Avg Rx: <span className="font-mono">{report.avg_ont_rx?.toFixed(1)} dBm</span></span>
                             <span>Range: <span className="font-mono">{report.min_ont_rx?.toFixed(1)} ~ {report.max_ont_rx?.toFixed(1)}</span></span>
                           </div>
