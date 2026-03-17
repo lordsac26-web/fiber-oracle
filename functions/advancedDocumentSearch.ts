@@ -13,14 +13,21 @@ Deno.serve(async (req) => {
 
     console.log('advDocSearch query:', query);
 
-    const rawDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 50);
-    const allDocs = Array.isArray(rawDocs) ? rawDocs : [];
-    console.log('advDocSearch raw docs count:', allDocs.length);
-    if (allDocs.length > 0) {
-      console.log('advDocSearch sample doc keys:', Object.keys(allDocs[0]).join(', '));
-      console.log('advDocSearch sample is_active:', allDocs[0].is_active, typeof allDocs[0].is_active);
+    let activeDocs = [];
+    try {
+      const rawDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 50);
+      console.log('advDocSearch rawDocs type:', typeof rawDocs, Array.isArray(rawDocs));
+      if (Array.isArray(rawDocs)) {
+        activeDocs = rawDocs.filter(d => d.is_active !== false);
+      } else {
+        console.log('advDocSearch rawDocs keys:', Object.keys(rawDocs || {}).join(','));
+        // Try treating as iterable
+        activeDocs = [...(rawDocs || [])].filter(d => d.is_active !== false);
+      }
+    } catch (listErr) {
+      console.error('advDocSearch list error:', listErr.message);
+      return Response.json({ error: 'Failed to fetch documents: ' + listErr.message }, { status: 500 });
     }
-    const activeDocs = allDocs.filter(d => d.is_active !== false);
 
     console.log('advDocSearch active docs:', activeDocs.length);
 
