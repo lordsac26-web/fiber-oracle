@@ -486,43 +486,88 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Zap className="h-4 w-4" />
                   Error Metrics
+                  {historicalData.length > 0 && (
+                    <span className="text-[10px] font-normal text-gray-400 ml-1">
+                      Δ vs {moment(historicalData[historicalData.length - 1]?.date).format('MMM D, YYYY')}
+                    </span>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="text-xs text-gray-500">US BIP Errors</div>
-                    <div className="text-lg font-bold font-mono">{ont.UpstreamBipErrors || 0}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="text-xs text-gray-500">DS BIP Errors</div>
-                    <div className="text-lg font-bold font-mono">{ont.DownstreamBipErrors || 0}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="text-xs text-gray-500">US FEC Uncorrected</div>
-                    <div className={`text-lg font-bold font-mono ${parseInt(ont.UpstreamFecUncorrectedCodeWords) > 0 ? 'text-amber-600' : ''}`}>{ont.UpstreamFecUncorrectedCodeWords || 0}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="text-xs text-gray-500">DS FEC Uncorrected</div>
-                    <div className={`text-lg font-bold font-mono ${parseInt(ont.DownstreamFecUncorrectedCodeWords) > 0 ? 'text-amber-600' : ''}`}>{ont.DownstreamFecUncorrectedCodeWords || 0}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="text-xs text-gray-500">US FEC Corrected</div>
-                    <div className="text-lg font-bold font-mono">{ont.UpstreamFecCorrectedCodeWords || 0}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="text-xs text-gray-500">DS FEC Corrected</div>
-                    <div className="text-lg font-bold font-mono">{ont.DownstreamFecCorrectedCodeWords || 0}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="text-xs text-gray-500">Missed Bursts (US)</div>
-                    <div className={`text-lg font-bold font-mono ${parseInt(ont.UpstreamMissedBursts) >= 10 ? 'text-amber-600' : ''}`}>{ont.UpstreamMissedBursts || 0}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <div className="text-xs text-gray-500">GEM HEC Errors (US)</div>
-                    <div className={`text-lg font-bold font-mono ${parseInt(ont.UpstreamGemHecErrors) >= 10 ? 'text-amber-600' : ''}`}>{ont.UpstreamGemHecErrors || 0}</div>
-                  </div>
-                </div>
+                {(() => {
+                  // Compute deltas from the most recent historical record
+                  const prev = historicalData.length > 0 ? historicalData[historicalData.length - 1] : null;
+                  const delta = (currentVal, prevVal) => {
+                    if (prev === null || prevVal === undefined || prevVal === null) return null;
+                    return (parseInt(currentVal) || 0) - (parseInt(prevVal) || 0);
+                  };
+                  const DeltaBadge = ({ value }) => {
+                    if (value === null) return null;
+                    if (value === 0) return <span className="text-[10px] text-gray-400 font-mono ml-1">Δ0</span>;
+                    const color = value > 0 ? 'text-red-600' : 'text-green-600';
+                    return <span className={`text-[10px] font-mono font-semibold ml-1 ${color}`}>Δ{value > 0 ? '+' : ''}{value.toLocaleString()}</span>;
+                  };
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-xs text-gray-500">US BIP Errors</div>
+                        <div className="text-lg font-bold font-mono flex items-baseline">
+                          {ont.UpstreamBipErrors || 0}
+                          <DeltaBadge value={delta(ont.UpstreamBipErrors, prev?.us_bip_errors)} />
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-xs text-gray-500">DS BIP Errors</div>
+                        <div className="text-lg font-bold font-mono flex items-baseline">
+                          {ont.DownstreamBipErrors || 0}
+                          <DeltaBadge value={delta(ont.DownstreamBipErrors, prev?.ds_bip_errors)} />
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-xs text-gray-500">US FEC Uncorrected</div>
+                        <div className={`text-lg font-bold font-mono flex items-baseline ${parseInt(ont.UpstreamFecUncorrectedCodeWords) > 0 ? 'text-amber-600' : ''}`}>
+                          {ont.UpstreamFecUncorrectedCodeWords || 0}
+                          <DeltaBadge value={delta(ont.UpstreamFecUncorrectedCodeWords, prev?.us_fec_uncorrected)} />
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-xs text-gray-500">DS FEC Uncorrected</div>
+                        <div className={`text-lg font-bold font-mono flex items-baseline ${parseInt(ont.DownstreamFecUncorrectedCodeWords) > 0 ? 'text-amber-600' : ''}`}>
+                          {ont.DownstreamFecUncorrectedCodeWords || 0}
+                          <DeltaBadge value={delta(ont.DownstreamFecUncorrectedCodeWords, prev?.ds_fec_uncorrected)} />
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-xs text-gray-500">US FEC Corrected</div>
+                        <div className="text-lg font-bold font-mono flex items-baseline">
+                          {ont.UpstreamFecCorrectedCodeWords || 0}
+                          <DeltaBadge value={delta(ont.UpstreamFecCorrectedCodeWords, prev?.us_fec_corrected)} />
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-xs text-gray-500">DS FEC Corrected</div>
+                        <div className="text-lg font-bold font-mono flex items-baseline">
+                          {ont.DownstreamFecCorrectedCodeWords || 0}
+                          <DeltaBadge value={delta(ont.DownstreamFecCorrectedCodeWords, prev?.ds_fec_corrected)} />
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-xs text-gray-500">Missed Bursts (US)</div>
+                        <div className={`text-lg font-bold font-mono flex items-baseline ${parseInt(ont.UpstreamMissedBursts) >= 10 ? 'text-amber-600' : ''}`}>
+                          {ont.UpstreamMissedBursts || 0}
+                          <DeltaBadge value={delta(ont.UpstreamMissedBursts, prev?.us_missed_bursts)} />
+                        </div>
+                      </div>
+                      <div className="p-3 bg-gray-50 rounded-lg">
+                        <div className="text-xs text-gray-500">GEM HEC Errors (US)</div>
+                        <div className={`text-lg font-bold font-mono flex items-baseline ${parseInt(ont.UpstreamGemHecErrors) >= 10 ? 'text-amber-600' : ''}`}>
+                          {ont.UpstreamGemHecErrors || 0}
+                          <DeltaBadge value={delta(ont.UpstreamGemHecErrors, prev?.us_gem_hec_errors)} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
