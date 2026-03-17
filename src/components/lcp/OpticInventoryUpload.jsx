@@ -222,18 +222,22 @@ export default function OpticInventoryUpload({ open, onOpenChange, lcpEntries, o
 
     setIsApplying(true);
 
-    // Deduplicate: group by entry ID, take last CSV row per entry (in case multiple CSV rows map to same LCP)
-    // Only include non-null/non-empty values — skip nulls so we don't overwrite existing data
+    // Deduplicate by entry ID and only queue actual changes so we avoid unnecessary writes.
     const updateMap = new Map();
     for (const row of toUpdate) {
       for (const entry of row.matchedEntries) {
         const payload = {};
-        if (row.opticMake && row.opticMake.trim()) payload.optic_make = row.opticMake.trim();
-        if (row.opticModel && row.opticModel.trim()) payload.optic_model = row.opticModel.trim();
-        if (row.opticSerial && row.opticSerial.trim()) payload.optic_serial = row.opticSerial.trim();
-        if (row.opticType && row.opticType.trim()) payload.optic_type = row.opticType.trim();
 
-        // Only queue if there's something to update
+        const nextMake = row.opticMake?.trim();
+        const nextModel = row.opticModel?.trim();
+        const nextSerial = row.opticSerial?.trim();
+        const nextType = row.opticType?.trim();
+
+        if (nextMake && nextMake !== (entry.optic_make || '').trim()) payload.optic_make = nextMake;
+        if (nextModel && nextModel !== (entry.optic_model || '').trim()) payload.optic_model = nextModel;
+        if (nextSerial && nextSerial !== (entry.optic_serial || '').trim()) payload.optic_serial = nextSerial;
+        if (nextType && nextType !== (entry.optic_type || '').trim()) payload.optic_type = nextType;
+
         if (Object.keys(payload).length > 0) {
           updateMap.set(entry.id, { entryId: entry.id, payload });
         }
@@ -243,41 +247,42 @@ export default function OpticInventoryUpload({ open, onOpenChange, lcpEntries, o
     const updates = Array.from(updateMap.values());
     let successCount = 0;
     let failCount = 0;
-    const BATCH_SIZE = 5;
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = 6;
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    for (let i = 0; i < updates.length; i += BATCH_SIZE) {
-      const batch = updates.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(
-        batch.map(async (u) => {
-          for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-            try {
-              await base44.entities.LCPEntry.update(u.entryId, u.payload);
-              return;
-            } catch (err) {
-              const msg = (err.message || '').toLowerCase();
-              if (msg.includes('rate limit') || msg.includes('429') || msg.includes('timeout')) {
-                // Exponential backoff before retry
-                await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
-              } else {
-                throw err; // non-retryable
-              }
-            }
+    if (updates.length === 0) {
+      setIsApplying(false);
+      toast.success('All matched entries already have this optic data.');
+      handleClose(false);
+      return;
+    }
+
+    for (const update of updates) {
+      let completed = false;
+
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          await base44.entities.LCPEntry.update(update.entryId, update.payload);
+          successCount++;
+          completed = true;
+          break;
+        } catch (err) {
+          const msg = String(err?.message || '').toLowerCase();
+          const isRetryable = msg.includes('rate limit') || msg.includes('429') || msg.includes('timeout');
+
+          if (!isRetryable || attempt === MAX_RETRIES - 1) {
+            failCount++;
+            console.warn('[OpticImport] Update failed:', err?.message || err);
+            break;
           }
-          // Final attempt without catching
-          await base44.entities.LCPEntry.update(u.entryId, u.payload);
-        })
-      );
-      for (const r of results) {
-        if (r.status === 'fulfilled') successCount++;
-        else {
-          failCount++;
-          console.warn('[OpticImport] Update failed:', r.reason?.message || r.reason);
+
+          const backoffMs = Math.min(12000, 1500 * (attempt + 1));
+          await wait(backoffMs);
         }
       }
-      // Delay between batches to stay under rate limits
-      if (i + BATCH_SIZE < updates.length) {
-        await new Promise(r => setTimeout(r, 800));
+
+      if (completed) {
+        await wait(350);
       }
     }
 
