@@ -177,8 +177,8 @@ export default function HistoricalDataManager({
           <button
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'reports' 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
             onClick={() => setActiveTab('reports')}
           >
@@ -188,8 +188,8 @@ export default function HistoricalDataManager({
           <button
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'search' 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400' 
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
             onClick={() => setActiveTab('search')}
           >
