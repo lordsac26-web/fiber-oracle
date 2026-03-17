@@ -185,15 +185,17 @@ export default function OLTPortSummary({ result, onDrillDown }) {
     return { olts: oltSummaries, ports: portSummaries };
   }, [result]);
 
-  // Filter and sort ports
-  const filteredPorts = useMemo(() => {
-    let ports = summaryData.ports.filter(p => {
-      if (!searchTerm) return true;
-      const term = searchTerm.toLowerCase();
-      return (p.oltName || '').toLowerCase().includes(term) ||
-             (p.portKey || '').toLowerCase().includes(term) ||
-             (p.lcpNumber || '').toLowerCase().includes(term);
-    });
+  // Filter OLTs by search
+  const filteredOlts = useMemo(() => {
+    if (!searchTerm) return summaryData.olts;
+    const term = searchTerm.toLowerCase();
+    return summaryData.olts.filter(o => o.name.toLowerCase().includes(term));
+  }, [summaryData.olts, searchTerm]);
+
+  // Get ports for the selected OLT
+  const selectedOltPorts = useMemo(() => {
+    if (!selectedOlt) return [];
+    let ports = summaryData.ports.filter(p => p.oltName === selectedOlt.name);
 
     ports.sort((a, b) => {
       let aVal, bVal;
@@ -223,7 +225,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
     });
 
     return ports;
-  }, [summaryData.ports, searchTerm, sortBy, sortOrder]);
+  }, [summaryData.ports, selectedOlt, sortBy, sortOrder]);
 
   // Ports with correlated issues
   const correlatedIssuePorts = useMemo(() => {
