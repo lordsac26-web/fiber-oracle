@@ -801,7 +801,7 @@ export default function HistoricalTrends({ reports, onClose }) {
                               </TableCell>
                               <TableCell className="font-mono text-xs">{ont.serial}</TableCell>
                               <TableCell className="text-xs">{ont.ontId || '-'}</TableCell>
-                              <TableCell className="text-xs">
+                              <TableCell className="text-xs text-gray-700 dark:text-gray-300">
                                 {ont.olt}/{ont.port}
                                 {ont._lcpNumber && <div className="text-[10px] text-blue-600">LCP: {ont._lcpNumber}</div>}
                               </TableCell>
