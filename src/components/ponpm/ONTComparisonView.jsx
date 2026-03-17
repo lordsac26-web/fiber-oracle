@@ -185,11 +185,12 @@ export default function ONTComparisonView({ onts, onClose, onAddOnt }) {
       <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-blue-500" />
-            Multi-ONT Comparison
-            <Badge variant="outline">{onts.length} ONTs</Badge>
+          <Activity className="h-5 w-5 text-blue-500" />
+          Multi-ONT Comparison
+          <Badge variant="outline">{onts.length} ONTs</Badge>
           </DialogTitle>
-        </DialogHeader>
+          <DialogDescription className="sr-only">Comparing performance metrics across selected ONTs</DialogDescription>
+          </DialogHeader>
 
         <div className="space-y-4">
           {/* Controls */}

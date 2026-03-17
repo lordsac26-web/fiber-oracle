@@ -131,6 +131,7 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
               {ont._analysis.status.toUpperCase()}
             </Badge>
           </DialogTitle>
+          <DialogDescription className="sr-only">Performance details for ONT {ont.SerialNumber}</DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="w-full">

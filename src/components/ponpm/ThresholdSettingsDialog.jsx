@@ -28,6 +28,7 @@ export default function ThresholdSettingsDialog({
             <Settings className="h-5 w-5" />
             Analysis Thresholds
           </DialogTitle>
+          <DialogDescription className="sr-only">Configure optical power and error count thresholds for analysis</DialogDescription>
         </DialogHeader>
         <div className="space-y-6 py-4">
           {/* Optical Power Thresholds */}

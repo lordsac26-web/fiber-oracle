@@ -432,6 +432,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
               {selectedOlt?.name}
               <Badge variant="outline" className="text-xs">{selectedOlt?.ontCount} ONTs</Badge>
             </DialogTitle>
+            <DialogDescription className="sr-only">PON port details for {selectedOlt?.name}</DialogDescription>
           </DialogHeader>
 
           {selectedOlt && (
@@ -593,6 +594,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                 </Badge>
               )}
             </DialogTitle>
+            <DialogDescription className="sr-only">ONT details for port {selectedPort?.portKey}</DialogDescription>
           </DialogHeader>
 
           {selectedPort && (

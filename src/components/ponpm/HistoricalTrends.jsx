@@ -489,6 +489,7 @@ export default function HistoricalTrends({ reports, onClose }) {
                 <Badge className="bg-blue-600">{comparisonOnts.length} ONTs selected for comparison</Badge>
               )}
             </DialogTitle>
+            <DialogDescription className="sr-only">Historical performance trends across saved reports</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">

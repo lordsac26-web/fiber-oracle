@@ -1942,6 +1942,7 @@ Be specific, technical, and actionable.`;
               <Sparkles className="h-5 w-5 text-purple-500" />
               Create Job Report - AI Pre-filled
             </DialogTitle>
+            <p className="text-sm text-muted-foreground sr-only">AI-generated job report for ONT maintenance</p>
           </DialogHeader>
           {generatingReport ? (
             <div className="py-12 text-center">

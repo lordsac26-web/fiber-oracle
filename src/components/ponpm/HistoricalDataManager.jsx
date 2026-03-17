@@ -171,6 +171,7 @@ export default function HistoricalDataManager({
             <Database className="h-5 w-5 text-blue-500" />
             Historical Data Manager
           </DialogTitle>
+          <DialogDescription className="sr-only">Manage saved reports and search ONT history</DialogDescription>
         </DialogHeader>
 
         {/* Tabs */}
