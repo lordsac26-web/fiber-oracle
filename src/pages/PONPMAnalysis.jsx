@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -310,21 +310,21 @@ export default function PONPMAnalysis() {
     }
   };
 
-  const toggleOlt = (oltName) => {
+  const toggleOlt = useCallback((oltName) => {
     setExpandedOlts(prev => 
       prev.includes(oltName) 
         ? prev.filter(o => o !== oltName)
         : [...prev, oltName]
     );
-  };
+  }, []);
 
-  const togglePort = (portKey) => {
+  const togglePort = useCallback((portKey) => {
     setExpandedPorts(prev => 
       prev.includes(portKey) 
         ? prev.filter(p => p !== portKey)
         : [...prev, portKey]
     );
-  };
+  }, []);
 
   const filteredOnts = useMemo(() => {
     let filtered = result?.onts?.filter(ont => {
@@ -382,19 +382,19 @@ export default function PONPMAnalysis() {
     return filtered;
   }, [result, searchTerm, statusFilter, oltFilter, portFilter, techFilter, powerRangeFilter, sortBy]);
 
-  const saveThresholds = () => {
+  const saveThresholds = useCallback(() => {
     localStorage.setItem('ponPmThresholds', JSON.stringify(customThresholds));
     toast.success('Thresholds saved');
     setShowThresholdSettings(false);
-  };
+  }, [customThresholds]);
 
-  const resetThresholds = () => {
+  const resetThresholds = useCallback(() => {
     setCustomThresholds({ ...DEFAULT_THRESHOLDS });
     localStorage.removeItem('ponPmThresholds');
     toast.success('Thresholds reset to defaults');
-  };
+  }, []);
 
-  const updateThreshold = (field, key, value) => {
+  const updateThreshold = useCallback((field, key, value) => {
     setCustomThresholds(prev => ({
       ...prev,
       [field]: {
@@ -402,7 +402,7 @@ export default function PONPMAnalysis() {
         [key]: parseFloat(value) || 0
       }
     }));
-  };
+  }, []);
 
   const exportOfflineCSV = () => {
     if (!result?.onts) return;

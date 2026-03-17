@@ -97,7 +97,10 @@ export default function EnhancedMessageBubble({ message }) {
   const isUser = message.role === 'user';
   
   const sanitizeHtml = (html) => {
-    return DOMPurify.sanitize(html, { ALLOWED_TAGS: [] });
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3'],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+    });
   };
   
   return (

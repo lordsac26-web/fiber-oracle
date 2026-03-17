@@ -75,37 +75,46 @@ export default function HistoricalTrends({ reports, onClose }) {
         
         const allRecordsForTheseReports = [];
         
-        // Fetch all records with pagination to handle 100k+ records
-        for (const reportId of reportIds) {
-          try {
-            let skip = 0;
-            const batchSize = 5000;
-            let hasMore = true;
+        // Fetch all records in parallel batches (more efficient than sequential N+1)
+        const fetchReportRecords = async (reportId) => {
+          const records = [];
+          let skip = 0;
+          const batchSize = 5000;
+          let hasMore = true;
+          
+          while (hasMore) {
+            const batch = await base44.entities.ONTPerformanceRecord.filter(
+              { report_id: reportId },
+              '-report_date',
+              batchSize,
+              skip
+            );
             
-            while (hasMore) {
-              const batch = await base44.entities.ONTPerformanceRecord.filter(
-                { report_id: reportId },
-                '-report_date',
-                batchSize,
-                skip
-              );
-              
-              if (batch.length === 0) {
-                hasMore = false;
-              } else {
-                allRecordsForTheseReports.push(...batch);
-                skip += batchSize;
-                
-                if (batch.length < batchSize) {
-                  hasMore = false;
-                }
-              }
+            if (batch.length === 0) {
+              hasMore = false;
+            } else {
+              records.push(...batch);
+              skip += batchSize;
+              if (batch.length < batchSize) hasMore = false;
             }
-            
-            console.log(`Report ${reportId}: Loaded ${allRecordsForTheseReports.filter(r => r.report_id === reportId).length} ONT records (paginated)`);
-          } catch (err) {
-            console.warn(`Failed to load records for report ${reportId}:`, err);
           }
+          return records;
+        };
+
+        // Fetch up to 3 reports in parallel to balance speed vs API load
+        const PARALLEL_LIMIT = 3;
+        for (let i = 0; i < reportIds.length; i += PARALLEL_LIMIT) {
+          const batch = reportIds.slice(i, i + PARALLEL_LIMIT);
+          const results = await Promise.allSettled(batch.map(fetchReportRecords));
+          
+          results.forEach((result, idx) => {
+            if (result.status === 'fulfilled') {
+              allRecordsForTheseReports.push(...result.value);
+              console.log(`Report ${batch[idx]}: Loaded ${result.value.length} ONT records`);
+            } else {
+              console.warn(`Failed to load records for report ${batch[idx]}:`, result.reason);
+            }
+          });
         }
         
         console.log(`Total ONT records loaded: ${allRecordsForTheseReports.length}`);
