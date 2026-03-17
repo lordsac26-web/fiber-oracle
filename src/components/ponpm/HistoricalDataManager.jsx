@@ -434,7 +434,7 @@ export default function HistoricalDataManager({
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="text-xs text-gray-500 flex gap-3">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 flex gap-3">
                       <span>{selectedOnt.olt_name} / {selectedOnt.shelf_slot_port}</span>
                       {selectedOnt.model && <span>• {selectedOnt.model}</span>}
                       {selectedOnt.lcp_number && <span className="text-blue-600">• LCP: {selectedOnt.lcp_number}</span>}
