@@ -52,7 +52,14 @@ function chunkText(content) {
 
 Deno.serve(async (req) => {
   console.log('[autoChunk] Function invoked');
-  const base44 = createClientFromRequest(req);
+  let base44;
+  try {
+    base44 = createClientFromRequest(req);
+    console.log('[autoChunk] SDK initialized');
+  } catch (initErr) {
+    console.error('[autoChunk] SDK init failed:', initErr.message);
+    return Response.json({ error: 'SDK init: ' + initErr.message }, { status: 500 });
+  }
 
   try {
     // Scan for next unchunked document using service role
