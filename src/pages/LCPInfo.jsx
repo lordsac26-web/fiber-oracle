@@ -76,7 +76,7 @@ export default function LCPInfo() {
   // Fetch LCP entries from database
   const { data: lcpEntries = [], isLoading, error } = useQuery({
     queryKey: ['lcpEntries'],
-    queryFn: () => base44.entities.LCPEntry.list('-created_date'),
+    queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
   });
 
   // Create mutation
