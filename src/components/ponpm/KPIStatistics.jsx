@@ -110,10 +110,10 @@ export default function KPIStatistics({ result, filteredOnts }) {
               <Zap className="h-4 w-4 text-purple-500" />
               <Badge variant="outline" className="text-[10px]">Avg</Badge>
             </div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">
               {stats.avgOltRx !== null ? `${stats.avgOltRx.toFixed(2)}` : 'N/A'}
             </div>
-            <div className="text-xs text-gray-500">OLT Rx Power (dBm)</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">OLT Rx Power (dBm)</div>
           </CardContent>
         </Card>
 
