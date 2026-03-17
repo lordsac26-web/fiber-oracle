@@ -723,14 +723,7 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {historicalData
-                            .filter(d => {
-                              const dateStr = moment(d.date).format('YYYY-MM-DD');
-                              if (dateRange.start && dateStr < dateRange.start) return false;
-                              if (dateRange.end && dateStr > dateRange.end) return false;
-                              return true;
-                            })
-                            .map((record, idx) => (
+                          {historicalData.map((record, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="text-xs">{moment(record.date).format('MM/DD/YY HH:mm')}</TableCell>
                               <TableCell className="text-right font-mono text-xs">
