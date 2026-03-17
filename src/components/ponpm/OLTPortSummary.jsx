@@ -333,107 +333,65 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         </Card>
       )}
 
-      {/* Search and Sort */}
+      {/* Search */}
       <div className="flex gap-3 flex-wrap">
         <div className="flex-1 min-w-[200px] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search OLT, Port, or LCP..."
+            placeholder="Search OLT..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
         </div>
-        <div className="flex gap-1">
-          <Button 
-            variant={sortBy === 'issues' ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => handleSort('issues')}
-          >
-            <AlertCircle className="h-3 w-3 mr-1" />
-            Issues
-          </Button>
-          <Button 
-            variant={sortBy === 'degrading' ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => handleSort('degrading')}
-          >
-            <TrendingDown className="h-3 w-3 mr-1" />
-            Degrading
-          </Button>
-          <Button 
-            variant={sortBy === 'avgRx' ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => handleSort('avgRx')}
-          >
-            <Zap className="h-3 w-3 mr-1" />
-            Avg Rx
-          </Button>
-          <Button 
-            variant={sortBy === 'onts' ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => handleSort('onts')}
-          >
-            <Users className="h-3 w-3 mr-1" />
-            ONTs
-          </Button>
-        </div>
       </div>
 
-      {/* Port Summary Table */}
+      {/* ═══ TIER 1: OLT-level table ═══ */}
       <Card className="border shadow-lg overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-gray-100 dark:bg-gray-800">
-                <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">OLT / Port</TableHead>
+                <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">OLT Name</TableHead>
+                <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Ports</TableHead>
                 <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">ONTs</TableHead>
                 <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Status</TableHead>
                 <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Avg ONT Rx</TableHead>
                 <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Rx Range</TableHead>
-                <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Avg OLT Rx</TableHead>
-                <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Degrading</TableHead>
-                <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">LCP</TableHead>
+                <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Errors</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPorts.map((port, idx) => (
+              {filteredOlts.map((olt, idx) => (
                 <TableRow 
                   key={idx} 
-                  className={`cursor-pointer hover:bg-gray-50 ${port.hasCorrelatedIssue ? 'bg-orange-50/50' : ''}`}
-                  onClick={() => setSelectedPort(port)}
+                  className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${olt.hasCorrelatedIssue ? 'bg-orange-50/50 dark:bg-orange-900/10' : ''}`}
+                  onClick={() => { setSelectedOlt(olt); setSelectedPort(null); }}
                 >
                   <TableCell>
-                    <div className="font-medium text-sm">{port.oltName}</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
-                      {port.portKey}
-                      {port.isCombo && (
-                        <Badge variant="outline" className="text-[9px] px-1 py-0 bg-purple-50 border-purple-300 text-purple-700">
-                          {port.techType}
-                        </Badge>
-                      )}
-                    </div>
+                    <div className="font-medium text-sm text-gray-900 dark:text-white">{olt.name}</div>
                   </TableCell>
-                  <TableCell className="text-center font-mono">{port.ontCount}</TableCell>
+                  <TableCell className="text-center font-mono text-gray-900 dark:text-white">{olt.portCount}</TableCell>
+                  <TableCell className="text-center font-mono text-gray-900 dark:text-white">{olt.ontCount}</TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
-                      {port.criticalCount > 0 && (
+                      {olt.criticalCount > 0 && (
                         <Badge className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5">
-                          {port.criticalCount}
+                          {olt.criticalCount}
                         </Badge>
                       )}
-                      {port.warningCount > 0 && (
+                      {olt.warningCount > 0 && (
                         <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5">
-                          {port.warningCount}
+                          {olt.warningCount}
                         </Badge>
                       )}
-                      {port.offlineCount > 0 && (
+                      {olt.offlineCount > 0 && (
                         <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs px-1.5">
-                          {port.offlineCount}
+                          {olt.offlineCount}
                         </Badge>
                       )}
-                      {port.criticalCount === 0 && port.warningCount === 0 && port.offlineCount === 0 && (
+                      {olt.criticalCount === 0 && olt.warningCount === 0 && (olt.offlineCount || 0) === 0 && (
                         <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
                           <CheckCircle2 className="h-3 w-3" />
                         </Badge>
@@ -442,45 +400,17 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     <span className={
-                      port.avgOntRx < -27 ? 'text-red-600 font-bold' :
-                      port.avgOntRx < -25 ? 'text-amber-600' : 'text-green-600'
+                      olt.avgOntRx < -27 ? 'text-red-600 font-bold' :
+                      olt.avgOntRx < -25 ? 'text-amber-600' : 'text-green-600'
                     }>
-                      {port.avgOntRx?.toFixed(1) || '-'} dBm
+                      {olt.avgOntRx?.toFixed(1) || '-'} dBm
                     </span>
                   </TableCell>
                   <TableCell className="text-right font-mono text-xs text-gray-600 dark:text-gray-400">
-                    {port.minOntRx?.toFixed(1)} ~ {port.maxOntRx?.toFixed(1)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-sm text-gray-800 dark:text-gray-200">
-                    {port.avgOltRx?.toFixed(1) || '-'} dBm
+                    {olt.minOntRx?.toFixed(1)} ~ {olt.maxOntRx?.toFixed(1)}
                   </TableCell>
                   <TableCell className="text-center">
-                    {port.degradingCount > 0 ? (
-                      <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">
-                        <TrendingDown className="h-3 w-3 mr-0.5" />
-                        {port.degradingCount}
-                      </Badge>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {port.lcpNumber ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <span className="text-blue-600 font-medium">
-                              {port.lcpNumber}{port.lcpSplitter ? `/${port.lcpSplitter}` : ''}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {port.lcpLocation && <div>{port.lcpLocation}</div>}
-                            {port.lcpAddress && <div className="text-gray-400">{port.lcpAddress}</div>}
-                            {!port.lcpLocation && !port.lcpAddress && <div>No location info</div>}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : '-'}
+                    <ErrorMetricsBadges errors={olt.errors} compact />
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
