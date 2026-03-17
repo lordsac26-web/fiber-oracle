@@ -15,9 +15,14 @@ Deno.serve(async (req) => {
 
     const rawDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 50);
     const allDocs = Array.isArray(rawDocs) ? rawDocs : [];
-    const activeDocs = allDocs.filter(d => d.is_active);
+    console.log('advDocSearch raw docs count:', allDocs.length);
+    if (allDocs.length > 0) {
+      console.log('advDocSearch sample doc keys:', Object.keys(allDocs[0]).join(', '));
+      console.log('advDocSearch sample is_active:', allDocs[0].is_active, typeof allDocs[0].is_active);
+    }
+    const activeDocs = allDocs.filter(d => d.is_active !== false);
 
-    console.log('advDocSearch found', activeDocs.length, 'active docs');
+    console.log('advDocSearch active docs:', activeDocs.length);
 
     if (activeDocs.length === 0) {
       return Response.json({ query, results: [], total_results: 0, message: 'No documents found.' });
