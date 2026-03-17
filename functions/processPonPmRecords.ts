@@ -124,6 +124,8 @@ Deno.serve(async (req) => {
     //   B) Manually from the UI by an admin user
     // We accept both — just require the report_id in the body.
     const body = await req.json();
+    const isAutomation = !!body.event;
+    const user = !isAutomation ? await base44.auth.me().catch(() => null) : null;
 
     // Support two call shapes:
     //   { report_id, file_url }  — direct call or automation payload
@@ -141,6 +143,21 @@ Deno.serve(async (req) => {
 
     if (!reportId || !fileUrl) {
       return Response.json({ error: 'Missing report_id or file_url' }, { status: 400 });
+    }
+
+    if (!isAutomation) {
+      if (!user) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      if (user.role !== 'admin') {
+        const matchingReports = await base44.entities.PONPMReport.filter({ id: reportId }, null, 1);
+        const report = matchingReports?.[0];
+
+        if (!report || report.created_by !== user.email) {
+          return Response.json({ error: 'Forbidden' }, { status: 403 });
+        }
+      }
     }
 
     // Guard against double-processing: if records already exist for this report, abort early.
@@ -212,7 +229,10 @@ Deno.serve(async (req) => {
     console.log(`[processPonPmRecords] Built LCP lookup with ${Object.keys(lcpLookup).length} keys from ${lcpEntries.length} LCP entries`);
 
     // ── Fetch & parse CSV ────────────────────────────────────────────────────
-    const fileResp = await fetch(fileUrl);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const fileResp = await fetch(fileUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!fileResp.ok) throw new Error(`Failed to fetch file: HTTP ${fileResp.status}`);
     const csvContent = await fileResp.text();
 

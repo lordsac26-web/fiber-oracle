@@ -81,7 +81,7 @@ import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import moment from 'moment';
+import { format } from 'date-fns';
 import HistoricalTrends from '@/components/ponpm/HistoricalTrends';
 import OLTPortSummary from '@/components/ponpm/OLTPortSummary';
 import HistoricalDataManager from '@/components/ponpm/HistoricalDataManager';
@@ -274,7 +274,7 @@ export default function PONPMAnalysis() {
         toast.success(`Parsed ${response.data.summary.totalOnts.toLocaleString()} ONTs successfully`, { id: 'pon-parse' });
 
         // Auto-save the report to database with all ONT records
-        const reportName = file.name.replace('.csv', '') + ' - ' + moment().format('MM/DD/YY HH:mm');
+        const reportName = file.name.replace('.csv', '') + ' - ' + format(new Date(), 'MM/dd/yy HH:mm');
 
         // Calculate Rx power stats
         const rxValues = response.data.onts
@@ -582,7 +582,7 @@ export default function PONPMAnalysis() {
       if (ont._trends) {
         if (ont._trends.ont_rx_change !== null && ont._trends.ont_rx_change !== undefined) {
           const change = ont._trends.ont_rx_change;
-          trends.push(`ONT Rx changed by ${change > 0 ? '+' : ''}${change.toFixed(1)} dB since ${moment(ont._trends.previous_date).format('MMM D')}`);
+          trends.push(`ONT Rx changed by ${change > 0 ? '+' : ''}${change.toFixed(1)} dB since ${format(new Date(ont._trends.previous_date), 'MMM d')}`);
           trendDetails.push(`ONT Rx Power: ${change.toFixed(1)} dB change over ${ont._trends.days_since_last} days ${change < -1 ? '(DEGRADING)' : change > 1 ? '(IMPROVING)' : '(STABLE)'}`);
         }
         if (ont._trends.olt_rx_change !== null && ont._trends.olt_rx_change !== undefined) {

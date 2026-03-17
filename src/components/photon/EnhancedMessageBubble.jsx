@@ -21,6 +21,15 @@ const FunctionDisplay = ({ toolCall }) => {
     }
   })();
   
+  const parsedArguments = (() => {
+    if (!toolCall?.arguments_string) return null;
+    try {
+      return JSON.parse(toolCall.arguments_string);
+    } catch {
+      return toolCall.arguments_string;
+    }
+  })();
+
   const isError = results && (
     (typeof results === 'string' && /error|failed/i.test(results)) ||
     (parsedResults?.success === false)
@@ -75,7 +84,7 @@ const FunctionDisplay = ({ toolCall }) => {
             <div>
               <div className="text-xs text-slate-400 mb-1">Parameters:</div>
               <pre className="bg-slate-900/50 rounded p-2 text-xs text-slate-300 overflow-auto max-h-32">
-                {JSON.stringify(JSON.parse(toolCall.arguments_string), null, 2)}
+                {typeof parsedArguments === 'object' ? JSON.stringify(parsedArguments, null, 2) : parsedArguments}
               </pre>
             </div>
           )}
@@ -93,7 +102,7 @@ const FunctionDisplay = ({ toolCall }) => {
   );
 };
 
-export default function EnhancedMessageBubble({ message }) {
+function EnhancedMessageBubble({ message }) {
   const isUser = message.role === 'user';
   
   const sanitizeHtml = (html) => {

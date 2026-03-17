@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
-import moment from 'moment';
+import { endOfDay, format, startOfDay } from 'date-fns';
 import ONTComparisonView from './ONTComparisonView';
 import EnhancedHistoryChart from './EnhancedHistoryChart';
 import DateRangeFilter from './DateRangeFilter';
@@ -219,14 +219,14 @@ export default function HistoricalTrends({ reports, onClose }) {
 
     // Apply date range filter to each ONT's dataPoints
     if (dateRange.start || dateRange.end) {
-      const startDate = dateRange.start ? moment(dateRange.start).startOf('day') : null;
-      const endDate = dateRange.end ? moment(dateRange.end).endOf('day') : null;
+      const startDate = dateRange.start ? startOfDay(new Date(dateRange.start)) : null;
+      const endDate = dateRange.end ? endOfDay(new Date(dateRange.end)) : null;
 
       currentFiltered = currentFiltered.map(ont => {
         const filteredDataPoints = ont.dataPoints.filter(dp => {
-          const dpDate = moment(dp.date);
-          return (!startDate || dpDate.isSameOrAfter(startDate)) &&
-                 (!endDate || dpDate.isSameOrBefore(endDate));
+          const dpDate = new Date(dp.date);
+          return (!startDate || dpDate >= startDate) &&
+                 (!endDate || dpDate <= endDate);
         });
         return { ...ont, dataPoints: filteredDataPoints };
       }).filter(ont => ont.dataPoints.length > 0); // Only keep ONTs with data points in the range
@@ -399,7 +399,7 @@ export default function HistoricalTrends({ reports, onClose }) {
           olt: ont.olt,
           port: ont.port,
           dataPoints: ont.dataPoints.map(d => ({
-            date: moment(d.date).format('YYYY-MM-DD'),
+            date: format(new Date(d.date), 'yyyy-MM-dd'),
             ontRx: d.OntRxOptPwr,
             oltRx: d.OLTRXOptPwr,
             usBip: d.UpstreamBipErrors,
@@ -483,7 +483,7 @@ export default function HistoricalTrends({ reports, onClose }) {
       const report = reports.find(r => r.id === record.report_id);
       const date = record.report_date || report?.upload_date;
       if (date) {
-        dates.add(moment(date).format('YYYY-MM-DD'));
+        dates.add(format(new Date(date), 'yyyy-MM-dd'));
       }
     });
     return Array.from(dates).sort();
