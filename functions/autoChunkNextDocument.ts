@@ -60,14 +60,19 @@ async function safeList(entity, sort, limit, offset) {
 
 Deno.serve(async (req) => {
   console.log('[autoChunk] Starting');
-  const base44 = createClientFromRequest(req);
+
+  let base44;
+  try {
+    base44 = createClientFromRequest(req);
+  } catch (initErr) {
+    console.error('[autoChunk] SDK init failed:', initErr.message);
+    return Response.json({ error: 'SDK init failed: ' + initErr.message }, { status: 500 });
+  }
 
   try {
-    // Strategy: Get set of already-chunked doc IDs from DocumentChunk (lightweight),
-    // then scan ReferenceDocuments 1-at-a-time to find one NOT in that set.
-    // This avoids loading 50 massive docs at once which causes Brotli decompression failures.
-
-    // Step 1: Collect all unique document_ids that already have chunks
+    // Step 1: Collect all unique document_ids that already have chunks.
+    // DocumentChunk records are small, so we can paginate through them safely.
+    console.log('[autoChunk] Step 1: Collecting already-chunked doc IDs...');
     const chunkedIds = new Set();
     let chunkOffset = 0;
     while (chunkOffset < 10000) {
@@ -75,10 +80,13 @@ Deno.serve(async (req) => {
       try {
         chunkBatch = await safeList(base44.asServiceRole.entities.DocumentChunk, 'created_date', 100, chunkOffset);
       } catch (e) {
-        if (e.message && e.message.includes('Rate limit')) {
+        const msg = e.message || String(e);
+        if (msg.includes('Rate limit')) {
+          console.warn('[autoChunk] Rate limited on chunk scan, waiting 3s...');
           await new Promise(r => setTimeout(r, 3000));
           continue;
         }
+        console.error('[autoChunk] Step 1 error at offset ' + chunkOffset + ':', msg);
         break;
       }
       if (chunkBatch.length === 0) break;
@@ -90,7 +98,8 @@ Deno.serve(async (req) => {
     console.log('[autoChunk] Already chunked doc IDs: ' + chunkedIds.size);
 
     // Step 2: Scan ReferenceDocuments ONE at a time to find an unchunked one.
-    // Loading 1 at a time avoids the Brotli crash from huge payloads.
+    // This avoids loading huge content payloads for multiple docs simultaneously.
+    console.log('[autoChunk] Step 2: Scanning for unchunked document...');
     let targetDoc = null;
     let offset = 0;
     let scanned = 0;
@@ -103,22 +112,22 @@ Deno.serve(async (req) => {
         doc = batch[0];
         scanned++;
       } catch (e) {
-        if (e.message && e.message.includes('Rate limit')) {
+        const msg = e.message || String(e);
+        if (msg.includes('Rate limit')) {
+          console.warn('[autoChunk] Rate limited on doc scan, waiting 3s...');
           await new Promise(r => setTimeout(r, 3000));
           continue;
         }
-        if (e.message && e.message.includes('decompress')) {
-          // This specific document is too large to fetch — skip it
+        if (msg.includes('decompress')) {
           console.warn('[autoChunk] Skipping offset ' + offset + ' (decompression error)');
           offset++;
           continue;
         }
-        console.warn('[autoChunk] Error at offset ' + offset + ':', e.message);
+        console.warn('[autoChunk] Error at offset ' + offset + ':', msg);
         offset++;
         continue;
       }
 
-      // Check: active, has content, not already chunked
       const alreadyChunked = chunkedIds.has(doc.id) || (doc.metadata && doc.metadata.chunked_at);
       const hasContent = doc.content && doc.content.length > 20;
       const isActive = doc.is_active !== false;
@@ -170,13 +179,14 @@ Deno.serve(async (req) => {
           await new Promise(r => setTimeout(r, 800));
           break;
         } catch (e) {
-          if (e.message && e.message.includes('Rate limit') && retries < 5) {
+          const msg = e.message || String(e);
+          if (msg.includes('Rate limit') && retries < 5) {
             retries++;
             const wait = retries * 3000;
-            console.warn('[autoChunk] Rate limited, waiting ' + (wait/1000) + 's (retry ' + retries + '/5)');
+            console.warn('[autoChunk] Rate limited on batch ' + i + ', waiting ' + (wait/1000) + 's (retry ' + retries + '/5)');
             await new Promise(r => setTimeout(r, wait));
           } else {
-            console.error('[autoChunk] Failed batch at ' + i + ':', e.message);
+            console.error('[autoChunk] Failed batch at ' + i + ':', msg);
             throw e;
           }
         }
@@ -203,7 +213,8 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('[autoChunk] Error:', error.message);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('[autoChunk] Unhandled error:', error.message || String(error));
+    console.error('[autoChunk] Stack:', error.stack || 'no stack');
+    return Response.json({ error: error.message || String(error) }, { status: 500 });
   }
 });
