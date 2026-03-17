@@ -52,7 +52,7 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
   const [jobReports, setJobReports] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+
   const [peerData, setPeerData] = useState({ onts: [], avgMetrics: null });
   const [showPeerComparison, setShowPeerComparison] = useState(false);
 
