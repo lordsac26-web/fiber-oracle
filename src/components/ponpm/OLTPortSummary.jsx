@@ -39,9 +39,53 @@ import {
 } from 'lucide-react';
 import LCPSummarySection from './LCPSummarySection';
 
+// Compute aggregate error totals from a list of ONTs
+function computeErrorTotals(onts) {
+  let usBip = 0, dsBip = 0, usFecUn = 0, dsFecUn = 0, usHec = 0, usMissed = 0;
+  for (const o of onts) {
+    usBip   += parseInt(o.UpstreamBipErrors) || 0;
+    dsBip   += parseInt(o.DownstreamBipErrors) || 0;
+    usFecUn += parseInt(o.UpstreamFecUncorrectedCodeWords) || 0;
+    dsFecUn += parseInt(o.DownstreamFecUncorrectedCodeWords) || 0;
+    usHec   += parseInt(o.UpstreamGemHecErrors) || 0;
+    usMissed += parseInt(o.UpstreamMissedBursts) || 0;
+  }
+  return { usBip, dsBip, usFecUn, dsFecUn, usHec, usMissed, total: usBip + dsBip + usFecUn + dsFecUn + usHec + usMissed };
+}
+
+function ErrorMetricsBadges({ errors, compact = false }) {
+  if (errors.total === 0) return <span className="text-gray-400 text-xs">None</span>;
+  const items = [
+    { label: 'US BIP', value: errors.usBip },
+    { label: 'DS BIP', value: errors.dsBip },
+    { label: 'US FEC', value: errors.usFecUn },
+    { label: 'DS FEC', value: errors.dsFecUn },
+    { label: 'HEC', value: errors.usHec },
+    { label: 'Missed', value: errors.usMissed },
+  ].filter(i => i.value > 0);
+  
+  if (compact) {
+    return (
+      <span className="font-mono text-xs text-amber-700 dark:text-amber-400 font-semibold">
+        {errors.total.toLocaleString()}
+      </span>
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map((item, i) => (
+        <Badge key={i} variant="outline" className="text-[9px] px-1.5 py-0 bg-amber-50 dark:bg-amber-900/30 border-amber-300 text-amber-800 dark:text-amber-300 font-mono">
+          {item.label}: {item.value.toLocaleString()}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 export default function OLTPortSummary({ result, onDrillDown }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedPort, setSelectedPort] = useState(null);
+  const [selectedOlt, setSelectedOlt] = useState(null);   // OLT-level drill
+  const [selectedPort, setSelectedPort] = useState(null);  // Port-level drill
   const [sortBy, setSortBy] = useState('issues'); // 'issues', 'onts', 'avgRx', 'name'
   const [sortOrder, setSortOrder] = useState('desc');
 
