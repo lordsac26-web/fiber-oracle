@@ -256,6 +256,9 @@ export default function OLTPortSummary({ result, onDrillDown }) {
   const handlePortClick = (oltName, portKey) => {
     const port = summaryData.ports.find(p => p.oltName === oltName && p.portKey === portKey);
     if (port) {
+      // Also set the parent OLT so back-navigation works
+      const olt = summaryData.olts.find(o => o.name === oltName);
+      setSelectedOlt(olt || null);
       setSelectedPort(port);
     }
   };
