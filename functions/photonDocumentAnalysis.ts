@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
     // Fetch active reference documents
     let docs;
     try {
-      docs = await base44.asServiceRole.entities.ReferenceDocument.filter({ is_active: true });
+      docs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 5);
       console.log('[analysis] Found', docs.length, 'active documents');
     } catch (fetchErr) {
       console.error('[analysis] Fetch error:', fetchErr.message);
