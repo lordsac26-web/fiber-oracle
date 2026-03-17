@@ -13,7 +13,8 @@ Deno.serve(async (req) => {
 
     console.log('advDocSearch query:', query);
 
-    const allDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 50);
+    const rawDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 50);
+    const allDocs = Array.isArray(rawDocs) ? rawDocs : [];
     const activeDocs = allDocs.filter(d => d.is_active);
 
     console.log('advDocSearch found', activeDocs.length, 'active docs');
