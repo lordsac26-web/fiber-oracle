@@ -339,6 +339,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
         </div>
       </CollapsibleContent>
     </Card>
+    </Collapsible>
 
       {/* LCP Detail Dialog */}
       <Dialog open={!!selectedLCP} onOpenChange={() => setSelectedLCP(null)}>
@@ -352,7 +353,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
 
           {selectedLCP && (
             <div className="space-y-4">
-              {/* LCP Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Card className="border">
                   <CardContent className="p-3 text-center">
@@ -383,7 +383,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </Card>
               </div>
 
-              {/* Location Info */}
               <Card className="border">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
@@ -403,7 +402,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </CardContent>
               </Card>
 
-              {/* Map */}
               {selectedLCP.hasGPS && (
                 <Card className="border overflow-hidden">
                   <div style={{ height: '300px', width: '100%' }}>
@@ -429,7 +427,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </Card>
               )}
 
-              {/* Ports Served */}
               <Card className="border">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -460,7 +457,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </CardContent>
               </Card>
 
-              {/* Health Distribution */}
               <Card className="border">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Health Distribution</CardTitle>
@@ -471,10 +467,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                       <span className="text-sm text-gray-600">Healthy</span>
                       <div className="flex items-center gap-2">
                         <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-green-500" 
-                            style={{ width: `${(selectedLCP.ok / selectedLCP.ontCount * 100)}%` }}
-                          />
+                          <div className="h-full bg-green-500" style={{ width: `${(selectedLCP.ok / selectedLCP.ontCount * 100)}%` }} />
                         </div>
                         <span className="text-sm font-mono w-12 text-right">{selectedLCP.ok}</span>
                       </div>
@@ -483,10 +476,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                       <span className="text-sm text-gray-600">Warning</span>
                       <div className="flex items-center gap-2">
                         <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-amber-500" 
-                            style={{ width: `${(selectedLCP.warning / selectedLCP.ontCount * 100)}%` }}
-                          />
+                          <div className="h-full bg-amber-500" style={{ width: `${(selectedLCP.warning / selectedLCP.ontCount * 100)}%` }} />
                         </div>
                         <span className="text-sm font-mono w-12 text-right">{selectedLCP.warning}</span>
                       </div>
@@ -495,10 +485,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                       <span className="text-sm text-gray-600">Critical</span>
                       <div className="flex items-center gap-2">
                         <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-red-500" 
-                            style={{ width: `${(selectedLCP.critical / selectedLCP.ontCount * 100)}%` }}
-                          />
+                          <div className="h-full bg-red-500" style={{ width: `${(selectedLCP.critical / selectedLCP.ontCount * 100)}%` }} />
                         </div>
                         <span className="text-sm font-mono w-12 text-right">{selectedLCP.critical}</span>
                       </div>
@@ -510,6 +497,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
           )}
         </DialogContent>
       </Dialog>
-    </Collapsible>
+    </>
   );
 }
