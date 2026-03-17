@@ -1,10 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
 // Search strategy:
-// 1. Fetch ReferenceDocument METADATA only (no content field used) - small payload
-// 2. Search DocumentChunk records for content matches - chunks are ~4000 chars each, manageable
+// 1. Fetch ReferenceDocument METADATA only (no content field) - small payload
+// 2. Search DocumentChunk records for content matches
 // 3. Rank by relevance via LLM using titles + chunk excerpts
-// This avoids the Brotli decompression crash caused by fetching 500 full-content documents at once.
 
 Deno.serve(async (req) => {
   try {
@@ -28,17 +27,21 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'query parameter required' }, { status: 400 });
     }
 
-    // STEP 1: Fetch document metadata (titles, tags, categories) — NO large content fields
-    // Use filter to get only active, latest-version docs with metadata fields
-    const docFilter = { is_active: true, is_latest_version: true };
+    console.log(`[advancedDocumentSearch] Query: "${query}", max_results: ${max_results}`);
+
+    // STEP 1: Fetch document metadata — NO large content fields
+    const docFilter = { is_active: true };
     if (filters.category) docFilter.category = filters.category;
     if (filters.source_type) docFilter.source_type = filters.source_type;
 
     const allDocs = await base44.asServiceRole.entities.ReferenceDocument.filter(docFilter, '-created_date', 200);
 
     if (!allDocs || allDocs.length === 0) {
+      console.log('[advancedDocumentSearch] No documents in knowledge base');
       return Response.json({ query, results: [], total_results: 0, message: 'No documents found in knowledge base.' });
     }
+
+    console.log(`[advancedDocumentSearch] Found ${allDocs.length} active documents`);
 
     // Build a lightweight doc map (id -> metadata only, no content)
     const docMap = {};
@@ -53,21 +56,20 @@ Deno.serve(async (req) => {
         tags: doc.tags || [],
         created_date: doc.created_date,
         is_active: doc.is_active,
-        is_latest_version: doc.is_latest_version
       };
     }
 
     const docIds = Object.keys(docMap);
 
-    // STEP 2: Keyword pre-filter on titles/tags (no content needed)
+    // STEP 2: Keyword pre-filter on titles/tags
     const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
 
     const titleScoredDocs = docIds.map(id => {
       const doc = docMap[id];
       let score = 0;
       const title = doc.title.toLowerCase();
-      const tags = doc.tags.join(' ').toLowerCase();
-      const category = doc.category.toLowerCase();
+      const tags = (doc.tags || []).join(' ').toLowerCase();
+      const category = (doc.category || '').toLowerCase();
       for (const word of queryWords) {
         if (title.includes(word)) score += 10;
         if (tags.includes(word)) score += 5;
@@ -76,20 +78,20 @@ Deno.serve(async (req) => {
       return { id, score };
     }).sort((a, b) => b.score - a.score);
 
-    // Take top candidates for chunk search (title matches first, then all if no hits)
+    // Take top candidates for chunk search
     const hasTitleHits = titleScoredDocs.some(d => d.score > 0);
     const candidateDocIds = hasTitleHits
       ? titleScoredDocs.filter(d => d.score > 0).slice(0, 30).map(d => d.id)
       : titleScoredDocs.slice(0, 30).map(d => d.id);
 
+    console.log(`[advancedDocumentSearch] ${candidateDocIds.length} candidate docs (titleHits: ${hasTitleHits})`);
+
     // STEP 3: Search DocumentChunks for the candidate documents
-    // Fetch chunks in batches of 10 doc IDs to keep payloads small
     const chunksByDoc = {};
     const batchSize = 10;
 
     for (let i = 0; i < candidateDocIds.length; i += batchSize) {
       const batchIds = candidateDocIds.slice(i, i + batchSize);
-      // Fetch chunks for each doc in this batch concurrently
       await Promise.all(batchIds.map(async (docId) => {
         try {
           const chunks = await base44.asServiceRole.entities.DocumentChunk.filter(
@@ -99,7 +101,7 @@ Deno.serve(async (req) => {
             chunksByDoc[docId] = chunks;
           }
         } catch (_) {
-          // If chunk fetch fails for one doc, skip it gracefully
+          // Skip gracefully
         }
       }));
     }
@@ -141,7 +143,9 @@ Deno.serve(async (req) => {
       return Response.json({ query, results: [], total_results: 0, message: 'No relevant documents found.' });
     }
 
-    // STEP 5: LLM semantic ranking on top candidates (using title + best chunk excerpt)
+    console.log(`[advancedDocumentSearch] Top ${topCandidates.length} candidates, calling LLM for ranking...`);
+
+    // STEP 5: LLM semantic ranking
     const llmInput = topCandidates.map(c => ({
       id: c.id,
       title: docMap[c.id]?.title || '',
@@ -183,6 +187,8 @@ Excerpt: ${d.excerpt}`).join('\n\n')}`,
     const rankedDocs = (rankingResult?.ranked_documents || [])
       .sort((a, b) => b.relevance_score - a.relevance_score)
       .slice(0, max_results);
+
+    console.log(`[advancedDocumentSearch] LLM ranked ${rankedDocs.length} docs`);
 
     // STEP 6: Build final result set
     const results = rankedDocs.map(ranked => {

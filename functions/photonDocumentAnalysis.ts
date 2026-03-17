@@ -10,6 +10,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Query is required' }, { status: 400 });
     }
 
+    console.log(`[photonDocumentAnalysis] Query: "${query}", max_documents: ${max_documents}`);
+
     // Fetch all active reference documents
     const docs = await base44.asServiceRole.entities.ReferenceDocument.filter({ 
       is_active: true 
@@ -23,6 +25,8 @@ Deno.serve(async (req) => {
         recommendations: ['Upload technical manuals and reference PDFs to build the knowledge base.']
       });
     }
+
+    console.log(`[photonDocumentAnalysis] Found ${docs.length} active documents`);
 
     // Use AI to analyze and synthesize information across documents
     const documentSummaries = docs.slice(0, max_documents).map(doc => ({
