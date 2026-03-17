@@ -424,9 +424,166 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         </div>
       </Card>
 
-      {/* Port Detail Dialog */}
+      {/* ═══ TIER 2: OLT → Ports Dialog ═══ */}
+      <Dialog open={!!selectedOlt && !selectedPort} onOpenChange={() => setSelectedOlt(null)}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Router className="h-5 w-5 text-blue-500" />
+              {selectedOlt?.name}
+              <Badge variant="outline" className="text-xs">{selectedOlt?.ontCount} ONTs</Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedOlt && (
+            <div className="space-y-4">
+              {/* OLT-level stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Card className="border">
+                  <CardContent className="p-3 text-center">
+                    <div className="text-xl font-bold text-gray-900 dark:text-white">{selectedOlt.portCount}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">PON Ports</div>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardContent className="p-3 text-center">
+                    <div className={`text-xl font-bold ${
+                      selectedOlt.avgOntRx < -27 ? 'text-red-600' :
+                      selectedOlt.avgOntRx < -25 ? 'text-amber-600' : 'text-green-600'
+                    }`}>
+                      {selectedOlt.avgOntRx?.toFixed(1) || 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Avg ONT Rx (dBm)</div>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardContent className="p-3 text-center">
+                    <div className="text-xl font-bold text-amber-600">{selectedOlt.degradingCount}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Degrading ONTs</div>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardContent className="p-3 text-center">
+                    <div className="text-xl font-bold text-amber-700 dark:text-amber-400">{selectedOlt.errors.total.toLocaleString()}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Total Errors</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* OLT-level error breakdown */}
+              {selectedOlt.errors.total > 0 && (
+                <Card className="border">
+                  <CardContent className="p-3">
+                    <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">OLT Error Breakdown</div>
+                    <ErrorMetricsBadges errors={selectedOlt.errors} />
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Sort bar for ports */}
+              <div className="flex gap-1 flex-wrap">
+                <Button variant={sortBy === 'issues' ? 'default' : 'outline'} size="sm" onClick={() => handleSort('issues')}>
+                  <AlertCircle className="h-3 w-3 mr-1" /> Issues
+                </Button>
+                <Button variant={sortBy === 'degrading' ? 'default' : 'outline'} size="sm" onClick={() => handleSort('degrading')}>
+                  <TrendingDown className="h-3 w-3 mr-1" /> Degrading
+                </Button>
+                <Button variant={sortBy === 'avgRx' ? 'default' : 'outline'} size="sm" onClick={() => handleSort('avgRx')}>
+                  <Zap className="h-3 w-3 mr-1" /> Avg Rx
+                </Button>
+                <Button variant={sortBy === 'onts' ? 'default' : 'outline'} size="sm" onClick={() => handleSort('onts')}>
+                  <Users className="h-3 w-3 mr-1" /> ONTs
+                </Button>
+              </div>
+
+              {/* Port table */}
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-100 dark:bg-gray-800">
+                      <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">Port</TableHead>
+                      <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">ONTs</TableHead>
+                      <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Status</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Avg ONT Rx</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Rx Range</TableHead>
+                      <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Errors</TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">LCP</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedOltPorts.map((port, idx) => (
+                      <TableRow
+                        key={idx}
+                        className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${port.hasCorrelatedIssue ? 'bg-orange-50/50 dark:bg-orange-900/10' : ''}`}
+                        onClick={() => setSelectedPort(port)}
+                      >
+                        <TableCell>
+                          <div className="font-medium text-sm text-gray-900 dark:text-white flex items-center gap-1">
+                            {port.portKey}
+                            {port.isCombo && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 bg-purple-50 border-purple-300 text-purple-700">
+                                {port.techType}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-mono text-gray-900 dark:text-white">{port.ontCount}</TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {port.criticalCount > 0 && (
+                              <Badge className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5">{port.criticalCount}</Badge>
+                            )}
+                            {port.warningCount > 0 && (
+                              <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5">{port.warningCount}</Badge>
+                            )}
+                            {port.offlineCount > 0 && (
+                              <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs px-1.5">{port.offlineCount}</Badge>
+                            )}
+                            {port.criticalCount === 0 && port.warningCount === 0 && port.offlineCount === 0 && (
+                              <Badge className="bg-green-100 text-green-800 border-green-300 text-xs"><CheckCircle2 className="h-3 w-3" /></Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          <span className={
+                            port.avgOntRx < -27 ? 'text-red-600 font-bold' :
+                            port.avgOntRx < -25 ? 'text-amber-600' : 'text-green-600'
+                          }>
+                            {port.avgOntRx?.toFixed(1) || '-'} dBm
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs text-gray-600 dark:text-gray-400">
+                          {port.minOntRx?.toFixed(1)} ~ {port.maxOntRx?.toFixed(1)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <ErrorMetricsBadges errors={port.errors} compact />
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {port.lcpNumber ? (
+                            <span className="text-blue-600 font-medium">
+                              {port.lcpNumber}{port.lcpSplitter ? `/${port.lcpSplitter}` : ''}
+                            </span>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ TIER 3: Port → ONTs Dialog ═══ */}
       <Dialog open={!!selectedPort} onOpenChange={() => setSelectedPort(null)}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-blue-500" />
@@ -474,6 +631,16 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                 </Card>
               </div>
 
+              {/* Port error breakdown */}
+              {selectedPort.errors.total > 0 && (
+                <Card className="border">
+                  <CardContent className="p-3">
+                    <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Port Error Breakdown</div>
+                    <ErrorMetricsBadges errors={selectedPort.errors} />
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Correlated Issue Warning */}
               {selectedPort.hasCorrelatedIssue && (
                 <Card className="border-2 border-orange-300 bg-orange-50">
@@ -484,14 +651,8 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                         <div className="font-medium text-orange-800">Correlated Issue Detected</div>
                         <p className="text-sm text-orange-700">
                           {((selectedPort.criticalCount + selectedPort.warningCount) / selectedPort.ontCount * 100).toFixed(0)}% 
-                          of ONTs on this port have issues. This may indicate an upstream problem such as:
+                          of ONTs on this port have issues. This may indicate an upstream problem.
                         </p>
-                        <ul className="text-xs text-orange-600 mt-1 list-disc list-inside">
-                          <li>Dirty or damaged splitter input connector</li>
-                          <li>Feeder fiber degradation or macrobend</li>
-                          <li>OLT optic degradation</li>
-                          <li>Environmental issue at LCP/cabinet</li>
-                        </ul>
                       </div>
                     </div>
                   </CardContent>
@@ -531,15 +692,17 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                       <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">ONT Rx</TableHead>
                       <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">OLT Rx</TableHead>
                       <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">US BIP</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">DS BIP</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">US FEC</TableHead>
                       <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">Issues</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {selectedPort.onts.map((ont, idx) => (
                       <TableRow key={idx} className={
-                        ont._analysis.status === 'critical' ? 'bg-red-50' :
-                        ont._analysis.status === 'warning' ? 'bg-amber-50' :
-                        ont._analysis.status === 'offline' ? 'bg-purple-50' : ''
+                        ont._analysis.status === 'critical' ? 'bg-red-50 dark:bg-red-900/10' :
+                        ont._analysis.status === 'warning' ? 'bg-amber-50 dark:bg-amber-900/10' :
+                        ont._analysis.status === 'offline' ? 'bg-purple-50 dark:bg-purple-900/10' : ''
                       }>
                         <TableCell>
                           <div className={`w-3 h-3 rounded-full ${
@@ -548,22 +711,28 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                             ont._analysis.status === 'offline' ? 'bg-purple-500' : 'bg-green-500'
                           }`} />
                         </TableCell>
-                        <TableCell className="font-mono">{ont.OntID || '-'}</TableCell>
-                        <TableCell className="font-mono text-xs">{ont.SerialNumber || '-'}</TableCell>
-                        <TableCell className="text-xs">{ont.model || '-'}</TableCell>
+                        <TableCell className="font-mono text-gray-900 dark:text-white">{ont.OntID || '-'}</TableCell>
+                        <TableCell className="font-mono text-xs text-gray-900 dark:text-white">{ont.SerialNumber || '-'}</TableCell>
+                        <TableCell className="text-xs text-gray-900 dark:text-white">{ont.model || '-'}</TableCell>
                         <TableCell className="text-right font-mono">
                           <span className={
                             parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' :
-                            parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : ''
+                            parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : 'text-gray-900 dark:text-white'
                           }>
                             {ont.OntRxOptPwr || '-'}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right font-mono">
+                        <TableCell className="text-right font-mono text-gray-900 dark:text-white">
                           {ont.OLTRXOptPwr || '-'}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-xs">
-                          {ont.UpstreamBipErrors || '0'}
+                        <TableCell className="text-right font-mono text-xs text-gray-900 dark:text-white">
+                          {parseInt(ont.UpstreamBipErrors) || 0 > 0 ? <span className="text-amber-700 dark:text-amber-400">{ont.UpstreamBipErrors}</span> : '0'}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs text-gray-900 dark:text-white">
+                          {parseInt(ont.DownstreamBipErrors) || 0 > 0 ? <span className="text-amber-700 dark:text-amber-400">{ont.DownstreamBipErrors}</span> : '0'}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs text-gray-900 dark:text-white">
+                          {parseInt(ont.UpstreamFecUncorrectedCodeWords) || 0 > 0 ? <span className="text-red-600">{ont.UpstreamFecUncorrectedCodeWords}</span> : '0'}
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
@@ -591,6 +760,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                   <Button onClick={() => {
                     onDrillDown(selectedPort.oltName, selectedPort.portKey);
                     setSelectedPort(null);
+                    setSelectedOlt(null);
                   }}>
                     View in Full Analysis
                     <ChevronRight className="h-4 w-4 ml-1" />
