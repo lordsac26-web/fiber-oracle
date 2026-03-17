@@ -94,11 +94,11 @@ export default function KPIStatistics({ result, filteredOnts }) {
               <Activity className="h-4 w-4 text-blue-500" />
               <Badge variant="outline" className="text-[10px]">Avg</Badge>
             </div>
-            <div className="text-2xl font-bold text-gray-900">
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">
               {stats.avgOntRx !== null ? `${stats.avgOntRx.toFixed(2)}` : 'N/A'}
             </div>
-            <div className="text-xs text-gray-500">ONT Rx Power (dBm)</div>
-            <div className="text-[10px] text-gray-400 mt-1">
+            <div className="text-xs text-gray-600 dark:text-gray-400">ONT Rx Power (dBm)</div>
+            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
               Range: {stats.minOntRx?.toFixed(1)} to {stats.maxOntRx?.toFixed(1)}
             </div>
           </CardContent>
