@@ -220,8 +220,8 @@ export default function HistoricalDataManager({
                       <CardContent className="p-3">
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm truncate">{report.report_name}</div>
-                            <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
+                            <div className="font-medium text-sm truncate text-gray-900 dark:text-white">{report.report_name}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-2 flex-wrap">
                               <span className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
                                 {moment(report.upload_date).format('MMM D, YYYY h:mm A')}
