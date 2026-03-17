@@ -42,38 +42,27 @@ function buildLcpLookup(lcpEntries) {
     const oltBase = lcp.olt_name.toLowerCase().trim();
     const shelf   = String(lcp.olt_shelf).trim();
     const slot    = String(lcp.olt_slot).trim();
+    // olt_port may already contain "xp5" or just "5"
     const rawPort = String(lcp.olt_port).trim();
 
-    // Strip any leading "xp" to get the cleaned port string
-    const cleanPort = rawPort.replace(/^xp/i, '');
+    // Strip any leading "xp" to get the numeric part
+    const numericPort = rawPort.replace(/^xp/i, '');
 
     const payload = {
       lcp_number:      lcp.lcp_number      || '',
       splitter_number: lcp.splitter_number || '',
-      optic_type:      lcp.optic_type      || '',
     };
 
-    // Check if this is a combo/range port like "3-4"
-    const rangeMatch = cleanPort.match(/^(\d+)-(\d+)$/);
-    if (rangeMatch) {
-      const start = parseInt(rangeMatch[1]);
-      const end   = parseInt(rangeMatch[2]);
-      // Index the combo pair format: "3-4", "xp3-4"
-      const comboKey = `${start}-${end}`;
-      map.set(`${oltBase}|${shelf}/${slot}/${comboKey}`, payload);
-      map.set(`${oltBase}|${shelf}/${slot}/xp${comboKey}`, payload);
-      // Also index each individual port number in the range
-      for (let p = start; p <= end; p++) {
-        const numKey = `${oltBase}|${shelf}/${slot}/${p}`;
-        const xpKey  = `${oltBase}|${shelf}/${slot}/xp${p}`;
-        if (!map.has(numKey)) map.set(numKey, payload);
-        if (!map.has(xpKey))  map.set(xpKey, payload);
+    // Generate both variants
+    const variants = [
+      `${oltBase}|${shelf}/${slot}/${numericPort}`,
+      `${oltBase}|${shelf}/${slot}/xp${numericPort}`,
+    ];
+
+    for (const key of variants) {
+      if (!map.has(key)) {
+        map.set(key, payload);
       }
-    } else {
-      // Simple single port
-      const numericPort = cleanPort.replace(/^xp/i, '');
-      map.set(`${oltBase}|${shelf}/${slot}/${numericPort}`, payload);
-      map.set(`${oltBase}|${shelf}/${slot}/xp${numericPort}`, payload);
     }
   }
 
@@ -81,37 +70,25 @@ function buildLcpLookup(lcpEntries) {
 }
 
 /**
- * Parse shelf_slot_port string into normalised lookup keys.
- * Accepts: "1/2/xp5", "1/2/5", "1/2/xp3-4" (combo).
- * Returns an array of candidate keys to try against the lookup map.
+ * Parse shelf_slot_port string into a normalised lookup key.
+ * Accepts: "1/2/xp5", "1/2/5", "1/2/xp5-6" (combo — use first port number).
+ * Returns the canonical key or null if unparseable.
  */
-function buildOntKeys(oltName, shelfSlotPort) {
-  if (!oltName || !shelfSlotPort) return [];
+function buildOntKey(oltName, shelfSlotPort) {
+  if (!oltName || !shelfSlotPort) return null;
 
   const base = oltName.toLowerCase().trim();
 
   // Capture shelf, slot, then port (with optional xp prefix, optional -N suffix for combos)
-  const match = shelfSlotPort.match(/^(\d+)\/(\d+)\/((?:xp)?(\d+)(?:-(\d+))?)$/i);
-  if (!match) return [];
+  const match = shelfSlotPort.match(/^(\d+)\/(\d+)\/(?:xp)?(\d+)(?:-\d+)?$/i);
+  if (!match) return null;
 
-  const shelf    = match[1];
-  const slot     = match[2];
-  const firstNum = match[4];
-  const secondNum = match[5]; // undefined for non-combo ports
+  const shelf       = match[1];
+  const slot        = match[2];
+  const numericPort = match[3];
 
-  const keys = [];
-
-  // If combo port (e.g. xp3-4), try the combo pair key first
-  if (secondNum) {
-    keys.push(`${base}|${shelf}/${slot}/${firstNum}-${secondNum}`);
-    keys.push(`${base}|${shelf}/${slot}/xp${firstNum}-${secondNum}`);
-  }
-
-  // Always try the first port number individually
-  keys.push(`${base}|${shelf}/${slot}/${firstNum}`);
-  keys.push(`${base}|${shelf}/${slot}/xp${firstNum}`);
-
-  return keys;
+  // We'll try both variants in the caller; just return the base numeric form
+  return `${base}|${shelf}/${slot}/${numericPort}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,18 +180,16 @@ Deno.serve(async (req) => {
     const updatePromises = [];
 
     for (const record of ontRecords) {
-      const candidateKeys = buildOntKeys(record.olt_name, record.shelf_slot_port);
-      if (candidateKeys.length === 0) {
+      const baseKey = buildOntKey(record.olt_name, record.shelf_slot_port);
+      if (!baseKey) {
         unmatched++;
         continue;
       }
 
-      // Try each candidate key until we find a match
-      let match = null;
-      for (const key of candidateKeys) {
-        match = lcpLookup.get(key);
-        if (match) break;
-      }
+      // Try numeric variant first, then xp-prefixed variant
+      const match =
+        lcpLookup.get(baseKey) ||
+        lcpLookup.get(baseKey.replace(/\/(\d+)$/, '/xp$1'));
 
       if (!match) {
         unmatched++;

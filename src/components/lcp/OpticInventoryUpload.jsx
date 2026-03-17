@@ -48,26 +48,6 @@ function normalizePort(port) {
   return port.toString().trim().replace(/^0+/, '') || '0';
 }
 
-/**
- * Parse a CSV port value which may be in combo format like "xp3-4".
- * Returns the primary XGS port number only (strips the "xp" prefix and "-#" GPON suffix).
- * Examples:
- *   "xp3-4" → "3"   (combo: xp3 is XGS, -4 is GPON — we match on "3")
- *   "xp3"   → "3"
- *   "3"     → "3"
- *   "12"    → "12"
- */
-function parseComboPort(port) {
-  if (!port) return '';
-  const trimmed = port.toString().trim();
-  // Match "xp<number>-<number>" or "xp<number>"
-  const comboMatch = trimmed.match(/^xp(\d+)(?:-\d+)?$/i);
-  if (comboMatch) {
-    return comboMatch[1]; // Return the primary port number
-  }
-  return normalizePort(trimmed);
-}
-
 function matchEntries(csvRows, lcpEntries) {
   const results = [];
 
@@ -75,11 +55,10 @@ function matchEntries(csvRows, lcpEntries) {
     const csvSystem = (row.systemName || '').trim().toLowerCase();
     const csvShelf = normalizePort(row.shelf);
     const csvSlot = normalizePort(row.slot);
-    const csvRawPort = (row.port || '').trim();
-    const csvPort = parseComboPort(csvRawPort);
+    const csvPort = normalizePort(row.port);
 
     // Find all LCP entries whose OLT info matches this CSV row.
-    // An LCP entry's olt_port can be a range like "1-4", a combo like "xp3-4", etc.
+    // An LCP entry's olt_port can be a range like "1-4", so we check if csvPort falls within it.
     const matches = lcpEntries.filter(entry => {
       const entrySystem = (entry.olt_name || '').trim().toLowerCase();
       const entryShelf = normalizePort(entry.olt_shelf);
@@ -90,28 +69,23 @@ function matchEntries(csvRows, lcpEntries) {
       if (entryShelf !== csvShelf) return false;
       if (entrySlot !== csvSlot) return false;
 
-      // Port matching: entry port could be "3", "xp3-4", "1-4", "1,2,3", etc.
+      // Port matching: entry port could be "3", "1-4", "1,2,3", etc.
       if (!entryPort) return false;
-
-      // Normalize the LCP entry port the same way (strip xp prefix and combo suffix)
-      const entryPortNorm = parseComboPort(entryPort);
       
-      // Exact match after normalization
-      if (entryPortNorm === csvPort) return true;
+      // Exact match
+      if (normalizePort(entryPort) === csvPort) return true;
       
-      // Range match: "1-4" means ports 1,2,3,4 (only for plain numeric ranges, not combo "xp3-4")
-      if (!entryPort.match(/^xp/i)) {
-        const rangeMatch = entryPort.match(/^(\d+)\s*-\s*(\d+)$/);
-        if (rangeMatch) {
-          const lo = parseInt(rangeMatch[1], 10);
-          const hi = parseInt(rangeMatch[2], 10);
-          const p = parseInt(csvPort, 10);
-          if (!isNaN(p) && p >= lo && p <= hi) return true;
-        }
+      // Range match: "1-4" means ports 1,2,3,4
+      const rangeMatch = entryPort.match(/^(\d+)\s*-\s*(\d+)$/);
+      if (rangeMatch) {
+        const lo = parseInt(rangeMatch[1], 10);
+        const hi = parseInt(rangeMatch[2], 10);
+        const p = parseInt(csvPort, 10);
+        if (!isNaN(p) && p >= lo && p <= hi) return true;
       }
 
       // Comma-separated: "1,2,3"
-      const parts = entryPort.split(',').map(s => parseComboPort(s));
+      const parts = entryPort.split(',').map(s => normalizePort(s));
       if (parts.includes(csvPort)) return true;
 
       return false;

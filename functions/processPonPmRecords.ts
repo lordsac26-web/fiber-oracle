@@ -178,33 +178,20 @@ Deno.serve(async (req) => {
       const shelf = lcp.olt_shelf.toString();
       const slot = lcp.olt_slot.toString();
       const port = lcp.olt_port.toString();
-      const cleanPort = port.replace(/^xp/i, '');
       const data = {
         lcp_number: lcp.lcp_number,
         splitter_number: lcp.splitter_number,
         location: lcp.location,
         address: lcp.address,
       };
-      // Index the raw port value as-is
       lcpLookup[`${oltName}|${shelf}/${slot}/${port}`] = data;
       lcpLookup[`${oltName}|${shelf}/${slot}/xp${port}`] = data;
-      // Handle combo/range ports like "3-4"
-      const rng = cleanPort.match(/^(\d+)-(\d+)$/);
+      const rng = port.match(/^(\d+)-(\d+)$/);
       if (rng) {
-        const start = parseInt(rng[1]), end = parseInt(rng[2]);
-        // Index combo pair format: "3-4" and "xp3-4"
-        lcpLookup[`${oltName}|${shelf}/${slot}/${start}-${end}`] = data;
-        lcpLookup[`${oltName}|${shelf}/${slot}/xp${start}-${end}`] = data;
-        // Also index individual ports in the range
-        for (let p = start; p <= end; p++) {
-          if (!lcpLookup[`${oltName}|${shelf}/${slot}/${p}`]) lcpLookup[`${oltName}|${shelf}/${slot}/${p}`] = data;
-          if (!lcpLookup[`${oltName}|${shelf}/${slot}/xp${p}`]) lcpLookup[`${oltName}|${shelf}/${slot}/xp${p}`] = data;
+        for (let p = parseInt(rng[1]); p <= parseInt(rng[2]); p++) {
+          lcpLookup[`${oltName}|${shelf}/${slot}/${p}`] = data;
+          lcpLookup[`${oltName}|${shelf}/${slot}/xp${p}`] = data;
         }
-      } else {
-        // Simple single port
-        const num = cleanPort.replace(/^xp/i, '');
-        lcpLookup[`${oltName}|${shelf}/${slot}/${num}`] = data;
-        lcpLookup[`${oltName}|${shelf}/${slot}/xp${num}`] = data;
       }
     }
 
@@ -250,24 +237,15 @@ Deno.serve(async (req) => {
           }
         }
 
-        // LCP lookup — supports combo ports like "xp3-4"
+        // LCP lookup
         const oltName = (ont.OLTName || '').toLowerCase().trim();
         const shelfSlotPort = ont['Shelf/Slot/Port'] || '';
         let lcpData = lcpLookup[`${oltName}|${shelfSlotPort}`.toLowerCase()];
         if (!lcpData && shelfSlotPort) {
-          const pm = shelfSlotPort.match(/^(\d+)\/(\d+)\/((?:xp)?(\d+)(?:-(\d+))?)$/i);
+          const pm = shelfSlotPort.match(/^(\d+)\/(\d+)\/(?:xp)?(\d+)(?:-\d+)?$/i);
           if (pm) {
-            const shelf = pm[1], slot = pm[2], firstNum = pm[4], secondNum = pm[5];
-            // Try combo pair format first (e.g. "xp3-4" → "3-4")
-            if (secondNum) {
-              lcpData = lcpLookup[`${oltName}|${shelf}/${slot}/${firstNum}-${secondNum}`]
-                     || lcpLookup[`${oltName}|${shelf}/${slot}/xp${firstNum}-${secondNum}`];
-            }
-            // Fall back to individual port number
-            if (!lcpData) {
-              lcpData = lcpLookup[`${oltName}|${shelf}/${slot}/${firstNum}`]
-                     || lcpLookup[`${oltName}|${shelf}/${slot}/xp${firstNum}`];
-            }
+            lcpData = lcpLookup[`${oltName}|${pm[1]}/${pm[2]}/${pm[3]}`]
+                   || lcpLookup[`${oltName}|${pm[1]}/${pm[2]}/xp${pm[3]}`];
           }
         }
 

@@ -4,11 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -18,15 +13,11 @@ import {
   MapPin,
   Activity,
   AlertTriangle,
-  AlertCircle,
   CheckCircle2,
   Search,
   Navigation,
   TrendingDown,
   Loader2,
-  ChevronDown,
-  ChevronRight,
-  WifiOff,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -34,9 +25,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 
 export default function LCPSummarySection({ result, onPortClick }) {
-  const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterGroup, setFilterGroup] = useState('all');
   const [selectedLCP, setSelectedLCP] = useState(null);
 
   // Fetch LCP entries from database
@@ -131,40 +120,15 @@ export default function LCPSummarySection({ result, onPortClick }) {
       .sort((a, b) => b.issueRate - a.issueRate);
   }, [result, lcpEntries]);
 
-  // Filter LCPs by group and search
+  // Filter LCPs
   const filteredLCPs = useMemo(() => {
-    let filtered = lcpData;
-
-    // Apply group filter
-    if (filterGroup === 'critical') {
-      filtered = filtered.filter(lcp => lcp.critical > 0);
-    } else if (filterGroup === 'warnings') {
-      filtered = filtered.filter(lcp => lcp.warning > 0);
-    } else if (filterGroup === 'offline') {
-      filtered = filtered.filter(lcp => lcp.offline > 0);
-      // Sort by offline percentage descending
-      filtered = [...filtered].sort((a, b) => (b.offline / b.ontCount) - (a.offline / a.ontCount));
-    }
-
-    // Apply search
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(lcp => 
-        lcp.lcpNumber?.toLowerCase().includes(term) ||
-        lcp.location?.toLowerCase().includes(term)
-      );
-    }
-
-    return filtered;
-  }, [lcpData, searchTerm, filterGroup]);
-
-  // Summary counts for filter tabs
-  const groupCounts = useMemo(() => ({
-    all: lcpData.length,
-    critical: lcpData.filter(l => l.critical > 0).length,
-    warnings: lcpData.filter(l => l.warning > 0).length,
-    offline: lcpData.filter(l => l.offline > 0).length,
-  }), [lcpData]);
+    if (!searchTerm) return lcpData;
+    const term = searchTerm.toLowerCase();
+    return lcpData.filter(lcp => 
+      lcp.lcpNumber?.toLowerCase().includes(term) ||
+      lcp.location?.toLowerCase().includes(term)
+    );
+  }, [lcpData, searchTerm]);
 
   const getHealthColor = (lcp) => {
     if (lcp.critical > 0) return 'border-red-300 bg-red-50';
@@ -190,79 +154,28 @@ export default function LCPSummarySection({ result, onPortClick }) {
   }
 
   return (
-    <>
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-    <Card className="border-0 shadow">
-      <CollapsibleTrigger className="w-full">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-              <MapPin className="h-5 w-5 text-blue-600" />
-              <h3 className="text-lg font-semibold">LCP Overview</h3>
-              <Badge variant="outline">{lcpData.length} LCPs</Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              {groupCounts.critical > 0 && (
-                <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">
-                  <AlertCircle className="h-3 w-3 mr-1" />
-                  {groupCounts.critical}
-                </Badge>
-              )}
-              {groupCounts.warnings > 0 && (
-                <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  {groupCounts.warnings}
-                </Badge>
-              )}
-              {groupCounts.offline > 0 && (
-                <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
-                  <WifiOff className="h-3 w-3 mr-1" />
-                  {groupCounts.offline}
-                </Badge>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </CollapsibleTrigger>
+    <div className="space-y-4">
+      {/* Header and Search */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">LCP Overview</h3>
+          <Badge variant="outline">{lcpData.length} LCPs</Badge>
+        </div>
+        <div className="flex-1 max-w-xs relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search LCP..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
 
-      <CollapsibleContent>
-        <div className="px-4 pb-4 space-y-4">
-          {/* Filter Tabs + Search */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex border rounded-lg overflow-hidden">
-              {[
-                { key: 'critical', label: 'Critical', count: groupCounts.critical, color: 'text-red-700' },
-                { key: 'offline', label: 'Offline %', count: groupCounts.offline, color: 'text-purple-700' },
-                { key: 'warnings', label: 'Warnings', count: groupCounts.warnings, color: 'text-amber-700' },
-                { key: 'all', label: 'All', count: groupCounts.all, color: '' },
-              ].map(tab => (
-                <Button
-                  key={tab.key}
-                  variant={filterGroup === tab.key ? 'default' : 'ghost'}
-                  size="sm"
-                  className="rounded-none text-xs"
-                  onClick={() => setFilterGroup(tab.key)}
-                >
-                  <span className={filterGroup !== tab.key ? tab.color : ''}>{tab.label}</span>
-                  <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">{tab.count}</Badge>
-                </Button>
-              ))}
-            </div>
-            <div className="flex-1 max-w-xs relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search LCP..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          {/* LCP Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {filteredLCPs.map((lcp, idx) => (
+      {/* LCP Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {filteredLCPs.map((lcp, idx) => (
           <Card 
             key={idx} 
             className={`border-2 cursor-pointer hover:shadow-lg transition-all ${getHealthColor(lcp)}`}
@@ -305,19 +218,13 @@ export default function LCPSummarySection({ result, onPortClick }) {
                     {lcp.warning} Warning
                   </Badge>
                 )}
-                {lcp.offline > 0 && (
-                  <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-[10px] px-1.5">
-                    <WifiOff className="h-3 w-3 mr-0.5" />
-                    {lcp.offline} ({((lcp.offline / lcp.ontCount) * 100).toFixed(0)}%)
-                  </Badge>
-                )}
                 {lcp.degrading > 0 && (
                   <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px] px-1.5">
                     <TrendingDown className="h-3 w-3 mr-0.5" />
                     {lcp.degrading}
                   </Badge>
                 )}
-                {lcp.critical === 0 && lcp.warning === 0 && lcp.degrading === 0 && lcp.offline === 0 && (
+                {lcp.critical === 0 && lcp.warning === 0 && lcp.degrading === 0 && (
                   <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">
                     Healthy
                   </Badge>
@@ -326,19 +233,16 @@ export default function LCPSummarySection({ result, onPortClick }) {
             </CardContent>
           </Card>
         ))}
-          {filteredLCPs.length === 0 && (
-            <Card className="border-dashed col-span-full">
-              <CardContent className="p-8 text-center text-gray-500">
-                <MapPin className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                <p>No LCPs found{filterGroup !== 'all' ? ` with ${filterGroup} status` : ' matching your search'}</p>
-              </CardContent>
-            </Card>
-          )}
-          </div>
-        </div>
-      </CollapsibleContent>
-    </Card>
-    </Collapsible>
+      </div>
+
+      {filteredLCPs.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="p-8 text-center text-gray-500">
+            <MapPin className="h-12 w-12 mx-auto mb-2 opacity-30" />
+            <p>No LCPs found matching your search</p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* LCP Detail Dialog */}
       <Dialog open={!!selectedLCP} onOpenChange={() => setSelectedLCP(null)}>
@@ -352,6 +256,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
 
           {selectedLCP && (
             <div className="space-y-4">
+              {/* LCP Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Card className="border">
                   <CardContent className="p-3 text-center">
@@ -382,6 +287,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </Card>
               </div>
 
+              {/* Location Info */}
               <Card className="border">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
@@ -401,6 +307,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </CardContent>
               </Card>
 
+              {/* Map */}
               {selectedLCP.hasGPS && (
                 <Card className="border overflow-hidden">
                   <div style={{ height: '300px', width: '100%' }}>
@@ -426,6 +333,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </Card>
               )}
 
+              {/* Ports Served */}
               <Card className="border">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -456,6 +364,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </CardContent>
               </Card>
 
+              {/* Health Distribution */}
               <Card className="border">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm">Health Distribution</CardTitle>
@@ -466,7 +375,10 @@ export default function LCPSummarySection({ result, onPortClick }) {
                       <span className="text-sm text-gray-600">Healthy</span>
                       <div className="flex items-center gap-2">
                         <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500" style={{ width: `${(selectedLCP.ok / selectedLCP.ontCount * 100)}%` }} />
+                          <div 
+                            className="h-full bg-green-500" 
+                            style={{ width: `${(selectedLCP.ok / selectedLCP.ontCount * 100)}%` }}
+                          />
                         </div>
                         <span className="text-sm font-mono w-12 text-right">{selectedLCP.ok}</span>
                       </div>
@@ -475,7 +387,10 @@ export default function LCPSummarySection({ result, onPortClick }) {
                       <span className="text-sm text-gray-600">Warning</span>
                       <div className="flex items-center gap-2">
                         <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-amber-500" style={{ width: `${(selectedLCP.warning / selectedLCP.ontCount * 100)}%` }} />
+                          <div 
+                            className="h-full bg-amber-500" 
+                            style={{ width: `${(selectedLCP.warning / selectedLCP.ontCount * 100)}%` }}
+                          />
                         </div>
                         <span className="text-sm font-mono w-12 text-right">{selectedLCP.warning}</span>
                       </div>
@@ -484,7 +399,10 @@ export default function LCPSummarySection({ result, onPortClick }) {
                       <span className="text-sm text-gray-600">Critical</span>
                       <div className="flex items-center gap-2">
                         <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-red-500" style={{ width: `${(selectedLCP.critical / selectedLCP.ontCount * 100)}%` }} />
+                          <div 
+                            className="h-full bg-red-500" 
+                            style={{ width: `${(selectedLCP.critical / selectedLCP.ontCount * 100)}%` }}
+                          />
                         </div>
                         <span className="text-sm font-mono w-12 text-right">{selectedLCP.critical}</span>
                       </div>
@@ -496,6 +414,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
