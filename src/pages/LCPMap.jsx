@@ -199,7 +199,7 @@ export default function LCPMap() {
 
   const { data: lcpEntries = [], isLoading: isLoadingLcpEntries } = useQuery({
     queryKey: ['lcpEntries'],
-    queryFn: () => base44.entities.LCPEntry.list('-created_date'),
+    queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
   });
 
   const { data: latestReports = [], isLoading: isLoadingReports } = useQuery({
