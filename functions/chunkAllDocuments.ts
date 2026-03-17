@@ -82,9 +82,23 @@ async function processOneDocument(base44, docId, title) {
     await base44.asServiceRole.entities.DocumentChunk.delete(old.id);
   }
 
-  // Store in batches
+  // Store in batches with rate limit handling
   for (let i = 0; i < chunks.length; i += 20) {
-    await base44.asServiceRole.entities.DocumentChunk.bulkCreate(chunks.slice(i, i + 20));
+    let retries = 0;
+    while (retries < 3) {
+      try {
+        await base44.asServiceRole.entities.DocumentChunk.bulkCreate(chunks.slice(i, i + 20));
+        break;
+      } catch (e) {
+        if (e.message?.includes('Rate limit') && retries < 2) {
+          retries++;
+          console.warn(`[chunkAll]   Rate limited, waiting ${retries * 2}s...`);
+          await new Promise(r => setTimeout(r, retries * 2000));
+        } else {
+          throw e;
+        }
+      }
+    }
   }
 
   // Update doc metadata
@@ -140,11 +154,17 @@ Deno.serve(async (req) => {
         consecutiveErrors = 0;
         if (docIndex.length > 300) break;
       } catch (e) {
-        // Some docs are so large even 1-at-a-time fails to parse
-        // Skip them and continue
-        console.warn(`[chunkAll] Skip offset ${offset}: ${e.message.substring(0, 80)}`);
-        consecutiveErrors++;
-        offset++;
+        const msg = e.message || '';
+        if (msg.includes('Rate limit')) {
+          // Wait and retry same offset
+          await new Promise(r => setTimeout(r, 2000));
+          consecutiveErrors++;
+        } else {
+          // Parse error or other — skip this offset
+          console.warn(`[chunkAll] Skip offset ${offset}: ${msg.substring(0, 80)}`);
+          consecutiveErrors++;
+          offset++;
+        }
       }
     }
 
