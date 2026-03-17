@@ -10,6 +10,32 @@
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
+// Mirror of parsePonPm's detectTechTypeFromModel
+function detectTechType(model) {
+  if (!model) return null;
+  const m = model.toUpperCase().trim().replace(/\s/g, '');
+  const xgsModels = ['GP1101X', 'GP4201X', 'GP4201XH', 'DZS522', '522X', 'DZS522X', 'DZS522XX', 'DZS522XG'];
+  const gponModels = ['711GE', '717GE', '725G', '725GE', '725GX', '725'];
+  for (const x of xgsModels) if (m.includes(x)) return 'XGS-PON';
+  for (const g of gponModels) if (m.includes(g)) return 'GPON';
+  return null;
+}
+
+// Mirror of parsePonPm's detectComboPort
+function detectComboPort(shelfSlotPort) {
+  if (!shelfSlotPort) return { isCombo: false, techType: null, comboLabel: null };
+  const comboMatch = shelfSlotPort.match(/(?:xp)?(\d+)-(\d+)$/i);
+  if (comboMatch) {
+    const port1 = parseInt(comboMatch[1]);
+    return {
+      isCombo: true,
+      techType: port1 % 2 === 1 ? 'XGS-PON (combo odd)' : 'GPON (combo even)',
+      comboLabel: `Combo ${comboMatch[1]}-${comboMatch[2]}`,
+    };
+  }
+  return { isCombo: false, techType: null, comboLabel: null };
+}
+
 // Thresholds (must mirror parsePonPm / processPonPmRecords)
 const THRESHOLDS = {
   OntRxOptPwr:  { low: -27, marginal: -25, high: -8 },
