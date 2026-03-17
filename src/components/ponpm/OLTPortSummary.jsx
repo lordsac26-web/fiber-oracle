@@ -478,19 +478,19 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                     }`}>
                       {selectedPort.avgOntRx?.toFixed(1) || 'N/A'}
                     </div>
-                    <div className="text-xs text-gray-500">Avg ONT Rx (dBm)</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Avg ONT Rx (dBm)</div>
                   </CardContent>
                 </Card>
                 <Card className="border">
                   <CardContent className="p-3 text-center">
-                    <div className="text-xl font-bold">{selectedPort.avgOltRx?.toFixed(1) || 'N/A'}</div>
-                    <div className="text-xs text-gray-500">Avg OLT Rx (dBm)</div>
+                    <div className="text-xl font-bold text-gray-900 dark:text-white">{selectedPort.avgOltRx?.toFixed(1) || 'N/A'}</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Avg OLT Rx (dBm)</div>
                   </CardContent>
                 </Card>
                 <Card className="border">
                   <CardContent className="p-3 text-center">
                     <div className="text-xl font-bold text-amber-600">{selectedPort.degradingCount}</div>
-                    <div className="text-xs text-gray-500">Degrading</div>
+                    <div className="text-xs text-gray-600 dark:text-gray-400">Degrading</div>
                   </CardContent>
                 </Card>
               </div>
