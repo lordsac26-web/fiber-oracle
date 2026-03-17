@@ -564,7 +564,7 @@ export default function HistoricalTrends({ reports, onClose }) {
                   <div className="text-2xl font-bold text-purple-600">
                     {allAnomalies.length}
                   </div>
-                  <div className="text-xs text-purple-700">Anomalies Detected</div>
+                  <div className="text-xs text-purple-700 dark:text-purple-300">Anomalies Detected</div>
                 </CardContent>
               </Card>
               <Card className="border">
@@ -572,7 +572,7 @@ export default function HistoricalTrends({ reports, onClose }) {
                   <div className="text-2xl font-bold text-green-600">
                     {allOnts.length > 0 ? allOnts.length - degradingOnts.length : 0}
                   </div>
-                  <div className="text-xs text-gray-500">Stable</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Stable</div>
                 </CardContent>
               </Card>
             </div>
