@@ -31,7 +31,11 @@ Deno.serve(async (req) => {
 
     let allDocs;
     try {
-      allDocs = await base44.asServiceRole.entities.ReferenceDocument.filter(docFilter);
+      allDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 100);
+      // Post-filter for active docs since .filter() crashes the isolate with large content fields
+      allDocs = allDocs.filter(d => d.is_active);
+      if (docFilter.category) allDocs = allDocs.filter(d => d.category === docFilter.category);
+      if (docFilter.source_type) allDocs = allDocs.filter(d => d.source_type === docFilter.source_type);
       console.log('[search] Found', allDocs.length, 'docs');
     } catch (fetchErr) {
       console.error('[search] Failed to fetch docs:', fetchErr.message);
