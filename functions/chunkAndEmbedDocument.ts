@@ -39,11 +39,14 @@ function extractKeywords(text) {
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   try {
-    const { document_id, _service_call } = await req.json();
+    const payload = await req.json();
+    const document_id = payload?.document_id || payload?.event?.entity_id || payload?.data?.id || null;
+    const isAutomationCall = payload?.event?.entity_name === 'ReferenceDocument';
+    const isServiceCall = payload?._service_call || isAutomationCall;
     
-    // Allow service-role calls from chunkAllDocuments (they pass _service_call flag)
-    // Otherwise require admin auth
-    if (!_service_call) {
+    // Allow service/automation calls without admin auth.
+    // Otherwise require admin auth for manual invocations.
+    if (!isServiceCall) {
       const user = await base44.auth.me();
       if (!user || user.role !== 'admin') {
         return Response.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });
@@ -52,6 +55,10 @@ Deno.serve(async (req) => {
 
     if (!document_id) {
       return Response.json({ error: 'document_id is required' }, { status: 400 });
+    }
+
+    if (isAutomationCall && payload?.event?.type === 'delete') {
+      return Response.json({ success: true, skipped: true, reason: 'delete events are not chunked' });
     }
 
     // Fetch document by ID (single doc fetch works fine even for large content)
