@@ -82,18 +82,23 @@ async function processOneDocument(base44, docId, title) {
     await base44.asServiceRole.entities.DocumentChunk.delete(old.id);
   }
 
-  // Store in batches with rate limit handling
-  for (let i = 0; i < chunks.length; i += 20) {
+  // Store in batches of 10 with rate limit handling and delays
+  for (let i = 0; i < chunks.length; i += 10) {
     let retries = 0;
-    while (retries < 3) {
+    while (retries < 5) {
       try {
-        await base44.asServiceRole.entities.DocumentChunk.bulkCreate(chunks.slice(i, i + 20));
+        await base44.asServiceRole.entities.DocumentChunk.bulkCreate(chunks.slice(i, i + 10));
+        // Small delay between batches to avoid rate limits
+        if (i + 10 < chunks.length) {
+          await new Promise(r => setTimeout(r, 500));
+        }
         break;
       } catch (e) {
-        if (e.message?.includes('Rate limit') && retries < 2) {
+        if (e.message?.includes('Rate limit') && retries < 4) {
           retries++;
-          console.warn(`[chunkAll]   Rate limited, waiting ${retries * 2}s...`);
-          await new Promise(r => setTimeout(r, retries * 2000));
+          const delay = retries * 3000;
+          console.warn(`[chunkAll]   Rate limited, waiting ${delay/1000}s (retry ${retries}/4)...`);
+          await new Promise(r => setTimeout(r, delay));
         } else {
           throw e;
         }
@@ -119,7 +124,7 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const forceRechunk = body.force || false;
-    const batchSize = body.batch_size || 5;
+    const batchSize = body.batch_size || 1; // Default to 1 to avoid rate limits
     const skipCount = body.skip || 0;
 
     console.log(`[chunkAll] Starting. skip=${skipCount}, batch=${batchSize}, force=${forceRechunk}`);
