@@ -45,7 +45,15 @@ function parseCSVLine(line, delimiter) {
 
 function normalizePort(port) {
   if (!port) return '';
-  return port.toString().trim().replace(/^0+/, '') || '0';
+
+  return port
+    .toString()
+    .trim()
+    .toLowerCase()
+    .split('/')
+    .pop()
+    .replace(/^xp/i, '')
+    .replace(/^0+/, '') || '0';
 }
 
 function matchEntries(csvRows, lcpEntries) {
@@ -64,30 +72,24 @@ function matchEntries(csvRows, lcpEntries) {
       const entrySystem = (entry.olt_name || '').trim().toLowerCase();
       const entryShelf = normalizePort(entry.olt_shelf);
       const entrySlot = normalizePort(entry.olt_slot);
-      const entryPort = (entry.olt_port || '').trim();
+      const entryPort = normalizePort(entry.olt_port);
 
       if (entrySystem !== csvSystem) return false;
       if (entryShelf !== csvShelf) return false;
       if (entrySlot !== csvSlot) return false;
       if (!entryPort) return false;
 
-      // Strip xp prefix for numeric comparison
-      const numericEntryPort = entryPort.replace(/^xp/i, '');
-      
-      // Exact match (after stripping xp)
-      if (normalizePort(numericEntryPort) === csvPort) return true;
-      
-      // Range match: "3-4", "xp3-4", "1-8" → expand to individual ports
-      const rangeMatch = numericEntryPort.match(/^(\d+)\s*-\s*(\d+)$/);
+      if (entryPort === csvPort) return true;
+
+      const rangeMatch = entryPort.match(/^(\d+)\s*-\s*(\d+)$/);
       if (rangeMatch) {
         const lo = parseInt(rangeMatch[1], 10);
         const hi = parseInt(rangeMatch[2], 10);
         const p = parseInt(csvPort, 10);
-        if (!isNaN(p) && p >= lo && p <= hi) return true;
+        if (!Number.isNaN(p) && p >= lo && p <= hi) return true;
       }
 
-      // Comma-separated: "1,2,3"
-      const parts = numericEntryPort.split(',').map(s => normalizePort(s));
+      const parts = entryPort.split(',').map(part => normalizePort(part));
       if (parts.includes(csvPort)) return true;
 
       return false;
