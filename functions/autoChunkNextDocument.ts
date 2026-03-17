@@ -131,14 +131,30 @@ Deno.serve(async (req) => {
     try {
       const raw = await base44.asServiceRole.entities.DocumentChunk.filter({ document_id: targetDoc.id });
       let existingChunks;
-      if (typeof raw === 'string') existingChunks = JSON.parse(raw);
-      else if (Array.isArray(raw)) existingChunks = raw;
-      else existingChunks = [];
-
-      for (const old of existingChunks) {
-        await base44.asServiceRole.entities.DocumentChunk.delete(old.id);
+      if (typeof raw === 'string') {
+        try { existingChunks = JSON.parse(raw); } catch { existingChunks = []; }
+      } else if (Array.isArray(raw)) {
+        existingChunks = raw;
+      } else {
+        existingChunks = [];
       }
-    } catch (e) { /* no old chunks */ }
+
+      if (existingChunks.length > 0) {
+        console.log(`[autoChunk] Deleting ${existingChunks.length} old chunks for "${targetDoc.title}"`);
+        for (const old of existingChunks) {
+          try {
+            await base44.asServiceRole.entities.DocumentChunk.delete(old.id);
+          } catch (delErr) {
+            if (delErr.message?.includes('Rate limit')) {
+              await new Promise(r => setTimeout(r, 2000));
+              await base44.asServiceRole.entities.DocumentChunk.delete(old.id);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[autoChunk] Could not clear old chunks:', e.message);
+    }
 
     // Store chunks with aggressive rate limit handling
     let storedCount = 0;
