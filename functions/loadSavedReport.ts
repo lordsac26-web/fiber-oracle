@@ -154,6 +154,18 @@ Deno.serve(async (req) => {
 
     console.log(`[loadSavedReport] Loaded ${allRecords.length} ONT records for report ${report_id}`);
 
+    // Deduplicate by serial_number + shelf_slot_port in case processPonPmRecords ran twice
+    const seen = new Set();
+    allRecords = allRecords.filter(rec => {
+      const key = `${rec.serial_number}|${rec.shelf_slot_port}|${rec.ont_id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (allRecords.length !== seen.size) {
+      console.log(`[loadSavedReport] Deduplicated to ${allRecords.length} unique records`);
+    }
+
     if (allRecords.length === 0) {
       // Records not yet indexed — fall back with an error so the UI can retry via parsePonPm
       return Response.json({ error: 'NO_RECORDS', message: 'ONT records not yet indexed for this report.' }, { status: 404 });
