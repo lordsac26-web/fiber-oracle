@@ -192,29 +192,29 @@ export default function KPIStatistics({ result, filteredOnts }) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+            <div className="text-center p-2 bg-gray-100 dark:bg-gray-800 rounded">
               <div className="text-lg font-bold text-gray-900 dark:text-white">
                 {stats.totalUsBip.toLocaleString()}
               </div>
-              <div className="text-[10px] text-gray-500">US BIP Errors</div>
+              <div className="text-[10px] text-gray-600 dark:text-gray-400">US BIP Errors</div>
             </div>
-            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+            <div className="text-center p-2 bg-gray-100 dark:bg-gray-800 rounded">
               <div className="text-lg font-bold text-gray-900 dark:text-white">
                 {stats.totalDsBip.toLocaleString()}
               </div>
-              <div className="text-[10px] text-gray-500">DS BIP Errors</div>
+              <div className="text-[10px] text-gray-600 dark:text-gray-400">DS BIP Errors</div>
             </div>
-            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+            <div className="text-center p-2 bg-gray-100 dark:bg-gray-800 rounded">
               <div className="text-lg font-bold text-gray-900 dark:text-white">
                 {stats.totalUsFec.toLocaleString()}
               </div>
-              <div className="text-[10px] text-gray-500">US FEC Uncorrected</div>
+              <div className="text-[10px] text-gray-600 dark:text-gray-400">US FEC Uncorrected</div>
             </div>
-            <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+            <div className="text-center p-2 bg-gray-100 dark:bg-gray-800 rounded">
               <div className="text-lg font-bold text-gray-900 dark:text-white">
                 {stats.totalDsFec.toLocaleString()}
               </div>
-              <div className="text-[10px] text-gray-500">DS FEC Uncorrected</div>
+              <div className="text-[10px] text-gray-600 dark:text-gray-400">DS FEC Uncorrected</div>
             </div>
           </div>
         </CardContent>
