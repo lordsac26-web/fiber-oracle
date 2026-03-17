@@ -190,6 +190,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
   }
 
   return (
+    <>
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
     <Card className="border-0 shadow">
       <CollapsibleTrigger className="w-full">
