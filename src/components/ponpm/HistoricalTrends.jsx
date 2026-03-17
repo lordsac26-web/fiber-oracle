@@ -742,7 +742,7 @@ export default function HistoricalTrends({ reports, onClose }) {
                         >
                           Previous
                         </Button>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">
                           Page {currentPage} of {totalPages}
                         </span>
                         <Button 
