@@ -1,10 +1,10 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-const CHUNK_SIZE_CHARS = 2000;
-const CHUNK_OVERLAP_CHARS = 200;
+const CHUNK_SIZE = 2000;
+const OVERLAP = 200;
 
 function extractKeywords(text) {
-  const stopWords = new Set([
+  const stops = new Set([
     'the','be','to','of','and','a','in','that','have','i','it','for','not','on',
     'with','he','as','you','do','at','this','but','his','by','from','they','we',
     'say','her','she','or','an','will','my','one','all','would','there','their',
@@ -16,53 +16,66 @@ function extractKeywords(text) {
     'these','give','day','most','us','are','was','were','been','has','had','is',
     'may','should','shall','must','each','such','very','more','per','etc','via'
   ]);
-  const words = text.toLowerCase().replace(/[^a-z0-9\s\-\.]/g, ' ').split(/\s+/)
-    .filter(w => w.length > 2 && !stopWords.has(w));
+  const words = text.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+    .filter(w => w.length > 2 && !stops.has(w));
   const freq = {};
   for (const w of words) freq[w] = (freq[w] || 0) + 1;
   return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 50).map(([w]) => w).join(' ');
 }
 
-/**
- * autoChunkNextDocument — Finds the next unchunked document and processes it.
- * Designed to be called by a scheduled automation every 5 minutes.
- * Processes exactly 1 document per invocation to stay within rate limits.
- * 
- * NOTE: Scheduled automations have NO user context, so we skip auth.me()
- * and use asServiceRole for all entity operations.
- */
-Deno.serve(async (req) => {
-  let base44;
-  try {
-    base44 = createClientFromRequest(req);
-  } catch (initErr) {
-    console.error('[autoChunk] SDK init error:', initErr.message);
-    return Response.json({ error: 'SDK init failed: ' + initErr.message }, { status: 500 });
+function chunkText(content) {
+  const chunks = [];
+  let start = 0;
+  let idx = 0;
+  while (start < content.length) {
+    const end = Math.min(start + CHUNK_SIZE, content.length);
+    let actual = end;
+    if (end < content.length) {
+      const para = content.lastIndexOf('\n\n', end);
+      if (para > start + CHUNK_SIZE * 0.5) {
+        actual = para + 2;
+      } else {
+        const sent = content.lastIndexOf('. ', end);
+        if (sent > start + CHUNK_SIZE * 0.5) actual = sent + 2;
+      }
+    }
+    const text = content.substring(start, actual).trim();
+    if (text.length > 10) {
+      chunks.push({ index: idx, text });
+      idx++;
+    }
+    start = actual - OVERLAP;
+    if (start >= content.length - OVERLAP) break;
   }
+  return chunks;
+}
+
+Deno.serve(async (req) => {
+  console.log('[autoChunk] Function invoked');
+  const base44 = createClientFromRequest(req);
+
   try {
-    // Find next unchunked document by scanning in batches
-    // We fetch lightweight metadata only (no content field) to avoid JSON parse failures
+    // Scan for next unchunked document using service role
     let targetDoc = null;
     let offset = 0;
     let scanned = 0;
 
     while (!targetDoc && offset < 500) {
-      let docs;
+      let docs = [];
       try {
         const raw = await base44.asServiceRole.entities.ReferenceDocument.list('created_date', 50, offset);
         if (typeof raw === 'string') {
           try { docs = JSON.parse(raw); } catch { docs = []; }
         } else if (Array.isArray(raw)) {
           docs = raw;
-        } else {
-          docs = [];
         }
       } catch (e) {
-        if (e.message?.includes('Rate limit')) {
+        if (e.message && e.message.includes('Rate limit')) {
+          console.warn('[autoChunk] Rate limited during scan, waiting 3s...');
           await new Promise(r => setTimeout(r, 3000));
           continue;
         }
-        console.warn(`[autoChunk] List error at offset ${offset}:`, e.message);
+        console.warn('[autoChunk] Scan error at offset ' + offset + ':', e.message);
         offset += 50;
         continue;
       }
@@ -71,7 +84,11 @@ Deno.serve(async (req) => {
       scanned += docs.length;
 
       for (const doc of docs) {
-        if (doc.is_active !== false && doc.content && doc.content.length > 20 && !doc.metadata?.chunked_at) {
+        const needsChunking = doc.is_active !== false
+          && doc.content
+          && doc.content.length > 20
+          && !(doc.metadata && doc.metadata.chunked_at);
+        if (needsChunking) {
           targetDoc = doc;
           break;
         }
@@ -81,77 +98,42 @@ Deno.serve(async (req) => {
     }
 
     if (!targetDoc) {
-      console.log(`[autoChunk] No unchunked documents found after scanning ${scanned} docs.`);
-      return Response.json({
-        status: 'complete',
-        message: 'All documents are chunked.',
-        scanned
-      });
+      console.log('[autoChunk] All documents chunked. Scanned: ' + scanned);
+      return Response.json({ status: 'complete', message: 'All documents are chunked.', scanned });
     }
 
-    console.log(`[autoChunk] Processing "${targetDoc.title}" (${targetDoc.content.length} chars)`);
+    console.log('[autoChunk] Processing: "' + targetDoc.title + '" (' + targetDoc.content.length + ' chars)');
 
-    // Chunk the content
-    const content = targetDoc.content;
-    const chunks = [];
-    let startPos = 0;
-    let chunkIndex = 0;
-
-    while (startPos < content.length) {
-      const endPos = Math.min(startPos + CHUNK_SIZE_CHARS, content.length);
-      let actualEnd = endPos;
-      if (endPos < content.length) {
-        const paraBreak = content.lastIndexOf('\n\n', endPos);
-        if (paraBreak > startPos + CHUNK_SIZE_CHARS * 0.5) {
-          actualEnd = paraBreak + 2;
-        } else {
-          const sentBreak = content.lastIndexOf('. ', endPos);
-          if (sentBreak > startPos + CHUNK_SIZE_CHARS * 0.5) actualEnd = sentBreak + 2;
-        }
+    // Create chunks
+    const rawChunks = chunkText(targetDoc.content);
+    const chunkRecords = rawChunks.map(c => ({
+      document_id: targetDoc.id,
+      document_title: targetDoc.title,
+      document_category: targetDoc.category || 'uncategorized',
+      chunk_index: c.index,
+      content: c.text,
+      keywords: extractKeywords(c.text),
+      token_count: Math.ceil(c.text.length / 4),
+      metadata: {
+        source_type: targetDoc.source_type,
+        source_url: targetDoc.source_url,
+        tags: targetDoc.tags || []
       }
-      const chunkContent = content.substring(startPos, actualEnd).trim();
-      if (chunkContent.length > 10) {
-        chunks.push({
-          document_id: targetDoc.id,
-          document_title: targetDoc.title,
-          document_category: targetDoc.category || 'uncategorized',
-          chunk_index: chunkIndex,
-          content: chunkContent,
-          keywords: extractKeywords(chunkContent),
-          token_count: Math.ceil(chunkContent.length / 4),
-          metadata: {
-            source_type: targetDoc.source_type,
-            source_url: targetDoc.source_url,
-            tags: targetDoc.tags || []
-          }
-        });
-        chunkIndex++;
-      }
-      startPos = actualEnd - CHUNK_OVERLAP_CHARS;
-      if (startPos >= content.length - CHUNK_OVERLAP_CHARS) break;
-    }
+    }));
 
-    console.log(`[autoChunk] Created ${chunks.length} chunks`);
+    console.log('[autoChunk] Created ' + chunkRecords.length + ' chunks');
 
-    // Delete any existing chunks for this doc
+    // Delete existing chunks for this document
     try {
-      const raw = await base44.asServiceRole.entities.DocumentChunk.filter({ document_id: targetDoc.id });
-      let existingChunks;
-      if (typeof raw === 'string') {
-        try { existingChunks = JSON.parse(raw); } catch { existingChunks = []; }
-      } else if (Array.isArray(raw)) {
-        existingChunks = raw;
-      } else {
-        existingChunks = [];
-      }
-
-      if (existingChunks.length > 0) {
-        console.log(`[autoChunk] Deleting ${existingChunks.length} old chunks for "${targetDoc.title}"`);
-        for (const old of existingChunks) {
+      const existing = await base44.asServiceRole.entities.DocumentChunk.filter({ document_id: targetDoc.id });
+      const oldChunks = Array.isArray(existing) ? existing : [];
+      if (oldChunks.length > 0) {
+        console.log('[autoChunk] Removing ' + oldChunks.length + ' old chunks');
+        for (const old of oldChunks) {
           try {
             await base44.asServiceRole.entities.DocumentChunk.delete(old.id);
-          } catch (delErr) {
-            if (delErr.message?.includes('Rate limit')) {
+          } catch (de) {
+            if (de.message && de.message.includes('Rate limit')) {
               await new Promise(r => setTimeout(r, 2000));
               await base44.asServiceRole.entities.DocumentChunk.delete(old.id);
             }
@@ -159,28 +141,28 @@ Deno.serve(async (req) => {
         }
       }
     } catch (e) {
-      console.warn('[autoChunk] Could not clear old chunks:', e.message);
+      console.warn('[autoChunk] Old chunk cleanup error:', e.message);
     }
 
-    // Store chunks with aggressive rate limit handling
-    let storedCount = 0;
-    for (let i = 0; i < chunks.length; i += 10) {
+    // Store new chunks in batches of 10
+    let stored = 0;
+    for (let i = 0; i < chunkRecords.length; i += 10) {
+      const batch = chunkRecords.slice(i, i + 10);
       let retries = 0;
       while (retries < 6) {
         try {
-          await base44.asServiceRole.entities.DocumentChunk.bulkCreate(chunks.slice(i, i + 10));
-          storedCount += Math.min(10, chunks.length - i);
-          // Delay between batches
+          await base44.asServiceRole.entities.DocumentChunk.bulkCreate(batch);
+          stored += batch.length;
           await new Promise(r => setTimeout(r, 800));
           break;
         } catch (e) {
-          if (e.message?.includes('Rate limit') && retries < 5) {
+          if (e.message && e.message.includes('Rate limit') && retries < 5) {
             retries++;
-            const delay = retries * 3000;
-            console.warn(`[autoChunk] Rate limited, waiting ${delay/1000}s (retry ${retries}/5)...`);
-            await new Promise(r => setTimeout(r, delay));
+            const wait = retries * 3000;
+            console.warn('[autoChunk] Rate limited storing batch, waiting ' + (wait/1000) + 's (retry ' + retries + '/5)');
+            await new Promise(r => setTimeout(r, wait));
           } else {
-            console.error(`[autoChunk] Failed to store batch at index ${i}:`, e.message);
+            console.error('[autoChunk] Failed batch at ' + i + ':', e.message);
             throw e;
           }
         }
@@ -188,28 +170,26 @@ Deno.serve(async (req) => {
     }
 
     // Mark document as chunked
-    await base44.asServiceRole.entities.ReferenceDocument.update(targetDoc.id, {
-      metadata: {
-        ...targetDoc.metadata,
-        chunk_count: chunks.length,
-        chunked_at: new Date().toISOString(),
-        total_chars: content.length
-      }
+    const updatedMeta = Object.assign({}, targetDoc.metadata || {}, {
+      chunk_count: chunkRecords.length,
+      chunked_at: new Date().toISOString(),
+      total_chars: targetDoc.content.length
     });
+    await base44.asServiceRole.entities.ReferenceDocument.update(targetDoc.id, { metadata: updatedMeta });
 
-    console.log(`[autoChunk] Done: "${targetDoc.title}" -> ${storedCount} chunks stored`);
+    console.log('[autoChunk] Done: "' + targetDoc.title + '" -> ' + stored + ' chunks stored');
 
     return Response.json({
       status: 'chunked',
       document_id: targetDoc.id,
       title: targetDoc.title,
-      chunks_created: chunks.length,
-      chunks_stored: storedCount,
-      content_length: content.length
+      chunks_created: chunkRecords.length,
+      chunks_stored: stored,
+      content_length: targetDoc.content.length
     });
 
   } catch (error) {
-    console.error('[autoChunk] Error:', error);
+    console.error('[autoChunk] Error:', error.message, error.stack);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
