@@ -29,9 +29,9 @@ export default function KPIStatistics({ result, filteredOnts }) {
       ? oltRxValues.reduce((a, b) => a + b, 0) / oltRxValues.length 
       : null;
 
-    // Technology breakdown
-    const gponOnts = filteredOnts.filter(o => o._techType?.includes('GPON') || !o._techType);
-    const xgsOnts = filteredOnts.filter(o => o._techType?.includes('XGS-PON'));
+    // Technology breakdown — only count ONTs with a known tech type
+    const gponOnts = filteredOnts.filter(o => o._techType?.includes('GPON'));
+    const xgsOnts  = filteredOnts.filter(o => o._techType?.includes('XGS-PON'));
 
     // Error statistics
     const totalUsBip = filteredOnts.reduce((sum, o) => sum + (parseInt(o.UpstreamBipErrors) || 0), 0);
