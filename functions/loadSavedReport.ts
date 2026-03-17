@@ -162,6 +162,46 @@ Deno.serve(async (req) => {
     const report = reports[0];
     if (!report) return Response.json({ error: 'Report not found' }, { status: 404 });
 
+    // 2a. Build LCP lookup for location/address/optic_type enrichment
+    let lcpLookup = {};
+    try {
+      const lcpEntries = await base44.asServiceRole.entities.LCPEntry.list(null, 5000);
+      for (const lcp of lcpEntries) {
+        if (lcp.olt_name && lcp.olt_shelf !== undefined && lcp.olt_slot !== undefined && lcp.olt_port) {
+          const oltName = lcp.olt_name.toLowerCase().trim();
+          const shelf = lcp.olt_shelf.toString();
+          const slot = lcp.olt_slot.toString();
+          const port = lcp.olt_port.toString();
+          const lcpData = {
+            lcp_number: lcp.lcp_number, splitter_number: lcp.splitter_number,
+            location: lcp.location || '', address: lcp.address || '',
+            optic_type: lcp.optic_type || '',
+          };
+          // Index all port variants
+          const cleanPort = port.replace(/^xp/i, '');
+          const rangeMatch = cleanPort.match(/^(\d+)-(\d+)$/);
+          if (rangeMatch) {
+            const s = parseInt(rangeMatch[1]), e = parseInt(rangeMatch[2]);
+            lcpLookup[`${oltName}|${shelf}/${slot}/${s}-${e}`] = lcpData;
+            lcpLookup[`${oltName}|${shelf}/${slot}/xp${s}-${e}`] = lcpData;
+            for (let p = s; p <= e; p++) {
+              if (!lcpLookup[`${oltName}|${shelf}/${slot}/${p}`]) lcpLookup[`${oltName}|${shelf}/${slot}/${p}`] = lcpData;
+              if (!lcpLookup[`${oltName}|${shelf}/${slot}/xp${p}`]) lcpLookup[`${oltName}|${shelf}/${slot}/xp${p}`] = lcpData;
+            }
+          } else {
+            const num = cleanPort.replace(/^xp/i, '');
+            lcpLookup[`${oltName}|${shelf}/${slot}/${num}`] = lcpData;
+            lcpLookup[`${oltName}|${shelf}/${slot}/xp${num}`] = lcpData;
+          }
+          lcpLookup[`${oltName}|${shelf}/${slot}/${port}`] = lcpData;
+          lcpLookup[`${oltName}|${shelf}/${slot}/xp${port}`] = lcpData;
+        }
+      }
+      console.log(`[loadSavedReport] Built LCP lookup with ${Object.keys(lcpLookup).length} keys`);
+    } catch (e) {
+      console.log('[loadSavedReport] LCP data not available:', e.message);
+    }
+
     // 2. Stream all ONT records in pages of 1000 to avoid memory spikes
     const PAGE_SIZE = 1000;
     let allRecords = [];
@@ -199,8 +239,38 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'NO_RECORDS', message: 'ONT records not yet indexed for this report.' }, { status: 404 });
     }
 
-    // 3. Map DB rows → ont objects
-    const onts = allRecords.map(recordToOnt);
+    // 3. Map DB rows → ont objects, enriching with LCP location/address/optic_type
+    const onts = allRecords.map(rec => {
+      const ont = recordToOnt(rec);
+      // Enrich from LCP lookup if we have it
+      const oltName = (rec.olt_name || '').toLowerCase().trim();
+      const ssp = (rec.shelf_slot_port || '').toLowerCase();
+      // Try direct match, then normalized formats
+      let lcpMatch = lcpLookup[`${oltName}|${ssp}`];
+      if (!lcpMatch && ssp) {
+        const m = ssp.match(/^(\d+)\/(\d+)\/((?:xp)?(\d+)(?:-(\d+))?)$/i);
+        if (m) {
+          const shelf = m[1], slot = m[2], firstNum = m[4], secondNum = m[5];
+          if (secondNum) {
+            lcpMatch = lcpLookup[`${oltName}|${shelf}/${slot}/${firstNum}-${secondNum}`]
+                    || lcpLookup[`${oltName}|${shelf}/${slot}/xp${firstNum}-${secondNum}`];
+          }
+          if (!lcpMatch) {
+            lcpMatch = lcpLookup[`${oltName}|${shelf}/${slot}/${firstNum}`]
+                    || lcpLookup[`${oltName}|${shelf}/${slot}/xp${firstNum}`];
+          }
+        }
+      }
+      if (lcpMatch) {
+        // LCP number and splitter come from DB record (authoritative), but fill location/address/optic from LCP
+        if (!ont._lcpNumber && lcpMatch.lcp_number) ont._lcpNumber = lcpMatch.lcp_number;
+        if (!ont._splitterNumber && lcpMatch.splitter_number) ont._splitterNumber = lcpMatch.splitter_number;
+        ont._lcpLocation = lcpMatch.location || '';
+        ont._lcpAddress = lcpMatch.address || '';
+        ont._opticType = lcpMatch.optic_type || '';
+      }
+      return ont;
+    });
 
     // 4. Rebuild olts/ports segment stats (same structure parsePonPm returns)
     const olts = {};

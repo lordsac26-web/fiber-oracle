@@ -352,22 +352,32 @@ Deno.serve(async (req) => {
           gps_lng: lcp.gps_lng,
         };
         
+        // Include optic_type in LCP data for enrichment
+        const lcpDataWithOptic = {
+          ...lcpData,
+          optic_type: lcp.optic_type || '',
+        };
+        
         // Base key: olt_name|shelf/slot/port
         const baseKey = `${oltName}|${shelf}/${slot}/${port}`;
-        lcpLookup[baseKey] = lcpData;
+        lcpLookup[baseKey] = lcpDataWithOptic;
         
         // Handle xp prefix variations (e.g., "xp3" for port "3")
         const xpKey = `${oltName}|${shelf}/${slot}/xp${port}`;
-        lcpLookup[xpKey] = lcpData;
+        lcpLookup[xpKey] = lcpDataWithOptic;
         
         // If port contains a range (e.g., "1-4" or "3-4"), index individual ports
+        // AND the combo format "xp3-4"
         const portRange = port.match(/^(\d+)-(\d+)$/);
         if (portRange) {
           const start = parseInt(portRange[1]);
           const end = parseInt(portRange[2]);
+          // Index the combo pair format: "xp3-4"
+          lcpLookup[`${oltName}|${shelf}/${slot}/xp${portRange[1]}-${portRange[2]}`] = lcpDataWithOptic;
+          lcpLookup[`${oltName}|${shelf}/${slot}/${portRange[1]}-${portRange[2]}`] = lcpDataWithOptic;
           for (let p = start; p <= end; p++) {
-            lcpLookup[`${oltName}|${shelf}/${slot}/${p}`] = lcpData;
-            lcpLookup[`${oltName}|${shelf}/${slot}/xp${p}`] = lcpData;
+            lcpLookup[`${oltName}|${shelf}/${slot}/${p}`] = lcpDataWithOptic;
+            lcpLookup[`${oltName}|${shelf}/${slot}/xp${p}`] = lcpDataWithOptic;
           }
         }
       }
@@ -421,15 +431,28 @@ Deno.serve(async (req) => {
       // If no match, try normalizing the port format
       if (!lcpMatch && shelfSlotPort) {
         // Extract shelf, slot, port from formats like "0/1/xp3", "1/2/16", "0/1/xp3-4"
-        const portMatch = shelfSlotPort.match(/^(\d+)\/(\d+)\/(?:xp)?(\d+)(?:-\d+)?$/i);
+        const portMatch = shelfSlotPort.match(/^(\d+)\/(\d+)\/((?:xp)?(\d+)(?:-(\d+))?)$/i);
         if (portMatch) {
           const shelf = portMatch[1];
           const slot = portMatch[2];
-          const port = portMatch[3];
+          const fullPort = portMatch[3]; // e.g. "xp3-4" or "xp3" or "3"
+          const firstNum = portMatch[4]; // e.g. "3"
+          const secondNum = portMatch[5]; // e.g. "4" or undefined
           
-          // Try with and without xp prefix
-          lcpKey = `${oltName}|${shelf}/${slot}/${port}`;
-          lcpMatch = lcpLookup[lcpKey] || lcpLookup[`${oltName}|${shelf}/${slot}/xp${port}`];
+          // Try full port string first (handles combo "xp3-4")
+          lcpMatch = lcpLookup[`${oltName}|${shelf}/${slot}/${fullPort.toLowerCase()}`];
+          
+          // Try combo format with and without xp prefix
+          if (!lcpMatch && secondNum) {
+            lcpMatch = lcpLookup[`${oltName}|${shelf}/${slot}/xp${firstNum}-${secondNum}`]
+                    || lcpLookup[`${oltName}|${shelf}/${slot}/${firstNum}-${secondNum}`];
+          }
+          
+          // Try just the first port number with and without xp prefix
+          if (!lcpMatch) {
+            lcpMatch = lcpLookup[`${oltName}|${shelf}/${slot}/${firstNum}`]
+                    || lcpLookup[`${oltName}|${shelf}/${slot}/xp${firstNum}`];
+          }
         }
       }
       
@@ -441,6 +464,7 @@ Deno.serve(async (req) => {
         ont._lcpAddress = lcpMatch.address || '';
         ont._lcpGpsLat = lcpMatch.gps_lat;
         ont._lcpGpsLng = lcpMatch.gps_lng;
+        ont._opticType = lcpMatch.optic_type || '';
       }
       
       // Detect DZS model based on FSAN prefix if model is unknown
