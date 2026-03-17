@@ -143,6 +143,19 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing report_id or file_url' }, { status: 400 });
     }
 
+    // Guard against double-processing: if records already exist for this report, abort early.
+    const existingCheck = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+      { report_id: reportId }, 'id', 1
+    );
+    if (existingCheck && existingCheck.length > 0) {
+      console.log(`[processPonPmRecords] Records already exist for report ${reportId} — skipping to avoid duplicates.`);
+      await base44.asServiceRole.entities.PONPMReport.update(reportId, {
+        processing_status: 'completed',
+        processing_progress: 100,
+      });
+      return Response.json({ success: true, skipped: true, reason: 'already_processed' });
+    }
+
     // Mark report as saving so the UI can show a spinner
     await base44.asServiceRole.entities.PONPMReport.update(reportId, {
       processing_status: 'saving',
