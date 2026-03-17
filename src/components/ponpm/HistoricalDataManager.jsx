@@ -394,8 +394,8 @@ export default function HistoricalDataManager({
                             >
                               <TableCell className="font-mono text-sm">{ont.serial_number}</TableCell>
                               <TableCell className="text-sm">
-                                <div>{ont.olt_name}</div>
-                                <div className="text-xs text-gray-500">{ont.shelf_slot_port}</div>
+                               <div className="text-gray-900 dark:text-white">{ont.olt_name}</div>
+                               <div className="text-xs text-gray-600 dark:text-gray-400">{ont.shelf_slot_port}</div>
                               </TableCell>
                               <TableCell className="text-xs">{ont.model || '-'}</TableCell>
                               <TableCell className="text-center">
