@@ -3,21 +3,25 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-
     const { query, max_documents = 10 } = await req.json();
 
     if (!query) {
       return Response.json({ error: 'Query is required' }, { status: 400 });
     }
 
-    console.log(`[photonDocumentAnalysis] Query: "${query}", max_documents: ${max_documents}`);
+    console.log('[analysis] Query:', query);
 
-    // Fetch all active reference documents
-    const docs = await base44.asServiceRole.entities.ReferenceDocument.filter({ 
-      is_active: true 
-    });
+    // Fetch active reference documents
+    let docs;
+    try {
+      docs = await base44.asServiceRole.entities.ReferenceDocument.filter({ is_active: true }, '-created_date', 50);
+      console.log('[analysis] Found', docs.length, 'active documents');
+    } catch (fetchErr) {
+      console.error('[analysis] Fetch error:', fetchErr.message);
+      return Response.json({ error: 'Failed to fetch documents: ' + fetchErr.message, success: false }, { status: 500 });
+    }
 
-    if (docs.length === 0) {
+    if (!docs || docs.length === 0) {
       return Response.json({
         success: true,
         documents: [],
@@ -26,14 +30,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[photonDocumentAnalysis] Found ${docs.length} active documents`);
-
-    // Use AI to analyze and synthesize information across documents
+    // Build document summaries — truncate content to keep LLM prompt manageable
     const documentSummaries = docs.slice(0, max_documents).map(doc => ({
       title: doc.title,
       source: doc.source_type,
       metadata: doc.metadata,
-      content_preview: doc.content?.substring(0, 2000) || 'No content available'
+      content_preview: (doc.content || '').substring(0, 2000) || 'No content available'
     }));
 
     const analysisPrompt = `You are analyzing multiple technical reference documents to answer a query.
@@ -43,7 +45,7 @@ Query: ${query}
 Available Documents:
 ${documentSummaries.map((doc, i) => `
 ${i + 1}. ${doc.title} (${doc.source})
-   Metadata: ${JSON.stringify(doc.metadata)}
+   Metadata: ${JSON.stringify(doc.metadata || {})}
    Content Preview: ${doc.content_preview}
 `).join('\n')}
 
@@ -57,9 +59,10 @@ Analyze these documents and provide:
 
 Be thorough and cross-reference multiple sources.`;
 
+    console.log('[analysis] Calling LLM with', documentSummaries.length, 'documents...');
+
     const aiResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: analysisPrompt,
-      add_context_from_internet: false,
       response_json_schema: {
         type: "object",
         properties: {
@@ -103,6 +106,8 @@ Be thorough and cross-reference multiple sources.`;
       }
     });
 
+    console.log('[analysis] LLM response received');
+
     return Response.json({
       success: true,
       total_documents: docs.length,
@@ -117,7 +122,7 @@ Be thorough and cross-reference multiple sources.`;
     });
 
   } catch (error) {
-    console.error('Document analysis error:', error);
+    console.error('[analysis] Error:', error);
     return Response.json({ 
       error: error.message,
       success: false 

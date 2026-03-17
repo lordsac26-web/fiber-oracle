@@ -1,18 +1,13 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
-// Search strategy:
-// 1. Fetch ReferenceDocument METADATA only (no content field) - small payload
-// 2. Search DocumentChunk records for content matches
-// 3. Rank by relevance via LLM using titles + chunk excerpts
-
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
 
-    let body = {};
+    let body;
     try {
       body = await req.json();
-    } catch (_) {
+    } catch (_e) {
       return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
@@ -27,24 +22,29 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'query parameter required' }, { status: 400 });
     }
 
-    console.log(`[advancedDocumentSearch] Query: "${query}", max_results: ${max_results}`);
+    console.log('[search] Query:', query);
 
-    // STEP 1: Fetch document metadata — NO large content fields
+    // STEP 1: Fetch document metadata in small batches to avoid OOM
     const docFilter = { is_active: true };
     if (filters.category) docFilter.category = filters.category;
     if (filters.source_type) docFilter.source_type = filters.source_type;
 
-    const allDocs = await base44.asServiceRole.entities.ReferenceDocument.filter(docFilter, '-created_date', 200);
+    let allDocs;
+    try {
+      allDocs = await base44.asServiceRole.entities.ReferenceDocument.filter(docFilter, '-created_date', 100);
+      console.log('[search] Found', allDocs.length, 'docs');
+    } catch (fetchErr) {
+      console.error('[search] Failed to fetch docs:', fetchErr.message);
+      return Response.json({ error: 'Failed to fetch documents: ' + fetchErr.message }, { status: 500 });
+    }
 
     if (!allDocs || allDocs.length === 0) {
-      console.log('[advancedDocumentSearch] No documents in knowledge base');
       return Response.json({ query, results: [], total_results: 0, message: 'No documents found in knowledge base.' });
     }
 
-    console.log(`[advancedDocumentSearch] Found ${allDocs.length} active documents`);
-
-    // Build a lightweight doc map (id -> metadata only, no content)
+    // Build lightweight doc map — strip out the large content field to save memory
     const docMap = {};
+    const docContents = {};
     for (const doc of allDocs) {
       docMap[doc.id] = {
         id: doc.id,
@@ -55,103 +55,140 @@ Deno.serve(async (req) => {
         version: doc.version || '1.0',
         tags: doc.tags || [],
         created_date: doc.created_date,
-        is_active: doc.is_active,
       };
+      // Keep content separately for search, truncated
+      if (doc.content) {
+        docContents[doc.id] = doc.content.substring(0, 8000);
+      }
     }
 
     const docIds = Object.keys(docMap);
 
-    // STEP 2: Keyword pre-filter on titles/tags
+    // STEP 2: Keyword scoring on titles/tags/content
     const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
 
-    const titleScoredDocs = docIds.map(id => {
+    const scoredDocs = docIds.map(id => {
       const doc = docMap[id];
+      const content = (docContents[id] || '').toLowerCase();
       let score = 0;
-      const title = doc.title.toLowerCase();
-      const tags = (doc.tags || []).join(' ').toLowerCase();
-      const category = (doc.category || '').toLowerCase();
+      let bestSnippet = '';
+      let bestSnippetScore = 0;
+
       for (const word of queryWords) {
-        if (title.includes(word)) score += 10;
-        if (tags.includes(word)) score += 5;
-        if (category.includes(word)) score += 3;
+        if (doc.title.toLowerCase().includes(word)) score += 10;
+        if ((doc.tags || []).join(' ').toLowerCase().includes(word)) score += 5;
+        if ((doc.category || '').toLowerCase().includes(word)) score += 3;
+
+        // Content keyword search
+        const idx = content.indexOf(word);
+        if (idx !== -1) {
+          score += 2;
+          // Count occurrences
+          const matches = content.match(new RegExp(word, 'g'));
+          const count = matches ? matches.length : 0;
+          score += Math.min(count, 10);
+
+          // Extract snippet around match
+          if (count > bestSnippetScore) {
+            bestSnippetScore = count;
+            const start = Math.max(0, idx - 100);
+            const end = Math.min(content.length, idx + 300);
+            bestSnippet = (docContents[id] || '').substring(start, end);
+          }
+        }
       }
-      return { id, score };
+
+      return { id, score, bestSnippet };
     }).sort((a, b) => b.score - a.score);
 
-    // Take top candidates for chunk search
-    const hasTitleHits = titleScoredDocs.some(d => d.score > 0);
-    const candidateDocIds = hasTitleHits
-      ? titleScoredDocs.filter(d => d.score > 0).slice(0, 30).map(d => d.id)
-      : titleScoredDocs.slice(0, 30).map(d => d.id);
+    // Take top candidates
+    const topCandidates = scoredDocs.filter(d => d.score > 0).slice(0, max_results * 2);
 
-    console.log(`[advancedDocumentSearch] ${candidateDocIds.length} candidate docs (titleHits: ${hasTitleHits})`);
-
-    // STEP 3: Search DocumentChunks for the candidate documents
-    const chunksByDoc = {};
-    const batchSize = 10;
-
-    for (let i = 0; i < candidateDocIds.length; i += batchSize) {
-      const batchIds = candidateDocIds.slice(i, i + batchSize);
-      await Promise.all(batchIds.map(async (docId) => {
-        try {
-          const chunks = await base44.asServiceRole.entities.DocumentChunk.filter(
-            { document_id: docId }, 'chunk_index', 20
-          );
-          if (chunks && chunks.length > 0) {
-            chunksByDoc[docId] = chunks;
-          }
-        } catch (_) {
-          // Skip gracefully
-        }
-      }));
-    }
-
-    // STEP 4: Score docs by chunk content keyword matches
-    const contentScoredDocs = candidateDocIds.map(id => {
-      const titleScore = titleScoredDocs.find(d => d.id === id)?.score || 0;
-      const chunks = chunksByDoc[id] || [];
-      let contentScore = 0;
-      let bestChunkText = '';
-      let bestChunkScore = 0;
-
-      for (const chunk of chunks) {
-        const text = (chunk.content || '').toLowerCase();
-        let chunkScore = 0;
-        for (const word of queryWords) {
-          const count = (text.match(new RegExp(word, 'g')) || []).length;
-          chunkScore += count;
-        }
-        if (chunkScore > bestChunkScore) {
-          bestChunkScore = chunkScore;
-          bestChunkText = chunk.content || '';
-        }
-        contentScore += chunkScore;
+    // If no keyword hits, return all docs with basic info
+    if (topCandidates.length === 0) {
+      // Try broader match — return docs with LLM ranking
+      const allCandidates = scoredDocs.slice(0, 10);
+      
+      if (allCandidates.length === 0) {
+        return Response.json({ query, results: [], total_results: 0, message: 'No relevant documents found.' });
       }
 
-      return {
-        id,
-        totalScore: titleScore * 2 + contentScore,
-        bestChunkText,
-        hasChunks: chunks.length > 0
-      };
-    }).sort((a, b) => b.totalScore - a.totalScore);
+      // Use LLM to rank even without keyword hits
+      const llmInput = allCandidates.map(c => ({
+        id: c.id,
+        title: docMap[c.id]?.title || '',
+        category: docMap[c.id]?.category || '',
+        tags: (docMap[c.id]?.tags || []).join(', '),
+        excerpt: (docContents[c.id] || '').substring(0, 400) || '(no content)'
+      }));
 
-    // Take top candidates for LLM ranking
-    const topCandidates = contentScoredDocs.slice(0, 20);
+      console.log('[search] No keyword hits, using LLM ranking on', llmInput.length, 'docs');
 
-    if (topCandidates.length === 0) {
-      return Response.json({ query, results: [], total_results: 0, message: 'No relevant documents found.' });
+      const rankingResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: `Rank these documents by relevance to the search query. Return top ${max_results} most relevant.
+
+Query: "${query}"
+
+Documents:
+${llmInput.map((d, i) => `[${i+1}] ID: ${d.id} | Title: ${d.title} | Category: ${d.category} | Tags: ${d.tags}
+Excerpt: ${d.excerpt}`).join('\n\n')}`,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            ranked_documents: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  document_id: { type: 'string' },
+                  relevance_score: { type: 'number' },
+                  match_reasoning: { type: 'string' }
+                },
+                required: ['document_id', 'relevance_score']
+              }
+            }
+          },
+          required: ['ranked_documents']
+        }
+      });
+
+      const results = (rankingResult?.ranked_documents || [])
+        .sort((a, b) => b.relevance_score - a.relevance_score)
+        .slice(0, max_results)
+        .map(ranked => {
+          const doc = docMap[ranked.document_id];
+          if (!doc) return null;
+          return {
+            document_id: doc.id,
+            title: doc.title,
+            category: doc.category,
+            source_type: doc.source_type,
+            source_url: doc.source_url,
+            tags: doc.tags,
+            relevance_score: ranked.relevance_score,
+            match_reasoning: ranked.match_reasoning,
+            content_preview: (docContents[doc.id] || '').substring(0, 500) || null,
+          };
+        }).filter(Boolean);
+
+      return Response.json({
+        query,
+        total_documents_searched: allDocs.length,
+        total_results: results.length,
+        results,
+        search_metadata: { strategy: 'llm_semantic_ranking', title_hits: false }
+      });
     }
 
-    console.log(`[advancedDocumentSearch] Top ${topCandidates.length} candidates, calling LLM for ranking...`);
+    console.log('[search]', topCandidates.length, 'keyword candidates, calling LLM...');
 
-    // STEP 5: LLM semantic ranking
+    // STEP 3: LLM semantic ranking on keyword-matched candidates
     const llmInput = topCandidates.map(c => ({
       id: c.id,
       title: docMap[c.id]?.title || '',
       category: docMap[c.id]?.category || '',
       tags: (docMap[c.id]?.tags || []).join(', '),
-      excerpt: c.bestChunkText ? c.bestChunkText.substring(0, 400) : '(no content indexed)'
+      excerpt: c.bestSnippet ? c.bestSnippet.substring(0, 400) : (docContents[c.id] || '').substring(0, 400)
     }));
 
     const rankingResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
@@ -160,9 +197,7 @@ Deno.serve(async (req) => {
 Query: "${query}"
 
 Documents:
-${llmInput.map((d, i) => `[${i+1}] ID: ${d.id}
-Title: ${d.title}
-Category: ${d.category} | Tags: ${d.tags}
+${llmInput.map((d, i) => `[${i+1}] ID: ${d.id} | Title: ${d.title} | Category: ${d.category} | Tags: ${d.tags}
 Excerpt: ${d.excerpt}`).join('\n\n')}`,
       response_json_schema: {
         type: 'object',
@@ -188,55 +223,48 @@ Excerpt: ${d.excerpt}`).join('\n\n')}`,
       .sort((a, b) => b.relevance_score - a.relevance_score)
       .slice(0, max_results);
 
-    console.log(`[advancedDocumentSearch] LLM ranked ${rankedDocs.length} docs`);
+    console.log('[search] LLM ranked', rankedDocs.length, 'docs');
 
-    // STEP 6: Build final result set
+    // Build final results
     const results = rankedDocs.map(ranked => {
       const doc = docMap[ranked.document_id];
       if (!doc) return null;
-
-      const candidate = contentScoredDocs.find(c => c.id === ranked.document_id);
+      const candidate = topCandidates.find(c => c.id === ranked.document_id);
       let contentPreview = '';
-      if (include_content_preview && candidate?.bestChunkText) {
-        let snippet = candidate.bestChunkText.substring(0, 500);
+      if (include_content_preview) {
+        contentPreview = candidate?.bestSnippet?.substring(0, 500) || (docContents[doc.id] || '').substring(0, 500);
         for (const word of queryWords) {
-          snippet = snippet.replace(new RegExp(`(${word})`, 'gi'), '**$1**');
+          contentPreview = contentPreview.replace(new RegExp(`(${word})`, 'gi'), '**$1**');
         }
-        contentPreview = snippet;
       }
-
       return {
         document_id: doc.id,
         title: doc.title,
         category: doc.category,
         source_type: doc.source_type,
         source_url: doc.source_url,
-        version: doc.version,
         tags: doc.tags,
-        created_date: doc.created_date,
         relevance_score: ranked.relevance_score,
         match_reasoning: ranked.match_reasoning,
         content_preview: contentPreview || null,
-        has_indexed_chunks: !!(chunksByDoc[doc.id]?.length)
       };
     }).filter(Boolean);
 
     return Response.json({
       query,
-      filters_applied: filters,
-      total_documents_searched: candidateDocIds.length,
+      total_documents_searched: allDocs.length,
       total_results: results.length,
       results,
       search_metadata: {
-        strategy: 'metadata_first_chunk_search',
-        title_hits: hasTitleHits,
+        strategy: 'keyword_plus_llm_ranking',
+        title_hits: true,
         candidates_evaluated: topCandidates.length,
         semantic_ranking: true
       }
     });
 
   } catch (error) {
-    console.error('advancedDocumentSearch error:', error);
+    console.error('[search] Error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
