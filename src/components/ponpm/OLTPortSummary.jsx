@@ -357,7 +357,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                 >
                   <TableCell>
                     <div className="font-medium text-sm">{port.oltName}</div>
-                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
                       {port.portKey}
                       {port.isCombo && (
                         <Badge variant="outline" className="text-[9px] px-1 py-0 bg-purple-50 border-purple-300 text-purple-700">
