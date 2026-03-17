@@ -326,8 +326,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
             </CardContent>
           </Card>
         ))}
-      </div>
-
           {filteredLCPs.length === 0 && (
             <Card className="border-dashed col-span-full">
               <CardContent className="p-8 text-center text-gray-500">
