@@ -126,8 +126,8 @@ export default function KPIStatistics({ result, filteredOnts }) {
             <div className="text-2xl font-bold text-amber-600">
               {stats.errorRate.toFixed(1)}%
             </div>
-            <div className="text-xs text-gray-500">ONTs with Errors</div>
-            <div className="text-[10px] text-gray-400 mt-1">
+            <div className="text-xs text-gray-600 dark:text-gray-400">ONTs with Errors</div>
+            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
               {stats.ontsWithErrors} / {filteredOnts.length} ONTs
             </div>
           </CardContent>
