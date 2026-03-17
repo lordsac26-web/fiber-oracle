@@ -375,12 +375,12 @@ export default function DataManagement() {
             {isLoading ? (
               <div className="py-12 text-center">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-3" />
-                <p className="text-gray-500">Loading records...</p>
-              </div>
-            ) : records.length === 0 ? (
-              <div className="py-12 text-center">
+                <p className="text-gray-600 dark:text-gray-400">Loading records...</p>
+                </div>
+                ) : records.length === 0 ? (
+                <div className="py-12 text-center">
                 <Database className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">No records found</p>
+                <p className="text-gray-600 dark:text-gray-400">No records found</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
