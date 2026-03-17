@@ -1,5 +1,14 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
+/**
+ * photonDocumentAnalysis — Cross-document synthesis using pre-indexed chunks.
+ * 
+ * Flow:
+ * 1. Search chunks for relevant content across ALL documents
+ * 2. Group best chunks by document
+ * 3. Send relevant excerpts to LLM for multi-document analysis
+ * 4. Return synthesized answer with source citations
+ */
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -11,76 +20,144 @@ Deno.serve(async (req) => {
 
     console.log('[analysis] Query:', query);
 
-    // Fetch active reference documents
-    let docs;
-    try {
-      const rawDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 20);
-      if (typeof rawDocs === 'string') {
-        docs = JSON.parse(rawDocs).filter(d => d.is_active !== false);
-      } else if (Array.isArray(rawDocs)) {
-        docs = rawDocs.filter(d => d.is_active !== false);
-      } else {
-        docs = [];
+    // Step 1: Load all chunks (lightweight records)
+    let allChunks = [];
+    let page = 0;
+    const pageSize = 100;
+
+    while (true) {
+      let batch;
+      try {
+        const raw = await base44.asServiceRole.entities.DocumentChunk.list(
+          '-created_date', pageSize, page * pageSize
+        );
+        if (typeof raw === 'string') {
+          batch = JSON.parse(raw);
+        } else if (Array.isArray(raw)) {
+          batch = raw;
+        } else {
+          batch = [];
+        }
+      } catch (e) {
+        console.error('[analysis] Chunk fetch error page', page, e.message);
+        batch = [];
       }
-      console.log('[analysis] Found', docs.length, 'active documents');
-    } catch (fetchErr) {
-      console.error('[analysis] Fetch error:', fetchErr.message);
-      return Response.json({ error: 'Failed to fetch documents: ' + fetchErr.message, success: false }, { status: 500 });
+
+      if (batch.length === 0) break;
+      allChunks = allChunks.concat(batch);
+      page++;
+      if (allChunks.length >= 5000) break;
     }
 
-    if (!docs || docs.length === 0) {
+    console.log('[analysis] Total chunks loaded:', allChunks.length);
+
+    if (allChunks.length === 0) {
       return Response.json({
         success: true,
-        documents: [],
-        analysis: 'No reference documents found in knowledge base.',
-        recommendations: ['Upload technical manuals and reference PDFs to build the knowledge base.']
+        total_documents: 0,
+        analysis: {
+          synthesized_answer: 'No documents found in the knowledge base. Please run the document chunking process first.',
+          relevant_documents: [],
+          confidence_level: 'low'
+        }
       });
     }
 
-    // Build document summaries — truncate content to keep LLM prompt manageable
-    const documentSummaries = docs.slice(0, max_documents).map(doc => ({
-      title: doc.title,
-      source: doc.source_type,
-      metadata: doc.metadata,
-      content_preview: (doc.content || '').substring(0, 2000) || 'No content available'
-    }));
+    // Step 2: Score chunks by keyword relevance
+    const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
 
-    const analysisPrompt = `You are analyzing multiple technical reference documents to answer a query.
+    const scoredChunks = allChunks.map(chunk => {
+      let score = 0;
+      const keywords = (chunk.keywords || '').toLowerCase();
+      const title = (chunk.document_title || '').toLowerCase();
+      const content = (chunk.content || '').toLowerCase();
+
+      for (const word of queryWords) {
+        if (title.includes(word)) score += 10;
+        if (keywords.includes(word)) score += 4;
+        if (content.includes(word)) score += 2;
+      }
+      return { ...chunk, score };
+    }).filter(c => c.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    // Step 3: Group by document, keep top 2 chunks per doc
+    const docChunks = new Map();
+    for (const chunk of scoredChunks) {
+      const existing = docChunks.get(chunk.document_id) || [];
+      if (existing.length < 2) {
+        existing.push(chunk);
+        docChunks.set(chunk.document_id, existing);
+      }
+    }
+
+    // Take top N documents by their best chunk score
+    const topDocs = Array.from(docChunks.entries())
+      .map(([docId, chunks]) => ({
+        docId,
+        title: chunks[0].document_title,
+        category: chunks[0].document_category,
+        source_type: chunks[0].metadata?.source_type,
+        source_url: chunks[0].metadata?.source_url,
+        bestScore: Math.max(...chunks.map(c => c.score)),
+        excerpts: chunks.map(c => c.content.substring(0, 1500)).join('\n---\n')
+      }))
+      .sort((a, b) => b.bestScore - a.bestScore)
+      .slice(0, max_documents);
+
+    console.log('[analysis] Relevant docs:', topDocs.length, '/', docChunks.size, 'matched');
+
+    // If no matches, do a broader analysis with random sample of chunks
+    let analysisInput;
+    if (topDocs.length === 0) {
+      // Fallback: sample from first few chunks of various documents
+      const sampleDocs = new Map();
+      for (const chunk of allChunks) {
+        if (!sampleDocs.has(chunk.document_id) && sampleDocs.size < max_documents) {
+          sampleDocs.set(chunk.document_id, chunk);
+        }
+      }
+      analysisInput = Array.from(sampleDocs.values()).map(c => ({
+        title: c.document_title,
+        category: c.document_category,
+        excerpt: c.content.substring(0, 1000)
+      }));
+    } else {
+      analysisInput = topDocs.map(d => ({
+        title: d.title,
+        category: d.category,
+        excerpt: d.excerpts.substring(0, 2000)
+      }));
+    }
+
+    // Step 4: LLM cross-document analysis
+    const analysisPrompt = `You are analyzing technical reference documents to answer a query.
 
 Query: ${query}
 
-Available Documents:
-${documentSummaries.map((doc, i) => `
-${i + 1}. ${doc.title} (${doc.source})
-   Metadata: ${JSON.stringify(doc.metadata || {})}
-   Content Preview: ${doc.content_preview}
+Relevant Document Excerpts:
+${analysisInput.map((doc, i) => `
+${i + 1}. ${doc.title} (${doc.category})
+   Content: ${doc.excerpt}
 `).join('\n')}
 
-Analyze these documents and provide:
-1. Which documents are most relevant to the query
+Provide a thorough analysis including:
+1. Which documents are most relevant and why
 2. Key information extracted from each relevant document
 3. Any conflicts or discrepancies between documents
 4. A synthesized, consolidated answer
 5. Safety warnings or critical notes
-6. Recommended prioritization if conflicts exist
+6. Recommended procedure steps if applicable`;
 
-Be thorough and cross-reference multiple sources.`;
-
-    console.log('[analysis] Calling LLM with', documentSummaries.length, 'documents...');
+    console.log('[analysis] Calling LLM with', analysisInput.length, 'documents...');
 
     const aiResponse = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: analysisPrompt,
       response_json_schema: {
         type: "object",
         properties: {
-          relevant_documents: {
-            type: "array",
-            items: { type: "string" }
-          },
-          extracted_information: {
-            type: "object",
-            description: "Key info from each document"
-          },
+          relevant_documents: { type: "array", items: { type: "string" } },
+          extracted_information: { type: "object" },
           conflicts: {
             type: "array",
             items: {
@@ -93,46 +170,33 @@ Be thorough and cross-reference multiple sources.`;
             }
           },
           synthesized_answer: { type: "string" },
-          safety_warnings: {
-            type: "array",
-            items: { type: "string" }
-          },
-          recommended_procedure: {
-            type: "array",
-            items: { type: "string" }
-          },
-          confidence_level: { 
-            type: "string",
-            enum: ["high", "medium", "low"]
-          },
-          gaps_identified: {
-            type: "array",
-            items: { type: "string" }
-          }
+          safety_warnings: { type: "array", items: { type: "string" } },
+          recommended_procedure: { type: "array", items: { type: "string" } },
+          confidence_level: { type: "string", enum: ["high", "medium", "low"] },
+          gaps_identified: { type: "array", items: { type: "string" } }
         }
       }
     });
 
     console.log('[analysis] LLM response received');
 
+    const uniqueDocIds = new Set(allChunks.map(c => c.document_id));
+
     return Response.json({
       success: true,
-      total_documents: docs.length,
-      analyzed_documents: documentSummaries.length,
+      total_documents: uniqueDocIds.size,
+      analyzed_documents: analysisInput.length,
       analysis: aiResponse,
-      raw_documents: docs.slice(0, max_documents).map(doc => ({
-        id: doc.id,
-        title: doc.title,
-        source_type: doc.source_type,
-        source_url: doc.source_url
+      raw_documents: topDocs.map(d => ({
+        id: d.docId,
+        title: d.title,
+        source_type: d.source_type,
+        source_url: d.source_url
       }))
     });
 
   } catch (error) {
     console.error('[analysis] Error:', error);
-    return Response.json({ 
-      error: error.message,
-      success: false 
-    }, { status: 500 });
+    return Response.json({ error: error.message, success: false }, { status: 500 });
   }
 });

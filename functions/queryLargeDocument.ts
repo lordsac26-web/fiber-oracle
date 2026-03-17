@@ -1,5 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 
+/**
+ * queryLargeDocument — Retrieves specific sections from a document using pre-indexed chunks.
+ * 
+ * No more re-downloading PDFs or re-parsing. Uses DocumentChunk records directly.
+ * Falls back to stored content on ReferenceDocument if chunks don't exist.
+ */
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -9,181 +15,136 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'document_id required' }, { status: 400 });
     }
 
-    // Fetch the document metadata using service role so any user can read docs
+    // Fetch document metadata
     const doc = await base44.asServiceRole.entities.ReferenceDocument.get(document_id);
-    
     if (!doc) {
       return Response.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    let fullContent = '';
-    
-    if (doc.source_url && doc.source_url.includes('drive.google.com')) {
-      // Extract file ID from Google Drive URL
-      const fileIdMatch = doc.source_url.match(/[-\w]{25,}/);
-      
-      if (!fileIdMatch) {
-        return Response.json({ error: 'Invalid Google Drive URL' }, { status: 400 });
-      }
+    console.log(`[queryDoc] Querying "${doc.title}" for: ${query || '(no query)'}`);
 
-      const fileId = fileIdMatch[0];
-      
-      // Get access token for Google Drive via proper connector API
-      const { accessToken } = await base44.asServiceRole.connectors.getConnection('googledrive');
-      
-      // Download file from Google Drive
-      const driveResponse = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    // Fetch pre-indexed chunks for this document
+    let chunks = [];
+    try {
+      const raw = await base44.asServiceRole.entities.DocumentChunk.filter(
+        { document_id },
+        'chunk_index',
+        200
       );
-
-      if (!driveResponse.ok) {
-        return Response.json({ 
-          error: 'Failed to fetch from Google Drive',
-          details: await driveResponse.text()
-        }, { status: 500 });
+      if (typeof raw === 'string') {
+        chunks = JSON.parse(raw);
+      } else if (Array.isArray(raw)) {
+        chunks = raw;
       }
-
-      const fileBlob = await driveResponse.blob();
-      const arrayBuffer = await fileBlob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      
-      // Re-upload the file so we have a stable Base44 URL for InvokeLLM
-      const formData = new FormData();
-      formData.append('file', new Blob([uint8Array], { type: 'application/pdf' }), 'document.pdf');
-      
-      const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({
-        file: new Blob([uint8Array], { type: 'application/pdf' })
-      });
-
-      const extractResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-        prompt: 'Extract all text content from this PDF document. Return the complete raw text only, no formatting or commentary.',
-        file_urls: [uploadResult.file_url]
-      });
-      
-      fullContent = typeof extractResult === 'string' ? extractResult : (extractResult?.text || '');
-      
-    } else if (doc.source_url && !doc.source_url.includes('drive.google.com')) {
-      // Fetch from regular URL (Base44 hosted file)
-      const response = await fetch(doc.source_url);
-      
-      if (!response.ok) {
-        // Fall back to stored content if available
-        if (doc.content) {
-          fullContent = doc.content;
-        } else {
-          return Response.json({ error: 'Failed to fetch document from URL' }, { status: 500 });
-        }
-      } else {
-        const fileBlob = await response.blob();
-        const arrayBuffer = await fileBlob.arrayBuffer();
-        
-        // Re-upload so we have a fresh URL for InvokeLLM vision/file support
-        const uploadResult = await base44.asServiceRole.integrations.Core.UploadFile({
-          file: new Blob([arrayBuffer], { type: 'application/pdf' })
-        });
-        
-        const extractResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-          prompt: 'Extract all text content from this PDF document. Return the complete raw text only, no formatting or commentary.',
-          file_urls: [uploadResult.file_url]
-        });
-        
-        fullContent = typeof extractResult === 'string' ? extractResult : (extractResult?.text || '');
-      }
-      
-    } else if (doc.content) {
-      fullContent = doc.content;
-    } else {
-      return Response.json({ error: 'No content available for this document' }, { status: 404 });
+    } catch (e) {
+      console.error('[queryDoc] Chunk fetch error:', e.message);
     }
 
-    if (!fullContent || fullContent.length < 10) {
-      return Response.json({ 
-        error: 'Document content could not be extracted',
-        document_title: doc.title 
-      }, { status: 422 });
+    console.log(`[queryDoc] Found ${chunks.length} pre-indexed chunks`);
+
+    // If no chunks exist, fall back to stored content (split on-the-fly)
+    if (chunks.length === 0 && doc.content) {
+      console.log('[queryDoc] No chunks found, using stored content fallback');
+      const chunkSize = 2000;
+      chunks = [];
+      for (let i = 0; i < doc.content.length; i += chunkSize) {
+        chunks.push({
+          chunk_index: Math.floor(i / chunkSize),
+          content: doc.content.substring(i, i + chunkSize),
+          keywords: ''
+        });
+      }
+    }
+
+    if (chunks.length === 0) {
+      return Response.json({
+        error: 'No content available for this document',
+        document_title: doc.title
+      }, { status: 404 });
     }
 
     // If no query, return first N chunks
     if (!query) {
-      const chunkSize = 5000;
-      const chunks = [];
-      for (let i = 0; i < fullContent.length; i += chunkSize) {
-        chunks.push({
-          index: Math.floor(i / chunkSize),
-          text: fullContent.substring(i, i + chunkSize)
-        });
-      }
-      
       return Response.json({
         document_title: doc.title,
         document_id: doc.id,
         total_chunks: chunks.length,
-        chunks: chunks.slice(0, max_chunks),
+        chunks: chunks.slice(0, max_chunks).map(c => ({
+          index: c.chunk_index,
+          text: c.content
+        })),
         message: 'Returning first chunks. Provide a query for targeted section extraction.'
       });
     }
 
-    // Chunk the content for targeted retrieval
-    const chunkSize = 4000;
-    const chunks = [];
-    for (let i = 0; i < fullContent.length; i += chunkSize) {
-      chunks.push({
-        index: Math.floor(i / chunkSize),
-        text: fullContent.substring(i, i + chunkSize),
-        start_pos: i,
-        end_pos: Math.min(i + chunkSize, fullContent.length)
-      });
-    }
+    // Score chunks by keyword relevance to query
+    const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
 
-    // Use AI to find most relevant chunks
-    const relevancePrompt = `Given this search query: "${query}"
+    const scoredChunks = chunks.map(chunk => {
+      let score = 0;
+      const keywords = (chunk.keywords || '').toLowerCase();
+      const content = (chunk.content || '').toLowerCase();
+
+      for (const word of queryWords) {
+        if (keywords.includes(word)) score += 4;
+        if (content.includes(word)) score += 2;
+      }
+      return { ...chunk, score };
+    }).sort((a, b) => b.score - a.score);
+
+    // Take top scoring chunks
+    const topChunks = scoredChunks.slice(0, max_chunks);
+
+    // If keyword scoring found nothing, use LLM to find relevant sections
+    if (topChunks.every(c => c.score === 0) && chunks.length <= 30) {
+      console.log('[queryDoc] No keyword matches, using LLM for relevance');
+      const relevanceResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        prompt: `Given this search query: "${query}"
 
 Analyze these document chunks and identify which chunks are most relevant.
-Return only chunk indices that directly answer or relate to the query.
 
 Document: "${doc.title}"
 
-Chunks (showing first 400 chars each):
-${chunks.map(c => `Chunk ${c.index}: ${c.text.substring(0, 400)}...`).join('\n\n')}`;
-
-    const relevanceResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: relevancePrompt,
-      response_json_schema: {
-        type: 'object',
-        properties: {
-          relevant_chunk_indices: {
-            type: 'array',
-            items: { type: 'number' }
+Chunks (showing first 300 chars each):
+${chunks.map(c => `Chunk ${c.chunk_index}: ${c.content.substring(0, 300)}...`).join('\n\n')}`,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            relevant_chunk_indices: { type: 'array', items: { type: 'number' } },
+            reasoning: { type: 'string' }
           },
-          reasoning: { type: 'string' }
-        },
-        required: ['relevant_chunk_indices']
-      }
-    });
-
-    const relevantIndices = relevanceResult.relevant_chunk_indices || [];
-    const relevantChunks = relevantIndices
-      .slice(0, max_chunks)
-      .map(idx => chunks[idx])
-      .filter(Boolean);
-
-    if (relevantChunks.length === 0) {
-      // Fallback: return first chunk so agent isn't left empty-handed
-      return Response.json({
-        document_title: doc.title,
-        document_id: doc.id,
-        query,
-        message: 'No highly relevant sections found. Returning document introduction.',
-        relevant_content: chunks[0]?.text || '',
-        relevant_chunks_count: 1,
-        chunk_indices: [0],
-        fallback: true
+          required: ['relevant_chunk_indices']
+        }
       });
+
+      const llmIndices = relevanceResult.relevant_chunk_indices || [];
+      const llmChunks = llmIndices
+        .slice(0, max_chunks)
+        .map(idx => chunks.find(c => c.chunk_index === idx))
+        .filter(Boolean);
+
+      if (llmChunks.length > 0) {
+        const relevantContent = llmChunks
+          .map(c => `[Section ${c.chunk_index + 1} of ${doc.title}]\n${c.content}`)
+          .join('\n\n---\n\n');
+
+        return Response.json({
+          document_title: doc.title,
+          document_id: doc.id,
+          query,
+          total_chunks: chunks.length,
+          relevant_chunks_count: llmChunks.length,
+          relevant_content: relevantContent,
+          chunk_indices: llmChunks.map(c => c.chunk_index),
+          reasoning: relevanceResult.reasoning
+        });
+      }
     }
 
-    const relevantContent = relevantChunks
-      .map(chunk => `[Section ${chunk.index + 1} of ${doc.title}]\n${chunk.text}`)
+    // Build response from top scored chunks
+    const relevantContent = topChunks
+      .filter(c => c.score > 0 || topChunks.indexOf(c) === 0)
+      .map(c => `[Section ${c.chunk_index + 1} of ${doc.title}]\n${c.content}`)
       .join('\n\n---\n\n');
 
     return Response.json({
@@ -191,16 +152,13 @@ ${chunks.map(c => `Chunk ${c.index}: ${c.text.substring(0, 400)}...`).join('\n\n
       document_id: doc.id,
       query,
       total_chunks: chunks.length,
-      relevant_chunks_count: relevantChunks.length,
+      relevant_chunks_count: topChunks.filter(c => c.score > 0).length || 1,
       relevant_content: relevantContent,
-      chunk_indices: relevantChunks.map(c => c.index),
-      reasoning: relevanceResult.reasoning
+      chunk_indices: topChunks.map(c => c.chunk_index)
     });
 
   } catch (error) {
-    console.error('Error in queryLargeDocument:', error);
-    return Response.json({ 
-      error: error.message 
-    }, { status: 500 });
+    console.error('[queryDoc] Error:', error);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 });
