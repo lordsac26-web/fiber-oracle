@@ -216,3 +216,5 @@ function EnhancedMessageBubble({ message }) {
     </motion.div>
   );
 }
+
+export default React.memo(EnhancedMessageBubble);
