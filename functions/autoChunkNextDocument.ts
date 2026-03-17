@@ -27,45 +27,51 @@ function extractKeywords(text) {
  * autoChunkNextDocument — Finds the next unchunked document and processes it.
  * Designed to be called by a scheduled automation every 5 minutes.
  * Processes exactly 1 document per invocation to stay within rate limits.
+ * 
+ * NOTE: Scheduled automations have NO user context, so we skip auth.me()
+ * and use asServiceRole for all entity operations.
  */
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   try {
-    // Find next unchunked document by scanning one at a time
+    // Find next unchunked document by scanning in batches
+    // We fetch lightweight metadata only (no content field) to avoid JSON parse failures
     let targetDoc = null;
     let offset = 0;
     let scanned = 0;
 
-    while (!targetDoc && offset < 200) {
+    while (!targetDoc && offset < 500) {
+      let docs;
       try {
-        const raw = await base44.asServiceRole.entities.ReferenceDocument.list('created_date', 1, offset);
-        let docs;
+        const raw = await base44.asServiceRole.entities.ReferenceDocument.list('created_date', 50, offset);
         if (typeof raw === 'string') {
-          docs = JSON.parse(raw);
+          try { docs = JSON.parse(raw); } catch { docs = []; }
         } else if (Array.isArray(raw)) {
           docs = raw;
         } else {
           docs = [];
         }
+      } catch (e) {
+        if (e.message?.includes('Rate limit')) {
+          await new Promise(r => setTimeout(r, 3000));
+          continue;
+        }
+        console.warn(`[autoChunk] List error at offset ${offset}:`, e.message);
+        offset += 50;
+        continue;
+      }
 
-        if (docs.length === 0) break;
-        scanned++;
-        const doc = docs[0];
+      if (docs.length === 0) break;
+      scanned += docs.length;
 
-        // Check if this doc needs chunking
+      for (const doc of docs) {
         if (doc.is_active !== false && doc.content && doc.content.length > 20 && !doc.metadata?.chunked_at) {
           targetDoc = doc;
           break;
         }
-
-        offset++;
-      } catch (e) {
-        // Rate limit or parse error — wait and skip
-        if (e.message?.includes('Rate limit')) {
-          await new Promise(r => setTimeout(r, 2000));
-        }
-        offset++;
       }
+
+      if (!targetDoc) offset += docs.length;
     }
 
     if (!targetDoc) {
