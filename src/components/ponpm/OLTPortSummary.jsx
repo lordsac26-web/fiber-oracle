@@ -336,15 +336,15 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-gray-50">
-                <TableHead>OLT / Port</TableHead>
-                <TableHead className="text-center">ONTs</TableHead>
-                <TableHead className="text-center">Status</TableHead>
-                <TableHead className="text-right">Avg ONT Rx</TableHead>
-                <TableHead className="text-right">Rx Range</TableHead>
-                <TableHead className="text-right">Avg OLT Rx</TableHead>
-                <TableHead className="text-center">Degrading</TableHead>
-                <TableHead>LCP</TableHead>
+              <TableRow className="bg-gray-100 dark:bg-gray-800">
+                <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">OLT / Port</TableHead>
+                <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">ONTs</TableHead>
+                <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Status</TableHead>
+                <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Avg ONT Rx</TableHead>
+                <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Rx Range</TableHead>
+                <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Avg OLT Rx</TableHead>
+                <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Degrading</TableHead>
+                <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">LCP</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
