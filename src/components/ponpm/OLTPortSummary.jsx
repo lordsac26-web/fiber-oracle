@@ -544,15 +544,15 @@ export default function OLTPortSummary({ result, onDrillDown }) {
               <div className="border rounded-lg overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="w-10">Status</TableHead>
-                      <TableHead>ONT ID</TableHead>
-                      <TableHead>Serial</TableHead>
-                      <TableHead>Model</TableHead>
-                      <TableHead className="text-right">ONT Rx</TableHead>
-                      <TableHead className="text-right">OLT Rx</TableHead>
-                      <TableHead className="text-right">US BIP</TableHead>
-                      <TableHead>Issues</TableHead>
+                    <TableRow className="bg-gray-100 dark:bg-gray-800">
+                      <TableHead className="w-10 text-gray-700 dark:text-gray-200 font-semibold">Status</TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">ONT ID</TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">Serial</TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">Model</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">ONT Rx</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">OLT Rx</TableHead>
+                      <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">US BIP</TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">Issues</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
