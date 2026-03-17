@@ -58,7 +58,8 @@ function matchEntries(csvRows, lcpEntries) {
     const csvPort = normalizePort(row.port);
 
     // Find all LCP entries whose OLT info matches this CSV row.
-    // An LCP entry's olt_port can be a range like "1-4", so we check if csvPort falls within it.
+    // An LCP entry's olt_port can be "3", "xp3-4", "1-4", "1,2,3", etc.
+    // COMBO optics use paired ports (e.g., "xp3-4" means ports 3 AND 4).
     const matches = lcpEntries.filter(entry => {
       const entrySystem = (entry.olt_name || '').trim().toLowerCase();
       const entryShelf = normalizePort(entry.olt_shelf);
@@ -68,15 +69,16 @@ function matchEntries(csvRows, lcpEntries) {
       if (entrySystem !== csvSystem) return false;
       if (entryShelf !== csvShelf) return false;
       if (entrySlot !== csvSlot) return false;
-
-      // Port matching: entry port could be "3", "1-4", "1,2,3", etc.
       if (!entryPort) return false;
+
+      // Strip xp prefix for numeric comparison
+      const numericEntryPort = entryPort.replace(/^xp/i, '');
       
-      // Exact match
-      if (normalizePort(entryPort) === csvPort) return true;
+      // Exact match (after stripping xp)
+      if (normalizePort(numericEntryPort) === csvPort) return true;
       
-      // Range match: "1-4" means ports 1,2,3,4
-      const rangeMatch = entryPort.match(/^(\d+)\s*-\s*(\d+)$/);
+      // Range match: "3-4", "xp3-4", "1-8" → expand to individual ports
+      const rangeMatch = numericEntryPort.match(/^(\d+)\s*-\s*(\d+)$/);
       if (rangeMatch) {
         const lo = parseInt(rangeMatch[1], 10);
         const hi = parseInt(rangeMatch[2], 10);
@@ -85,7 +87,7 @@ function matchEntries(csvRows, lcpEntries) {
       }
 
       // Comma-separated: "1,2,3"
-      const parts = entryPort.split(',').map(s => normalizePort(s));
+      const parts = numericEntryPort.split(',').map(s => normalizePort(s));
       if (parts.includes(csvPort)) return true;
 
       return false;

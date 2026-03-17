@@ -175,25 +175,41 @@ Deno.serve(async (req) => {
     for (const lcp of lcpEntries) {
       if (!lcp.olt_name || lcp.olt_shelf === undefined || lcp.olt_slot === undefined || !lcp.olt_port) continue;
       const oltName = lcp.olt_name.toLowerCase().trim();
-      const shelf = lcp.olt_shelf.toString();
-      const slot = lcp.olt_slot.toString();
-      const port = lcp.olt_port.toString();
+      const shelf = lcp.olt_shelf.toString().trim();
+      const slot = lcp.olt_slot.toString().trim();
+      const rawPort = lcp.olt_port.toString().trim();
+      const opticType = (lcp.optic_type || '').toUpperCase();
+      const isCombo = opticType.includes('COMBO');
       const data = {
         lcp_number: lcp.lcp_number,
         splitter_number: lcp.splitter_number,
         location: lcp.location,
         address: lcp.address,
+        optic_type: lcp.optic_type || '',
       };
-      lcpLookup[`${oltName}|${shelf}/${slot}/${port}`] = data;
-      lcpLookup[`${oltName}|${shelf}/${slot}/xp${port}`] = data;
-      const rng = port.match(/^(\d+)-(\d+)$/);
+
+      // Store literal key
+      lcpLookup[`${oltName}|${shelf}/${slot}/${rawPort.toLowerCase()}`] = data;
+
+      // Strip xp prefix for numeric processing
+      const numericPort = rawPort.replace(/^xp/i, '');
+
+      // Check for range: handles "3-4", "xp3-4", etc.
+      const rng = numericPort.match(/^(\d+)\s*-\s*(\d+)$/);
       if (rng) {
-        for (let p = parseInt(rng[1]); p <= parseInt(rng[2]); p++) {
+        const lo = parseInt(rng[1], 10);
+        const hi = parseInt(rng[2], 10);
+        for (let p = lo; p <= hi; p++) {
           lcpLookup[`${oltName}|${shelf}/${slot}/${p}`] = data;
           lcpLookup[`${oltName}|${shelf}/${slot}/xp${p}`] = data;
         }
+      } else {
+        // Single port — store both numeric and xp-prefixed variants
+        lcpLookup[`${oltName}|${shelf}/${slot}/${numericPort}`] = data;
+        lcpLookup[`${oltName}|${shelf}/${slot}/xp${numericPort}`] = data;
       }
     }
+    console.log(`[processPonPmRecords] Built LCP lookup with ${Object.keys(lcpLookup).length} keys from ${lcpEntries.length} LCP entries`);
 
     // ── Fetch & parse CSV ────────────────────────────────────────────────────
     const fileResp = await fetch(fileUrl);

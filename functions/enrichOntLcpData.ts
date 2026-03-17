@@ -42,7 +42,6 @@ function buildLcpLookup(lcpEntries) {
     const oltBase = lcp.olt_name.toLowerCase().trim();
     const shelf   = String(lcp.olt_shelf).trim();
     const slot    = String(lcp.olt_slot).trim();
-    // olt_port may already contain "xp5" or just "5"
     const rawPort = String(lcp.olt_port).trim();
 
     // Strip any leading "xp" to get the numeric part
@@ -51,19 +50,32 @@ function buildLcpLookup(lcpEntries) {
     const payload = {
       lcp_number:      lcp.lcp_number      || '',
       splitter_number: lcp.splitter_number || '',
+      optic_type:      lcp.optic_type      || '',
     };
 
-    // Generate both variants
-    const variants = [
-      `${oltBase}|${shelf}/${slot}/${numericPort}`,
-      `${oltBase}|${shelf}/${slot}/xp${numericPort}`,
-    ];
-
-    for (const key of variants) {
-      if (!map.has(key)) {
-        map.set(key, payload);
+    // Check for range: handles "3-4", "xp3-4" → individual ports 3 and 4
+    // COMBO optics span two ports (odd=XGS-PON, even=GPON) — both map to same LCP/splitter
+    const rng = numericPort.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (rng) {
+      const lo = parseInt(rng[1], 10);
+      const hi = parseInt(rng[2], 10);
+      for (let p = lo; p <= hi; p++) {
+        const keyNumeric = `${oltBase}|${shelf}/${slot}/${p}`;
+        const keyXp      = `${oltBase}|${shelf}/${slot}/xp${p}`;
+        if (!map.has(keyNumeric)) map.set(keyNumeric, payload);
+        if (!map.has(keyXp))      map.set(keyXp, payload);
       }
+    } else {
+      // Single port — store both numeric and xp-prefixed variants
+      const keyNumeric = `${oltBase}|${shelf}/${slot}/${numericPort}`;
+      const keyXp      = `${oltBase}|${shelf}/${slot}/xp${numericPort}`;
+      if (!map.has(keyNumeric)) map.set(keyNumeric, payload);
+      if (!map.has(keyXp))      map.set(keyXp, payload);
     }
+
+    // Also store the literal raw port key for exact match
+    const literalKey = `${oltBase}|${shelf}/${slot}/${rawPort.toLowerCase()}`;
+    if (!map.has(literalKey)) map.set(literalKey, payload);
   }
 
   return map;
