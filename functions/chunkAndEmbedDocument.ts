@@ -63,8 +63,16 @@ Deno.serve(async (req) => {
 
     // Fetch document by ID (single doc fetch works fine even for large content)
     const doc = await base44.asServiceRole.entities.ReferenceDocument.get(document_id);
-    if (!doc || !doc.content) {
-      return Response.json({ error: 'Document not found or has no content' }, { status: 404 });
+    if (!doc) {
+      return Response.json({ error: 'Document not found' }, { status: 404 });
+    }
+
+    if (doc.is_active === false) {
+      return Response.json({ success: true, skipped: true, reason: 'document is inactive', document_id });
+    }
+
+    if (!doc.content || doc.content.trim().length < 10) {
+      return Response.json({ success: true, skipped: true, reason: 'document has no chunkable content', document_id });
     }
 
     console.log(`[chunk] Processing "${doc.title}" (${doc.content.length} chars)`);
