@@ -177,6 +177,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
           lcpLocation: lcpInfo?._lcpLocation,
           lcpAddress: lcpInfo?._lcpAddress,
           onts: portOnts,
+          errors: computeErrorTotals(portOnts),
         });
       });
     });
