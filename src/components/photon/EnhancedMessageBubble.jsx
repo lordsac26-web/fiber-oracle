@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Copy, Zap, CheckCircle2, AlertCircle, Loader2, Clock } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import DOMPurify from 'dompurify';
 
 const FunctionDisplay = ({ toolCall }) => {
   const [expanded, setExpanded] = useState(false);
@@ -102,15 +101,8 @@ const FunctionDisplay = ({ toolCall }) => {
   );
 };
 
-function EnhancedMessageBubble({ message }) {
+export default function EnhancedMessageBubble({ message }) {
   const isUser = message.role === 'user';
-  
-  const sanitizeHtml = (html) => {
-    return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3'],
-      ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
-    });
-  };
   
   return (
     <motion.div
@@ -199,7 +191,7 @@ function EnhancedMessageBubble({ message }) {
                   ),
                 }}
               >
-                {sanitizeHtml(message.content)}
+                {message.content}
               </ReactMarkdown>
             )}
           </motion.div>
@@ -216,5 +208,3 @@ function EnhancedMessageBubble({ message }) {
     </motion.div>
   );
 }
-
-export default React.memo(EnhancedMessageBubble);
