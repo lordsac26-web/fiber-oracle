@@ -122,6 +122,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         criticalCount,
         warningCount,
         okCount,
+        offlineCount,
         avgOntRx: rxValues.length > 0 ? rxValues.reduce((a, b) => a + b, 0) / rxValues.length : null,
         avgOntTx: txValues.length > 0 ? txValues.reduce((a, b) => a + b, 0) / txValues.length : null,
         avgOltRx: oltRxValues.length > 0 ? oltRxValues.reduce((a, b) => a + b, 0) / oltRxValues.length : null,
@@ -130,6 +131,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         degradingCount,
         hasCorrelatedIssue,
         issueRate,
+        errors: computeErrorTotals(oltOnts),
       });
 
       // Process each port
