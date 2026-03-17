@@ -13,17 +13,19 @@ Deno.serve(async (req) => {
 
     console.log('advDocSearch query:', query);
 
+    // Fetch docs - limit to 20 to avoid OOM from large content fields
     let activeDocs = [];
     try {
-      const rawDocs = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 50);
-      console.log('advDocSearch rawDocs type:', typeof rawDocs, Array.isArray(rawDocs));
-      if (Array.isArray(rawDocs)) {
-        activeDocs = rawDocs.filter(d => d.is_active !== false);
+      const rawResult = await base44.asServiceRole.entities.ReferenceDocument.list('-created_date', 20);
+      // SDK may return string for very large payloads
+      if (typeof rawResult === 'string') {
+        activeDocs = JSON.parse(rawResult);
+      } else if (Array.isArray(rawResult)) {
+        activeDocs = rawResult;
       } else {
-        console.log('advDocSearch rawDocs keys:', Object.keys(rawDocs || {}).join(','));
-        // Try treating as iterable
-        activeDocs = [...(rawDocs || [])].filter(d => d.is_active !== false);
+        activeDocs = [];
       }
+      activeDocs = activeDocs.filter(d => d.is_active !== false);
     } catch (listErr) {
       console.error('advDocSearch list error:', listErr.message);
       return Response.json({ error: 'Failed to fetch documents: ' + listErr.message }, { status: 500 });
@@ -35,6 +37,7 @@ Deno.serve(async (req) => {
       return Response.json({ query, results: [], total_results: 0, message: 'No documents found.' });
     }
 
+    // Keyword scoring on titles, tags, categories, and content
     const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
 
     const scored = activeDocs.map(doc => {
@@ -43,7 +46,8 @@ Deno.serve(async (req) => {
       const title = (doc.title || '').toLowerCase();
       const tags = (doc.tags || []).join(' ').toLowerCase();
       const cat = (doc.category || '').toLowerCase();
-      const content = (doc.content || '').toLowerCase();
+      // Truncate content to prevent OOM during string ops
+      const content = ((doc.content || '').substring(0, 10000)).toLowerCase();
 
       for (const word of queryWords) {
         if (title.includes(word)) score += 10;
@@ -67,8 +71,9 @@ Deno.serve(async (req) => {
 
     const candidates = scored.slice(0, Math.max(maxResults * 2, 10));
 
-    console.log('advDocSearch ranking', candidates.length, 'candidates');
+    console.log('advDocSearch ranking', candidates.length, 'candidates via LLM');
 
+    // LLM semantic ranking
     const rankResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Rank these documents by relevance to: "${query}". Return top ${maxResults}.
 ${candidates.map((d, i) => `[${i+1}] ID:${d.id} Title:"${d.title}" Cat:${d.category}
@@ -97,6 +102,8 @@ Excerpt: ${(d.bestSnippet || d.contentPreview || '').substring(0, 300)}`).join('
       .sort((a, b) => b.relevance_score - a.relevance_score)
       .slice(0, maxResults);
 
+    console.log('advDocSearch LLM returned', ranked.length, 'results');
+
     const results = ranked.map(r => {
       const doc = candidates.find(c => c.id === r.document_id);
       if (!doc) return null;
@@ -110,8 +117,10 @@ Excerpt: ${(d.bestSnippet || d.contentPreview || '').substring(0, 300)}`).join('
     }).filter(Boolean);
 
     return Response.json({
-      query, total_documents_searched: activeDocs.length,
-      total_results: results.length, results
+      query,
+      total_documents_searched: activeDocs.length,
+      total_results: results.length,
+      results
     });
   } catch (error) {
     console.error('advDocSearch error:', error);
