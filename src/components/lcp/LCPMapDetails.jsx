@@ -7,7 +7,7 @@ import LCPIssueList from '@/components/lcp/LCPIssueList';
 const OPTIC_TYPE_COLORS = {
   'XGS-DD': 'bg-purple-600',
   'XGS-COMBO': 'bg-emerald-600',
-  'XGS-COMBO-EXT': 'bg-amber-600',
+  'XGS-COMBO-EXT': 'bg-amber-600'
 };
 
 function formatOltLocation(entry) {
@@ -29,49 +29,49 @@ function SplitterRow({ entry }) {
         <Badge variant="outline" className="font-mono text-xs">
           {entry.splitter_number}
         </Badge>
-        {hasPort && (
-          <span
-            className={`w-2 h-2 rounded-full ${hasOptic ? 'bg-green-500' : 'bg-red-500'}`}
-            title={hasOptic ? 'Optic info populated' : 'Missing optic info'}
-          />
-        )}
+        {hasPort &&
+        <span
+          className={`w-2 h-2 rounded-full ${hasOptic ? 'bg-green-500' : 'bg-red-500'}`}
+          title={hasOptic ? 'Optic info populated' : 'Missing optic info'} />
+
+        }
       </div>
 
-      {oltParts.length > 0 && (
-        <div className="flex items-start gap-2">
+      {oltParts.length > 0 &&
+      <div className="flex items-start gap-2">
           <Server className="h-3.5 w-3.5 text-gray-400 mt-0.5 shrink-0" />
           <div className="text-xs space-y-0.5">
             <div className="font-mono text-gray-700 dark:text-gray-300 flex items-center gap-1 flex-wrap">
-              {oltParts.map((part, index) => (
-                <React.Fragment key={index}>
+              {oltParts.map((part, index) =>
+            <React.Fragment key={index}>
                   {index > 0 && <span className="text-gray-400">→</span>}
                   <span>{part}</span>
                 </React.Fragment>
-              ))}
-              {entry.optic_type && (
-                <>
+            )}
+              {entry.optic_type &&
+            <>
                   <span className="text-gray-400">→</span>
                   <Badge className={`${OPTIC_TYPE_COLORS[entry.optic_type] || 'bg-gray-500'} text-[10px] py-0 px-1.5`}>
                     {entry.optic_type}
                   </Badge>
                 </>
-              )}
+            }
             </div>
-            {entry.olt_shelf && (
-              <div className="text-gray-400">Shelf {entry.olt_shelf}</div>
-            )}
+            
+
+          
           </div>
         </div>
-      )}
+      }
 
-      {hasOptic && (
-        <div className="text-xs text-gray-600 dark:text-gray-400 pl-5">
+      {hasOptic &&
+      <div className="text-xs text-gray-600 dark:text-gray-400 pl-5">
           {[entry.optic_make, entry.optic_model].filter(Boolean).join(' ')}
           {entry.optic_serial && <span className="text-gray-400 ml-1">S/N: {entry.optic_serial}</span>}
         </div>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 }
 
 export default function LCPMapDetails({ group, onClose }) {
@@ -83,9 +83,9 @@ export default function LCPMapDetails({ group, onClose }) {
   });
 
   const splitterNums = sortedEntries.map((entry) => entry.splitter_number).filter(Boolean);
-  const splitterSummary = splitterNums.length <= 1
-    ? splitterNums[0] || ''
-    : `${splitterNums[0]}–${splitterNums[splitterNums.length - 1]}`;
+  const splitterSummary = splitterNums.length <= 1 ?
+  splitterNums[0] || '' :
+  `${splitterNums[0]}–${splitterNums[splitterNums.length - 1]}`;
 
   const withPort = group.entries.filter((entry) => entry.olt_port);
   const withOptic = withPort.filter((entry) => entry.optic_make || entry.optic_model);
@@ -104,27 +104,27 @@ export default function LCPMapDetails({ group, onClose }) {
       <div className="p-4 space-y-4">
         <div>
           <Badge className="bg-indigo-600 text-base px-3 py-1">{group.lcp_number}</Badge>
-          {splitterSummary && (
-            <div className="text-sm text-gray-500 mt-1.5">
+          {splitterSummary &&
+          <div className="text-sm text-gray-500 mt-1.5">
               Splitters {splitterSummary} ({sortedEntries.length} total)
             </div>
-          )}
-          {group.latestReportName && (
-            <div className="text-xs text-gray-500 mt-2">
+          }
+          {group.latestReportName &&
+          <div className="text-xs text-gray-500 mt-2">
               Latest PON PM snapshot: {group.latestReportName}
             </div>
-          )}
+          }
         </div>
 
-        {group.location && (
-          <div>
+        {group.location &&
+        <div>
             <div className="text-xs text-gray-500 mb-1">Location</div>
             <div className="flex items-start gap-2">
               <MapPin className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
               <span className="text-sm">{group.location}</span>
             </div>
           </div>
-        )}
+        }
 
         <div>
           <div className="text-xs text-gray-500 mb-1">Coordinates</div>
@@ -133,19 +133,19 @@ export default function LCPMapDetails({ group, onClose }) {
           </div>
         </div>
 
-        {opticRatio && (
-          <div className="flex items-center gap-2">
+        {opticRatio &&
+        <div className="flex items-center gap-2">
             <div className="text-xs text-gray-500">Optic Coverage:</div>
             <Badge
-              variant="outline"
-              className={withOptic.length === withPort.length
-                ? 'border-green-300 text-green-700 bg-green-50'
-                : 'border-red-300 text-red-700 bg-red-50'}
-            >
+            variant="outline"
+            className={withOptic.length === withPort.length ?
+            'border-green-300 text-green-700 bg-green-50' :
+            'border-red-300 text-red-700 bg-red-50'}>
+            
               {opticRatio} ports
             </Badge>
           </div>
-        )}
+        }
 
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-medium text-gray-500">
@@ -184,32 +184,32 @@ export default function LCPMapDetails({ group, onClose }) {
         <div>
           <div className="text-xs text-gray-500 mb-2 font-medium">Splitters & OLT Ports</div>
           <div className="space-y-2">
-            {sortedEntries.map((entry) => (
-              <SplitterRow key={entry.id} entry={entry} />
-            ))}
+            {sortedEntries.map((entry) =>
+            <SplitterRow key={entry.id} entry={entry} />
+            )}
           </div>
         </div>
 
-        {sortedEntries.some((entry) => entry.notes) && (
-          <div>
+        {sortedEntries.some((entry) => entry.notes) &&
+        <div>
             <div className="text-xs text-gray-500 mb-1">Notes</div>
-            {sortedEntries.filter((entry) => entry.notes).map((entry) => (
-              <div key={entry.id} className="text-sm italic text-gray-600 dark:text-gray-400 mb-1">
+            {sortedEntries.filter((entry) => entry.notes).map((entry) =>
+          <div key={entry.id} className="text-sm italic text-gray-600 dark:text-gray-400 mb-1">
                 <span className="text-xs font-mono text-gray-400 not-italic">[{entry.splitter_number}]</span> {entry.notes}
               </div>
-            ))}
+          )}
           </div>
-        )}
+        }
 
         <Button
           variant="outline"
           className="w-full"
-          onClick={() => window.open(`https://www.google.com/maps?q=${group.gps_lat},${group.gps_lng}`, '_blank')}
-        >
+          onClick={() => window.open(`https://www.google.com/maps?q=${group.gps_lat},${group.gps_lng}`, '_blank')}>
+          
           <MapPin className="h-4 w-4 mr-2" />
           Open in Google Maps
         </Button>
       </div>
-    </div>
-  );
+    </div>);
+
 }
