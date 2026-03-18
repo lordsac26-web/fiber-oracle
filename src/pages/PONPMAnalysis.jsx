@@ -839,23 +839,16 @@ Be specific, technical, and actionable.`;
                 <p className="text-xs text-gray-500">SMx Performance Monitoring Parser</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Link to={createPageUrl('PONPMTrends')}>
-                <Button variant="outline" size="sm">
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Analytics
-                </Button>
-              </Link>
-              {result && (
-                <>
+            {result && (
+              <div className="flex items-center gap-2">
                   {selectedReportId && (
                     <Badge variant="outline" className="text-xs">
                       <Calendar className="h-3 w-3 mr-1" />
                       Viewing saved report
                     </Badge>
                   )}
-                  <Button
-                    variant="outline"
+                  <Button 
+                    variant="outline" 
                     size="sm"
                     onClick={() => setShowTrends(true)}
                     disabled={savedReports.length < 1}
@@ -867,8 +860,8 @@ Be specific, technical, and actionable.`;
                       <Badge variant="secondary" className="ml-1 text-xs">{savedReports.length}</Badge>
                     )}
                   </Button>
-                  <Button
-                    variant="outline"
+                  <Button 
+                    variant="outline" 
                     size="sm"
                     onClick={() => setShowHistoricalReports(true)}
                   >
@@ -889,63 +882,62 @@ Be specific, technical, and actionable.`;
                       </Button>
                     </Link>
                   </div>
-                  <ThresholdSettingsDialog
-                    open={showThresholdSettings}
-                    onOpenChange={setShowThresholdSettings}
-                    thresholds={customThresholds}
-                    onUpdate={updateThreshold}
-                    onSave={saveThresholds}
-                    onReset={resetThresholds}
-                  />
+                <ThresholdSettingsDialog
+                  open={showThresholdSettings}
+                  onOpenChange={setShowThresholdSettings}
+                  thresholds={customThresholds}
+                  onUpdate={updateThreshold}
+                  onSave={saveThresholds}
+                  onReset={resetThresholds}
+                />
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                        <ChevronDown className="h-4 w-4 ml-2" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuItem onClick={() => exportPDF()}>
-                        <FileText className="h-4 w-4 mr-2 text-red-500" />
-                        Full Issue Report (PDF)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportCriticalPDF}>
-                        <FileText className="h-4 w-4 mr-2 text-red-600" />
-                        Critical Issues Only (PDF)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportIssueReport}>
-                        <FileText className="h-4 w-4 mr-2" />
-                        Issue Report (TXT)
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => exportCSV('all')}>
-                        <FileSpreadsheet className="h-4 w-4 mr-2" />
-                        All Results (CSV)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => exportCSV('issues')}>
-                        <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
-                        All Issues (CSV)
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => exportCSV('critical')}>
-                        <AlertCircle className="h-4 w-4 mr-2 text-red-500" />
-                        Critical Only (CSV)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => exportCSV('warning')}>
-                        <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
-                        Warnings Only (CSV)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={exportOfflineCSV}>
-                        <Router className="h-4 w-4 mr-2 text-purple-500" />
-                        Offline ONTs (CSV)
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </>
-              )}
-            </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                      <ChevronDown className="h-4 w-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => exportPDF()}>
+                      <FileText className="h-4 w-4 mr-2 text-red-500" />
+                      Full Issue Report (PDF)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportCriticalPDF}>
+                      <FileText className="h-4 w-4 mr-2 text-red-600" />
+                      Critical Issues Only (PDF)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportIssueReport}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Issue Report (TXT)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => exportCSV('all')}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      All Results (CSV)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => exportCSV('issues')}>
+                      <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
+                      All Issues (CSV)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => exportCSV('critical')}>
+                      <AlertCircle className="h-4 w-4 mr-2 text-red-500" />
+                      Critical Only (CSV)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => exportCSV('warning')}>
+                      <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
+                      Warnings Only (CSV)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportOfflineCSV}>
+                      <Router className="h-4 w-4 mr-2 text-purple-500" />
+                      Offline ONTs (CSV)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </div>
         </div>
       </header>
