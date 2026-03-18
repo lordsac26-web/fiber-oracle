@@ -847,6 +847,7 @@ Be specific, technical, and actionable.`;
                 </Button>
               </Link>
               {result && (
+                <div className="flex items-center gap-2">
                   {selectedReportId && (
                     <Badge variant="outline" className="text-xs">
                       <Calendar className="h-3 w-3 mr-1" />
