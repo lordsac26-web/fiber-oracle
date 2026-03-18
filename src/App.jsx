@@ -7,6 +7,7 @@ import NavigationTracker from '@/lib/NavigationTracker'
 import { pagesConfig } from './pages.config'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
+import PONPMTrends from './pages/PONPMTrends';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppErrorBoundary from '@/components/AppErrorBoundary';
@@ -61,6 +62,14 @@ const AuthenticatedApp = () => {
           }
         />
       ))}
+      <Route
+        path="/PONPMTrends"
+        element={
+          <LayoutWrapper currentPageName="PONPMTrends">
+            <PONPMTrends />
+          </LayoutWrapper>
+        }
+      />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

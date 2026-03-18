@@ -839,8 +839,14 @@ Be specific, technical, and actionable.`;
                 <p className="text-xs text-gray-500">SMx Performance Monitoring Parser</p>
               </div>
             </div>
-            {result && (
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <Link to={createPageUrl('PONPMTrends')}>
+                <Button variant="outline" size="sm">
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Analytics
+                </Button>
+              </Link>
+              {result && (
                   {selectedReportId && (
                     <Badge variant="outline" className="text-xs">
                       <Calendar className="h-3 w-3 mr-1" />
@@ -937,7 +943,8 @@ Be specific, technical, and actionable.`;
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </header>
