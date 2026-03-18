@@ -439,7 +439,6 @@ export default function LCPMap() {
                     key={group.lcp_number}
                     position={[group.gps_lat, group.gps_lng]}
                     icon={icon}
-                    eventHandlers={{ click: () => setSelectedGroup(group) }}
                   >
                     <Popup>
                       <div className="min-w-[220px]">
@@ -458,8 +457,15 @@ export default function LCPMap() {
                           <div>
                             {group.issueSummary.critical} critical • {group.issueSummary.warning} warning • {group.issueSummary.offline} offline
                           </div>
-                          <div className="text-gray-500">Click for full LCP and ONT issue details</div>
+                          <div className="text-gray-500">First click opens this map tile. Click again below for full details.</div>
                         </div>
+                        <Button
+                          size="sm"
+                          className="mt-3 w-full"
+                          onClick={() => setSelectedGroup(group)}
+                        >
+                          Open Details
+                        </Button>
                       </div>
                     </Popup>
                   </Marker>
