@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Download, FileText, List, Loader2, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import LCPMapDetails from '@/components/lcp/LCPMapDetails';
 import LCPMapFilters from '@/components/lcp/LCPMapFilters';
+import LCPMapLayerControls from '@/components/lcp/LCPMapLayerControls';
 import { downloadLcpAuditCsv, downloadLcpAuditPdf } from '@/utils/lcpMapAuditExport';
 
 // Fix default marker icon issue
@@ -197,6 +198,10 @@ export default function LCPMap() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [selectedOlt, setSelectedOlt] = useState('all');
+  const [planningLayer, setPlanningLayer] = useState(null);
+  const [showPlanningLayer, setShowPlanningLayer] = useState(true);
+  const [isUploadingPlanningLayer, setIsUploadingPlanningLayer] = useState(false);
 
   const { data: lcpEntries = [], isLoading: isLoadingLcpEntries } = useQuery({
     queryKey: ['lcpEntries'],
@@ -222,17 +227,26 @@ export default function LCPMap() {
     return lcpEntries.filter((entry) => entry.gps_lat && entry.gps_lng && !Number.isNaN(entry.gps_lat) && !Number.isNaN(entry.gps_lng));
   }, [lcpEntries]);
 
+  const oltOptions = useMemo(() => {
+    return [...new Set(entriesWithCoords.map((entry) => entry.olt_name).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [entriesWithCoords]);
+
   const filteredEntries = useMemo(() => {
-    if (!searchTerm) return entriesWithCoords;
+    const scopedEntries = selectedOlt === 'all'
+      ? entriesWithCoords
+      : entriesWithCoords.filter((entry) => entry.olt_name === selectedOlt);
+
+    if (!searchTerm) return scopedEntries;
 
     const term = searchTerm.toLowerCase();
-    return entriesWithCoords.filter((entry) => {
+    return scopedEntries.filter((entry) => {
       return entry.lcp_number?.toLowerCase().includes(term)
         || entry.splitter_number?.toLowerCase().includes(term)
         || entry.location?.toLowerCase().includes(term)
         || entry.olt_name?.toLowerCase().includes(term);
     });
-  }, [entriesWithCoords, searchTerm]);
+  }, [entriesWithCoords, searchTerm, selectedOlt]);
 
   const ontRecordsByLcp = useMemo(() => {
     const groupedRecords = new Map();
@@ -300,10 +314,58 @@ export default function LCPMap() {
     };
   }, [latestReport]);
 
+  const planningPositions = useMemo(() => {
+    return (planningLayer?.placemarks || []).map((placemark) => [placemark.latitude, placemark.longitude]);
+  }, [planningLayer]);
+
   const positions = useMemo(() => groups.map((group) => [group.gps_lat, group.gps_lng]), [groups]);
-  const fallbackCenter = entriesWithCoords.length > 0 ? [entriesWithCoords[0].gps_lat, entriesWithCoords[0].gps_lng] : [39.8283, -98.5795];
-  const defaultCenter = positions.length > 0 ? positions[0] : fallbackCenter;
+  const visiblePlanningPositions = showPlanningLayer ? planningPositions : [];
+  const mapPositions = [...positions, ...visiblePlanningPositions];
+  const fallbackCenter = entriesWithCoords.length > 0
+    ? [entriesWithCoords[0].gps_lat, entriesWithCoords[0].gps_lng]
+    : planningPositions.length > 0
+      ? planningPositions[0]
+      : [39.8283, -98.5795];
+  const defaultCenter = mapPositions.length > 0 ? mapPositions[0] : fallbackCenter;
   const isLoading = isLoadingLcpEntries || isLoadingReports || isLoadingOntRecords;
+  const hasPlanningLayer = visiblePlanningPositions.length > 0;
+
+  const handlePlanningLayerUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const lowerName = file.name.toLowerCase();
+    if (!lowerName.endsWith('.kml') && !lowerName.endsWith('.kmz')) {
+      toast.error('Please upload a KML or KMZ file');
+      event.target.value = '';
+      return;
+    }
+
+    setIsUploadingPlanningLayer(true);
+    toast.loading('Loading planning layer…', { id: 'planning-layer' });
+
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const response = await base44.functions.invoke('parseKml', { file_url });
+
+      if (response.data?.success) {
+        setPlanningLayer({
+          fileName: file.name,
+          placemarks: response.data.placemarks || [],
+        });
+        setShowPlanningLayer(true);
+        toast.success(`Added ${response.data.count} planning points`, { id: 'planning-layer' });
+      } else {
+        toast.error(response.data?.error || 'Failed to load planning layer', { id: 'planning-layer' });
+      }
+    } catch (error) {
+      console.error('Planning layer upload error:', error);
+      toast.error('Failed to load planning layer', { id: 'planning-layer' });
+    } finally {
+      setIsUploadingPlanningLayer(false);
+      event.target.value = '';
+    }
+  };
 
   useEffect(() => {
     if (!selectedGroup) return;
@@ -327,7 +389,7 @@ export default function LCPMap() {
               <div>
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Fiber Network Map</h1>
                 <p className="text-xs text-gray-500">
-                  {groups.length} visible locations • {filteredEntries.length} splitter entries
+                  {groups.length} visible locations • {filteredEntries.length} splitter entries • {selectedOlt === 'all' ? 'all OLTs' : selectedOlt}
                 </p>
               </div>
             </div>
@@ -390,6 +452,18 @@ export default function LCPMap() {
             }}
           />
 
+          <LCPMapLayerControls
+            oltOptions={oltOptions}
+            selectedOlt={selectedOlt}
+            onOltChange={setSelectedOlt}
+            planningLayer={planningLayer}
+            showPlanningLayer={showPlanningLayer}
+            onPlanningLayerToggle={setShowPlanningLayer}
+            onPlanningLayerUpload={handlePlanningLayerUpload}
+            onPlanningLayerClear={() => setPlanningLayer(null)}
+            isUploadingPlanningLayer={isUploadingPlanningLayer}
+          />
+
           {isLoading ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center">
@@ -397,7 +471,7 @@ export default function LCPMap() {
                 <h3 className="text-lg font-medium text-gray-600">Loading fiber map...</h3>
               </div>
             </div>
-          ) : entriesWithCoords.length === 0 ? (
+          ) : entriesWithCoords.length === 0 && !planningLayer ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center px-6">
                 <MapPin className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -408,26 +482,36 @@ export default function LCPMap() {
                 </Link>
               </div>
             </div>
-          ) : selectedStatuses.length === 0 ? (
+          ) : selectedStatuses.length === 0 && !hasPlanningLayer ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center px-6">
                 <MapPin className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-600">No pins selected yet</h3>
-                <p className="text-sm text-gray-500 mt-1">Use the status checkboxes above to show the LCP pins you want on the map.</p>
+                <p className="text-sm text-gray-500 mt-1">Use the status checkboxes above to show the LCP pins you want on the map, or upload a planning layer.</p>
               </div>
             </div>
-          ) : groups.length > 0 ? (
+          ) : groups.length > 0 || hasPlanningLayer ? (
             <MapContainer
               center={defaultCenter}
               zoom={10}
               className="h-full w-full"
               style={{ zIndex: 1 }}
             >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-              />
-              <FitBounds positions={positions} />
+              <LayersControl position="bottomleft">
+                <LayersControl.BaseLayer checked name="Light">
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  />
+                </LayersControl.BaseLayer>
+                <LayersControl.BaseLayer name="Satellite">
+                  <TileLayer
+                    attribution='Tiles &copy; Esri'
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  />
+                </LayersControl.BaseLayer>
+              </LayersControl>
+              <FitBounds positions={mapPositions} />
 
               {groups.map((group) => {
                 const opticStatus = getOpticStatus(group);
@@ -471,13 +555,35 @@ export default function LCPMap() {
                   </Marker>
                 );
               })}
+
+              {showPlanningLayer && planningLayer?.placemarks?.map((placemark, index) => (
+                <CircleMarker
+                  key={`${planningLayer.fileName}-${index}`}
+                  center={[placemark.latitude, placemark.longitude]}
+                  radius={7}
+                  pathOptions={{ color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.7, weight: 2 }}
+                >
+                  <Popup>
+                    <div className="min-w-[220px]">
+                      <div className="font-bold text-base text-blue-700">{placemark.name}</div>
+                      <div className="mt-1 text-xs text-slate-600">Planning layer: {planningLayer.fileName}</div>
+                      {placemark.description && (
+                        <p className="mt-2 text-sm text-slate-700">{placemark.description}</p>
+                      )}
+                      <div className="mt-2 text-xs text-slate-500">
+                        {placemark.latitude.toFixed(6)}, {placemark.longitude.toFixed(6)}
+                      </div>
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              ))}
             </MapContainer>
           ) : (
             <div className="h-full flex items-center justify-center">
               <div className="text-center px-6">
                 <MapPin className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-600">No locations match the current filters</h3>
-                <p className="text-sm text-gray-500 mt-1">Try switching the severity filter or showing all locations.</p>
+                <p className="text-sm text-gray-500 mt-1">Try switching the severity filter, changing the OLT scope, or uploading a planning layer.</p>
               </div>
             </div>
           )}
