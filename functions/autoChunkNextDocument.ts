@@ -50,12 +50,47 @@ function chunkText(content) {
   return chunks;
 }
 
-async function safeList(entity, sort, limit, offset) {
-  const raw = await entity.list(sort, limit, offset);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function normalizeArray(raw) {
   if (typeof raw === 'string') {
     try { return JSON.parse(raw); } catch { return []; }
   }
   return Array.isArray(raw) ? raw : [];
+}
+
+async function safeList(entity, sort, limit, offset) {
+  let attempts = 0;
+  while (attempts < 6) {
+    try {
+      return normalizeArray(await entity.list(sort, limit, offset));
+    } catch (e) {
+      const msg = e.message || String(e);
+      if (!msg.includes('Rate limit')) throw e;
+      attempts++;
+      const wait = attempts * 2000;
+      console.warn('[autoChunk] Rate limited on list, waiting ' + (wait / 1000) + 's...');
+      await sleep(wait);
+    }
+  }
+  throw new Error('Rate limit exceeded while listing records');
+}
+
+async function safeFilter(entity, query, sort, limit, offset) {
+  let attempts = 0;
+  while (attempts < 6) {
+    try {
+      return normalizeArray(await entity.filter(query, sort, limit, offset));
+    } catch (e) {
+      const msg = e.message || String(e);
+      if (!msg.includes('Rate limit')) throw e;
+      attempts++;
+      const wait = attempts * 2000;
+      console.warn('[autoChunk] Rate limited on filter, waiting ' + (wait / 1000) + 's...');
+      await sleep(wait);
+    }
+  }
+  throw new Error('Rate limit exceeded while filtering records');
 }
 
 Deno.serve(async (req) => {
@@ -70,36 +105,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Step 1: Collect all unique document_ids that already have chunks.
-    // DocumentChunk records are small, so we can paginate through them safely.
-    console.log('[autoChunk] Step 1: Collecting already-chunked doc IDs...');
-    const chunkedIds = new Set();
-    let chunkOffset = 0;
-    while (chunkOffset < 10000) {
-      let chunkBatch;
-      try {
-        chunkBatch = await safeList(base44.asServiceRole.entities.DocumentChunk, 'created_date', 100, chunkOffset);
-      } catch (e) {
-        const msg = e.message || String(e);
-        if (msg.includes('Rate limit')) {
-          console.warn('[autoChunk] Rate limited on chunk scan, waiting 3s...');
-          await new Promise(r => setTimeout(r, 3000));
-          continue;
-        }
-        console.error('[autoChunk] Step 1 error at offset ' + chunkOffset + ':', msg);
-        break;
-      }
-      if (chunkBatch.length === 0) break;
-      for (const c of chunkBatch) {
-        if (c.document_id) chunkedIds.add(c.document_id);
-      }
-      chunkOffset += chunkBatch.length;
-    }
-    console.log('[autoChunk] Already chunked doc IDs: ' + chunkedIds.size);
-
-    // Step 2: Scan ReferenceDocuments ONE at a time to find an unchunked one.
-    // This avoids loading huge content payloads for multiple docs simultaneously.
-    console.log('[autoChunk] Step 2: Scanning for unchunked document...');
+    // Step 1: Scan ReferenceDocuments one at a time and check chunk existence per doc.
+    // This avoids loading the full DocumentChunk table on every scheduled run.
+    console.log('[autoChunk] Step 1: Scanning for unchunked document...');
     let targetDoc = null;
     let offset = 0;
     let scanned = 0;
@@ -113,11 +121,6 @@ Deno.serve(async (req) => {
         scanned++;
       } catch (e) {
         const msg = e.message || String(e);
-        if (msg.includes('Rate limit')) {
-          console.warn('[autoChunk] Rate limited on doc scan, waiting 3s...');
-          await new Promise(r => setTimeout(r, 3000));
-          continue;
-        }
         if (msg.includes('decompress')) {
           console.warn('[autoChunk] Skipping offset ' + offset + ' (decompression error)');
           offset++;
@@ -128,13 +131,31 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const alreadyChunked = chunkedIds.has(doc.id) || (doc.metadata && doc.metadata.chunked_at);
       const hasContent = doc.content && doc.content.length > 20;
       const isActive = doc.is_active !== false;
+      const metadataChunked = !!(doc.metadata && doc.metadata.chunked_at);
 
-      if (isActive && hasContent && !alreadyChunked) {
-        targetDoc = doc;
-      } else {
+      if (!isActive || !hasContent || metadataChunked) {
+        offset++;
+        continue;
+      }
+
+      try {
+        const existingChunks = await safeFilter(
+          base44.asServiceRole.entities.DocumentChunk,
+          { document_id: doc.id },
+          '-created_date',
+          1,
+          0
+        );
+
+        if (existingChunks.length === 0) {
+          targetDoc = doc;
+        } else {
+          offset++;
+        }
+      } catch (e) {
+        console.warn('[autoChunk] Chunk existence check failed for doc ' + doc.id + ':', e.message || String(e));
         offset++;
       }
     }
