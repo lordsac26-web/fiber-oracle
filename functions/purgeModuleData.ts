@@ -42,15 +42,15 @@ Deno.serve(async (req) => {
 
         // Delete all PON PM reports
         let totalReports = 0;
-        let reportBatch;
+        let ponPmReportBatch;
         do {
-          reportBatch = await base44.asServiceRole.entities.PONPMReport.list('', 100);
-          for (const report of reportBatch) {
+          ponPmReportBatch = await base44.asServiceRole.entities.PONPMReport.list('', 100);
+          for (const report of ponPmReportBatch) {
             await base44.asServiceRole.entities.PONPMReport.delete(report.id);
             totalReports++;
           }
           await new Promise(resolve => setTimeout(resolve, 100));
-        } while (reportBatch.length === 100);
+        } while (ponPmReportBatch.length === 100);
         
         return Response.json({ 
           success: true, 
