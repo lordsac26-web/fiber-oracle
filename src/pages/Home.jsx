@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -156,18 +156,22 @@ export default function Home() {
 
   const setDarkMode = (value) => updatePreferences({ darkMode: value });
 
-  const visibleModules = MODULES.filter((m) => {
+  const visibleModules = useMemo(() => MODULES.filter((m) => {
     return !hiddenModules.includes(m.id) && (!m.requiresPreference || preferences[m.requiresPreference]);
-  });
+  }), [hiddenModules, preferences]);
 
-  const filteredModules = selectedCategory === 'all'
-    ? visibleModules
-    : visibleModules.filter((m) => m.badge === selectedCategory);
+  const filteredModules = useMemo(() => (
+    selectedCategory === 'all'
+      ? visibleModules
+      : visibleModules.filter((m) => m.badge === selectedCategory)
+  ), [selectedCategory, visibleModules]);
 
-  const groupedModules = CATEGORIES.filter((c) => c.id !== 'all').reduce((acc, cat) => {
-    acc[cat.id] = visibleModules.filter((m) => m.badge === cat.id);
-    return acc;
-  }, {});
+  const groupedModules = useMemo(() => (
+    CATEGORIES.filter((c) => c.id !== 'all').reduce((acc, cat) => {
+      acc[cat.id] = visibleModules.filter((m) => m.badge === cat.id);
+      return acc;
+    }, {})
+  ), [visibleModules]);
 
   return (
     <div className={`min-h-screen relative overflow-x-hidden ${darkMode ? '' : 'bg-slate-100'}`} style={darkMode ? { background: '#07071a' } : {}}>
@@ -183,6 +187,9 @@ export default function Home() {
               <img
                 src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png"
                 alt="Fiber Oracle"
+                width="56"
+                height="56"
+                fetchPriority="high"
                 className="rounded-xl w-14 h-14 object-cover shadow-[0_0_14px_rgba(0,240,255,0.25)]"
               />
               <div>
