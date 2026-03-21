@@ -79,18 +79,12 @@ export default function LCPInfo() {
     queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
   });
 
-  const { data: latestPonPmReport = null } = useQuery({
-    queryKey: ['latestPonPmReportForLcpInfo'],
+  const { data: latestLcpCountData = null, isLoading: isLoadingLatestCounts } = useQuery({
+    queryKey: ['latestPonPmOntCounts'],
     queryFn: async () => {
-      const reports = await base44.entities.PONPMReport.list('-upload_date', 1);
-      return reports[0] || null;
+      const response = await base44.functions.invoke('getLatestLcpOntCounts', {});
+      return response.data || null;
     },
-  });
-
-  const { data: latestReportOntRecords = [], isLoading: isLoadingLatestCounts } = useQuery({
-    queryKey: ['latestPonPmOntCounts', latestPonPmReport?.id],
-    enabled: !!latestPonPmReport?.id,
-    queryFn: () => base44.entities.ONTPerformanceRecord.filter({ report_id: latestPonPmReport.id }, '-created_date', 10000),
   });
 
   // Create mutation
@@ -203,17 +197,7 @@ export default function LCPInfo() {
 
   const entriesWithCoords = lcpEntries.filter(e => e.gps_lat && e.gps_lng);
 
-  const latestOntCountsByKey = useMemo(() => {
-    const counts = {};
-    latestReportOntRecords.forEach((record) => {
-      const lcpNumber = (record.lcp_number || '').trim().toUpperCase();
-      const splitterNumber = (record.splitter_number || '').trim().toUpperCase();
-      if (!lcpNumber || !splitterNumber) return;
-      const key = `${lcpNumber}|${splitterNumber}`;
-      counts[key] = (counts[key] || 0) + 1;
-    });
-    return counts;
-  }, [latestReportOntRecords]);
+  const latestOntCountsByKey = useMemo(() => latestLcpCountData?.counts || {}, [latestLcpCountData]);
 
   // Validation functions
   const validateLcpNumber = (lcpNumber, entryType) => {
@@ -1230,12 +1214,12 @@ export default function LCPInfo() {
           </div>
         )}
 
-        {latestPonPmReport && (
+        {latestLcpCountData?.report && (
           <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
               <Cloud className="h-5 w-5 text-blue-600 shrink-0" />
               <div className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Latest PON PM counts:</strong> {latestPonPmReport.report_name}
+                <strong>Latest PON PM counts:</strong> {latestLcpCountData.report.report_name}
               </div>
             </div>
             {isLoadingLatestCounts && (

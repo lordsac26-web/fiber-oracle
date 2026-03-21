@@ -232,8 +232,9 @@ export default function OnboardingTour({ isOpen, onClose, onComplete }) {
               <Button 
                 variant="ghost" 
                 size="icon" 
+                aria-label="Close tour"
                 onClick={handleSkip}
-                className="absolute top-2 right-2 text-white/80 hover:text-white hover:bg-white/20"
+                className="absolute top-2 right-2 text-white/80 hover:text-white hover:bg-white/20 h-11 w-11"
               >
                 <X className="h-5 w-5" />
               </Button>
@@ -321,8 +322,9 @@ export default function OnboardingTour({ isOpen, onClose, onComplete }) {
                 {tourSteps.map((_, i) => (
                   <button
                     key={i}
+                    aria-label={`Go to tour step ${i + 1}`}
                     onClick={() => setCurrentStep(i)}
-                    className={`w-2 h-2 rounded-full transition-all ${
+                    className={`w-3 h-3 rounded-full transition-all ${
                       i === currentStep 
                         ? 'w-6 bg-blue-600' 
                         : i < currentStep 

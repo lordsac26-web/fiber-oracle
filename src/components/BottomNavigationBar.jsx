@@ -27,6 +27,7 @@ export default function BottomNavigationBar({ selectedCategory, onCategoryChange
           return (
             <button
               key={item.id}
+              aria-label={`${item.label} category`}
               onClick={() => onCategoryChange(item.category)}
               className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-colors
                 ${isActive 
@@ -41,6 +42,7 @@ export default function BottomNavigationBar({ selectedCategory, onCategoryChange
         })}
         <Link
           to={createPageUrl('Settings')}
+          aria-label="Settings"
           className="flex flex-col items-center justify-center flex-1 h-full gap-0.5 text-gray-500 dark:text-gray-400 active:text-blue-500"
         >
           <Settings className="h-5 w-5" />

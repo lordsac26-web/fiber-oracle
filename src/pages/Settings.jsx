@@ -43,6 +43,7 @@ import {
   Zap
 } from 'lucide-react';
 import ModuleVisibilitySettings from '@/components/ModuleVisibilitySettings';
+import SyncStatusIndicator from '@/components/SyncStatusIndicator';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -490,6 +491,35 @@ export default function Settings() {
                       }}
                     />
                   </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl border border-indigo-200/50 dark:border-indigo-700/50">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-indigo-500/10">
+                        <Download className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div>
+                        <Label className="text-base font-semibold">Install & Offline</Label>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Install Fiber Oracle to your device and monitor offline sync readiness.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        localStorage.removeItem('pwa-prompt-dismissed');
+                        window.dispatchEvent(new CustomEvent('pwa:reset-install-prompt'));
+                        toast.success('Install prompt reset');
+                      }}
+                    >
+                      Reset Install Prompt
+                    </Button>
+                  </div>
+                  <SyncStatusIndicator />
                 </div>
 
                 {!isAuthenticated && (

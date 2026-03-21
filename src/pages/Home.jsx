@@ -12,6 +12,7 @@ import OnboardingTour from '@/components/OnboardingTour';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import BottomNavigationBar from '@/components/BottomNavigationBar';
+import SyncStatusIndicator from '@/components/SyncStatusIndicator';
 import { useUserPreferences } from '@/components/UserPreferencesContext';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription
@@ -223,7 +224,7 @@ export default function Home() {
               {/* Customize */}
               <Dialog open={showCustomizeDialog} onOpenChange={setShowCustomizeDialog}>
                 <DialogTrigger asChild>
-                  <button className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-white/10 transition-all hidden md:flex items-center justify-center" title="Customize modules">
+                  <button aria-label="Customize modules" className="h-11 w-11 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-white/10 transition-all hidden md:flex items-center justify-center" title="Customize modules">
                     <Eye className="h-4.5 w-4.5" />
                   </button>
                 </DialogTrigger>
@@ -260,23 +261,23 @@ export default function Home() {
                 </DialogContent>
               </Dialog>
 
-              <button onClick={() => setDarkMode(!darkMode)} title="Toggle theme"
-                className={`p-2 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`}>
+              <button aria-label="Toggle theme" onClick={() => setDarkMode(!darkMode)} title="Toggle theme"
+                className={`h-11 w-11 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`}>
                 {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
-              <button onClick={() => setShowTour(true)} title="Start Tour"
-                className={`p-2 rounded-lg transition-all hidden md:flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`}>
+              <button aria-label="Start app tour" onClick={() => setShowTour(true)} title="Start Tour"
+                className={`h-11 w-11 rounded-lg transition-all hidden md:flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`}>
                 <HelpCircle className="h-4 w-4" />
               </button>
 
               <Link to={createPageUrl('Brochure')} className="hidden md:block">
-                <button className={`p-2 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`} title="About">
+                <button aria-label="About Fiber Oracle" className={`h-11 w-11 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`} title="About">
                   <Info className="h-4 w-4" />
                 </button>
               </Link>
 
               <Link to={createPageUrl('Settings')} className="hidden md:block">
-                <button className={`p-2 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`} title="Settings">
+                <button aria-label="Open settings" className={`h-11 w-11 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`} title="Settings">
                   <Settings className="h-4 w-4" />
                 </button>
               </Link>
@@ -296,6 +297,10 @@ export default function Home() {
           <p className={`text-sm md:text-base max-w-xl mx-auto ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
             Calculators, diagnostics, and reference tools — built for the field.
           </p>
+        </div>
+
+        <div className="flex justify-center">
+          <SyncStatusIndicator compact />
         </div>
 
         {/* Category filter pills */}
