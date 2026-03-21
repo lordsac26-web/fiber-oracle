@@ -1,7 +1,7 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, RadioTower } from 'lucide-react';
+import { MapPin, Server } from 'lucide-react';
 
 function formatPower(value) {
   const num = Number(value);
@@ -27,7 +27,7 @@ export default function LCPMapPopup({ group, onOpenDetails }) {
       <div className="flex flex-wrap gap-1 mb-3">
         {group.oltNames?.slice(0, 2).map((olt) => (
           <Badge key={olt} variant="outline" className="text-[10px]">
-            <RadioTower className="h-3 w-3 mr-1" />
+            <Server className="h-3 w-3 mr-1" />
             {olt}
           </Badge>
         ))}

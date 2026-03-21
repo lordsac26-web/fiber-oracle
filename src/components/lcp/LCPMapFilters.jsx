@@ -85,7 +85,6 @@ export default function LCPMapFilters({
                     value={searchTerm}
                     onChange={(e) => onSearchChange(e.target.value)}
                   />
-                />
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2">
