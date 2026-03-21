@@ -44,9 +44,9 @@ export default function LCPInfo() {
   const queryClient = useQueryClient();
   const { preferences } = useUserPreferences();
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'table'
-  const [sortBy, setSortBy] = useState(preferences.defaultSortBy === 'job_number' ? 'lcp_number' : preferences.defaultSortBy || 'created_date');
-  const [sortOrder, setSortOrder] = useState(preferences.defaultSortOrder || 'desc');
+  const [viewMode, setViewMode] = useState('table'); // 'list' or 'table'
+  const [sortBy, setSortBy] = useState('lcp_number');
+  const [sortOrder, setSortOrder] = useState('asc');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importPreview, setImportPreview] = useState([]);
@@ -768,17 +768,18 @@ export default function LCPInfo() {
       );
     })
     .sort((a, b) => {
-      let aVal, bVal;
       if (sortBy === 'lcp_number') {
-        aVal = (a.lcp_number || '').toLowerCase();
-        bVal = (b.lcp_number || '').toLowerCase();
-      } else if (sortBy === 'location') {
-        aVal = (a.location || '').toLowerCase();
-        bVal = (b.location || '').toLowerCase();
-      } else {
-        aVal = a.created_date || '';
-        bVal = b.created_date || '';
+        const compare = (a.lcp_number || '').localeCompare(b.lcp_number || '', undefined, { numeric: true, sensitivity: 'base' });
+        return sortOrder === 'asc' ? compare : -compare;
       }
+
+      if (sortBy === 'location') {
+        const compare = (a.location || '').localeCompare(b.location || '', undefined, { numeric: true, sensitivity: 'base' });
+        return sortOrder === 'asc' ? compare : -compare;
+      }
+
+      const aVal = a.created_date || '';
+      const bVal = b.created_date || '';
       if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
       return 0;
@@ -1227,8 +1228,8 @@ export default function LCPInfo() {
               <SelectContent>
                 <SelectItem value="created_date-desc">Newest First</SelectItem>
                 <SelectItem value="created_date-asc">Oldest First</SelectItem>
-                <SelectItem value="lcp_number-asc">LCP # (A-Z)</SelectItem>
-                <SelectItem value="lcp_number-desc">LCP # (Z-A)</SelectItem>
+                <SelectItem value="lcp_number-asc">LCP # (Low-High)</SelectItem>
+                <SelectItem value="lcp_number-desc">LCP # (High-Low)</SelectItem>
                 <SelectItem value="location-asc">Location (A-Z)</SelectItem>
                 <SelectItem value="location-desc">Location (Z-A)</SelectItem>
               </SelectContent>
