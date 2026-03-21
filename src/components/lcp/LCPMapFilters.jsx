@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,11 @@ export default function LCPMapFilters({
   networkStatusTotals,
   groupStatusCounts,
   selectedStatuses,
+  selectedOlt,
+  onOltChange,
+  availableOlts,
+  performanceFilter,
+  onPerformanceFilterChange,
   onStatusToggle,
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -70,14 +76,43 @@ export default function LCPMapFilters({
 
           {!isCollapsed && (
             <>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Search by LCP, splitter, location, or OLT..."
-                  className="h-9 pl-10"
-                  value={searchTerm}
-                  onChange={(e) => onSearchChange(e.target.value)}
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Search by LCP, splitter, location, or OLT..."
+                    className="h-9 pl-10"
+                    value={searchTerm}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                  />
                 />
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Select value={selectedOlt} onValueChange={onOltChange}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Filter by OLT" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All OLTs</SelectItem>
+                      {availableOlts.map((olt) => (
+                        <SelectItem key={olt} value={olt}>{olt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={performanceFilter} onValueChange={onPerformanceFilterChange}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Recent performance" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Performance</SelectItem>
+                      <SelectItem value="impacted">Any Issues</SelectItem>
+                      <SelectItem value="low_power">Low Power</SelectItem>
+                      <SelectItem value="healthy">Healthy Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">

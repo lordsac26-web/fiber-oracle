@@ -10,6 +10,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import LCPMapDetails from '@/components/lcp/LCPMapDetails';
 import LCPMapFilters from '@/components/lcp/LCPMapFilters';
+import LCPMapPopup from '@/components/lcp/LCPMapPopup';
 import { downloadLcpAuditCsv, downloadLcpAuditPdf } from '@/utils/lcpMapAuditExport';
 
 // Fix default marker icon issue
@@ -113,6 +114,16 @@ function groupByLcp(entries, ontRecordsByLcp, latestReportName) {
   return Array.from(map.values()).map((group) => {
     const ontRecords = sortOntRecords(ontRecordsByLcp.get(String(group.lcp_number).trim()) || []);
     const issueRecords = ontRecords.filter((record) => normalizeOntStatus(record.status) !== 'ok');
+    const oltNames = Array.from(new Set([
+      ...group.entries.map((entry) => entry.olt_name).filter(Boolean),
+      ...ontRecords.map((record) => record.olt_name).filter(Boolean),
+    ])).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const ontRxValues = ontRecords.map((record) => Number(record.ont_rx_power)).filter((value) => Number.isFinite(value));
+    const avgOntRx = ontRxValues.length > 0
+      ? ontRxValues.reduce((sum, value) => sum + value, 0) / ontRxValues.length
+      : null;
+    const minOntRx = ontRxValues.length > 0 ? Math.min(...ontRxValues) : null;
+    const lowPowerCount = ontRxValues.filter((value) => value <= -25).length;
 
     return {
       ...group,
@@ -120,6 +131,13 @@ function groupByLcp(entries, ontRecordsByLcp, latestReportName) {
       issueRecords,
       issueSummary: summarizeOntRecords(ontRecords),
       latestReportName,
+      oltNames,
+      splitterLabel: splitterRangeLabel(group.entries),
+      performanceSummary: {
+        avgOntRx,
+        minOntRx,
+        lowPowerCount,
+      },
     };
   });
 }
@@ -181,21 +199,19 @@ function splitterRangeLabel(entries) {
   return `Splitters ${nums[0]}–${nums[nums.length - 1]}`;
 }
 
-function matchesFilters(group, viewFilter, severityFilter) {
-  if (viewFilter === 'issues' && group.issueSummary.impacted === 0) {
-    return false;
-  }
-
-  if (severityFilter === 'all') {
-    return true;
-  }
-
-  return group.issueSummary[severityFilter] > 0;
+function matchesPerformanceFilter(group, performanceFilter) {
+  if (performanceFilter === 'all') return true;
+  if (performanceFilter === 'impacted') return group.issueSummary.impacted > 0;
+  if (performanceFilter === 'low_power') return (group.performanceSummary?.lowPowerCount || 0) > 0;
+  if (performanceFilter === 'healthy') return group.issueSummary.impacted === 0;
+  return true;
 }
 
 export default function LCPMap() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [selectedOlt, setSelectedOlt] = useState('all');
+  const [performanceFilter, setPerformanceFilter] = useState('all');
   const [selectedGroup, setSelectedGroup] = useState(null);
 
   const { data: lcpEntries = [], isLoading: isLoadingLcpEntries } = useQuery({
@@ -258,6 +274,12 @@ export default function LCPMap() {
     return groupByLcp(filteredEntries, ontRecordsByLcp, latestReport?.report_name || null);
   }, [filteredEntries, ontRecordsByLcp, latestReport?.report_name]);
 
+  const availableOlts = useMemo(() => {
+    return Array.from(new Set(baseGroups.flatMap((group) => group.oltNames || []))).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true })
+    );
+  }, [baseGroups]);
+
   const groupStatusCounts = useMemo(() => {
     const totals = {
       critical: 0,
@@ -280,9 +302,12 @@ export default function LCPMap() {
 
     return baseGroups.filter((group) => {
       const status = group.issueSummary.impacted > 0 ? group.issueSummary.highestSeverity : 'ok';
-      return selectedStatuses.includes(status);
+      const matchesStatus = selectedStatuses.includes(status);
+      const matchesOlt = selectedOlt === 'all' || group.oltNames.includes(selectedOlt);
+      const matchesPerformance = matchesPerformanceFilter(group, performanceFilter);
+      return matchesStatus && matchesOlt && matchesPerformance;
     });
-  }, [baseGroups, selectedStatuses]);
+  }, [baseGroups, performanceFilter, selectedOlt, selectedStatuses]);
 
   const networkStatusTotals = useMemo(() => {
     const critical = Number(latestReport?.critical_count || 0);
@@ -381,6 +406,11 @@ export default function LCPMap() {
             networkStatusTotals={networkStatusTotals}
             groupStatusCounts={groupStatusCounts}
             selectedStatuses={selectedStatuses}
+            selectedOlt={selectedOlt}
+            onOltChange={setSelectedOlt}
+            availableOlts={availableOlts}
+            performanceFilter={performanceFilter}
+            onPerformanceFilterChange={setPerformanceFilter}
             onStatusToggle={(status) => {
               setSelectedStatuses((current) =>
                 current.includes(status)
@@ -432,8 +462,6 @@ export default function LCPMap() {
               {groups.map((group) => {
                 const opticStatus = getOpticStatus(group);
                 const icon = createLcpIcon(group.lcp_number, opticStatus, group.issueSummary);
-                const splitterLabel = splitterRangeLabel(group.entries);
-
                 return (
                   <Marker
                     key={group.lcp_number}
@@ -441,32 +469,10 @@ export default function LCPMap() {
                     icon={icon}
                   >
                     <Popup>
-                      <div className="min-w-[220px]">
-                        <div className="font-bold text-lg text-indigo-600">{group.lcp_number}</div>
-                        {splitterLabel && (
-                          <div className="text-sm text-gray-600 mb-1">{splitterLabel}</div>
-                        )}
-                        {group.location && (
-                          <div className="flex items-start gap-1 text-sm mb-2">
-                            <MapPin className="h-3 w-3 mt-0.5 text-gray-400 shrink-0" />
-                            <span>{group.location}</span>
-                          </div>
-                        )}
-                        <div className="text-xs text-gray-600 space-y-1">
-                          <div>{group.entries.length} splitter{group.entries.length !== 1 ? 's' : ''} at this location</div>
-                          <div>
-                            {group.issueSummary.critical} critical • {group.issueSummary.warning} warning • {group.issueSummary.offline} offline
-                          </div>
-                          <div className="text-gray-500">First click opens this map tile. Click again below for full details.</div>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="mt-3 w-full"
-                          onClick={() => setSelectedGroup(group)}
-                        >
-                          Open Details
-                        </Button>
-                      </div>
+                      <LCPMapPopup
+                        group={group}
+                        onOpenDetails={() => setSelectedGroup(group)}
+                      />
                     </Popup>
                   </Marker>
                 );
