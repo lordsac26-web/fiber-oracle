@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   ChevronDown,
@@ -318,6 +319,9 @@ export default function LCPSummarySection({ result, onPortClick }) {
               <MapPin className="h-5 w-5 text-blue-600" />
               LCP {selectedLCP?.lcpNumber}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Detailed LCP overview including location, ports, and health distribution.
+            </DialogDescription>
           </DialogHeader>
 
           {selectedLCP && (
