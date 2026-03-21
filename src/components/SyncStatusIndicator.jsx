@@ -25,7 +25,7 @@ export default function SyncStatusIndicator({ compact = false }) {
     totalSuccess: 0,
     totalConflicts: 0,
     totalErrors: 0,
-    lastSyncTime: null
+    lastSyncTime: syncService.lastSyncTime
   });
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showDetails, setShowDetails] = useState(false);

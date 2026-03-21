@@ -324,14 +324,16 @@ export default function OnboardingTour({ isOpen, onClose, onComplete }) {
                     key={i}
                     aria-label={`Go to tour step ${i + 1}`}
                     onClick={() => setCurrentStep(i)}
-                    className={`w-3 h-3 rounded-full transition-all ${
+                    className="w-8 h-8 flex items-center justify-center"
+                  >
+                    <span className={`block w-3 h-3 rounded-full transition-all ${
                       i === currentStep 
                         ? 'w-6 bg-blue-600' 
                         : i < currentStep 
                           ? 'bg-blue-300' 
                           : 'bg-gray-200 dark:bg-gray-700'
-                    }`}
-                  />
+                    }`} />
+                  </button>
                 ))}
               </div>
 
