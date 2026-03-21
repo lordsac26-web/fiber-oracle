@@ -11,31 +11,33 @@ export default function PWAInstallPrompt() {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);
       return;
     }
 
-    // Detect iOS
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     setIsIOS(isIOSDevice);
 
-    // Listen for beforeinstallprompt (Android/Chrome)
     const handleBeforeInstall = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      
-      // Check if user dismissed before
+
       const dismissed = localStorage.getItem('pwa-prompt-dismissed');
       if (!dismissed) {
-        setTimeout(() => setShowPrompt(true), 3000); // Show after 3 seconds
+        setTimeout(() => setShowPrompt(true), 3000);
       }
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    const handleInstalled = () => {
+      setIsInstalled(true);
+      setShowPrompt(false);
+      setDeferredPrompt(null);
+    };
 
-    // For iOS, show manual instructions if not dismissed
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('appinstalled', handleInstalled);
+
     if (isIOSDevice) {
       const dismissed = localStorage.getItem('pwa-prompt-dismissed');
       const isStandalone = window.navigator.standalone;
@@ -46,6 +48,7 @@ export default function PWAInstallPrompt() {
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleInstalled);
     };
   }, []);
 
@@ -60,6 +63,18 @@ export default function PWAInstallPrompt() {
       setShowPrompt(false);
     }
   };
+
+  useEffect(() => {
+    const handleResetPrompt = () => {
+      localStorage.removeItem('pwa-prompt-dismissed');
+      if (!isInstalled && (isIOS || deferredPrompt)) {
+        setShowPrompt(true);
+      }
+    };
+
+    window.addEventListener('pwa:reset-install-prompt', handleResetPrompt);
+    return () => window.removeEventListener('pwa:reset-install-prompt', handleResetPrompt);
+  }, [deferredPrompt, isIOS, isInstalled]);
 
   const handleDismiss = () => {
     setShowPrompt(false);
@@ -88,8 +103,8 @@ export default function PWAInstallPrompt() {
                 </h3>
                 <p className="text-xs text-blue-100 mb-3">
                   {isIOS
-                    ? 'Tap Share → Add to Home Screen for quick access and offline use'
-                    : 'Install the app for quick access and offline functionality'}
+                    ? 'Tap Share → Add to Home Screen for quick access and improved offline support'
+                    : 'Install the app for quick access and improved offline support'}
                 </p>
                 {!isIOS && deferredPrompt && (
                   <Button
@@ -106,7 +121,8 @@ export default function PWAInstallPrompt() {
                 variant="ghost"
                 size="icon"
                 onClick={handleDismiss}
-                className="text-white hover:bg-white/20 flex-shrink-0 h-8 w-8"
+                aria-label="Dismiss install prompt"
+                className="text-white hover:bg-white/20 flex-shrink-0 h-10 w-10"
               >
                 <X className="h-4 w-4" />
               </Button>

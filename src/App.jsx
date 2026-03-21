@@ -10,6 +10,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppErrorBoundary from '@/components/AppErrorBoundary';
+import AppSyncBootstrap from '@/components/AppSyncBootstrap';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -79,6 +80,7 @@ function App() {
           </AppErrorBoundary>
         </Router>
         <Toaster />
+        <AppSyncBootstrap />
         <VisualEditAgent />
       </QueryClientProvider>
     </AuthProvider>

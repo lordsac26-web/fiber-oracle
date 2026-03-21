@@ -22,12 +22,19 @@ export const initDB = () => {
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
 
-      // Store for draft reports
+          // Store for draft reports
       if (!db.objectStoreNames.contains('reports')) {
         const reportStore = db.createObjectStore('reports', { keyPath: 'id', autoIncrement: true });
         reportStore.createIndex('timestamp', 'timestamp', { unique: false });
         reportStore.createIndex('synced', 'synced', { unique: false });
         reportStore.createIndex('syncStatus', 'syncStatus', { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains('draftReports')) {
+        const legacyDraftStore = db.createObjectStore('draftReports', { keyPath: 'id', autoIncrement: true });
+        legacyDraftStore.createIndex('timestamp', 'timestamp', { unique: false });
+        legacyDraftStore.createIndex('synced', 'synced', { unique: false });
+        legacyDraftStore.createIndex('syncStatus', 'syncStatus', { unique: false });
       }
 
       // Store for cached reference data

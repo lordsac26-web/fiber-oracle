@@ -6,8 +6,10 @@ class SyncService {
     this.isSyncing = false;
     this.syncQueue = [];
     this.listeners = [];
-    this.lastSyncTime = null;
+    this.lastSyncTime = Number(localStorage.getItem('fiber-oracle-last-sync-time')) || null;
     this.syncErrors = [];
+    this.autoSyncInterval = null;
+    this.boundOnlineHandler = null;
   }
 
   // Subscribe to sync status changes
@@ -191,8 +193,9 @@ class SyncService {
   // Update draft status
   async updateDraftStatus(id, status, synced = false) {
     const db = await initDB();
-    const transaction = db.transaction(['draftReports'], 'readwrite');
-    const store = transaction.objectStore('draftReports');
+    const storeName = db.objectStoreNames.contains('reports') ? 'reports' : 'draftReports';
+    const transaction = db.transaction([storeName], 'readwrite');
+    const store = transaction.objectStore(storeName);
     
     return new Promise((resolve, reject) => {
       const getRequest = store.get(id);
@@ -265,6 +268,7 @@ class SyncService {
       const testResults = await this.syncTestResults();
 
       this.lastSyncTime = Date.now();
+      localStorage.setItem('fiber-oracle-last-sync-time', String(this.lastSyncTime));
       
       const totalSuccess = draftResults.success.length + testResults.success.length;
       const totalConflicts = draftResults.conflicts.length;
@@ -301,21 +305,32 @@ class SyncService {
       clearInterval(this.autoSyncInterval);
     }
 
+    if (this.boundOnlineHandler) {
+      window.removeEventListener('online', this.boundOnlineHandler);
+    }
+
     this.autoSyncInterval = setInterval(() => {
       if (navigator.onLine) {
         this.syncAll();
       }
     }, intervalMs);
 
-    // Sync when coming back online
-    window.addEventListener('online', () => {
+    this.boundOnlineHandler = () => {
       setTimeout(() => this.syncAll(), 1000);
-    });
+    };
+
+    window.addEventListener('online', this.boundOnlineHandler);
   }
 
   stopAutoSync() {
     if (this.autoSyncInterval) {
       clearInterval(this.autoSyncInterval);
+      this.autoSyncInterval = null;
+    }
+
+    if (this.boundOnlineHandler) {
+      window.removeEventListener('online', this.boundOnlineHandler);
+      this.boundOnlineHandler = null;
     }
   }
 }

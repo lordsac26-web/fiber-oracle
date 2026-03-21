@@ -152,7 +152,20 @@ button:focus-visible {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    min-height: 100%;
+  }
   body {
     @apply bg-background text-foreground;
+    min-height: 100%;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
 }
