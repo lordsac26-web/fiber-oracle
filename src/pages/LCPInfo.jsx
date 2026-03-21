@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +77,20 @@ export default function LCPInfo() {
   const { data: lcpEntries = [], isLoading, error } = useQuery({
     queryKey: ['lcpEntries'],
     queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
+  });
+
+  const { data: latestPonPmReport = null } = useQuery({
+    queryKey: ['latestPonPmReportForLcpInfo'],
+    queryFn: async () => {
+      const reports = await base44.entities.PONPMReport.list('-upload_date', 1);
+      return reports[0] || null;
+    },
+  });
+
+  const { data: latestReportOntRecords = [], isLoading: isLoadingLatestCounts } = useQuery({
+    queryKey: ['latestPonPmOntCounts', latestPonPmReport?.id],
+    enabled: !!latestPonPmReport?.id,
+    queryFn: () => base44.entities.ONTPerformanceRecord.filter({ report_id: latestPonPmReport.id }, '-created_date', 10000),
   });
 
   // Create mutation
@@ -188,6 +202,18 @@ export default function LCPInfo() {
   };
 
   const entriesWithCoords = lcpEntries.filter(e => e.gps_lat && e.gps_lng);
+
+  const latestOntCountsByKey = useMemo(() => {
+    const counts = {};
+    latestReportOntRecords.forEach((record) => {
+      const lcpNumber = (record.lcp_number || '').trim().toUpperCase();
+      const splitterNumber = (record.splitter_number || '').trim().toUpperCase();
+      if (!lcpNumber || !splitterNumber) return;
+      const key = `${lcpNumber}|${splitterNumber}`;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [latestReportOntRecords]);
 
   // Validation functions
   const validateLcpNumber = (lcpNumber, entryType) => {
@@ -1204,6 +1230,23 @@ export default function LCPInfo() {
           </div>
         )}
 
+        {latestPonPmReport && (
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <Cloud className="h-5 w-5 text-blue-600 shrink-0" />
+              <div className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Latest PON PM counts:</strong> {latestPonPmReport.report_name}
+              </div>
+            </div>
+            {isLoadingLatestCounts && (
+              <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading current ONT counts...
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Search, Sort, and View Toggle */}
         <div className="flex gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
@@ -1297,6 +1340,7 @@ export default function LCPInfo() {
                     <TableHead>Splitter</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead>OLT (Shelf/Slot/Port)</TableHead>
+                    <TableHead>Current ONTs</TableHead>
                     <TableHead>GPS</TableHead>
                     <TableHead className="w-20">Actions</TableHead>
                   </TableRow>
@@ -1328,6 +1372,11 @@ export default function LCPInfo() {
                             </div>
                           </div>
                         ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs font-mono">
+                          {latestOntCountsByKey[`${(entry.lcp_number || '').trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`] || 0}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         {entry.gps_lat && entry.gps_lng ? (
@@ -1371,6 +1420,9 @@ export default function LCPInfo() {
                       <div className="flex items-center gap-3 flex-wrap">
                         <Badge className="bg-indigo-600 text-lg px-3 py-1">{entry.lcp_number}</Badge>
                         <Badge variant="outline" className="font-mono">{entry.splitter_number}</Badge>
+                        <Badge variant="outline" className="text-xs font-mono">
+                          {latestOntCountsByKey[`${(entry.lcp_number || '').trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`] || 0} current ONTs
+                        </Badge>
                         {entry.gps_lat && entry.gps_lng && (
                           <Badge variant="outline" className="text-xs text-blue-600">📍 Has GPS</Badge>
                         )}
