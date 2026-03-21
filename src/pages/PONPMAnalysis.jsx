@@ -84,6 +84,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import HistoricalTrends from '@/components/ponpm/HistoricalTrends';
 import OLTPortSummary from '@/components/ponpm/OLTPortSummary';
+import LCPSummarySection from '@/components/ponpm/LCPSummarySection';
 import HistoricalDataManager from '@/components/ponpm/HistoricalDataManager';
 import ReportForm from '@/components/jobreports/ReportForm';
 import ONTDetailView from '@/components/ponpm/ONTDetailView';
@@ -1367,6 +1368,19 @@ Be specific, technical, and actionable.`;
                   onts={filteredOnts.filter(o => o._analysis.status !== 'ok')} 
                 />
               </div>
+            )}
+
+            {filteredOnts.length > 0 && (
+              <LCPSummarySection
+                result={{ ...result, onts: filteredOnts }}
+                onPortClick={(oltName, portKey) => {
+                  setViewMode('hierarchy');
+                  setOltFilter(oltName);
+                  setPortFilter(portKey);
+                  setExpandedOlts([oltName]);
+                  setExpandedPorts([`${oltName}|${portKey}`]);
+                }}
+              />
             )}
 
             {/* View Mode Toggle and OLT / Port Section */}
