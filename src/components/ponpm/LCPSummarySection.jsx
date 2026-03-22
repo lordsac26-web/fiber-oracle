@@ -28,6 +28,8 @@ import 'leaflet/dist/leaflet.css';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 
+const SPLITTER_CAPACITY = 32;
+
 export default function LCPSummarySection({ result, onPortClick }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLCP, setSelectedLCP] = useState(null);
@@ -61,12 +63,20 @@ export default function LCPSummarySection({ result, onPortClick }) {
           splitter_ratio: lcpEntry.splitter_ratio,
           fiber_count: lcpEntry.fiber_count,
           ports: new Set(),
+          splitters: {},
           onts: [],
           critical: 0,
           warning: 0,
           ok: 0,
           offline: 0,
           degrading: 0,
+        };
+      }
+
+      if (lcpEntry.splitter_number && !lcpMap[lcpNumber].splitters[lcpEntry.splitter_number]) {
+        lcpMap[lcpNumber].splitters[lcpEntry.splitter_number] = {
+          splitterNumber: lcpEntry.splitter_number,
+          ontCount: 0,
         };
       }
     });
@@ -85,6 +95,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
           gps_lat: null,
           gps_lng: null,
           ports: new Set(),
+          splitters: {},
           onts: [],
           critical: 0,
           warning: 0,
@@ -95,6 +106,15 @@ export default function LCPSummarySection({ result, onPortClick }) {
       }
 
       const lcp = lcpMap[lcpNumber];
+      const splitterNumber = ont._splitterNumber || ont.splitter_number || 'Unknown';
+      if (!lcp.splitters[splitterNumber]) {
+        lcp.splitters[splitterNumber] = {
+          splitterNumber,
+          ontCount: 0,
+        };
+      }
+
+      lcp.splitters[splitterNumber].ontCount += 1;
       lcp.onts.push(ont);
       lcp.ports.add(`${ont._oltName}/${ont._port}`);
 
@@ -117,6 +137,10 @@ export default function LCPSummarySection({ result, onPortClick }) {
       .filter(lcp => lcp.onts.length > 0)
       .map(lcp => ({
         ...lcp,
+        splitters: Object.values(lcp.splitters).map((splitter) => ({
+          ...splitter,
+          approxFibersLeft: Math.max(0, SPLITTER_CAPACITY - splitter.ontCount),
+        })).sort((a, b) => String(a.splitterNumber).localeCompare(String(b.splitterNumber), undefined, { numeric: true })),
         portCount: lcp.ports.size,
         ontCount: lcp.onts.length,
         healthScore: lcp.ok / lcp.ontCount,
@@ -265,6 +289,26 @@ export default function LCPSummarySection({ result, onPortClick }) {
                         <span className="font-mono">{lcp.portCount}</span>
                       </div>
 
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">Splitters</span>
+                        <span className="font-mono">{lcp.splitters.length}</span>
+                      </div>
+
+                      <div className="rounded-md border border-white/60 bg-white/70 p-2">
+                        <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">Splitter usage</div>
+                        <div className="space-y-1">
+                          {lcp.splitters.slice(0, 3).map((splitter) => (
+                            <div key={splitter.splitterNumber} className="flex items-center justify-between text-[11px]">
+                              <span className="font-medium text-gray-700">S{splitter.splitterNumber}</span>
+                              <span className="font-mono text-gray-600">{splitter.ontCount} ONTs • ~{splitter.approxFibersLeft} left</span>
+                            </div>
+                          ))}
+                          {lcp.splitters.length > 3 && (
+                            <div className="text-[10px] text-gray-500">+{lcp.splitters.length - 3} more splitters</div>
+                          )}
+                        </div>
+                      </div>
+
                       <div className="flex gap-1 flex-wrap">
                         {lcp.critical > 0 && (
                           <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px] px-1.5">
@@ -327,11 +371,17 @@ export default function LCPSummarySection({ result, onPortClick }) {
           {selectedLCP && (
             <div className="space-y-4">
               {/* LCP Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 <Card className="border">
                   <CardContent className="p-3 text-center">
                     <div className="text-2xl font-bold">{selectedLCP.ontCount}</div>
                     <div className="text-xs text-gray-500">Total ONTs</div>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardContent className="p-3 text-center">
+                    <div className="text-2xl font-bold">{selectedLCP.splitters.length}</div>
+                    <div className="text-xs text-gray-500">Splitters</div>
                   </CardContent>
                 </Card>
                 <Card className="border">
@@ -356,6 +406,25 @@ export default function LCPSummarySection({ result, onPortClick }) {
                   </CardContent>
                 </Card>
               </div>
+
+              <Card className="border">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Splitter Utilization (32-way approx.)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {selectedLCP.splitters.map((splitter) => (
+                      <div key={splitter.splitterNumber} className="flex items-center justify-between rounded-lg border bg-gray-50 px-3 py-2 text-sm">
+                        <span className="font-medium text-gray-700">Splitter {splitter.splitterNumber}</span>
+                        <div className="flex items-center gap-3 font-mono text-xs text-gray-600">
+                          <span>{splitter.ontCount} ONTs</span>
+                          <span>~{splitter.approxFibersLeft} fibers left</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Location Info */}
               <Card className="border">

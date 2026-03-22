@@ -1370,7 +1370,7 @@ Be specific, technical, and actionable.`;
               </div>
             )}
 
-            {filteredOnts.length > 0 && (
+            {viewMode === 'hierarchy' && filteredOnts.length > 0 && (
               <LCPSummarySection
                 result={{ ...result, onts: filteredOnts }}
                 onPortClick={(oltName, portKey) => {
