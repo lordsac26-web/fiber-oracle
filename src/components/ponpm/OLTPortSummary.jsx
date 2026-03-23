@@ -33,7 +33,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
-import LCPSummarySection from './LCPSummarySection';
+
 
 // Compute aggregate error totals from a list of ONTs
 function computeErrorTotals(onts) {
