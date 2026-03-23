@@ -48,15 +48,18 @@ Deno.serve(async (req) => {
     let page = 0;
     while (page < 10) {
       try {
-        const batch = await base44.asServiceRole.entities.ReferenceDocument.list(
-          'created_date', 50, page * 50
+        const batch = await base44.asServiceRole.entities.ReferenceDocument.filter(
+          { is_active: true },
+          'created_date',
+          50,
+          page * 50
         );
         const arr = Array.isArray(batch) ? batch : [];
         if (arr.length === 0) break;
         allDocs = allDocs.concat(arr);
         page++;
       } catch (e) {
-        console.error('[search] Doc fetch error page', page, e.message);
+        console.error('[search] Doc fetch error page', page, ':', e.message);
         break;
       }
     }
