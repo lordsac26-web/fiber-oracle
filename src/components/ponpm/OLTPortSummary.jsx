@@ -261,9 +261,6 @@ export default function OLTPortSummary({ result, onDrillDown }) {
 
   return (
     <div className="space-y-4">
-      {/* LCP Summary Section */}
-      <LCPSummarySection result={result} onPortClick={handlePortClick} />
-
       {/* Summary Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border shadow-sm">
