@@ -45,23 +45,15 @@ Deno.serve(async (req) => {
     // ── Stage 1: Score all ReferenceDocuments by title/category/tags/comments ──
     // Fetch all docs (there are ~126, so this is fast — 2-3 pages)
     let allDocs = [];
-    let page = 0;
-    while (page < 10) {
-      try {
-        const batch = await base44.asServiceRole.entities.ReferenceDocument.filter(
-          { is_active: true },
-          'created_date',
-          50,
-          page * 50
-        );
-        const arr = Array.isArray(batch) ? batch : [];
-        if (arr.length === 0) break;
-        allDocs = allDocs.concat(arr);
-        page++;
-      } catch (e) {
-        console.error('[search] Doc fetch error page', page, ':', e.message);
-        break;
-      }
+    try {
+      // Fetch all active documents — there are ~126, well within single-call limits
+      allDocs = await base44.asServiceRole.entities.ReferenceDocument.filter(
+        { is_active: true }
+      );
+      if (!Array.isArray(allDocs)) allDocs = [];
+    } catch (e) {
+      console.error('[search] Doc fetch error:', e.message);
+      allDocs = [];
     }
 
     console.log('[search] Total documents loaded:', allDocs.length);
