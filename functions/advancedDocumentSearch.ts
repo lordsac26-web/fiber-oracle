@@ -4,14 +4,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
  * advancedDocumentSearch — Searches ALL documents via pre-indexed chunks.
  * 
  * FIXED: Previous version loaded 5000 chunks sorted by -created_date,
- * which meant only the most recently chunked ~7 docs were ever searched.
+ * which meant only the most recently chunked ~7 large docs were ever searched.
  * 
- * New approach:
- * 1. Extract query keywords
- * 2. For each keyword, query DocumentChunk by keyword field (indexed)
- * 3. Score and deduplicate across all fetched chunks
- * 4. Use LLM to semantically rank top candidates
- * 5. Return results grouped by document with relevant excerpts
+ * New approach: query DocumentChunk by keyword filter (indexed) per search term,
+ * so we only fetch relevant chunks across ALL documents regardless of total count.
  */
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
@@ -26,7 +22,7 @@ Deno.serve(async (req) => {
 
     console.log('[search] Query:', query);
 
-    // Step 1: Extract meaningful query keywords (>2 chars, lowercase)
+    // Step 1: Extract meaningful query keywords
     const stopWords = new Set([
       'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had',
       'her', 'was', 'one', 'our', 'out', 'has', 'have', 'been', 'some', 'them',
@@ -52,17 +48,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Step 2: Fetch chunks matching each keyword using filter (uses index)
-    // We search by keyword substring match in the keywords field
-    // Strategy: fetch a batch of chunks per keyword, merge & score
-    const chunkMap = new Map(); // chunk.id -> { chunk, score }
+    // Step 2: Fetch chunks matching each keyword using filter (uses index on keywords field)
     const CHUNKS_PER_KEYWORD = 200;
+    const chunkMap = new Map(); // chunk.id -> { chunk, score, matchedWords }
 
-    // Fetch chunks for all keywords in parallel
     const keywordFetches = queryWords.map(async (word) => {
       try {
-        // Use filter on the keywords field which contains space-separated terms
-        // The SDK filter does substring/contains matching
         const chunks = await base44.asServiceRole.entities.DocumentChunk.filter(
           { keywords: word },
           '-created_date',
@@ -70,7 +61,7 @@ Deno.serve(async (req) => {
         );
         return { word, chunks: Array.isArray(chunks) ? chunks : [] };
       } catch (e) {
-        console.error(`[search] Error fetching chunks for keyword "${word}":`, e.message);
+        console.error(`[search] Error fetching for "${word}":`, e.message);
         return { word, chunks: [] };
       }
     });
@@ -92,13 +83,9 @@ Deno.serve(async (req) => {
         const category = (chunk.document_category || '').toLowerCase();
         const content = (chunk.content || '').toLowerCase();
 
-        // Title match is strongest signal
         if (title.includes(word)) entry.score += 10;
-        // Category match
         if (category.includes(word)) entry.score += 5;
-        // Keyword index match (pre-extracted important terms)
         if (keywords.includes(word)) entry.score += 4;
-        // Direct content match
         if (content.includes(word)) entry.score += 2;
       }
     }
@@ -109,10 +96,9 @@ Deno.serve(async (req) => {
     // Boost chunks that matched more query words (breadth bonus)
     for (const entry of allScoredChunks) {
       const wordCoverage = entry.matchedWords.size / queryWords.length;
-      entry.score *= (1 + wordCoverage); // up to 2x boost for full coverage
+      entry.score *= (1 + wordCoverage);
     }
 
-    // Sort by score descending
     allScoredChunks.sort((a, b) => b.score - a.score);
 
     if (allScoredChunks.length === 0) {
@@ -130,7 +116,6 @@ Deno.serve(async (req) => {
       const docId = entry.chunk.document_id;
       const existing = docBestChunks.get(docId);
       if (!existing || entry.score > existing.score) {
-        // Extract snippet
         let snippet = '';
         const content = entry.chunk.content || '';
         const contentLower = content.toLowerCase();
@@ -189,7 +174,7 @@ Excerpt: ${(d.snippet || d.chunk.content || '').substring(0, 400)}`).join('\n\n'
 
     console.log('[search] LLM returned', ranked.length, 'results');
 
-    // Step 6: Build final results with document metadata and content previews
+    // Step 6: Build final results
     const results = ranked.map(r => {
       const entry = candidates.find(c => c.chunk.document_id === r.document_id);
       if (!entry) return null;
