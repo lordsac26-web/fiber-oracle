@@ -19,6 +19,7 @@ import SystemHealthMonitor from '@/components/admin/SystemHealthMonitor';
 import AdvancedAuditFilter from '@/components/admin/AdvancedAuditFilter';
 import ConversationFilter from '@/components/admin/ConversationFilter';
 import AdminOnboardingTour from '@/components/admin/AdminOnboardingTour';
+import ChunkHealthManager from '@/components/admin/ChunkHealthManager';
 
 export default function AdminPanel() {
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -587,6 +588,10 @@ Thank you for reaching out!
                         <TabsTrigger value="analytics" className="text-slate-400 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-300 data-[state=active]:border-cyan-400/50" data-tour="analytics-tab">
                             <BarChart3 className="w-4 h-4 mr-2" />
                             Analytics
+                        </TabsTrigger>
+                        <TabsTrigger value="chunks" className="text-slate-400 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-300 data-[state=active]:border-cyan-400/50">
+                            <Database className="w-4 h-4 mr-2" />
+                            Chunk Index
                         </TabsTrigger>
                         <TabsTrigger value="health" className="text-slate-400 data-[state=active]:bg-cyan-500/20 data-[state=active]:text-cyan-300 data-[state=active]:border-cyan-400/50" data-tour="health-tab">
                             <Activity className="w-4 h-4 mr-2" />
@@ -1243,6 +1248,11 @@ Thank you for reaching out!
                                 </div>
                             </CardContent>
                         </Card>
+                    </TabsContent>
+
+                    {/* Chunk Index Tab */}
+                    <TabsContent value="chunks" className="space-y-6">
+                        <ChunkHealthManager />
                     </TabsContent>
 
                     {/* System Health Tab */}
