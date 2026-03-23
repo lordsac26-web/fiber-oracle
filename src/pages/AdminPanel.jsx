@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown, Users, BarChart3, TrendingUp, Activity, UserCheck, UserX, Zap, Trash2, Search as SearchIcon, Sparkles } from 'lucide-react';
+import { ArrowLeft, MessageSquare, FileText, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar, ThumbsUp, ThumbsDown, Users, BarChart3, TrendingUp, Activity, UserCheck, UserX, Zap, Trash2, Search as SearchIcon, Sparkles, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
