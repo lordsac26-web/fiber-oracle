@@ -232,7 +232,8 @@ Excerpt: ${(d.snippet || '').substring(0, 400)}`).join('\n\n')}`,
     });
 
   } catch (error) {
-    console.error('[search] Error:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error('[search] Error:', error?.message || error);
+    console.error('[search] Stack:', error?.stack || 'no stack');
+    return Response.json({ error: String(error?.message || error) }, { status: 500 });
   }
 });
