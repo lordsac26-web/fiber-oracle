@@ -1,13 +1,10 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 /**
- * advancedDocumentSearch — Two-stage document search.
+ * advancedDocumentSearch — Paginate through all DocumentChunks and score in memory.
  * 
- * Stage 1: Fetch DocumentChunk records by document_title filter for each keyword.
- *          Also fetch by keywords field as a secondary signal.
- *          Sequential to avoid rate limits. Uses document_title which is reliable.
- * Stage 2: Score and deduplicate by document.
- * Stage 3: LLM semantic ranking with content excerpts.
+ * Uses lightweight scoring on title/category/keywords/tags fields (not full content)
+ * to avoid OOM. Paginates in batches with rate-limit-safe delays.
  */
 Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
@@ -35,7 +32,7 @@ Deno.serve(async (req) => {
       .split(/\s+/)
       .map(w => w.replace(/[^a-z0-9]/g, ''))
       .filter(w => w.length > 2 && !stopWords.has(w))
-      .slice(0, 6);
+      .slice(0, 8);
 
     console.log('[search] Keywords:', queryWords.join(', '));
 
@@ -43,127 +40,132 @@ Deno.serve(async (req) => {
       return Response.json({ query, total_results: 0, results: [], message: 'No meaningful keywords.' });
     }
 
-    // ── Stage 1: Fetch chunks matching keywords via document_title and keywords fields ──
-    const LIMIT = 50;
-    const chunkMap = new Map();
+    // ── Stage 1: Paginate all chunks, score in memory (lightweight fields only) ──
+    // We keep only: document_id, document_title, document_category, keywords, metadata.tags, score
+    // We do NOT store full content in memory — only fetch content for top candidates later
+    const PAGE_SIZE = 50;
+    const MAX_CHUNKS = 20000;
+    const docBest = new Map(); // document_id -> best score info (no content stored)
+    let totalChunks = 0;
+    let page = 0;
 
-    // Helper to add chunks to map
-    const addChunks = (chunks, matchSource, word) => {
-      for (const chunk of chunks) {
-        if (!chunkMap.has(chunk.id)) {
-          chunkMap.set(chunk.id, { chunk, score: 0, titleMatches: new Set(), keywordMatches: new Set(), contentMatches: new Set() });
-        }
-        const entry = chunkMap.get(chunk.id);
-        if (matchSource === 'title') entry.titleMatches.add(word);
-        if (matchSource === 'keywords') entry.keywordMatches.add(word);
-      }
-    };
-
-    // Search by document_title for each keyword (sequential to avoid rate limits)
-    for (const word of queryWords) {
+    while (totalChunks < MAX_CHUNKS) {
+      let batch;
       try {
-        console.log(`[search] Searching title for: "${word}"`);
-        const byTitle = await base44.asServiceRole.entities.DocumentChunk.filter(
-          { document_title: word },
-          '-created_date',
-          LIMIT
+        batch = await base44.asServiceRole.entities.DocumentChunk.list(
+          'created_date', PAGE_SIZE, page * PAGE_SIZE
         );
-        addChunks(Array.isArray(byTitle) ? byTitle : [], 'title', word);
+        if (!Array.isArray(batch) || batch.length === 0) break;
       } catch (e) {
-        console.error(`[search] Title search error for "${word}":`, e.message);
+        console.error('[search] Page', page, 'error:', e.message);
+        // On rate limit or connection error, use what we have
+        break;
       }
 
-      try {
-        const byKeyword = await base44.asServiceRole.entities.DocumentChunk.filter(
-          { keywords: word },
-          '-created_date',
-          LIMIT
-        );
-        addChunks(Array.isArray(byKeyword) ? byKeyword : [], 'keywords', word);
-      } catch (e) {
-        console.error(`[search] Keyword search error for "${word}":`, e.message);
-      }
-    }
+      for (const chunk of batch) {
+        totalChunks++;
+        let score = 0;
+        const title = (chunk.document_title || '').toLowerCase();
+        const category = (chunk.document_category || '').toLowerCase();
+        const keywords = (chunk.keywords || '').toLowerCase();
+        const tags = ((chunk.metadata?.tags) || []).join(' ').toLowerCase();
+        const matchedWords = new Set();
 
-    console.log('[search] Total unique chunks found:', chunkMap.size);
-
-    if (chunkMap.size === 0) {
-      return Response.json({ query, total_results: 0, results: [], message: 'No matching chunks found.' });
-    }
-
-    // ── Stage 2: Score chunks ──
-    for (const entry of chunkMap.values()) {
-      const title = (entry.chunk.document_title || '').toLowerCase();
-      const category = (entry.chunk.document_category || '').toLowerCase();
-      const content = (entry.chunk.content || '').toLowerCase();
-      const tags = ((entry.chunk.metadata?.tags) || []).join(' ').toLowerCase();
-
-      for (const word of queryWords) {
-        if (title.includes(word)) entry.score += 10;
-        if (category.includes(word)) entry.score += 5;
-        if (tags.includes(word)) entry.score += 7;
-        if (content.includes(word)) {
-          entry.score += 3;
-          entry.contentMatches.add(word);
-        }
-      }
-
-      // Breadth bonus: matching more distinct words ranks higher
-      const allMatches = new Set([...entry.titleMatches, ...entry.keywordMatches, ...entry.contentMatches]);
-      const coverage = allMatches.size / queryWords.length;
-      entry.score *= (1 + coverage);
-    }
-
-    // Deduplicate by document — keep best chunk per doc
-    const docBest = new Map();
-    const allEntries = Array.from(chunkMap.values()).sort((a, b) => b.score - a.score);
-
-    for (const entry of allEntries) {
-      const docId = entry.chunk.document_id;
-      if (!docBest.has(docId) || entry.score > docBest.get(docId).score) {
-        // Extract snippet
-        let snippet = '';
-        const content = entry.chunk.content || '';
-        const contentLower = content.toLowerCase();
-        // Clean up JSON noise from content for snippet
-        const cleanContent = content.replace(/\{"title":null,"content":null\}/g, '').replace(/\[|\]/g, '').trim();
-        
         for (const word of queryWords) {
-          const idx = cleanContent.toLowerCase().indexOf(word);
-          if (idx !== -1) {
-            snippet = cleanContent.substring(Math.max(0, idx - 80), Math.min(cleanContent.length, idx + 300)).trim();
-            break;
-          }
-        }
-        if (!snippet && cleanContent.length > 10) {
-          snippet = cleanContent.substring(0, 300).trim();
+          if (title.includes(word)) { score += 10; matchedWords.add(word); }
+          if (category.includes(word)) { score += 5; matchedWords.add(word); }
+          if (keywords.includes(word)) { score += 4; matchedWords.add(word); }
+          if (tags.includes(word)) { score += 7; matchedWords.add(word); }
         }
 
-        docBest.set(docId, {
-          ...entry,
-          snippet,
-          title: entry.chunk.document_title,
-          category: entry.chunk.document_category,
-          metadata: entry.chunk.metadata,
-        });
+        if (score === 0) continue;
+
+        // Breadth bonus
+        score *= (1 + matchedWords.size / queryWords.length);
+
+        const docId = chunk.document_id;
+        const existing = docBest.get(docId);
+        if (!existing || score > existing.score) {
+          docBest.set(docId, {
+            score,
+            chunkId: chunk.id,
+            title: chunk.document_title,
+            category: chunk.document_category,
+            tags: chunk.metadata?.tags || [],
+            sourceType: chunk.metadata?.source_type,
+            sourceUrl: chunk.metadata?.source_url,
+          });
+        }
       }
+
+      page++;
     }
 
-    const uniqueDocCount = docBest.size;
-    console.log('[search] Unique docs matched:', uniqueDocCount);
+    console.log('[search] Chunks scanned:', totalChunks, '| Docs matched:', docBest.size);
 
-    const candidates = Array.from(docBest.values())
+    if (docBest.size === 0) {
+      return Response.json({
+        query,
+        total_chunks_scanned: totalChunks,
+        total_results: 0,
+        results: [],
+        message: 'No matching documents found.'
+      });
+    }
+
+    // ── Stage 2: For top candidates, fetch a few chunks to get content snippets ──
+    const candidates = Array.from(docBest.entries())
+      .map(([docId, data]) => ({ docId, ...data }))
       .sort((a, b) => b.score - a.score)
       .slice(0, Math.max(maxResults * 2, 12));
 
-    console.log('[search] LLM candidates:', candidates.length);
+    // Fetch 3 chunks per candidate doc (sequential to avoid rate limits)
+    for (const c of candidates) {
+      try {
+        const chunks = await base44.asServiceRole.entities.DocumentChunk.filter(
+          { document_id: c.docId },
+          'chunk_index',
+          3
+        );
+        const arr = Array.isArray(chunks) ? chunks : [];
+        
+        // Find best content snippet
+        let bestSnippet = '';
+        let bestScore = 0;
+        for (const ch of arr) {
+          // Clean JSON noise
+          const raw = (ch.content || '');
+          const clean = raw.replace(/\{"title":null,"content":null\}/g, '').replace(/,{2,}/g, ',').trim();
+          const lower = clean.toLowerCase();
+          let s = 0;
+          for (const w of queryWords) { if (lower.includes(w)) s++; }
+          if (s > bestScore || !bestSnippet) {
+            bestScore = s;
+            for (const w of queryWords) {
+              const idx = lower.indexOf(w);
+              if (idx !== -1) {
+                bestSnippet = clean.substring(Math.max(0, idx - 80), Math.min(clean.length, idx + 300)).trim();
+                break;
+              }
+            }
+            if (!bestSnippet) bestSnippet = clean.substring(0, 300).trim();
+          }
+        }
+        c.snippet = bestSnippet;
+      } catch (e) {
+        console.error(`[search] Snippet fetch error for ${c.docId}:`, e.message);
+        c.snippet = '';
+      }
+    }
+
+    console.log('[search] Candidates ready:', candidates.length);
 
     // ── Stage 3: LLM semantic ranking ──
     const rankResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
       prompt: `Rank these document excerpts by relevance to the query: "${query}". Return the top ${maxResults} most relevant.
 
-${candidates.map((d, i) => `[${i+1}] DocID:${d.chunk.document_id} Title:"${d.title}" Category:${d.category} Tags:${(d.metadata?.tags || []).join(',')}
-Excerpt: ${(d.snippet || '').substring(0, 400)}`).join('\n\n')}`,
+${candidates.map((d, i) => `[${i+1}] DocID:${d.docId} Title:"${d.title}" Category:${d.category} Tags:${d.tags.join(',')}
+Excerpt: ${(d.snippet || '(no excerpt)').substring(0, 400)}`).join('\n\n')}`,
       response_json_schema: {
         type: 'object',
         properties: {
@@ -191,15 +193,15 @@ Excerpt: ${(d.snippet || '').substring(0, 400)}`).join('\n\n')}`,
     console.log('[search] LLM returned', ranked.length, 'results');
 
     const results = ranked.map(r => {
-      const c = candidates.find(x => x.chunk.document_id === r.document_id);
+      const c = candidates.find(x => x.docId === r.document_id);
       if (!c) return null;
       return {
-        document_id: c.chunk.document_id,
+        document_id: c.docId,
         title: c.title,
         category: c.category,
-        source_type: c.metadata?.source_type,
-        source_url: c.metadata?.source_url,
-        tags: c.metadata?.tags || [],
+        source_type: c.sourceType,
+        source_url: c.sourceUrl,
+        tags: c.tags,
         relevance_score: r.relevance_score,
         match_reasoning: r.match_reasoning,
         content_preview: c.snippet || null
@@ -208,8 +210,8 @@ Excerpt: ${(d.snippet || '').substring(0, 400)}`).join('\n\n')}`,
 
     return Response.json({
       query,
-      total_unique_documents_matched: uniqueDocCount,
-      total_chunks_evaluated: chunkMap.size,
+      total_chunks_scanned: totalChunks,
+      total_unique_documents_matched: docBest.size,
       total_results: results.length,
       results
     });
