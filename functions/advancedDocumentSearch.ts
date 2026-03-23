@@ -66,10 +66,8 @@ Deno.serve(async (req) => {
 
     console.log('[search] Total documents loaded:', allDocs.length);
 
-    // Filter to active only and score each document
-    const scoredDocs = allDocs
-      .filter(doc => doc.is_active !== false)
-      .map(doc => {
+    // Score each document (already filtered to active)
+    const scoredDocs = allDocs.map(doc => {
         let score = 0;
         const title = (doc.title || '').toLowerCase();
         const category = (doc.category || '').toLowerCase();
