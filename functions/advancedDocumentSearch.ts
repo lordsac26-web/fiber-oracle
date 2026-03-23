@@ -49,24 +49,30 @@ Deno.serve(async (req) => {
     }
 
     // Step 2: Fetch chunks matching each keyword using filter (uses index on keywords field)
-    const CHUNKS_PER_KEYWORD = 200;
+    // Limit to top 6 most distinctive keywords and 100 chunks each to stay within time limits
+    const searchWords = queryWords.slice(0, 6);
+    const CHUNKS_PER_KEYWORD = 100;
     const chunkMap = new Map(); // chunk.id -> { chunk, score, matchedWords }
 
-    const keywordFetches = queryWords.map(async (word) => {
-      try {
-        const chunks = await base44.asServiceRole.entities.DocumentChunk.filter(
-          { keywords: word },
-          '-created_date',
-          CHUNKS_PER_KEYWORD
-        );
-        return { word, chunks: Array.isArray(chunks) ? chunks : [] };
-      } catch (e) {
-        console.error(`[search] Error fetching for "${word}":`, e.message);
-        return { word, chunks: [] };
-      }
-    });
-
-    const keywordResults = await Promise.all(keywordFetches);
+    // Fetch in batches of 3 to avoid overwhelming the backend
+    const keywordResults = [];
+    for (let i = 0; i < searchWords.length; i += 3) {
+      const batch = searchWords.slice(i, i + 3);
+      const batchResults = await Promise.all(batch.map(async (word) => {
+        try {
+          const chunks = await base44.asServiceRole.entities.DocumentChunk.filter(
+            { keywords: word },
+            '-created_date',
+            CHUNKS_PER_KEYWORD
+          );
+          return { word, chunks: Array.isArray(chunks) ? chunks : [] };
+        } catch (e) {
+          console.error(`[search] Error fetching for "${word}":`, e.message);
+          return { word, chunks: [] };
+        }
+      }));
+      keywordResults.push(...batchResults);
+    }
 
     // Step 3: Merge and score all fetched chunks
     for (const { word, chunks } of keywordResults) {
