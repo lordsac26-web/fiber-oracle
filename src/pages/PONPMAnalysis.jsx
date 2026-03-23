@@ -1370,7 +1370,8 @@ Be specific, technical, and actionable.`;
               </div>
             )}
 
-            {viewMode === 'hierarchy' && filteredOnts.length > 0 && (
+            {/* LCP Summary — shown once above OLT/Port section */}
+            {filteredOnts.length > 0 && (
               <LCPSummarySection
                 result={{ ...result, onts: filteredOnts }}
                 onPortClick={(oltName, portKey) => {
