@@ -1325,6 +1325,7 @@ export default function LCPInfo() {
                     <TableHead>Location</TableHead>
                     <TableHead>OLT (Shelf/Slot/Port)</TableHead>
                     <TableHead>Current ONTs</TableHead>
+                    <TableHead>Remaining Ports</TableHead>
                     <TableHead>GPS</TableHead>
                     <TableHead className="w-20">Actions</TableHead>
                   </TableRow>
@@ -1361,6 +1362,21 @@ export default function LCPInfo() {
                         <Badge variant="outline" className="text-xs font-mono">
                           {latestOntCountsByKey[`${(entry.lcp_number || '').trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`] || 0}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const count = latestOntCountsByKey[`${(entry.lcp_number || '').trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`] || 0;
+                          const remaining = Math.max(0, 32 - count);
+                          return (
+                            <Badge variant="outline" className={`text-xs font-mono ${
+                              remaining === 0 ? 'bg-red-50 text-red-700 border-red-300' :
+                              remaining <= 5 ? 'bg-amber-50 text-amber-700 border-amber-300' :
+                              'text-gray-600'
+                            }`}>
+                              ~{remaining} / 32
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         {entry.gps_lat && entry.gps_lng ? (
@@ -1407,6 +1423,19 @@ export default function LCPInfo() {
                         <Badge variant="outline" className="text-xs font-mono">
                           {latestOntCountsByKey[`${(entry.lcp_number || '').trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`] || 0} current ONTs
                         </Badge>
+                        {(() => {
+                          const count = latestOntCountsByKey[`${(entry.lcp_number || '').trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`] || 0;
+                          const remaining = Math.max(0, 32 - count);
+                          return (
+                            <Badge variant="outline" className={`text-xs font-mono ${
+                              remaining === 0 ? 'bg-red-50 text-red-700 border-red-300' :
+                              remaining <= 5 ? 'bg-amber-50 text-amber-700 border-amber-300' :
+                              ''
+                            }`}>
+                              ~{remaining} remaining
+                            </Badge>
+                          );
+                        })()}
                         {entry.gps_lat && entry.gps_lng && (
                           <Badge variant="outline" className="text-xs text-blue-600">📍 Has GPS</Badge>
                         )}

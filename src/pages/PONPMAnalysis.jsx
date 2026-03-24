@@ -95,6 +95,7 @@ import PortHeaderLabel from '@/components/ponpm/PortHeaderLabel';
 import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
 import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
 import { formatUptime } from '@/components/ponpm/formatUptime';
+import { exportLcpPortUtilization } from '@/components/ponpm/exportLcpUtilization';
 const STATUS_COLORS = {
   critical: 'bg-red-500',
   warning: 'bg-amber-500',
@@ -103,12 +104,7 @@ const STATUS_COLORS = {
   info: 'bg-blue-500',
 };
 
-const STATUS_BADGES = {
-  critical: 'bg-red-100 text-red-800 border-red-300',
-  warning: 'bg-amber-100 text-amber-800 border-amber-300',
-  ok: 'bg-green-100 text-green-800 border-green-300',
-  offline: 'bg-purple-100 text-purple-800 border-purple-300',
-};
+const STATUS_BADGES = { critical: 'bg-red-100 text-red-800 border-red-300', warning: 'bg-amber-100 text-amber-800 border-amber-300', ok: 'bg-green-100 text-green-800 border-green-300', offline: 'bg-purple-100 text-purple-800 border-purple-300' };
 
 const DEFAULT_THRESHOLDS = {
   OntRxOptPwr: { low: -27, marginal: -25, high: -8 },
@@ -934,6 +930,11 @@ Be specific, technical, and actionable.`;
                     <DropdownMenuItem onClick={exportOfflineCSV}>
                       <Router className="h-4 w-4 mr-2 text-purple-500" />
                       Offline ONTs (CSV)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => exportLcpPortUtilization(result?.onts)}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2 text-indigo-500" />
+                      LCP/Splitter Port Utilization (CSV)
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
