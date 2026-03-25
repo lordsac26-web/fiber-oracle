@@ -767,6 +767,15 @@ export default function LCPInfo() {
     toast.success(`Exported ${lcpEntries.length} entries`);
   };
 
+  const handleColumnSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
   const filteredEntries = lcpEntries
     .filter(entry => {
       const term = searchTerm.toLowerCase();
@@ -778,20 +787,33 @@ export default function LCPInfo() {
       );
     })
     .sort((a, b) => {
+      const dir = sortOrder === 'asc' ? 1 : -1;
+
       if (sortBy === 'lcp_number') {
-        const compare = (a.lcp_number || '').localeCompare(b.lcp_number || '', undefined, { numeric: true, sensitivity: 'base' });
-        return sortOrder === 'asc' ? compare : -compare;
+        return dir * (a.lcp_number || '').localeCompare(b.lcp_number || '', undefined, { numeric: true, sensitivity: 'base' });
       }
-
+      if (sortBy === 'splitter_number') {
+        return dir * (a.splitter_number || '').localeCompare(b.splitter_number || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
       if (sortBy === 'location') {
-        const compare = (a.location || '').localeCompare(b.location || '', undefined, { numeric: true, sensitivity: 'base' });
-        return sortOrder === 'asc' ? compare : -compare;
+        return dir * (a.location || '').localeCompare(b.location || '', undefined, { numeric: true, sensitivity: 'base' });
+      }
+      if (sortBy === 'olt') {
+        const aOlt = `${a.olt_name || ''} ${a.olt_shelf || ''}/${a.olt_slot || ''}/${a.olt_port || ''}`;
+        const bOlt = `${b.olt_name || ''} ${b.olt_shelf || ''}/${b.olt_slot || ''}/${b.olt_port || ''}`;
+        return dir * aOlt.localeCompare(bOlt, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      if (sortBy === 'ont_count') {
+        const aKey = `${(a.lcp_number || '').trim().toUpperCase()}|${(a.splitter_number || '').trim().toUpperCase()}`;
+        const bKey = `${(b.lcp_number || '').trim().toUpperCase()}|${(b.splitter_number || '').trim().toUpperCase()}`;
+        return dir * ((latestOntCountsByKey[aKey] || 0) - (latestOntCountsByKey[bKey] || 0));
       }
 
+      // Default: created_date
       const aVal = a.created_date || '';
       const bVal = b.created_date || '';
-      if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+      if (aVal < bVal) return -dir;
+      if (aVal > bVal) return dir;
       return 0;
     });
 
