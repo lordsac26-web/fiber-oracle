@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 /**
  * queryLargeDocument — Retrieves specific sections from a document using pre-indexed chunks.
@@ -9,24 +9,31 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
+
+    // Authenticate the requesting user
+    const user = await base44.auth.me();
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { document_id, query, max_chunks = 3 } = await req.json();
 
     if (!document_id) {
       return Response.json({ error: 'document_id required' }, { status: 400 });
     }
 
-    // Fetch document metadata
-    const doc = await base44.asServiceRole.entities.ReferenceDocument.get(document_id);
+    // Fetch document metadata using user-scoped access (RLS enforced)
+    const doc = await base44.entities.ReferenceDocument.get(document_id);
     if (!doc) {
       return Response.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    console.log(`[queryDoc] Querying "${doc.title}" for: ${query || '(no query)'}`);
+    console.log(`[queryDoc] User ${user.email} querying "${doc.title}" for: ${query || '(no query)'}`);
 
-    // Fetch pre-indexed chunks for this document
+    // Fetch pre-indexed chunks using user-scoped access (RLS enforced)
     let chunks = [];
     try {
-      const raw = await base44.asServiceRole.entities.DocumentChunk.filter(
+      const raw = await base44.entities.DocumentChunk.filter(
         { document_id },
         'chunk_index',
         200
@@ -98,7 +105,7 @@ Deno.serve(async (req) => {
     // If keyword scoring found nothing, use LLM to find relevant sections
     if (topChunks.every(c => c.score === 0) && chunks.length <= 30) {
       console.log('[queryDoc] No keyword matches, using LLM for relevance');
-      const relevanceResult = await base44.asServiceRole.integrations.Core.InvokeLLM({
+      const relevanceResult = await base44.integrations.Core.InvokeLLM({
         prompt: `Given this search query: "${query}"
 
 Analyze these document chunks and identify which chunks are most relevant.
