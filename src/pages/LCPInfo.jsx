@@ -1279,8 +1279,14 @@ export default function LCPInfo() {
                 <SelectItem value="created_date-asc">Oldest First</SelectItem>
                 <SelectItem value="lcp_number-asc">LCP # (Low-High)</SelectItem>
                 <SelectItem value="lcp_number-desc">LCP # (High-Low)</SelectItem>
+                <SelectItem value="splitter_number-asc">Splitter (Low-High)</SelectItem>
+                <SelectItem value="splitter_number-desc">Splitter (High-Low)</SelectItem>
                 <SelectItem value="location-asc">Location (A-Z)</SelectItem>
                 <SelectItem value="location-desc">Location (Z-A)</SelectItem>
+                <SelectItem value="olt-asc">OLT (A-Z)</SelectItem>
+                <SelectItem value="olt-desc">OLT (Z-A)</SelectItem>
+                <SelectItem value="ont_count-desc">ONTs (High-Low)</SelectItem>
+                <SelectItem value="ont_count-asc">ONTs (Low-High)</SelectItem>
               </SelectContent>
             </Select>
           </div>
