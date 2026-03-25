@@ -1361,13 +1361,11 @@ Be specific, technical, and actionable.`;
             {/* KPI Statistics */}
             {showKPIs && <KPIStatistics result={result} filteredOnts={filteredOnts} />}
 
-            {/* Power Distribution Chart */}
+            {/* Power Distribution Charts */}
             {filteredOnts.length > 0 && (
               <div className="grid md:grid-cols-2 gap-4">
-                <PowerDistributionChart onts={filteredOnts} />
-                <PowerDistributionChart 
-                  onts={filteredOnts.filter(o => o._analysis.status !== 'ok')} 
-                />
+                <PowerDistributionChart onts={filteredOnts} powerMetric="ont_rx" title="ONT Rx Power Distribution" />
+                <PowerDistributionChart onts={filteredOnts} powerMetric="olt_rx" title="OLT Rx Power Distribution" />
               </div>
             )}
 
