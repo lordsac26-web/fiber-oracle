@@ -1342,11 +1342,21 @@ export default function LCPInfo() {
                 <TableHeader>
                   <TableRow className="bg-gray-50 dark:bg-gray-800">
                     {selectionMode && <TableHead className="w-10"></TableHead>}
-                    <TableHead>LCP/CLCP</TableHead>
-                    <TableHead>Splitter</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>OLT (Shelf/Slot/Port)</TableHead>
-                    <TableHead>Current ONTs</TableHead>
+                    <TableHead className="cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => handleColumnSort('lcp_number')}>
+                      <span className="inline-flex items-center gap-1">LCP/CLCP {sortBy === 'lcp_number' && (sortOrder === 'asc' ? '↑' : '↓')}</span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => handleColumnSort('splitter_number')}>
+                      <span className="inline-flex items-center gap-1">Splitter {sortBy === 'splitter_number' && (sortOrder === 'asc' ? '↑' : '↓')}</span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => handleColumnSort('location')}>
+                      <span className="inline-flex items-center gap-1">Location {sortBy === 'location' && (sortOrder === 'asc' ? '↑' : '↓')}</span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => handleColumnSort('olt')}>
+                      <span className="inline-flex items-center gap-1">OLT (Shelf/Slot/Port) {sortBy === 'olt' && (sortOrder === 'asc' ? '↑' : '↓')}</span>
+                    </TableHead>
+                    <TableHead className="cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => handleColumnSort('ont_count')}>
+                      <span className="inline-flex items-center gap-1">Current ONTs {sortBy === 'ont_count' && (sortOrder === 'asc' ? '↑' : '↓')}</span>
+                    </TableHead>
                     <TableHead>Remaining Ports</TableHead>
                     <TableHead>GPS</TableHead>
                     <TableHead className="w-20">Actions</TableHead>
