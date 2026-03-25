@@ -80,11 +80,12 @@ ${formData.message}
 Sent via Fiber Oracle Contact Form
       `.trim();
 
-      await base44.integrations.Core.SendEmail({
-        to: 'craig.delong.mhc@gmail.com',
-        subject: `[Fiber Oracle] ${reasonLabel}: ${formData.subject || 'New Message'}`,
-        body: emailBody,
-        from_name: 'Fiber Oracle Contact'
+      await base44.functions.invoke('sendContactEmail', {
+        name: formData.name,
+        email: formData.email,
+        reason_label: reasonLabel,
+        subject: formData.subject,
+        message: formData.message
       });
 
       setIsSent(true);

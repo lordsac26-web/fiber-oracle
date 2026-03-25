@@ -42,11 +42,10 @@ Deno.serve(async (req) => {
     const payload = await req.json();
     const document_id = payload?.document_id || payload?.event?.entity_id || payload?.data?.id || null;
     const isAutomationCall = payload?.event?.entity_name === 'ReferenceDocument';
-    const isServiceCall = payload?._service_call || isAutomationCall;
     
-    // Allow service/automation calls without admin auth.
+    // Allow automation calls without admin auth.
     // Otherwise require admin auth for manual invocations.
-    if (!isServiceCall) {
+    if (!isAutomationCall) {
       const user = await base44.auth.me();
       if (!user || user.role !== 'admin') {
         return Response.json({ error: 'Unauthorized: Admin access required' }, { status: 403 });

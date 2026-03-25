@@ -105,6 +105,14 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Verify the caller is authenticated
+    const user = await base44.auth.me();
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (user.role !== 'admin') {
+      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
     // Step 1: Scan ReferenceDocuments one at a time and check chunk existence per doc.
     // This avoids loading the full DocumentChunk table on every scheduled run.
     console.log('[autoChunk] Step 1: Scanning for unchunked document...');
