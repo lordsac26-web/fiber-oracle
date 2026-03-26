@@ -39,36 +39,12 @@ export default function CapacityPlanning() {
   const { data: allOntCounts = [], isLoading: loadingCounts } = useQuery({
     queryKey: ['capacityOntCounts', completedReports.map(r => r.id).join(',')],
     enabled: completedReports.length > 0,
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      // Load ONT records for each report and aggregate by LCP/splitter
-      const results = [];
-      for (const report of completedReports) {
-        const counts = {};
-        let skip = 0;
-        const pageSize = 2000;
-        while (true) {
-          const page = await base44.entities.ONTPerformanceRecord.filter(
-            { report_id: report.id }, '-created_date', pageSize, skip
-          );
-          if (!page.length) break;
-          for (const rec of page) {
-            const lcp = (rec.lcp_number || '').trim().toUpperCase();
-            const sp = (rec.splitter_number || '').trim().toUpperCase();
-            if (!lcp) continue;
-            const key = `${lcp}|${sp}`;
-            counts[key] = (counts[key] || 0) + 1;
-          }
-          if (page.length < pageSize) break;
-          skip += pageSize;
-        }
-        results.push({
-          reportId: report.id,
-          reportName: report.report_name,
-          date: report.upload_date,
-          counts,
-        });
-      }
-      return results;
+      // Aggregate ONT counts per LCP/splitter server-side to avoid rate limiting
+      const reportIds = completedReports.map(r => r.id);
+      const res = await base44.functions.invoke('getLatestLcpOntCounts', { report_ids: reportIds });
+      return res.data?.results || [];
     },
   });
 
