@@ -1,8 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 const PAGE_SIZE = 100;
-const CONCURRENT = 4;
-const BATCH_DELAY = 250;
+const CONCURRENT = 2;
+const BATCH_DELAY = 500;
 const MAX_RETRIES = 4;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,6 +27,13 @@ async function deleteWithRetry(base44, entityName, id) {
   throw lastError;
 }
 
+function extractArray(result) {
+  if (Array.isArray(result)) return result;
+  if (result?.items && Array.isArray(result.items)) return result.items;
+  if (result?.data && Array.isArray(result.data)) return result.data;
+  return [];
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -46,16 +53,22 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing report_id' }, { status: 400 });
     }
 
+    // Check the report exists before we start
+    const report = await base44.asServiceRole.entities.PONPMReport.get(report_id).catch(() => null);
+    if (!report) {
+      return Response.json({ error: 'Report not found' }, { status: 404 });
+    }
+
     let deletedCount = 0;
 
     while (true) {
-      const page = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+      const raw = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
         { report_id },
-        '-created_date',
-        PAGE_SIZE
+        { sort: '-created_date', limit: PAGE_SIZE }
       );
 
-      if (!page || page.length === 0) break;
+      const page = extractArray(raw);
+      if (page.length === 0) break;
 
       for (let i = 0; i < page.length; i += CONCURRENT) {
         const slice = page.slice(i, i + CONCURRENT);
@@ -73,11 +86,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    const remainingRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+    // Verify all child records are gone
+    const remainingRaw = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
       { report_id },
-      '-created_date',
-      1
+      { sort: '-created_date', limit: 1 }
     );
+
+    const remainingRecords = extractArray(remainingRaw);
 
     if (remainingRecords.length > 0) {
       return Response.json({
@@ -92,7 +107,7 @@ Deno.serve(async (req) => {
     return Response.json({
       success: true,
       deletedRecords: deletedCount,
-      message: `Deleted report and ${deletedCount} ONT records`
+      message: `Deleted report and ${deletedCount} ONT records`,
     });
   } catch (error) {
     console.error('Delete report error:', error);
