@@ -5,8 +5,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 
-const SPLITTER_CAPACITY = 32;
-
 export default function CapacityGrowthChart({ allOntCounts, projections }) {
   const [chartView, setChartView] = useState('top_growing');
 
@@ -84,7 +82,7 @@ export default function CapacityGrowthChart({ allOntCounts, projections }) {
                   <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} name="Total ONTs" />
                 ) : (
                   <>
-                    <ReferenceLine y={SPLITTER_CAPACITY} stroke="#ef4444" strokeDasharray="5 5" label={{ value: '32 (Full)', position: 'right', fontSize: 11, fill: '#ef4444' }} />
+                    <ReferenceLine y={32} stroke="#ef4444" strokeDasharray="5 5" label={{ value: 'Cap (32)', position: 'right', fontSize: 11, fill: '#ef4444' }} />
                     {topKeys.map((p, i) => (
                       <Line
                         key={p.key}
