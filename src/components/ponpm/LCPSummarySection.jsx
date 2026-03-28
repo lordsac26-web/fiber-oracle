@@ -40,7 +40,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
   const { data: lcpEntries = [], isLoading } = useQuery({
     queryKey: ['lcp-entries'],
     queryFn: async () => {
-      const entries = await base44.entities.LCPEntry.list();
+      const entries = await base44.entities.LCPEntry.list('-created_date', 5000);
       return entries;
     },
   });
