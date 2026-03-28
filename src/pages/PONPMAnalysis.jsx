@@ -96,6 +96,7 @@ import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
 import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
 import { formatUptime } from '@/components/ponpm/formatUptime';
 import { exportLcpPortUtilization } from '@/components/ponpm/exportLcpUtilization';
+import CorrectedFecAnalysis from '@/components/ponpm/CorrectedFecAnalysis';
 import { buildLcpLookupMap, enrichOntsWithLcp } from '@/components/ponpm/lcpLookup';
 const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
 const STATUS_COLORS = {
@@ -142,7 +143,7 @@ export default function PONPMAnalysis() {
   const [hideOntStatus, setHideOntStatus] = useState({ ok: false, warning: false, critical: false, offline: false });
   const [showHistoricalReports, setShowHistoricalReports] = useState(false);
   const [showTrends, setShowTrends] = useState(false);
-  const [viewMode, setViewMode] = useState('hierarchy'); // 'hierarchy' or 'summary'
+  const [viewMode, setViewMode] = useState('hierarchy');
   const [creatingJobReport, setCreatingJobReport] = useState(null);
   const [jobReportFormData, setJobReportFormData] = useState(null);
   const [generatingReport, setGeneratingReport] = useState(false);
@@ -1406,14 +1407,11 @@ Be specific, technical, and actionable.`;
                       <Activity className="h-4 w-4 mr-1" />
                       Summary
                     </Button>
-                    <Button 
-                      variant={viewMode === 'hierarchy' ? 'default' : 'ghost'} 
-                      size="sm"
-                      className="rounded-none"
-                      onClick={() => setViewMode('hierarchy')}
-                    >
-                      <Router className="h-4 w-4 mr-1" />
-                      Hierarchy
+                    <Button variant={viewMode === 'hierarchy' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setViewMode('hierarchy')}>
+                      <Router className="h-4 w-4 mr-1" />Hierarchy
+                    </Button>
+                    <Button variant={viewMode === 'fec' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setViewMode('fec')}>
+                      <AlertTriangle className="h-4 w-4 mr-1" />FEC Corrected
                     </Button>
                   </div>
                   {viewMode === 'hierarchy' && (
@@ -1449,7 +1447,7 @@ Be specific, technical, and actionable.`;
                 </div>
               </div>
 
-              {/* OLT/Port Summary View */}
+              {viewMode === 'fec' && <CorrectedFecAnalysis onts={result?.onts} onSelectOnt={setSelectedOntDetail} />}
               {viewMode === 'summary' && (
                 <OLTPortSummary 
                   result={result} 
