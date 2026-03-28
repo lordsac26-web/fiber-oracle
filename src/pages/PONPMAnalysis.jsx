@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +96,8 @@ import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
 import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
 import { formatUptime } from '@/components/ponpm/formatUptime';
 import { exportLcpPortUtilization } from '@/components/ponpm/exportLcpUtilization';
+import { buildLcpLookupMap, enrichOntsWithLcp } from '@/components/ponpm/lcpLookup';
+const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
 const STATUS_COLORS = {
   critical: 'bg-red-500',
   warning: 'bg-amber-500',
@@ -181,13 +183,17 @@ export default function PONPMAnalysis() {
     return () => unsubscribe();
   }, [processingReportId, queryClient]);
 
-
-
-  // Fetch saved reports
-  const { data: savedReports = [], isLoading: loadingReports } = useQuery({
-    queryKey: ['ponPmReports'],
-    queryFn: () => base44.entities.PONPMReport.list('-upload_date'),
-  });
+  const { data: savedReports = [], isLoading: loadingReports } = useQuery({ queryKey: ['ponPmReports'], queryFn: () => base44.entities.PONPMReport.list('-upload_date') });
+  const { data: lcpEntriesForEnrich = [] } = useLcpQuery();
+  const lcpMapRef = useRef(new Map());
+  useEffect(() => { lcpMapRef.current = buildLcpLookupMap(lcpEntriesForEnrich); }, [lcpEntriesForEnrich]);
+  const enrichedRef = useRef(false);
+  useEffect(() => {
+    if (!result?.onts || lcpMapRef.current.size === 0) return;
+    const count = enrichOntsWithLcp(lcpMapRef.current, result.onts);
+    if (count > 0 && !enrichedRef.current) { enrichedRef.current = true; setResult(prev => ({ ...prev })); }
+  }, [result?.onts?.length, lcpEntriesForEnrich]);
+  useEffect(() => { enrichedRef.current = false; }, [result?.source]);
 
   // Save report metadata, then kick off async background processing for ONT records
   const saveReportMutation = useMutation({
@@ -241,8 +247,6 @@ export default function PONPMAnalysis() {
       toast.error('Failed to save report to history');
     },
   });
-
-
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];

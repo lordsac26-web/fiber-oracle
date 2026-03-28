@@ -1,4 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { buildLcpLookupMap, resolveLcpForOnt } from './lcpLookup';
+import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,6 +82,13 @@ function ErrorMetricsBadges({ errors, compact = false }) {
 }
 
 export default function OLTPortSummary({ result, onDrillDown }) {
+  // Fetch LCP entries for real-time lookup
+  const { data: lcpEntries = [] } = useQuery({
+    queryKey: ['lcp-entries'],
+    queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
+    staleTime: 5 * 60 * 1000,
+  });
+  const lcpMap = useMemo(() => buildLcpLookupMap(lcpEntries), [lcpEntries]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOlt, setSelectedOlt] = useState(null);   // OLT-level drill
   const [selectedPort, setSelectedPort] = useState(null);  // Port-level drill
@@ -146,8 +156,12 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         const portIssueRate = (portCritical + portWarning) / portOnts.length;
         const portHasCorrelatedIssue = portIssueRate > 0.4 && (portCritical + portWarning) >= 2;
 
-        // Get LCP info from the first ONT on this port that has it
-        const lcpInfo = portOnts.find(o => o._lcpNumber);
+        // Get LCP info: first try pre-populated, then real-time lookup
+        let lcpInfo = portOnts.find(o => o._lcpNumber);
+        let resolvedLcp = null;
+        if (!lcpInfo && lcpMap.size > 0 && portOnts.length > 0) {
+          resolvedLcp = resolveLcpForOnt(lcpMap, portOnts[0]);
+        }
 
         portSummaries.push({
           oltName,
@@ -168,10 +182,10 @@ export default function OLTPortSummary({ result, onDrillDown }) {
           issueRate: portIssueRate,
           isCombo: portStats.isCombo,
           techType: portStats.techType,
-          lcpNumber: lcpInfo?._lcpNumber,
-          lcpSplitter: lcpInfo?._splitterNumber,
-          lcpLocation: lcpInfo?._lcpLocation,
-          lcpAddress: lcpInfo?._lcpAddress,
+          lcpNumber: lcpInfo?._lcpNumber || resolvedLcp?.lcp_number || '',
+          lcpSplitter: lcpInfo?._splitterNumber || resolvedLcp?.splitter_number || '',
+          lcpLocation: lcpInfo?._lcpLocation || resolvedLcp?.location || '',
+          lcpAddress: lcpInfo?._lcpAddress || resolvedLcp?.address || '',
           onts: portOnts,
           errors: computeErrorTotals(portOnts),
         });
