@@ -4,33 +4,25 @@
  * Resolves LCP# and Splitter# for ONTPerformanceRecords by joining on
  * olt_name + shelf/slot/port against the LCPEntry table.
  *
- * Callable two ways:
- *   1. POST { report_id: "<id>" }  — enriches all records for a specific report
- *   2. POST { backfill: true }     — enriches ALL records where lcp_number is blank
- *
- * The matching key built from LCPEntry is:
- *   `<olt_name_lower>|<olt_shelf>/<olt_slot>/<olt_port_normalized>`
- *
- * ONTPerformanceRecord.shelf_slot_port is expected in formats like:
- *   "1/2/xp5"  →  shelf=1, slot=2, port=xp5
- *   "1/2/5"    →  shelf=1, slot=2, port=5  (xp prefix optional)
- *
- * Matching is case-insensitive and handles xp-prefix variants on both sides.
+ * Callable three ways:
+ *   1. Entity automation payload:  { event: { entity_id }, data: { ... } }
+ *   2. Direct call with report_id: { report_id: "<id>" }
+ *   3. Backfill mode:              { backfill: true }
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+
+const CONCURRENT_UPDATES = 1;
+const BATCH_DELAY_MS = 800;
+const PAGE_SIZE = 2000;
+const MAX_RUNTIME_MS = 50000; // Stop gracefully before Deno 60s timeout
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Build a normalised lookup map from all LCPEntry records.
- * Each entry may generate several keys to tolerate format differences:
- *   olt|shelf/slot/port
- *   olt|shelf/slot/xpPORT
- * Returns Map<string, { lcp_number, splitter_number }>
- */
 function buildLcpLookup(lcpEntries) {
   const map = new Map();
 
@@ -43,18 +35,13 @@ function buildLcpLookup(lcpEntries) {
     const shelf   = String(lcp.olt_shelf).trim();
     const slot    = String(lcp.olt_slot).trim();
     const rawPort = String(lcp.olt_port).trim();
-
-    // Strip any leading "xp" to get the numeric part
     const numericPort = rawPort.replace(/^xp/i, '');
 
     const payload = {
       lcp_number:      lcp.lcp_number      || '',
       splitter_number: lcp.splitter_number || '',
-      optic_type:      lcp.optic_type      || '',
     };
 
-    // Check for range: handles "3-4", "xp3-4" → individual ports 3 and 4
-    // COMBO optics span two ports (odd=XGS-PON, even=GPON) — both map to same LCP/splitter
     const rng = numericPort.match(/^(\d+)\s*-\s*(\d+)$/);
     if (rng) {
       const lo = parseInt(rng[1], 10);
@@ -66,14 +53,12 @@ function buildLcpLookup(lcpEntries) {
         if (!map.has(keyXp))      map.set(keyXp, payload);
       }
     } else {
-      // Single port — store both numeric and xp-prefixed variants
       const keyNumeric = `${oltBase}|${shelf}/${slot}/${numericPort}`;
       const keyXp      = `${oltBase}|${shelf}/${slot}/xp${numericPort}`;
       if (!map.has(keyNumeric)) map.set(keyNumeric, payload);
       if (!map.has(keyXp))      map.set(keyXp, payload);
     }
 
-    // Also store the literal raw port key for exact match
     const literalKey = `${oltBase}|${shelf}/${slot}/${rawPort.toLowerCase()}`;
     if (!map.has(literalKey)) map.set(literalKey, payload);
   }
@@ -81,26 +66,35 @@ function buildLcpLookup(lcpEntries) {
   return map;
 }
 
-/**
- * Parse shelf_slot_port string into a normalised lookup key.
- * Accepts: "1/2/xp5", "1/2/5", "1/2/xp5-6" (combo — use first port number).
- * Returns the canonical key or null if unparseable.
- */
 function buildOntKey(oltName, shelfSlotPort) {
   if (!oltName || !shelfSlotPort) return null;
-
   const base = oltName.toLowerCase().trim();
-
-  // Capture shelf, slot, then port (with optional xp prefix, optional -N suffix for combos)
   const match = shelfSlotPort.match(/^(\d+)\/(\d+)\/(?:xp)?(\d+)(?:-\d+)?$/i);
   if (!match) return null;
+  return `${base}|${match[1]}/${match[2]}/${match[3]}`;
+}
 
-  const shelf       = match[1];
-  const slot        = match[2];
-  const numericPort = match[3];
-
-  // We'll try both variants in the caller; just return the base numeric form
-  return `${base}|${shelf}/${slot}/${numericPort}`;
+async function updateWithRetry(base44, id, data, retries = 4) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      await base44.asServiceRole.entities.ONTPerformanceRecord.update(id, data);
+      return true;
+    } catch (err) {
+      const isRateLimit = err.message?.includes('429') || err.message?.includes('Rate limit');
+      if (attempt < retries - 1 && isRateLimit) {
+        const backoff = 2000 * Math.pow(2, attempt); // 2s, 4s, 8s
+        console.log(`Rate limited on update ${id}, backing off ${backoff}ms (attempt ${attempt + 1})`);
+        await sleep(backoff);
+        continue;
+      }
+      if (isRateLimit) {
+        console.log(`Rate limited on update ${id} after ${retries} attempts, skipping`);
+        return false;
+      }
+      throw err;
+    }
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,20 +102,16 @@ function buildOntKey(oltName, shelfSlotPort) {
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
+  const startTime = Date.now();
+
   try {
     const base44 = createClientFromRequest(req);
-
     const body = await req.json().catch(() => ({}));
 
-    // Support three calling conventions:
-    //   1. Entity automation payload:  { event: { entity_id }, data: { ... } }
-    //   2. Direct call with report_id: { report_id: "<id>" }
-    //   3. Backfill mode:              { backfill: true }
-    const report_id = body.report_id || body.event?.entity_id || null;
+    const isAutomation = !!body.event;
+    const report_id = body.report_id || body.data?.report_id || body.event?.entity_id || null;
     const backfill  = body.backfill || false;
 
-    // For direct (non-automation) calls, require an authenticated admin user
-    const isAutomation = !!body.event;
     if (!isAutomation) {
       const user = await base44.auth.me().catch(() => null);
       if (!user) {
@@ -139,8 +129,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ── 1. Load all LCPEntry records and build lookup ──────────────────────
-    const lcpEntries = await base44.asServiceRole.entities.LCPEntry.list();
+    // When triggered by automation on processing_status=completed,
+    // all ONT records should already be saved. Brief pause for consistency.
+    if (isAutomation && report_id) {
+      console.log(`Automation triggered for report ${report_id}, brief pause before enrichment...`);
+      await sleep(2000);
+    }
+
+    // ── 1. Load LCPEntry records and build lookup ──────────────────────────
+    const lcpEntries = await base44.asServiceRole.entities.LCPEntry.list('-created_date', 5000);
     if (!lcpEntries || lcpEntries.length === 0) {
       return Response.json({ warning: 'No LCPEntry records found — nothing to enrich.' });
     }
@@ -148,98 +145,123 @@ Deno.serve(async (req) => {
     const lcpLookup = buildLcpLookup(lcpEntries);
     console.log(`LCP lookup built: ${lcpLookup.size} keys from ${lcpEntries.length} LCP entries`);
 
-    // ── 2. Fetch the ONT records to enrich ─────────────────────────────────
-    let ontRecords = [];
+    // ── 2. Fetch ONT records, match, and update in streaming fashion ───────
+    // Instead of loading ALL records then updating, we page through and
+    // update as we go. This keeps memory low and lets us respect the timeout.
+    let totalScanned = 0;
+    let updated = 0;
+    let unmatched = 0;
+    let skipped = 0;
+    let timedOut = false;
+    let skip = 0;
 
-    if (report_id) {
-      // Single-report mode: fetch all records for this report
-      ontRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-        { report_id },
-        null,
-        5000
-      );
-    } else {
-      // Backfill mode: fetch all records missing lcp_number in batches
-      const batchSize = 5000;
-      let skip = 0;
-      while (true) {
-        const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.list(
-          null,
-          batchSize,
+    while (true) {
+      // Check timeout before fetching next page
+      if (Date.now() - startTime > MAX_RUNTIME_MS) {
+        timedOut = true;
+        break;
+      }
+
+      let batch;
+      if (report_id) {
+        batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+          { report_id },
+          '-created_date',
+          PAGE_SIZE,
           skip
         );
-        if (!batch || batch.length === 0) break;
-        // Keep only records where lcp_number is blank/missing
-        const unresolved = batch.filter(r => !r.lcp_number);
-        ontRecords.push(...unresolved);
-        skip += batchSize;
-        if (batch.length < batchSize) break;
-      }
-    }
-
-    console.log(`Found ${ontRecords.length} ONT records to enrich`);
-
-    if (ontRecords.length === 0) {
-      return Response.json({ success: true, updated: 0, unmatched: 0, message: 'No records required enrichment.' });
-    }
-
-    // ── 3. Match and update ────────────────────────────────────────────────
-    let updated   = 0;
-    let unmatched = 0;
-
-    // Batch updates to avoid hammering the DB
-    const UPDATE_BATCH = 100;
-    const updatePromises = [];
-
-    for (const record of ontRecords) {
-      const baseKey = buildOntKey(record.olt_name, record.shelf_slot_port);
-      if (!baseKey) {
-        unmatched++;
-        continue;
+      } else {
+        batch = await base44.asServiceRole.entities.ONTPerformanceRecord.list(
+          '-created_date',
+          PAGE_SIZE,
+          skip
+        );
+        // Backfill: only keep records missing lcp_number
+        batch = (batch || []).filter(r => !r.lcp_number);
       }
 
-      // Try numeric variant first, then xp-prefixed variant
-      const match =
-        lcpLookup.get(baseKey) ||
-        lcpLookup.get(baseKey.replace(/\/(\d+)$/, '/xp$1'));
+      if (!batch || batch.length === 0) break;
 
-      if (!match) {
-        unmatched++;
-        continue;
-      }
+      // Collect updates needed from this page
+      const pageUpdates = [];
+      for (const record of batch) {
+        totalScanned++;
+        const baseKey = buildOntKey(record.olt_name, record.shelf_slot_port);
+        if (!baseKey) { unmatched++; continue; }
 
-      // Only update if values differ (avoids unnecessary writes)
-      if (record.lcp_number === match.lcp_number && record.splitter_number === match.splitter_number) {
-        continue;
-      }
+        const match =
+          lcpLookup.get(baseKey) ||
+          lcpLookup.get(baseKey.replace(/\/(\d+)$/, '/xp$1'));
 
-      updatePromises.push(
-        base44.asServiceRole.entities.ONTPerformanceRecord.update(record.id, {
-          lcp_number:      match.lcp_number,
+        if (!match) { unmatched++; continue; }
+
+        if (record.lcp_number === match.lcp_number && record.splitter_number === match.splitter_number) {
+          skipped++;
+          continue;
+        }
+
+        pageUpdates.push({
+          id: record.id,
+          lcp_number: match.lcp_number,
           splitter_number: match.splitter_number,
-        })
-      );
-      updated++;
-
-      // Flush in batches to avoid request overload
-      if (updatePromises.length >= UPDATE_BATCH) {
-        await Promise.all(updatePromises.splice(0, UPDATE_BATCH));
+        });
       }
+
+      // Process this page's updates in small concurrent batches
+      for (let i = 0; i < pageUpdates.length; i += CONCURRENT_UPDATES) {
+        if (Date.now() - startTime > MAX_RUNTIME_MS) {
+          timedOut = true;
+          break;
+        }
+
+        const slice = pageUpdates.slice(i, i + CONCURRENT_UPDATES);
+        await Promise.all(
+          slice.map(rec =>
+            updateWithRetry(base44, rec.id, {
+              lcp_number: rec.lcp_number,
+              splitter_number: rec.splitter_number,
+            })
+          )
+        );
+        updated += slice.length;
+
+        if (i + CONCURRENT_UPDATES < pageUpdates.length) {
+          await sleep(BATCH_DELAY_MS);
+        }
+      }
+
+      if (timedOut) break;
+
+      // Move to next page (for report_id mode we need all records; for backfill same)
+      if (report_id) {
+        // For report mode, records we just updated still have report_id,
+        // so we need to skip past them
+        skip += PAGE_SIZE;
+      } else {
+        // For backfill, updated records now have lcp_number, so re-querying
+        // with skip=0 would miss them. But we filter by !lcp_number, so
+        // updated records drop out. Still use skip for untouched records.
+        skip += PAGE_SIZE;
+      }
+
+      if (batch.length < PAGE_SIZE) break;
+      await sleep(300);
     }
 
-    // Flush any remaining updates
-    if (updatePromises.length > 0) {
-      await Promise.all(updatePromises);
-    }
-
-    console.log(`Enrichment complete — updated: ${updated}, unmatched: ${unmatched}`);
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    console.log(`Enrichment ${timedOut ? 'PARTIAL (timeout)' : 'complete'} in ${elapsed}s — scanned: ${totalScanned}, updated: ${updated}, unmatched: ${unmatched}, skipped: ${skipped}`);
 
     return Response.json({
-      success:   true,
-      total:     ontRecords.length,
+      success: true,
+      partial: timedOut,
+      total: totalScanned,
       updated,
       unmatched,
-      message:   `Enriched ${updated} records. ${unmatched} could not be matched to an LCP entry.`,
+      skipped,
+      elapsed_seconds: elapsed,
+      message: timedOut
+        ? `Partial enrichment: updated ${updated} of ${totalScanned} scanned records in ${elapsed}s (hit timeout). Run again to continue.`
+        : `Enriched ${updated} records. ${unmatched} unmatched. ${skipped} already correct.`,
     });
 
   } catch (error) {
