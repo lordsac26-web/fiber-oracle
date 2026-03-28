@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
 // ─── Text Sanitizer ───────────────────────────────────────────────────────────
@@ -15,30 +15,35 @@ function s(text) {
     .replace(/[\u2013\u2014\u2012\u2015]/g, '-')
     // Ellipsis
     .replace(/\u2026/g, '...')
-    // Bullet / middle dot
+    // Bullet / middle dot / star
     .replace(/[\u2022\u00B7\u2027]/g, '*')
+    .replace(/[\u2605\u2606]/g, '*')
     // Math symbols
-    .replace(/\u2264/g, '<=')   // ≤
-    .replace(/\u2265/g, '>=')   // ≥
-    .replace(/\u00B1/g, '+/-')  // ±
-    .replace(/\u00D7/g, 'x')    // ×
-    .replace(/\u00F7/g, '/')    // ÷
-    .replace(/\u00B0/g, 'deg')  // °
-    // Micro / mu symbols before um handling
+    .replace(/\u2264/g, '<=')   // <=
+    .replace(/\u2265/g, '>=')   // >=
+    .replace(/\u00B1/g, '+/-')  // +/-
+    .replace(/\u00D7/g, 'x')    // x
+    .replace(/\u00F7/g, '/')    // /
+    .replace(/\u00B0/g, 'deg')  // deg
+    // Micro / mu symbols
     .replace(/(\d+\.?\d*)\s*[\u03BC\u00B5]m/g, '$1um')
     .replace(/[\u03BC\u00B5]/g, 'u')
     // Copyright, registered, trademark
     .replace(/\u00A9/g, '(c)')
     .replace(/\u00AE/g, '(R)')
     .replace(/\u2122/g, '(TM)')
-    // Non-breaking space -> regular space
+    // Non-breaking space
     .replace(/\u00A0/g, ' ')
-    // Fraction slash, division slash
+    // Fraction/division slash
     .replace(/[\u2044\u2215]/g, '/')
-    // Superscript numbers (e.g. 1st, 2nd)
+    // Superscript numbers
     .replace(/\u00B9/g, '1').replace(/\u00B2/g, '2').replace(/\u00B3/g, '3')
-    // Common accented Latin chars that DO exist in Latin-1 (0x80-0xFF) pass through fine.
-    // Strip anything remaining outside Latin-1 (> 0xFF) that jsPDF/helvetica cannot render.
+    // Arrows
+    .replace(/[\u2190]/g, '<-').replace(/[\u2192]/g, '->').replace(/[\u2194]/g, '<->')
+    .replace(/[\u21D0]/g, '<-').replace(/[\u21D2]/g, '->').replace(/[\u21D4]/g, '<->')
+    // Checkmarks / X marks
+    .replace(/[\u2713\u2714]/g, '[OK]').replace(/[\u2717\u2718]/g, '[X]')
+    // Strip anything remaining outside Latin-1 that helvetica cannot render
     .replace(/[^\x00-\xFF]/g, '');
 }
 
@@ -197,7 +202,7 @@ function generateBrochurePDF() {
   doc.setTextColor(...C.white);
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.text('VERSION 2.0  |  2025', bx + 21, by + 5.5, { align: 'center' });
+  doc.text('VERSION 2.1  |  2026', bx + 21, by + 5.5, { align: 'center' });
 
   // ── STATS ROW ────────────────────────────────────────────────────────────
   const statsY = 135;
@@ -276,7 +281,7 @@ function generateBrochurePDF() {
   doc.setTextColor(...C.white);
   doc.text('Why Fiber Oracle?', M + 7, whyY + 7);
 
-  const whyItems = ['Works 100% Offline', 'Mobile-First Design', 'Current 2025 Standards', 'Free to Use', 'Built by Fiber Techs'];
+  const whyItems = ['Works 100% Offline', 'Mobile-First Design', 'Current 2026 Standards', 'Free to Use', 'Built by Fiber Techs'];
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(150, 165, 200);
@@ -570,9 +575,9 @@ function generateBrochurePDF() {
 
   const cats = [
     { name: 'CALCULATORS', color: C.emerald, items: ['Power Level Calculator (GPON/XGS-PON)', 'Loss Budget Calculator', 'Splitter Loss Reference', 'Optical Calculator', 'Bend Radius Guide'] },
-    { name: 'TESTING',     color: C.blue,    items: ['OLTS Tier-1 Wizard', 'OTDR Tier-2 Wizard', 'Fiber Cleaning & Inspection', 'Job Reports', 'PON PM Analysis'] },
+    { name: 'TESTING',     color: C.blue,    items: ['OLTS Tier-1 Wizard', 'OTDR Tier-2 Wizard', 'Fiber Cleaning & Inspection', 'Job Reports', 'PON PM Analysis', 'FEC Corrected Analysis'] },
     { name: 'TROUBLESHOOT',color: C.rose,    items: ['Fiber Doctor Flowchart', 'AI OTDR Analysis (Beta)', 'Impairment Library', 'PON Levels Reference'] },
-    { name: 'REFERENCE',   color: C.amber,   items: ['Fiber Locator (12 to 3,456 fibers)', 'Reference Tables & Glossary', 'LCP / CLCP Database', 'LCP Map View', 'Industry Links'] },
+    { name: 'REFERENCE',   color: C.amber,   items: ['Fiber Locator (12-3,456 fibers)', 'Reference Tables & Glossary', 'LCP/CLCP Database & Map', 'Capacity Planning', 'Industry Links'] },
     { name: 'EDUCATION',   color: C.teal,    items: ['Fiber 101: Foundations', 'Fiber 102: PON & FTTH', 'Fiber 103: Troubleshooting', 'Study Guides', 'Certification Exams'] },
   ];
 

@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 import { jsPDF } from 'npm:jspdf@2.5.2';
 import Handlebars from 'npm:handlebars@4.7.8';
 
@@ -12,45 +12,50 @@ const COLORS = {
   highlight: [248, 249, 250]
 };
 
-// Clean text for PDF rendering - remove Unicode symbols that jsPDF can't handle
+// Clean text for PDF rendering - jsPDF helvetica only covers Latin-1 (0x00-0xFF).
+// We must explicitly map every known special character before the final strip.
 function cleanTextForPDF(text) {
-  return text
-    // Replace Unicode arrows
-    .replace(/→/g, '->')
-    .replace(/←/g, '<-')
-    .replace(/↔/g, '<->')
-    // Replace checkmarks and crosses
-    .replace(/✅/g, '[YES]')
-    .replace(/❌/g, '[NO]')
-    .replace(/✓/g, '[CHECK]')
-    .replace(/✗/g, '[X]')
-    // Replace common emojis with text
-    .replace(/📊/g, '[CHART]')
-    .replace(/🔧/g, '[TOOL]')
-    .replace(/📈/g, '[GRAPH]')
-    .replace(/📍/g, '[PIN]')
-    .replace(/🎓/g, '[GRAD]')
-    .replace(/🤖/g, '[AI]')
-    .replace(/📱/g, '[MOBILE]')
-    .replace(/📸/g, '[CAMERA]')
-    .replace(/💬/g, '[CHAT]')
-    // Replace bullet points
-    .replace(/•/g, '-')
-    .replace(/▪/g, '-')
-    .replace(/◆/g, '-')
-    // Replace special quotes
-    .replace(/[""]/g, '"')
-    .replace(/['']/g, "'")
-    // Replace en/em dashes
-    .replace(/–/g, '-')
-    .replace(/—/g, '-')
-    // Replace other problematic characters
-    .replace(/≤/g, '<=')
-    .replace(/≥/g, '>=')
-    .replace(/×/g, 'x')
-    .replace(/÷/g, '/')
-    // Remove any remaining non-ASCII characters
-    .replace(/[^\x00-\x7F]/g, '');
+  if (!text) return '';
+  return String(text)
+    // Typographic quotes -> straight quotes
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    // Dashes: en-dash, em-dash, figure dash, horizontal bar -> hyphen
+    .replace(/[\u2013\u2014\u2012\u2015]/g, '-')
+    // Arrows
+    .replace(/[\u2192\u21D2]/g, '->').replace(/[\u2190\u21D0]/g, '<-').replace(/[\u2194\u21D4]/g, '<->')
+    // Ellipsis
+    .replace(/\u2026/g, '...')
+    // Checkmarks and crosses
+    .replace(/[\u2713\u2714]/g, '[YES]').replace(/[\u2717\u2718]/g, '[NO]')
+    // Common emoji replacements (strip the emoji, keep readable text)
+    .replace(/\u{1F4CA}/gu, '[CHART]').replace(/\u{1F527}/gu, '[TOOL]')
+    .replace(/\u{1F4C8}/gu, '[GRAPH]').replace(/\u{1F4CD}/gu, '[PIN]')
+    .replace(/\u{1F393}/gu, '[GRAD]').replace(/\u{1F916}/gu, '[AI]')
+    .replace(/\u{1F4F1}/gu, '[MOBILE]').replace(/\u{1F4F8}/gu, '[CAMERA]')
+    .replace(/\u{1F4AC}/gu, '[CHAT]').replace(/\u{2728}/gu, '[NEW]')
+    .replace(/\u{1F680}/gu, '[LAUNCH]').replace(/\u{1F6E0}/gu, '[TOOLS]')
+    .replace(/\u{1F41B}/gu, '[BUG]').replace(/\u{1F510}/gu, '[SECURE]')
+    // Bullet / middle dot / star
+    .replace(/[\u2022\u00B7\u2027]/g, '-')
+    .replace(/[\u25AA\u25C6\u25CF\u2605\u2606]/g, '-')
+    // Math symbols
+    .replace(/\u2264/g, '<=').replace(/\u2265/g, '>=')
+    .replace(/\u00B1/g, '+/-').replace(/\u00D7/g, 'x').replace(/\u00F7/g, '/')
+    .replace(/\u00B0/g, 'deg')
+    // Micro / mu
+    .replace(/(\d+\.?\d*)\s*[\u03BC\u00B5]m/g, '$1um')
+    .replace(/[\u03BC\u00B5]/g, 'u')
+    // Copyright, registered, trademark
+    .replace(/\u00A9/g, '(c)').replace(/\u00AE/g, '(R)').replace(/\u2122/g, '(TM)')
+    // Non-breaking space
+    .replace(/\u00A0/g, ' ')
+    // Fraction/division slash
+    .replace(/[\u2044\u2215]/g, '/')
+    // Superscript numbers
+    .replace(/\u00B9/g, '1').replace(/\u00B2/g, '2').replace(/\u00B3/g, '3')
+    // Strip any remaining characters outside printable ASCII (0x20-0x7E) + standard controls
+    .replace(/[^\x00-\xFF]/g, '');
 }
 
 // Parse content into structured sections
@@ -133,6 +138,8 @@ function generatePDF(title, content, type, version = '2.0') {
     doc.setFont('helvetica', 'normal');
     doc.text('© 2026 FiberOracle | Confidential & Proprietary', margin, footerY);
     doc.text(`Version ${version} | Page ${currentPage}`, pageWidth - margin, footerY, { align: 'right' });
+    doc.setFontSize(7);
+    doc.text('fiberoracle.com', pageWidth / 2, footerY, { align: 'center' });
   }
 
   // Check if new page needed
@@ -287,10 +294,10 @@ Deno.serve(async (req) => {
     let category = 'training';
 
     if (type === 'user_manual') {
-      title = 'FiberOracle User Manual v1.31.26';
+      title = 'FiberOracle User Manual v2.1';
       category = 'training';
       pdfContent = `
-FIBERORACLE USER MANUAL v1.31.26
+FIBEROROACLE USER MANUAL v2.1
 
 SECTION 1: WELCOME TO FIBERORACLE
 What Is FiberOracle?
@@ -326,10 +333,22 @@ SECTION 3: CORE TOOLS GUIDE
 3.1 Loss Budget Calculator
 What It Does: Calculates total optical power loss from transmitter to receiver.
 When to Use: Before fiber installation, verifying link design, troubleshooting power level problems.
-How to Use: Open Loss Budget Calculator → Enter cable length, connectors, splices → App displays total loss & budget.
+How to Use: Open Loss Budget Calculator -> Enter cable length, connectors, splices -> App displays total loss & budget.
 
 3.2 Optical Calculator
-Quick conversions: dBm ↔ mW, decibels, distance-loss combinations, wavelength references.
+Quick conversions: dBm <-> mW, decibels, distance-loss combinations, wavelength references.
+
+3.3 Power Level Calculator
+Predict ONT Rx power for GPON and XGS-PON with pass/fail status per ITU-T G.984 and G.9807.
+
+3.4 Fiber Locator
+TIA-598 standardized color code lookup for 12 to 3,456 fiber cables.
+
+3.5 Other Tools
+- OTDR Analysis: Visualize optical traces and identify faults
+- Splitter Loss Reference: Pre-calculated loss values for common configurations
+- Fiber Doctor: AI-assisted troubleshooting
+- Bend Radius Guide: Safe bending limits for different fiber types
 
 SECTION 4: FIELD WORK & REPORTING
 
@@ -338,10 +357,13 @@ Why Report: Creates professional record of work, evidence of performance, compli
 What to Include: Job number, your name, date/time, location, work completed, measurements, photos, issues.
 
 4.2 Photo Capture Integration
-Within a Job Report: Tap 📸 Add Photo → Camera opens → Take photo → Tap ✓ to save.
+Within a Job Report: Tap Add Photo -> Camera opens -> Take photo -> Save to report.
 Why This Matters: Photos tied to measurements and site location, creating complete record without separate file management.
 
-4.3 GPS Location Tagging
+4.3 AI-Generated Job Reports
+From PON PM Analysis, click the Job button on any ONT to auto-generate a pre-filled job report with AI diagnosis, recommended actions, equipment list, and historical performance trends.
+
+4.4 GPS Location Tagging
 Automatic Capture: Location automatically recorded and embedded in all photos/measurements.
 Manual Override: If GPS inaccurate, tap Edit Location to manually set coordinates.
 
@@ -359,11 +381,11 @@ Mobile (AI-Centric Mode): AI chat appears on every page
 Start a conversation → Type your question → P.H.O.T.O.N. asks clarifying questions if needed → Get guidance.
 
 5.4 What P.H.O.T.O.N. Can Help With
-✅ Technical Calculations (power budgets, dB conversions, loss estimates)
-✅ Troubleshooting Guidance (diagnostic procedures, root cause analysis)
-✅ Installation Procedures (best practices, safety procedures, equipment specs)
-✅ Documentation Lookup (find references in knowledge base)
-✅ Network Analysis (interpret ONT performance data, identify trends)
+- [YES] Technical Calculations (power budgets, dB conversions, loss estimates)
+- [YES] Troubleshooting Guidance (diagnostic procedures, root cause analysis)
+- [YES] Installation Procedures (best practices, safety procedures, equipment specs)
+- [YES] Documentation Lookup (find references in knowledge base)
+- [YES] Network Analysis (interpret ONT performance data, identify trends)
 
 SECTION 6: DOCUMENTATION & LEARNING
 
@@ -394,22 +416,44 @@ Theme (Dark/Light), Mode (Traditional/AI-Centric), Language.
 7.4 Privacy & Data
 Download My Data, Delete Account, Location Services toggle.
 
-SECTION 8: MOBILE-SPECIFIC TIPS
+SECTION 8: PON PM ANALYSIS & NETWORK MONITORING
 
-8.1 Best Practices for Fieldwork
+8.1 PON PM Analysis
+Upload CSV exports from your OLT performance monitoring system. The analyzer classifies each ONT as Critical, Warning, OK, or Offline based on configurable thresholds.
+
+Key views:
+- Summary View: Aggregate OLT and port statistics
+- Hierarchy View: Drill down from OLT -> port -> ONT
+- FEC Corrected View: Identify ONTs with high corrected FEC counts that appear OK but are error-correcting near threshold
+
+8.2 Corrected FEC Analysis
+ONTs with non-zero corrected FEC may appear OK but are actively error-correcting, which causes micro-drops and buffering.
+- High (10,000+): Likely causing subscriber-impacting issues
+- Moderate (1,000-9,999): Approaching concerning levels
+- Low (1-999): Non-zero but acceptable
+
+8.3 Capacity Planning
+Analyze PON PM reports over time to forecast splitter utilization. Growth rates are calculated using linear regression and flag splitters approaching 90%+ capacity.
+
+8.4 LCP Database & Map
+Manage LCP/CLCP inventory with GPS coordinates, splitter ratios, OLT port assignments, optic details, and fiber counts. Interactive map shows all locations with health overlays.
+
+SECTION 9: MOBILE-SPECIFIC TIPS
+
+9.1 Best Practices for Fieldwork
 Before: Sync all data, enable WiFi, plug in phone
 In Field: Use Dark Mode, landscape orientation, voice input
 After: Review reports, add notes, create templates
 
-8.2 Offline-First Workflow
+9.2 Offline-First Workflow
 Before losing signal: Sync all data
 In field: Create reports, take photos, use calculators (no P.H.O.T.O.N.)
 When back in range: Tap Sync Now, reports auto-upload
 
-8.3 Reducing Data Usage
+9.3 Reducing Data Usage
 Reference docs cached after first view, photos compressed to 1-2MB, auto-sync every 5 minutes.
 
-SECTION 9: COMMON QUESTIONS & TROUBLESHOOTING
+SECTION 10: COMMON QUESTIONS & TROUBLESHOOTING
 
 Q: Can I use FiberOracle without internet? 
 A: Yes. Core tools work offline. Reference docs accessible if viewed before. Job reports sync when online.
@@ -435,17 +479,19 @@ Troubleshooting:
 - P.H.O.T.O.N. not responding: Refresh browser → Restart app → Check internet
 - GPS inaccurate: Try outdoors with clear sky or manually enter coordinates
 
-SECTION 10: BEST PRACTICES
+SECTION 11: BEST PRACTICES
 
-✅ DO:
+[YES] DO:
 - Create detailed job reports with photos
 - Use P.H.O.T.O.N. for guidance before unfamiliar tasks
 - Verify critical calculations twice
 - Sync data regularly (especially end-of-day)
-- Review reference docs for complex procedures
+- Upload PON PM reports regularly to track trends over time
+- Review FEC Corrected analysis to catch degrading links early
+- Keep LCP database up to date with GPS coordinates
 - Submit useful documents you discover
 
-❌ DON'T:
+[NO] DON'T:
 - Rely solely on P.H.O.T.O.N. for critical safety decisions
 - Take photos of sensitive network architecture
 - Forget to GPS-tag locations
@@ -579,53 +625,65 @@ Export reports? Settings → Download My Data.
 END OF QUICK REFERENCE
 `;
     } else if (type === 'changelog') {
-      title = 'FiberOracle v2.0.0 Changelog - January 31, 2026';
+      title = 'FiberOracle v2.1 Changelog - March 2026';
       category = 'other';
       pdfContent = `
-FIBERORACLE v2.0.0 CHANGELOG
-"P.H.O.T.O.N. AI Integration & Premium UX"
-Released: January 31, 2026
+FIBERORACLE v2.1 CHANGELOG
+"Network Quality Analytics & FEC Diagnostics"
+Released: March 2026
 
-✨ NEW FEATURES
+[NEW] NEW FEATURES IN v2.1
 
-🤖 P.H.O.T.O.N. AI Agent Integration
+Corrected FEC Analysis
+- New dedicated view in PON PM Analysis identifying ONTs with non-zero corrected FEC codewords
+- Severity tiers: High (10k+), Moderate (1k+), Low (1-999)
+- Highlights ONTs that appear OK but are operating near error-correction thresholds
+- Filters by severity level and direction (upstream/downstream/both)
+- Export to CSV for field dispatch
+
+Capacity Planning Dashboard
+- Analyzes historical PON PM reports to forecast splitter utilization
+- Linear regression growth rate calculation per LCP/splitter
+- Time-to-full projections with urgency categorization
+- Visual growth charts and filterable projection table
+
+LCP Fiber Count Management
+- Editable fiber_count field per LCP entry (default 32)
+- Capacity Report identifying LCPs approaching 90% utilization
+- Integrated with PON PM data for real-time port usage tracking
+
+Enhanced PON PM Views
+- Three-way view toggle: Summary, Hierarchy, FEC Corrected
+- Improved LCP enrichment using real-time Map-based lookup
+- Background ONT record indexing with real-time progress tracking
+
+[NEW] FEATURES FROM v2.0
+
+P.H.O.T.O.N. AI Agent Integration
 - Enterprise AI assistant for fiber optic technicians
 - Multi-turn conversations with persistent session history
 - Full access to company knowledge base and documentation
 - Real-time web search for current technical information
-- AI-assisted diagnostics with step-by-step guidance
-- Voice-friendly: Works great with mobile speech-to-text
 
 AI-Centric Mode
 - New UI layout optimized for AI-first workflows
 - Quick-access sidebar with categorized technical tools
-- Seamless switching between AI chat and reference tools
-- Keyboard shortcuts (Cmd+N for new chat, Cmd+K to focus input)
 
 Enhanced Reference Documentation System
 - Full-text search with fuzzy matching
 - User submissions with admin review workflow
 - Document versioning and audit trail
-- Security scanning for submitted documents
-- Active/inactive status toggle for smart knowledge base management
 
-Conversation Management (Admin)
-- View and delete conversations for compliance
-- Filter by date range, message count, or keywords
-- Bulk deletion capabilities
+[IMPROVED] IMPROVEMENTS
 
-🚀 IMPROVEMENTS
-
-User Interface Overhaul
-- New premium button styles with glow effects
-- Smooth animations across all transitions
-- Enhanced modal dialogs with backdrop blur
-- Improved dark theme with better contrast ratios
-- Responsive layout improvements for small screens
+PDF Export Quality
+- Robust Unicode-to-Latin-1 text sanitization across all PDF generators
+- All special symbols (arrows, bullets, checkmarks, math operators) properly converted
+- No more garbled characters or unreadable content in any exported PDF
 
 Performance & Reliability
 - Optimized bundle size (18% reduction)
-- Faster initial page load (2.1s → 1.4s on 3G)
+- Faster initial page load
 - Improved service worker caching strategy
 - Better error boundaries with graceful fallbacks
 
@@ -634,67 +692,24 @@ Mobile Experience
 - Touch-optimized tap targets (48px minimum)
 - Portrait/landscape auto-adaptation
 - Improved offline detection and sync status
-- Native camera integration for photo capture
 
 Admin Dashboard Enhancements
 - System Health Monitor with real-time metrics
-- Advanced audit log filtering with date ranges and event types
-- Bulk document management (activate, deactivate, delete)
-- Quick approval/denial of master list submissions
-- Admin onboarding tour for new administrators
+- Advanced audit log filtering
+- Bulk document management
 
 Documentation & Learning
-- Three new certification courses (Fiber 101, 102, 103)
+- Three certification courses (Fiber 101, 102, 103)
 - Study guides with domain-specific practice questions
 - Course progress tracking with resume capability
 - Professional certificate generation
 
-🛠 FIXES & STABILITY UPDATES
-- Fixed reactflow import errors in NetworkDiagram
-- Resolved photo upload failure in offline mode
+[FIXED] FIXES & STABILITY
+- Fixed PDF symbol rendering (no more garbled special characters)
 - Corrected PON PM report parsing for edge cases (< -40dBm readings)
-- Fixed conversation list pagination on mobile
 - Improved error handling in document extraction
-- Better handling of large file uploads (>50MB)
 - Fixed date filtering in audit logs
-
-🔐 Security & Compliance
-- DOMPurify integration for XSS protection
-- Enhanced audit logging for all admin actions
-- User submission review workflow with security scanning
-- API rate limiting on document uploads
-- Improved session timeout handling
-
-🐛 Bug Fixes
-- Message bubbles no longer duplicate on rapid send
-- Fixed state management in AdminPanel tabs
-- Resolved timezone issues in date range filters
-- Corrected ONT performance calculations (BIP error aggregation)
-- Fixed GPS location persistence in job reports
-
-🤖 AI AGENT INTEGRATION HIGHLIGHT
-
-What is P.H.O.T.O.N.?
-P.H.O.T.O.N. (Portable Hosting Optical Testing Operations Nexus) is your AI-powered technical expert trained on your company's complete knowledge base, industry standards, and proven troubleshooting methods.
-
-How Users Interact
-- Primary Interface: Dedicated P.H.O.T.O.N. Chat page or AI-Centric Mode
-- Start conversation → Ask questions/problems → P.H.O.T.O.N. asks clarifying questions → Get guidance
-- Mobile-friendly for landscape field work with degraded offline capabilities
-
-Problems Solved
-- "What's max loss budget?" → Instant calculation with explanation
-- "ONT showing -35dBm?" → Contextual guidance with thresholds and actions
-- "How to clean ribbon cable?" → Step-by-step procedure from standards
-- "Why splice showing 0.8dB loss?" → Diagnostic questions and fix recommendations
-- "MPO connector procedure?" → Reference plus safety warnings
-
-Competitive Advantage
-- Speed: Seconds instead of minutes-to-hours
-- Consistency: Same guidance following best practices
-- Scalability: Train teams without proportionally increasing expert time
-- Quality: Reduces trial-and-error, diagnoses faster
-- Confidence: Newer staff feel supported
+- Better handling of large file uploads (>50MB)
 
 SYSTEM REQUIREMENTS
 - Browser: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
@@ -702,7 +717,7 @@ SYSTEM REQUIREMENTS
 - Internet: 5+ Mbps recommended
 - Storage: ~50MB app, 100-500MB docs cache
 
-THANK YOU FOR USING FIBERORACLE v2.0.0
+THANK YOU FOR USING FIBERORACLE v2.1
 For support, contact your administrator or visit the Help section.
 
 END OF CHANGELOG
@@ -711,7 +726,7 @@ END OF CHANGELOG
       title = 'FiberOracle App Overview & Features';
       category = 'brochure';
       pdfContent = `
-FIBERORACLE - APP OVERVIEW & FEATURES
+FIBERORACLE - APP OVERVIEW & FEATURES v2.1
 
 Enterprise-Grade Progressive Web App (PWA) for Fiber Optic Professionals
 
@@ -733,82 +748,67 @@ Target Users:
 CORE FEATURES
 
 Fiber Optic Tools
-✅ Loss Budget Calculator - Calculates power loss across fiber links
-✅ OTDR Analysis - Visualizes optical traces to identify faults
-✅ Optical Calculator - Quick dB, power, and wavelength conversions
-✅ Splitter Loss Reference - Pre-calculated loss values
-✅ Fiber Doctor AI - AI-assisted troubleshooting
-✅ Bend Radius Guide - Safe bending limits for fiber types
+- [YES] Loss Budget Calculator - Calculates power loss across fiber links
+- [YES] Power Level Calculator - Predict ONT Rx power for GPON/XGS-PON
+- [YES] OTDR Analysis - Visualizes optical traces to identify faults
+- [YES] Optical Calculator - Quick dB, power, and wavelength conversions
+- [YES] Splitter Loss Reference - Pre-calculated loss values
+- [YES] Fiber Doctor AI - AI-assisted troubleshooting
+- [YES] Bend Radius Guide - Safe bending limits for fiber types
+- [YES] Fiber Locator - TIA-598 color coding for 12-3,456 fibers
 
 Network & PON Monitoring
-✅ PON PM Analysis - Parse and analyze performance reports
-✅ ONT Performance Tracking - Real-time monitoring dashboard
-✅ OLT Port Summary - Aggregate view of ports and channels
-✅ Historical Trends - Charts with anomaly detection
-✅ LCP Mapping - GPS-enabled map of fiber nodes
-✅ LCP Directory - Searchable splitter locations
+- [YES] PON PM Analysis - Parse and analyze ONT performance reports
+- [YES] FEC Corrected Analysis - Identify ONTs with high corrected FEC near threshold
+- [YES] Capacity Planning - Forecast splitter utilization with growth projections
+- [YES] OLT Port Summary - Aggregate view of ports and channels
+- [YES] Historical Trends - Charts with anomaly detection
+- [YES] LCP Mapping - GPS-enabled map of fiber nodes
+- [YES] LCP Directory - Searchable splitter locations with fiber counts
 
 Documentation & Knowledge
-✅ Reference Document Library - Central PDF/guide repository
-✅ Advanced Search - Full-text search with fuzzy matching
-✅ Document Submissions - User submissions with admin review
-✅ Document Audit Trail - Complete change history
+- [YES] Reference Document Library - Central PDF/guide repository
+- [YES] Advanced Search - Full-text search with fuzzy matching
+- [YES] Document Submissions - User submissions with admin review
+- [YES] Document Audit Trail - Complete change history
 
 P.H.O.T.O.N. AI Agent
-✅ Conversational AI - Technical support & diagnostics
-✅ Multi-Modal Integration - Access to all company documentation
-✅ Persistent Sessions - Resume conversations with full context
-✅ Real-Time Web Search - Latest industry information
+- [YES] Conversational AI - Technical support & diagnostics
+- [YES] Multi-Modal Integration - Access to all company documentation
+- [YES] Persistent Sessions - Resume conversations with full context
+- [YES] Real-Time Web Search - Latest industry information
 
 Field Operations
-✅ Job Reports - Document work, measurements, photos
-✅ Photo Capture - In-app camera with metadata
-✅ GPS Location Tagging - Automatic geolocation
-✅ Offline Work Mode - Full functionality without internet
-✅ Auto-Sync - Data syncs when connection returns
+- [YES] Job Reports - Document work, measurements, photos
+- [YES] AI Job Reports - Auto-generated from PON PM analysis with diagnosis
+- [YES] Photo Capture - In-app camera with metadata
+- [YES] GPS Location Tagging - Automatic geolocation
+- [YES] Offline Work Mode - Full functionality without internet
+- [YES] Auto-Sync - Data syncs when connection returns
 
 Education & Certification
-✅ Fiber 101/102/103 Courses - Structured training modules
-✅ Certification Exams - Computer-based testing
-✅ Study Guides - Domain-specific prep materials
-✅ Progress Tracking - Resume and track completion
+- [YES] Fiber 101/102/103 Courses - Structured training modules
+- [YES] Certification Exams - Computer-based testing
+- [YES] Study Guides - Domain-specific prep materials
+- [YES] Progress Tracking - Resume and track completion
 
 Admin & System
-✅ Admin Control Panel - Centralized dashboard
-✅ User Management - Invite users, assign roles
-✅ Audit Logging - Complete action history
-✅ System Health Monitor - Real-time metrics
-✅ Bulk Operations - Manage documents efficiently
+- [YES] Admin Control Panel - Centralized dashboard
+- [YES] User Management - Invite users, assign roles
+- [YES] Audit Logging - Complete action history
+- [YES] System Health Monitor - Real-time metrics
+- [YES] Bulk Operations - Manage documents efficiently
 
 PWA & Offline
-✅ Service Worker - Background sync & offline caching
-✅ Install to Home Screen - App-like experience
-✅ Offline Document Service - Access cached docs
-✅ Local Data Persistence - IndexedDB storage
-
-Mobile Features
-✅ Touch-Optimized UI - Large tap targets for gloved operation
-✅ Bottom Navigation - Quick tool access
-✅ Auto-Adapt - Portrait/landscape orientation support
-✅ Native Camera - Direct photo capture
-✅ Dark Mode Default - Outdoor visibility
-✅ Geolocation - Automatic GPS recording
-
-Premium UX
-✅ AI-Centric Mode - AI-first interface option
-✅ Animated Transitions - Smooth page animations
-✅ Premium Buttons - Glowing interactive effects
-✅ Real-Time Loading States - Clear feedback
-✅ Dark Theme - Eye-friendly modern aesthetic
-✅ Accessibility - WCAG AA compliant
+- [YES] Service Worker - Background sync & offline caching
+- [YES] Install to Home Screen - App-like experience
+- [YES] Offline Document Service - Access cached docs
+- [YES] Local Data Persistence - IndexedDB storage
 
 SYSTEM REQUIREMENTS
 
 Web Browser (Desktop)
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
+- Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
 
 Mobile Devices
 - iOS 13+ (iPhone, iPad)
@@ -824,17 +824,9 @@ Storage
 - Cached docs: 100-500 MB
 - Local reports: 5-20 MB per month
 
-ACCESSIBILITY
-✅ High-contrast dark theme (WCAG AA compliant)
-✅ Large touch targets (48px minimum)
-✅ Keyboard navigation
-✅ Screen reader support
-✅ Focus indicators
-✅ Descriptive error messages
-
 DOMAIN: https://www.fiberoracle.com
-VERSION: 2.0.0
-RELEASED: January 31, 2026
+VERSION: 2.1
+RELEASED: March 2026
 
 END OF APP OVERVIEW
 `;
@@ -874,7 +866,7 @@ END OF APP OVERVIEW
         format: 'pdf',
         file_size: pdfBytes.length
       },
-      version: '2.0',
+      version: '2.1',
       is_active: true,
       is_latest_version: true
     });

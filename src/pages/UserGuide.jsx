@@ -41,7 +41,7 @@ export default function UserGuide() {
   const pdfOptions = [
     {
       id: 'user_manual',
-      label: 'User Manual v1.31.26',
+      label: 'User Manual v2.1',
       description: 'Complete guide covering all features, workflows, and best practices',
       icon: BookOpen
     },
@@ -53,7 +53,7 @@ export default function UserGuide() {
     },
     {
       id: 'changelog',
-      label: 'v2.0.0 Changelog',
+      label: 'v2.1 Changelog',
       description: 'New features, improvements, and fixes in latest release',
       icon: BookOpen
     },
@@ -94,7 +94,6 @@ export default function UserGuide() {
         <p><strong>Desktop Layout:</strong></p>
         <ul>
           <li>Top Header: Logo, navigation links, search, settings</li>
-          <li>Left Sidebar (Optional): Quick access to major sections</li>
           <li>Main Content Area: Tool or page displayed</li>
           <li>Bottom Navigation: Secondary options</li>
         </ul>
@@ -113,32 +112,10 @@ export default function UserGuide() {
       content: `
         <h3>Loss Budget Calculator</h3>
         <p><strong>What It Does:</strong> Calculates total optical power loss from transmitter to receiver, accounting for cable attenuation, connector losses, splice losses, and splitter losses.</p>
-        
-        <p><strong>When to Use:</strong></p>
-        <ul>
-          <li>Before fiber installation (feasibility check)</li>
-          <li>Verifying link design meets performance specs</li>
-          <li>Troubleshooting power level problems</li>
-        </ul>
-
-        <p><strong>How to Use:</strong></p>
-        <ol>
-          <li>Open Loss Budget Calculator from Tools menu</li>
-          <li>Enter cable length, number/type of connectors, splices, splitter configuration</li>
-          <li>App displays total loss (dB), budget remaining, pass/fail status</li>
-          <li>Adjust parameters to optimize design</li>
-        </ol>
+        <p><strong>When to Use:</strong> Before fiber installation, verifying link design meets performance specs, troubleshooting power level problems.</p>
 
         <h3>Optical Calculator</h3>
-        <p><strong>Quick conversions for:</strong></p>
-        <ul>
-          <li>dBm ↔ mW (power conversions)</li>
-          <li>Decibels (dB, dBm, dBm/km)</li>
-          <li>Distance-loss combinations</li>
-          <li>Wavelength references</li>
-        </ul>
-
-        <p><strong>Example:</strong> If your power meter reads 0.5 mW, the calculator shows: -3.0 dBm</p>
+        <p>Quick conversions for dBm to mW, decibels, distance-loss combinations, and wavelength references.</p>
 
         <h3>Other Core Tools</h3>
         <ul>
@@ -146,7 +123,54 @@ export default function UserGuide() {
           <li><strong>Splitter Loss Reference:</strong> Pre-calculated values for common configurations</li>
           <li><strong>Fiber Doctor:</strong> AI-assisted troubleshooting for common issues</li>
           <li><strong>Bend Radius Guide:</strong> Safe bending limits for different fiber types</li>
+          <li><strong>Fiber Locator:</strong> TIA-598 color coding for up to 3,456 fibers</li>
+          <li><strong>Power Level Calculator:</strong> Predict ONT Rx power for GPON and XGS-PON</li>
         </ul>
+      `
+    },
+    {
+      id: 'pon_pm',
+      title: 'PON PM Analysis & Network Monitoring',
+      content: `
+        <h3>PON PM Analysis</h3>
+        <p><strong>What It Does:</strong> Parses CSV exports from your OLT's performance monitoring system and presents a comprehensive analysis of every ONT on the network.</p>
+
+        <p><strong>Key Features:</strong></p>
+        <ul>
+          <li><strong>Automated Health Classification:</strong> Each ONT is classified as Critical, Warning, OK, or Offline based on configurable thresholds</li>
+          <li><strong>OLT/Port Hierarchy View:</strong> Drill down from OLT to port to individual ONT</li>
+          <li><strong>OLT/Port Summary View:</strong> Aggregate health and error statistics at a glance</li>
+          <li><strong>LCP Summary:</strong> See utilization and health by LCP location with map integration</li>
+          <li><strong>FEC Corrected Analysis:</strong> Identifies ONTs with high corrected FEC counts that may appear "OK" but are operating near error-correction thresholds, risking micro-drops and buffering</li>
+          <li><strong>Historical Trends:</strong> Compare reports over time to spot degradation patterns</li>
+          <li><strong>Power Distribution Charts:</strong> Visualize ONT Rx and OLT Rx distributions</li>
+          <li><strong>KPI Dashboard:</strong> Signal strength averages, error rates, technology breakdown</li>
+        </ul>
+
+        <h3>How to Use</h3>
+        <ol>
+          <li>Navigate to PON PM Analysis from the home page</li>
+          <li>Upload a CSV export from your OLT or load a previously saved report</li>
+          <li>Review the summary cards (Total, Critical, Warnings, Offline, Healthy, OLTs)</li>
+          <li>Use filters to narrow by status, OLT, port, technology, or power range</li>
+          <li>Switch between Summary, Hierarchy, and FEC Corrected views</li>
+          <li>Click Details on any ONT for full performance history and peer comparison</li>
+          <li>Use Export to generate CSV, PDF, or text reports</li>
+        </ol>
+
+        <h3>Corrected FEC Analysis</h3>
+        <p>ONTs with non-zero corrected FEC codewords may appear "OK" but are actively error-correcting. High corrected FEC counts indicate the link is operating near its correction threshold and may soon become uncorrectable. The FEC Corrected view categorizes ONTs into:</p>
+        <ul>
+          <li><strong>High (10,000+):</strong> Likely causing subscriber-impacting micro-drops</li>
+          <li><strong>Moderate (1,000-9,999):</strong> Approaching concerning levels</li>
+          <li><strong>Low (1-999):</strong> Non-zero but within acceptable range</li>
+        </ul>
+
+        <h3>Capacity Planning</h3>
+        <p>The Capacity Planning dashboard analyzes PON PM reports over time to forecast splitter utilization and identify LCPs approaching capacity limits. It calculates growth rates using linear regression and flags splitters that may reach 90%+ utilization.</p>
+
+        <h3>LCP Database & Map</h3>
+        <p>Manage your LCP/CLCP inventory with GPS coordinates, splitter ratios, OLT port assignments, optic details, and fiber counts. The interactive map view shows all LCP locations with health status overlays from your latest PON PM report.</p>
       `
     },
     {
@@ -166,32 +190,13 @@ export default function UserGuide() {
           <li>Measurements (before/after power levels, OTDR, etc.)</li>
           <li>Photos (connectors, splices, cable routing)</li>
           <li>Any issues encountered</li>
-          <li>Sign-off approval</li>
         </ul>
 
-        <p><strong>How to Create:</strong></p>
-        <ol>
-          <li>Open Field Mode from home page</li>
-          <li>Tap New Job Report</li>
-          <li>Fill in basic info (auto-populated: date, your name, location)</li>
-          <li>Select report type (Loss Budget, OTDR, Inspection, etc.)</li>
-          <li>Enter measurements and tap camera icon to add photos</li>
-          <li>Tap Save (offline) or Submit (online)</li>
-        </ol>
+        <h3>AI-Generated Job Reports</h3>
+        <p>From the PON PM Analysis page, click the <strong>Job</strong> button on any ONT to auto-generate a pre-filled job report with AI-powered diagnosis, recommended actions, equipment list, and historical performance trends.</p>
 
-        <h3>Photo Capture Integration</h3>
-        <p><strong>Built-In Camera:</strong></p>
-        <ol>
-          <li>Within a Job Report, tap 📸 Add Photo</li>
-          <li>Camera opens directly in app</li>
-          <li>Take photo (auto-includes metadata: time, GPS, job ID)</li>
-          <li>Tap ✓ to save to report</li>
-        </ol>
-        <p>Photos are tied directly to your measurements and site location—creating a complete record without separate file management.</p>
-
-        <h3>GPS Location Tagging</h3>
-        <p><strong>Automatic Capture:</strong> When you create a job report, FiberOracle requests GPS permission. Location automatically recorded and embedded in all photos/measurements.</p>
-        <p><strong>Manual Override:</strong> If GPS is inaccurate, tap Edit Location to manually set coordinates.</p>
+        <h3>Photo Capture &amp; GPS</h3>
+        <p>Within a Job Report, tap Add Photo to open the camera. Photos automatically include metadata (time, GPS, job ID) and are tied directly to your measurements and site location.</p>
       `
     },
     {
@@ -199,7 +204,7 @@ export default function UserGuide() {
       title: 'P.H.O.T.O.N. AI Agent',
       content: `
         <h3>What Is P.H.O.T.O.N.?</h3>
-        <p>P.H.O.T.O.N. (Portable Hosting Optical Testing Operations Nexus) is your AI-powered technical expert. It's a conversational agent trained on your company's complete knowledge base, industry standards, and proven troubleshooting methods.</p>
+        <p>P.H.O.T.O.N. (Portable Hosting Optical Testing Operations Nexus) is your AI-powered technical expert. It is a conversational agent trained on your company's complete knowledge base, industry standards, and proven troubleshooting methods.</p>
 
         <h3>How to Access</h3>
         <ul>
@@ -208,35 +213,13 @@ export default function UserGuide() {
           <li><strong>Mobile (AI-Centric Mode):</strong> AI chat appears on every page</li>
         </ul>
 
-        <h3>How to Use P.H.O.T.O.N.</h3>
-        <p><strong>Starting a Conversation:</strong></p>
-        <ol>
-          <li>Open P.H.O.T.O.N. Chat page</li>
-          <li>Type your question or describe your problem</li>
-          <li>Examples:
-            <ul>
-              <li>"How do I splice this 144-fiber cable?"</li>
-              <li>"This ONT shows -38 dBm Rx power—is it at risk?"</li>
-              <li>"What's the loss budget for a 5km run with 3 splices?"</li>
-            </ul>
-          </li>
-        </ol>
-
-        <p><strong>Getting Better Answers:</strong></p>
-        <ul>
-          <li>Be specific: "Connector loss for standard UPC connector" vs. "connector loss"</li>
-          <li>Provide context: Include what you've already tried, measurements, equipment type</li>
-          <li>Ask follow-ups: P.H.O.T.O.N. remembers conversation history</li>
-        </ul>
-
         <h3>What P.H.O.T.O.N. Can Help With</h3>
         <ul>
-          <li>✅ Technical Calculations (power budgets, dB conversions, loss estimates)</li>
-          <li>✅ Troubleshooting Guidance (diagnostic procedures, root cause analysis)</li>
-          <li>✅ Installation Procedures (best practices, safety procedures, equipment specs)</li>
-          <li>✅ Documentation Lookup (find references in your knowledge base)</li>
-          <li>✅ Network Analysis (interpret ONT performance data, identify trends)</li>
-          <li>❌ Cannot Help With: Replacing your judgment on critical infrastructure decisions</li>
+          <li>Technical Calculations (power budgets, dB conversions, loss estimates)</li>
+          <li>Troubleshooting Guidance (diagnostic procedures, root cause analysis)</li>
+          <li>Installation Procedures (best practices, safety procedures, equipment specs)</li>
+          <li>Documentation Lookup (find references in your knowledge base)</li>
+          <li>Network Analysis (interpret ONT performance data, identify trends)</li>
         </ul>
 
         <p><strong>Important:</strong> Always verify critical information with your supervisor or company standards before acting on it.</p>
@@ -246,175 +229,53 @@ export default function UserGuide() {
       id: 'documentation',
       title: 'Documentation & Learning',
       content: `
-        <h3>Accessing the Reference Library</h3>
-        <p><strong>On Any Page:</strong> Use the Search function in the top header to search by keyword, document title, or topic. Results show matching documents with snippets.</p>
-        
-        <p><strong>From Home:</strong> Click Documentation or Reference Library to browse by category (Installation, Troubleshooting, Maintenance, Safety, Standards, Training, Other).</p>
+        <h3>Reference Library</h3>
+        <p>Use the Search function to search by keyword, document title, or topic. Browse by category from the home page. Categories include Installation, Troubleshooting, Maintenance, Safety, Specifications, Training, and custom categories.</p>
 
         <h3>Fiber 101/102/103 Courses</h3>
-        <p><strong>Purpose:</strong> Structured training to build fiber optic expertise.</p>
-
-        <p><strong>Each course includes:</strong></p>
-        <ul>
-          <li>10-15 learning modules</li>
-          <li>Embedded calculations and reference tables</li>
-          <li>Practice questions with explanations</li>
-          <li>Final certification exam</li>
-        </ul>
-
-        <p><strong>How to Complete:</strong></p>
-        <ol>
-          <li>Click Education or Learning from home menu</li>
-          <li>Select course: Fiber 101, 102, or 103</li>
-          <li>Start with Module 1 (or resume where you left off)</li>
-          <li>Read content, try calculations, answer practice questions</li>
-          <li>Take final exam when ready</li>
-          <li>Must score ≥80% to pass and receive certificate</li>
-        </ol>
+        <p>Structured training with 10-15 modules per course, embedded calculations, practice questions, and a final certification exam. Score 80% or higher to pass and receive a professional certificate.</p>
 
         <h3>Submitting Documents</h3>
-        <p><strong>Share Knowledge:</strong> Found a useful document, procedure, or reference? Submit it!</p>
-
-        <p><strong>How to Submit:</strong></p>
-        <ol>
-          <li>Click Submit Document</li>
-          <li>Choose source: Upload PDF/file, Link Google Drive, or Paste web URL</li>
-          <li>Fill in: Title, Category, Brief description, Comments</li>
-          <li>Check "Request Addition to Master List" if appropriate</li>
-          <li>Submit</li>
-          <li>Admin reviews within 1-2 business days</li>
-        </ol>
-      `
-    },
-    {
-      id: 'mobile_tips',
-      title: 'Mobile-Specific Tips',
-      content: `
-        <h3>Best Practices for Fieldwork</h3>
-        <p><strong>Before You Head Out:</strong></p>
-        <ul>
-          <li>Sync all data (in Settings, tap Force Sync)</li>
-          <li>Enable WiFi while syncing (faster than cellular)</li>
-          <li>Plug in phone if working near power</li>
-        </ul>
-
-        <p><strong>In the Field:</strong></p>
-        <ul>
-          <li>Use Dark Mode (default)—easier to read in sunlight</li>
-          <li>Keep phone in landscape orientation for larger buttons</li>
-          <li>Use voice input (speech-to-text) for fast report entry</li>
-          <li>Tap the camera icon frequently—photos are worth 1000 words</li>
-        </ul>
-
-        <p><strong>Back at the Office:</strong></p>
-        <ul>
-          <li>Review your reports before submission</li>
-          <li>Add any notes or context you remember</li>
-          <li>Create templates from recurring job types</li>
-        </ul>
-
-        <h3>Offline-First Workflow</h3>
-        <p><strong>Scenario: You're installing fiber 5km from nearest cell tower</strong></p>
-
-        <p><strong>Before losing signal:</strong> Sync all data</p>
-
-        <p><strong>In field (no signal):</strong></p>
-        <ul>
-          <li>Create job reports normally</li>
-          <li>Take photos (stored locally with metadata)</li>
-          <li>Use Loss Budget and Optical Calculator (all local)</li>
-          <li>Cannot use P.H.O.T.O.N. chat (needs internet)</li>
-          <li>Reports show "📍 Offline" badge</li>
-        </ul>
-
-        <p><strong>When back in range:</strong></p>
-        <ul>
-          <li>Status bar shows syncing progress</li>
-          <li>Tap Sync Now if it doesn't auto-start</li>
-          <li>Reports change from "📍 Offline" to "✓ Synced"</li>
-        </ul>
-
-        <h3>Reducing Data Usage</h3>
-        <ul>
-          <li><strong>Downloads:</strong> Reference docs cached after first view (no re-download)</li>
-          <li><strong>Photos:</strong> App compresses photos to ~1-2MB each</li>
-          <li><strong>Sync Frequency:</strong> Auto-sync occurs every 5 minutes (adjustable in Settings)</li>
-        </ul>
+        <p>Upload PDFs, link Google Drive files, or paste web URLs. Add title, category, and description. Check "Request Addition to Master List" if appropriate. Admin reviews submissions within 1-2 business days.</p>
       `
     },
     {
       id: 'troubleshooting',
       title: 'Troubleshooting',
       content: `
-        <h3>Common Issues & Solutions</h3>
+        <h3>Common Issues &amp; Solutions</h3>
 
-        <p><strong>App won't sync</strong></p>
-        <ul>
-          <li>Check internet connection</li>
-          <li>Go to Settings → Force Sync</li>
-          <li>If still stuck, restart the app</li>
-        </ul>
-
-        <p><strong>Photos not saving</strong></p>
-        <ul>
-          <li>Ensure sufficient storage (check device storage)</li>
-          <li>Grant app permission to access camera & photos</li>
-        </ul>
-
-        <p><strong>P.H.O.T.O.N. not responding</strong></p>
-        <ul>
-          <li>Refresh browser or restart app</li>
-          <li>Check internet connection</li>
-          <li>If still stuck, start a new conversation</li>
-        </ul>
-
-        <p><strong>Job report seems incomplete</strong></p>
-        <ul>
-          <li>Check offline status (look for 📍 icon)</li>
-          <li>Ensure all required fields are filled (highlighted in red)</li>
-        </ul>
-
-        <p><strong>Settings not saving</strong></p>
-        <ul>
-          <li>Ensure you tapped the "Save" button, not just the back arrow</li>
-          <li>Retry</li>
-        </ul>
-
-        <p><strong>Can't find a document</strong></p>
-        <ul>
-          <li>Use the Search bar (top right)</li>
-          <li>Check spelling and try related keywords</li>
-          <li>Ask P.H.O.T.O.N. where to find it</li>
-        </ul>
-
-        <p><strong>GPS location inaccurate</strong></p>
-        <ul>
-          <li>Try again outdoors with clear sky view</li>
-          <li>Alternatively, manually enter coordinates</li>
-        </ul>
+        <p><strong>App won't sync:</strong> Check internet connection, go to Settings and Force Sync, or restart the app.</p>
+        <p><strong>Photos not saving:</strong> Ensure sufficient storage and grant app permission to access camera and photos.</p>
+        <p><strong>P.H.O.T.O.N. not responding:</strong> Refresh browser, restart app, or check internet connection. Start a new conversation if needed.</p>
+        <p><strong>PON PM upload failing:</strong> Ensure the file is a valid CSV export from your OLT system. Check that file size is under 50MB.</p>
+        <p><strong>GPS location inaccurate:</strong> Try outdoors with clear sky view, or manually enter coordinates.</p>
+        <p><strong>PDF export has garbled characters:</strong> This should not happen with the latest version. If you see unreadable characters, contact your admin.</p>
       `
     },
     {
       id: 'best_practices',
       title: 'Best Practices',
       content: `
-        <h3>Do's ✅</h3>
+        <h3>Recommended</h3>
         <ul>
           <li>Create detailed job reports with photos</li>
           <li>Use P.H.O.T.O.N. for guidance before attempting unfamiliar tasks</li>
           <li>Verify critical calculations a second time</li>
           <li>Sync data regularly (especially end-of-day)</li>
-          <li>Review reference docs for complex procedures</li>
+          <li>Upload PON PM reports regularly to track trends over time</li>
+          <li>Review the FEC Corrected analysis to catch degrading links early</li>
+          <li>Keep your LCP database up to date with GPS coordinates</li>
           <li>Submit useful documents you discover</li>
         </ul>
 
-        <h3>Don'ts ❌</h3>
+        <h3>Avoid</h3>
         <ul>
-          <li>Don't rely solely on P.H.O.T.O.N. for critical safety decisions</li>
-          <li>Don't take photos of network architecture or sensitive equipment (if restricted)</li>
-          <li>Don't forget to GPS-tag your locations (helps accountability)</li>
-          <li>Don't delete conversations prematurely (audit trail may be needed)</li>
-          <li>Don't use outdated documents from reference library (check version date)</li>
+          <li>Relying solely on P.H.O.T.O.N. for critical safety decisions</li>
+          <li>Taking photos of sensitive network architecture (if restricted)</li>
+          <li>Forgetting to GPS-tag your locations</li>
+          <li>Deleting conversations prematurely (audit trail may be needed)</li>
+          <li>Using outdated documents from the reference library without checking the version date</li>
         </ul>
       `
     }

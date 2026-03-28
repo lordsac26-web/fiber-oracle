@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
 function s(text) {
@@ -8,7 +8,7 @@ function s(text) {
     .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
     .replace(/[\u2013\u2014\u2012\u2015]/g, '-')
     .replace(/\u2026/g, '...')
-    .replace(/[\u2022\u00B7]/g, '*')
+    .replace(/[\u2022\u00B7\u2027]/g, '*')
     .replace(/\u2264/g, '<=').replace(/\u2265/g, '>=')
     .replace(/\u00B1/g, '+/-').replace(/\u00D7/g, 'x').replace(/\u00F7/g, '/')
     .replace(/\u00B0/g, 'deg')
@@ -16,6 +16,11 @@ function s(text) {
     .replace(/[\u03BC\u00B5]/g, 'u')
     .replace(/\u00A9/g, '(c)').replace(/\u00AE/g, '(R)').replace(/\u2122/g, '(TM)')
     .replace(/\u00A0/g, ' ')
+    .replace(/[\u2044\u2215]/g, '/')
+    .replace(/\u00B9/g, '1').replace(/\u00B2/g, '2').replace(/\u00B3/g, '3')
+    .replace(/[\u2190]/g, '<-').replace(/[\u2192]/g, '->').replace(/[\u2194]/g, '<->')
+    .replace(/[\u2713\u2714]/g, '[OK]').replace(/[\u2717\u2718]/g, '[X]')
+    .replace(/[\u2605\u2606]/g, '*')
     .replace(/[^\x00-\xFF]/g, '');
 }
 
