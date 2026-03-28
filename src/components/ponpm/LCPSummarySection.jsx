@@ -45,7 +45,57 @@ export default function LCPSummarySection({ result, onPortClick }) {
     },
   });
 
-  // Aggregate LCP data from ONTs and match with LCP database
+  // Build a robust LCP lookup Map for real-time matching (same logic as processPonPmRecords)
+  const lcpLookupMap = useMemo(() => {
+    const map = new Map();
+    for (const lcp of lcpEntries) {
+      if (!lcp.olt_name || lcp.olt_shelf === undefined || lcp.olt_slot === undefined || !lcp.olt_port) continue;
+      const oltBase = lcp.olt_name.toLowerCase().trim();
+      const shelf = String(lcp.olt_shelf).trim();
+      const slot = String(lcp.olt_slot).trim();
+      const rawPort = String(lcp.olt_port).trim();
+      const numericPort = rawPort.replace(/^xp/i, '');
+      const payload = { lcp_number: lcp.lcp_number || '', splitter_number: lcp.splitter_number || '', location: lcp.location || lcp.address || '', gps_lat: lcp.gps_lat, gps_lng: lcp.gps_lng, splitter_ratio: lcp.splitter_ratio, fiber_count: lcp.fiber_count };
+      const rng = numericPort.match(/^(\d+)\s*-\s*(\d+)$/);
+      if (rng) {
+        const lo = parseInt(rng[1], 10), hi = parseInt(rng[2], 10);
+        for (let p = lo; p <= hi; p++) {
+          if (!map.has(`${oltBase}|${shelf}/${slot}/${p}`)) map.set(`${oltBase}|${shelf}/${slot}/${p}`, payload);
+          if (!map.has(`${oltBase}|${shelf}/${slot}/xp${p}`)) map.set(`${oltBase}|${shelf}/${slot}/xp${p}`, payload);
+        }
+      } else {
+        if (!map.has(`${oltBase}|${shelf}/${slot}/${numericPort}`)) map.set(`${oltBase}|${shelf}/${slot}/${numericPort}`, payload);
+        if (!map.has(`${oltBase}|${shelf}/${slot}/xp${numericPort}`)) map.set(`${oltBase}|${shelf}/${slot}/xp${numericPort}`, payload);
+      }
+      const literalKey = `${oltBase}|${shelf}/${slot}/${rawPort.toLowerCase()}`;
+      if (!map.has(literalKey)) map.set(literalKey, payload);
+    }
+    return map;
+  }, [lcpEntries]);
+
+  // Real-time LCP resolver: given an ONT, find its LCP from the Map
+  const resolveLcp = useMemo(() => {
+    return (ont) => {
+      // First check if the ONT already has lcp_number from the DB enrichment
+      const existing = ont._lcpNumber || ont.lcp_number;
+      if (existing) return { lcp_number: existing, splitter_number: ont._splitterNumber || ont.splitter_number || '', location: ont._lcpLocation || '', gps_lat: null, gps_lng: null };
+      // Otherwise do a real-time lookup
+      const oltName = (ont._oltName || ont.OLTName || ont.olt_name || '').toLowerCase().trim();
+      const ssp = ont._port || ont['Shelf/Slot/Port'] || ont.shelf_slot_port || '';
+      if (!oltName || !ssp) return null;
+      const literalKey = `${oltName}|${ssp.toLowerCase()}`;
+      if (lcpLookupMap.has(literalKey)) return lcpLookupMap.get(literalKey);
+      const pm = ssp.match(/^(\d+)\/(\d+)\/(?:xp)?(\d+)(?:-\d+)?$/i);
+      if (!pm) return null;
+      const numKey = `${oltName}|${pm[1]}/${pm[2]}/${pm[3]}`;
+      if (lcpLookupMap.has(numKey)) return lcpLookupMap.get(numKey);
+      const xpKey = `${oltName}|${pm[1]}/${pm[2]}/xp${pm[3]}`;
+      if (lcpLookupMap.has(xpKey)) return lcpLookupMap.get(xpKey);
+      return null;
+    };
+  }, [lcpLookupMap]);
+
+  // Aggregate LCP data from ONTs, using real-time Map lookup for ONTs missing lcp_number
   const lcpData = useMemo(() => {
     if (!result?.onts || !lcpEntries.length) return [];
 
@@ -81,10 +131,19 @@ export default function LCPSummarySection({ result, onPortClick }) {
       }
     });
 
-    // Then, aggregate ONT data
-    // Live-parsed ONTs use _lcpNumber (underscore prefix); saved records use lcp_number
+    // Then, aggregate ONT data using real-time LCP resolution
     result.onts.forEach(ont => {
-      const lcpNumber = ont._lcpNumber || ont.lcp_number;
+      // Try existing lcp_number first, then fall back to real-time Map lookup
+      let lcpNumber = ont._lcpNumber || ont.lcp_number;
+      let splitterNumber = ont._splitterNumber || ont.splitter_number || 'Unknown';
+
+      if (!lcpNumber) {
+        const resolved = resolveLcp(ont);
+        if (resolved) {
+          lcpNumber = resolved.lcp_number;
+          splitterNumber = resolved.splitter_number || 'Unknown';
+        }
+      }
       if (!lcpNumber) return;
 
       // Create entry if not found in database (for LCPs not yet in database)
@@ -106,7 +165,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
       }
 
       const lcp = lcpMap[lcpNumber];
-      const splitterNumber = ont._splitterNumber || ont.splitter_number || 'Unknown';
       if (!lcp.splitters[splitterNumber]) {
         lcp.splitters[splitterNumber] = {
           splitterNumber,
