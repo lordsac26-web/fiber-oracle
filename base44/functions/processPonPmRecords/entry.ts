@@ -8,13 +8,13 @@
  * Flow:
  *  1. Fetch the raw CSV from file_url stored on the PONPMReport record.
  *  2. Parse & analyse every ONT row (same logic as parsePonPm).
- *  3. Enrich with LCP data.
+ *  3. Enrich with LCP data at ingest time (no second pass needed).
  *  4. bulkCreate ONTPerformanceRecord in configurable batches (default 500).
  *  5. Update PONPMReport.processing_progress after each batch.
  *  6. Mark report as 'completed' or 'failed' when done.
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 import { parse } from 'npm:csv-parse@5.5.2/sync';
 
 // ─── Thresholds (mirror of parsePonPm) ───────────────────────────────────────
@@ -114,6 +114,80 @@ function analyzeOnt(ont) {
   };
 }
 
+// ─── LCP Lookup Builder (robust version) ─────────────────────────────────────
+// Builds a Map keyed by "oltname|shelf/slot/port" with LCP metadata.
+// Handles port ranges (e.g. "3-4"), xp prefixes, and case-insensitive matching.
+function buildLcpLookup(lcpEntries) {
+  const map = new Map();
+
+  for (const lcp of lcpEntries) {
+    if (!lcp.olt_name || lcp.olt_shelf === undefined || lcp.olt_slot === undefined || !lcp.olt_port) {
+      continue;
+    }
+
+    const oltBase = lcp.olt_name.toLowerCase().trim();
+    const shelf   = String(lcp.olt_shelf).trim();
+    const slot    = String(lcp.olt_slot).trim();
+    const rawPort = String(lcp.olt_port).trim();
+    const numericPort = rawPort.replace(/^xp/i, '');
+
+    const payload = {
+      lcp_number:      lcp.lcp_number      || '',
+      splitter_number: lcp.splitter_number || '',
+      location:        lcp.location        || '',
+      address:         lcp.address         || '',
+      optic_type:      lcp.optic_type      || '',
+    };
+
+    // Handle port ranges like "1-4"
+    const rng = numericPort.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (rng) {
+      const lo = parseInt(rng[1], 10);
+      const hi = parseInt(rng[2], 10);
+      for (let p = lo; p <= hi; p++) {
+        const keyNumeric = `${oltBase}|${shelf}/${slot}/${p}`;
+        const keyXp      = `${oltBase}|${shelf}/${slot}/xp${p}`;
+        if (!map.has(keyNumeric)) map.set(keyNumeric, payload);
+        if (!map.has(keyXp))      map.set(keyXp, payload);
+      }
+    } else {
+      const keyNumeric = `${oltBase}|${shelf}/${slot}/${numericPort}`;
+      const keyXp      = `${oltBase}|${shelf}/${slot}/xp${numericPort}`;
+      if (!map.has(keyNumeric)) map.set(keyNumeric, payload);
+      if (!map.has(keyXp))      map.set(keyXp, payload);
+    }
+
+    // Also store literal key for exact matches
+    const literalKey = `${oltBase}|${shelf}/${slot}/${rawPort.toLowerCase()}`;
+    if (!map.has(literalKey)) map.set(literalKey, payload);
+  }
+
+  return map;
+}
+
+// Look up LCP data for a given ONT row using the Map
+function lookupLcp(lcpMap, oltName, shelfSlotPort) {
+  if (!oltName || !shelfSlotPort) return null;
+
+  const base = oltName.toLowerCase().trim();
+
+  // Try literal key first
+  const literalKey = `${base}|${shelfSlotPort.toLowerCase()}`;
+  if (lcpMap.has(literalKey)) return lcpMap.get(literalKey);
+
+  // Parse shelf/slot/port and try normalized keys
+  const pm = shelfSlotPort.match(/^(\d+)\/(\d+)\/(?:xp)?(\d+)(?:-\d+)?$/i);
+  if (!pm) return null;
+
+  const numericKey = `${base}|${pm[1]}/${pm[2]}/${pm[3]}`;
+  if (lcpMap.has(numericKey)) return lcpMap.get(numericKey);
+
+  const xpKey = `${base}|${pm[1]}/${pm[2]}/xp${pm[3]}`;
+  if (lcpMap.has(xpKey)) return lcpMap.get(xpKey);
+
+  return null;
+}
+
 // ─── Main Handler ─────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   try {
@@ -180,53 +254,19 @@ Deno.serve(async (req) => {
       processing_saved_count: 0,
     });
 
-    // ── Load LCP lookup ──────────────────────────────────────────────────────
-    let lcpEntries = [];
+    // ── Load LCP lookup (robust Map-based version) ───────────────────────────
+    let lcpMap = new Map();
     try {
-      lcpEntries = await base44.asServiceRole.entities.LCPEntry.list();
-    } catch (_) {
-      // Non-fatal: proceed without LCP enrichment
-    }
-
-    const lcpLookup = {};
-    for (const lcp of lcpEntries) {
-      if (!lcp.olt_name || lcp.olt_shelf === undefined || lcp.olt_slot === undefined || !lcp.olt_port) continue;
-      const oltName = lcp.olt_name.toLowerCase().trim();
-      const shelf = lcp.olt_shelf.toString().trim();
-      const slot = lcp.olt_slot.toString().trim();
-      const rawPort = lcp.olt_port.toString().trim();
-      const opticType = (lcp.optic_type || '').toUpperCase();
-      const isCombo = opticType.includes('COMBO');
-      const data = {
-        lcp_number: lcp.lcp_number,
-        splitter_number: lcp.splitter_number,
-        location: lcp.location,
-        address: lcp.address,
-        optic_type: lcp.optic_type || '',
-      };
-
-      // Store literal key
-      lcpLookup[`${oltName}|${shelf}/${slot}/${rawPort.toLowerCase()}`] = data;
-
-      // Strip xp prefix for numeric processing
-      const numericPort = rawPort.replace(/^xp/i, '');
-
-      // Check for range: handles "3-4", "xp3-4", etc.
-      const rng = numericPort.match(/^(\d+)\s*-\s*(\d+)$/);
-      if (rng) {
-        const lo = parseInt(rng[1], 10);
-        const hi = parseInt(rng[2], 10);
-        for (let p = lo; p <= hi; p++) {
-          lcpLookup[`${oltName}|${shelf}/${slot}/${p}`] = data;
-          lcpLookup[`${oltName}|${shelf}/${slot}/xp${p}`] = data;
-        }
+      const lcpEntries = await base44.asServiceRole.entities.LCPEntry.list('-created_date', 5000);
+      if (lcpEntries && lcpEntries.length > 0) {
+        lcpMap = buildLcpLookup(lcpEntries);
+        console.log(`[processPonPmRecords] Built LCP lookup: ${lcpMap.size} keys from ${lcpEntries.length} entries`);
       } else {
-        // Single port — store both numeric and xp-prefixed variants
-        lcpLookup[`${oltName}|${shelf}/${slot}/${numericPort}`] = data;
-        lcpLookup[`${oltName}|${shelf}/${slot}/xp${numericPort}`] = data;
+        console.log('[processPonPmRecords] No LCPEntry records found — proceeding without LCP enrichment');
       }
+    } catch (err) {
+      console.log(`[processPonPmRecords] LCP lookup failed (non-fatal): ${err.message}`);
     }
-    console.log(`[processPonPmRecords] Built LCP lookup with ${Object.keys(lcpLookup).length} keys from ${lcpEntries.length} LCP entries`);
 
     // ── Fetch & parse CSV ────────────────────────────────────────────────────
     const controller = new AbortController();
@@ -246,6 +286,8 @@ Deno.serve(async (req) => {
     if (!rawRecords || rawRecords.length === 0) throw new Error('CSV is empty or unreadable');
 
     const total = rawRecords.length;
+    let lcpMatched = 0;
+    let lcpUnmatched = 0;
     console.log(`[processPonPmRecords] Report ${reportId}: processing ${total} ONT rows`);
 
     // ── Batch insert ─────────────────────────────────────────────────────────
@@ -273,17 +315,13 @@ Deno.serve(async (req) => {
           }
         }
 
-        // LCP lookup
-        const oltName = (ont.OLTName || '').toLowerCase().trim();
+        // LCP lookup using robust Map-based matcher
+        const oltName = ont.OLTName || '';
         const shelfSlotPort = ont['Shelf/Slot/Port'] || '';
-        let lcpData = lcpLookup[`${oltName}|${shelfSlotPort}`.toLowerCase()];
-        if (!lcpData && shelfSlotPort) {
-          const pm = shelfSlotPort.match(/^(\d+)\/(\d+)\/(?:xp)?(\d+)(?:-\d+)?$/i);
-          if (pm) {
-            lcpData = lcpLookup[`${oltName}|${pm[1]}/${pm[2]}/${pm[3]}`]
-                   || lcpLookup[`${oltName}|${pm[1]}/${pm[2]}/xp${pm[3]}`];
-          }
-        }
+        const lcpData = lookupLcp(lcpMap, oltName, shelfSlotPort);
+
+        if (lcpData) lcpMatched++;
+        else if (oltName && shelfSlotPort) lcpUnmatched++;
 
         // Analyse
         const analysis = analyzeOnt(ont);
@@ -293,7 +331,7 @@ Deno.serve(async (req) => {
           report_date: reportDate,
           serial_number: serial || '',
           ont_id: ont.OntID?.toString() || '',
-          olt_name: ont.OLTName || '',
+          olt_name: oltName,
           shelf_slot_port: shelfSlotPort,
           model: model || '',
           ont_rx_power: parseNumeric(ont.OntRxOptPwr),
@@ -334,8 +372,8 @@ Deno.serve(async (req) => {
       processing_saved_count: savedCount,
     });
 
-    console.log(`[processPonPmRecords] Done — saved ${savedCount} records for report ${reportId}`);
-    return Response.json({ success: true, savedCount });
+    console.log(`[processPonPmRecords] Done — saved ${savedCount} records (LCP matched: ${lcpMatched}, unmatched: ${lcpUnmatched})`);
+    return Response.json({ success: true, savedCount, lcpMatched, lcpUnmatched });
 
   } catch (error) {
     console.error('[processPonPmRecords] Error:', error);

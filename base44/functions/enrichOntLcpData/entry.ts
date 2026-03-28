@@ -4,6 +4,12 @@
  * Resolves LCP# and Splitter# for ONTPerformanceRecords by joining on
  * olt_name + shelf/slot/port against the LCPEntry table.
  *
+ * Optimized batching strategy:
+ *   - Collects updates into small batches (BATCH_SIZE)
+ *   - Fires each batch in parallel via Promise.allSettled
+ *   - Waits BATCH_DELAY_MS between batches to avoid rate limits
+ *   - If an entire batch hits rate limits, backs off exponentially and retries
+ *
  * Callable three ways:
  *   1. Entity automation payload:  { event: { entity_id }, data: { ... } }
  *   2. Direct call with report_id: { report_id: "<id>" }
@@ -12,12 +18,15 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
-const CONCURRENT_UPDATES = 1;
-const BATCH_DELAY_MS = 800;
-const PAGE_SIZE = 2000;
-const MAX_RUNTIME_MS = 50000; // Stop gracefully before Deno 60s timeout
+// ── Tuning knobs ──────────────────────────────────────────────────────────────
+const BATCH_SIZE        = 5;     // parallel updates per batch (conservative for Base44 rate limits)
+const BATCH_DELAY_MS    = 1200;  // pause between successful batches
+const PAGE_SIZE         = 2000;  // records fetched per page from the DB
+const MAX_RUNTIME_MS    = 50000; // graceful timeout before Deno's 60s hard limit
+const MAX_BATCH_RETRIES = 3;     // retries for a rate-limited batch
+const INITIAL_BACKOFF   = 3000;  // first backoff delay on rate limit (doubles each retry)
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,6 +51,7 @@ function buildLcpLookup(lcpEntries) {
       splitter_number: lcp.splitter_number || '',
     };
 
+    // Handle port ranges like "1-4"
     const rng = numericPort.match(/^(\d+)\s*-\s*(\d+)$/);
     if (rng) {
       const lo = parseInt(rng[1], 10);
@@ -74,27 +84,55 @@ function buildOntKey(oltName, shelfSlotPort) {
   return `${base}|${match[1]}/${match[2]}/${match[3]}`;
 }
 
-async function updateWithRetry(base44, id, data, retries = 4) {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      await base44.asServiceRole.entities.ONTPerformanceRecord.update(id, data);
-      return true;
-    } catch (err) {
-      const isRateLimit = err.message?.includes('429') || err.message?.includes('Rate limit');
-      if (attempt < retries - 1 && isRateLimit) {
-        const backoff = 2000 * Math.pow(2, attempt); // 2s, 4s, 8s
-        console.log(`Rate limited on update ${id}, backing off ${backoff}ms (attempt ${attempt + 1})`);
-        await sleep(backoff);
-        continue;
+/**
+ * Execute a batch of updates with retry on rate limits.
+ * Returns { succeeded: number, failed: number, rateLimited: boolean }
+ */
+async function executeBatchWithRetry(base44, updates) {
+  let currentUpdates = updates;
+
+  for (let attempt = 0; attempt <= MAX_BATCH_RETRIES; attempt++) {
+    const results = await Promise.allSettled(
+      currentUpdates.map((u) =>
+        base44.asServiceRole.entities.ONTPerformanceRecord.update(u.id, u.data)
+      )
+    );
+
+    let succeeded = 0;
+    let rateLimitedItems = [];
+
+    results.forEach((result, idx) => {
+      if (result.status === 'fulfilled') {
+        succeeded++;
+      } else {
+        const msg = result.reason?.message || '';
+        const isRateLimit = msg.includes('429') || msg.includes('Rate limit');
+        if (isRateLimit) {
+          rateLimitedItems.push(currentUpdates[idx]);
+        }
+        // Non-rate-limit errors are logged but not retried
       }
-      if (isRateLimit) {
-        console.log(`Rate limited on update ${id} after ${retries} attempts, skipping`);
-        return false;
-      }
-      throw err;
+    });
+
+    // If no rate-limited items, we're done with this batch
+    if (rateLimitedItems.length === 0) {
+      return { succeeded, failed: results.length - succeeded, rateLimited: false };
     }
+
+    // If this was our last attempt, return partial results
+    if (attempt === MAX_BATCH_RETRIES) {
+      console.log(`Batch: ${rateLimitedItems.length} items still rate-limited after ${MAX_BATCH_RETRIES + 1} attempts, skipping`);
+      return { succeeded, failed: rateLimitedItems.length, rateLimited: true };
+    }
+
+    // Back off exponentially and retry only the rate-limited items
+    const backoff = INITIAL_BACKOFF * Math.pow(2, attempt);
+    console.log(`Batch: ${rateLimitedItems.length}/${currentUpdates.length} rate-limited, backing off ${backoff}ms (attempt ${attempt + 1})`);
+    await sleep(backoff);
+    currentUpdates = rateLimitedItems;
   }
-  return false;
+
+  return { succeeded: 0, failed: updates.length, rateLimited: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -145,46 +183,43 @@ Deno.serve(async (req) => {
     const lcpLookup = buildLcpLookup(lcpEntries);
     console.log(`LCP lookup built: ${lcpLookup.size} keys from ${lcpEntries.length} LCP entries`);
 
-    // ── 2. Fetch ONT records, match, and update in streaming fashion ───────
-    // Instead of loading ALL records then updating, we page through and
-    // update as we go. This keeps memory low and lets us respect the timeout.
+    // ── 2. Scan ONT records, collect updates, execute in batches ───────────
     let totalScanned = 0;
     let updated = 0;
+    let failed = 0;
     let unmatched = 0;
     let skipped = 0;
     let timedOut = false;
     let skip = 0;
 
     while (true) {
-      // Check timeout before fetching next page
-      if (Date.now() - startTime > MAX_RUNTIME_MS) {
-        timedOut = true;
-        break;
-      }
+      if (Date.now() - startTime > MAX_RUNTIME_MS) { timedOut = true; break; }
 
-      let batch;
+      // Fetch a page of ONT records
+      let page;
       if (report_id) {
-        batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+        page = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
           { report_id },
           '-created_date',
           PAGE_SIZE,
           skip
         );
       } else {
-        batch = await base44.asServiceRole.entities.ONTPerformanceRecord.list(
+        page = await base44.asServiceRole.entities.ONTPerformanceRecord.list(
           '-created_date',
           PAGE_SIZE,
           skip
         );
-        // Backfill: only keep records missing lcp_number
-        batch = (batch || []).filter(r => !r.lcp_number);
+        // Backfill: only process records missing lcp_number
+        page = (page || []).filter((r) => !r.lcp_number);
       }
 
-      if (!batch || batch.length === 0) break;
+      if (!page || page.length === 0) break;
 
-      // Collect updates needed from this page
-      const pageUpdates = [];
-      for (const record of batch) {
+      // ── Scan page and collect all needed updates ───────────────────────
+      const pendingUpdates = [];
+
+      for (const record of page) {
         totalScanned++;
         const baseKey = buildOntKey(record.olt_name, record.shelf_slot_port);
         if (!baseKey) { unmatched++; continue; }
@@ -200,68 +235,54 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        pageUpdates.push({
+        pendingUpdates.push({
           id: record.id,
-          lcp_number: match.lcp_number,
-          splitter_number: match.splitter_number,
+          data: { lcp_number: match.lcp_number, splitter_number: match.splitter_number },
         });
       }
 
-      // Process this page's updates in small concurrent batches
-      for (let i = 0; i < pageUpdates.length; i += CONCURRENT_UPDATES) {
-        if (Date.now() - startTime > MAX_RUNTIME_MS) {
-          timedOut = true;
-          break;
-        }
+      // ── Execute updates in small parallel batches ──────────────────────
+      for (let i = 0; i < pendingUpdates.length; i += BATCH_SIZE) {
+        if (Date.now() - startTime > MAX_RUNTIME_MS) { timedOut = true; break; }
 
-        const slice = pageUpdates.slice(i, i + CONCURRENT_UPDATES);
-        await Promise.all(
-          slice.map(rec =>
-            updateWithRetry(base44, rec.id, {
-              lcp_number: rec.lcp_number,
-              splitter_number: rec.splitter_number,
-            })
-          )
-        );
-        updated += slice.length;
+        const batch = pendingUpdates.slice(i, i + BATCH_SIZE);
+        const result = await executeBatchWithRetry(base44, batch);
 
-        if (i + CONCURRENT_UPDATES < pageUpdates.length) {
+        updated += result.succeeded;
+        failed  += result.failed;
+
+        // If we hit persistent rate limits, increase delay for remaining batches
+        if (result.rateLimited) {
+          console.log(`Rate limit pressure detected, adding extra delay`);
+          await sleep(BATCH_DELAY_MS * 3);
+        } else if (i + BATCH_SIZE < pendingUpdates.length) {
           await sleep(BATCH_DELAY_MS);
         }
       }
 
       if (timedOut) break;
 
-      // Move to next page (for report_id mode we need all records; for backfill same)
-      if (report_id) {
-        // For report mode, records we just updated still have report_id,
-        // so we need to skip past them
-        skip += PAGE_SIZE;
-      } else {
-        // For backfill, updated records now have lcp_number, so re-querying
-        // with skip=0 would miss them. But we filter by !lcp_number, so
-        // updated records drop out. Still use skip for untouched records.
-        skip += PAGE_SIZE;
-      }
-
-      if (batch.length < PAGE_SIZE) break;
-      await sleep(300);
+      skip += PAGE_SIZE;
+      if (page.length < PAGE_SIZE) break;
+      await sleep(200); // brief pause between page fetches
     }
 
     const elapsed = Math.round((Date.now() - startTime) / 1000);
-    console.log(`Enrichment ${timedOut ? 'PARTIAL (timeout)' : 'complete'} in ${elapsed}s — scanned: ${totalScanned}, updated: ${updated}, unmatched: ${unmatched}, skipped: ${skipped}`);
+    const status = timedOut ? 'PARTIAL (timeout)' : 'complete';
+    console.log(`Enrichment ${status} in ${elapsed}s — scanned: ${totalScanned}, updated: ${updated}, failed: ${failed}, unmatched: ${unmatched}, skipped: ${skipped}`);
 
     return Response.json({
       success: true,
       partial: timedOut,
       total: totalScanned,
       updated,
+      failed,
       unmatched,
       skipped,
       elapsed_seconds: elapsed,
       message: timedOut
-        ? `Partial enrichment: updated ${updated} of ${totalScanned} scanned records in ${elapsed}s (hit timeout). Run again to continue.`
-        : `Enriched ${updated} records. ${unmatched} unmatched. ${skipped} already correct.`,
+        ? `Partial enrichment: updated ${updated} of ${totalScanned} scanned in ${elapsed}s (timeout). Run again to continue.`
+        : `Enriched ${updated} records. ${unmatched} unmatched. ${skipped} already correct. ${failed} failed.`,
     });
 
   } catch (error) {
