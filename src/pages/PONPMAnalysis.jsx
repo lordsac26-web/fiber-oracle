@@ -258,6 +258,9 @@ export default function PONPMAnalysis() {
       return;
     }
 
+    // Capture the file's last-modified timestamp from the OS (not the upload time)
+    const fileReportDate = new Date(file.lastModified).toISOString();
+
     setIsLoading(true);
     toast.loading('Parsing PON PM data...', { id: 'pon-parse' });
 
@@ -288,7 +291,7 @@ export default function PONPMAnalysis() {
 
         saveReportMutation.mutate({
           report_name: reportName,
-          upload_date: new Date().toISOString(),
+          upload_date: fileReportDate,
           file_url: file_url,
           ont_count: response.data.summary.totalOnts,
           critical_count: response.data.summary.criticalCount,

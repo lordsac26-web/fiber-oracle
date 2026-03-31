@@ -1,0 +1,133 @@
+{
+  "name": "PONPMReport",
+  "type": "object",
+  "properties": {
+    "report_name": {
+      "type": "string",
+      "description": "Name/identifier for the report"
+    },
+    "upload_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Date and time of the original file (from file lastModified), used as report_date"
+    },
+    "file_url": {
+      "type": "string",
+      "description": "URL to the uploaded CSV file"
+    },
+    "ont_count": {
+      "type": "number",
+      "description": "Total number of ONTs in report"
+    },
+    "critical_count": {
+      "type": "number",
+      "description": "Number of critical issues"
+    },
+    "warning_count": {
+      "type": "number",
+      "description": "Number of warnings"
+    },
+    "ok_count": {
+      "type": "number",
+      "description": "Number of healthy ONTs"
+    },
+    "olt_count": {
+      "type": "number",
+      "description": "Number of OLTs in report"
+    },
+    "olts": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of OLT names in this report"
+    },
+    "avg_ont_rx": {
+      "type": "number",
+      "description": "Average ONT Rx power across all ONTs"
+    },
+    "min_ont_rx": {
+      "type": "number",
+      "description": "Minimum ONT Rx power"
+    },
+    "max_ont_rx": {
+      "type": "number",
+      "description": "Maximum ONT Rx power"
+    },
+    "processing_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "saving",
+        "completed",
+        "failed"
+      ],
+      "default": "pending",
+      "description": "Status of background ONT record saving"
+    },
+    "processing_progress": {
+      "type": "number",
+      "default": 0,
+      "description": "Percentage of ONT records saved (0-100)"
+    },
+    "processing_saved_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of ONT records saved so far"
+    }
+  },
+  "required": [
+    "report_name",
+    "upload_date"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
