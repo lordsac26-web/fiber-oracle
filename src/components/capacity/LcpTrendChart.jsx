@@ -16,7 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 
 const SPLITTER_CAP = 32;
-const MAX_REPORTS = 5;
+const MAX_REPORTS = 5; // last N reports for trend
 const COLORS = [
   { stroke: '#3b82f6', fill: '#3b82f620' },
   { stroke: '#ef4444', fill: '#ef444420' },
