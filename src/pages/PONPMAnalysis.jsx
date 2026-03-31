@@ -159,29 +159,35 @@ export default function PONPMAnalysis() {
   const [processingSavedCount, setProcessingSavedCount] = useState(0);
   const [processingStatus, setProcessingStatus] = useState(null);
 
-  // Real-time subscription to PONPMReport updates while background indexing is active
+  // Real-time subscription + initial poll for background indexing progress
   useEffect(() => {
     if (!processingReportId) return;
-    const unsubscribe = base44.entities.PONPMReport.subscribe((event) => {
-      if (event.id !== processingReportId || !event.data) return;
-      const { processing_status, processing_progress, processing_saved_count } = event.data;
-      setProcessingStatus(processing_status);
-      setProcessingSavedCount(processing_saved_count ?? 0);
-      // Explicitly force progress to 100% on completion to avoid stale intermediate values
-      if (processing_status === 'completed') {
+    let cancelled = false;
+    const applyStatus = (s, p, c) => {
+      if (cancelled) return;
+      setProcessingStatus(s);
+      setProcessingSavedCount(c ?? 0);
+      if (s === 'completed') {
         setProcessingProgress(100);
         toast.success('ONT records fully indexed and searchable');
         queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
         setTimeout(() => setProcessingReportId(null), 3000);
-      } else if (processing_status === 'failed') {
+      } else if (s === 'failed') {
         setProcessingProgress(0);
-        toast.error('Background ONT indexing failed — live analysis still available');
+        toast.error('Background ONT indexing failed');
         setTimeout(() => setProcessingReportId(null), 4000);
-      } else {
-        setProcessingProgress(processing_progress ?? 0);
-      }
+      } else { setProcessingProgress(p ?? 0); }
+    };
+    // Poll once immediately in case automation already finished before subscribe
+    base44.entities.PONPMReport.filter({ id: processingReportId }, null, 1)
+      .then(r => r?.[0] && applyStatus(r[0].processing_status, r[0].processing_progress, r[0].processing_saved_count))
+      .catch(() => {});
+    const unsubscribe = base44.entities.PONPMReport.subscribe((event) => {
+      if (event.id !== processingReportId || !event.data) return;
+      const { processing_status, processing_progress, processing_saved_count } = event.data;
+      applyStatus(processing_status, processing_progress, processing_saved_count);
     });
-    return () => unsubscribe();
+    return () => { cancelled = true; unsubscribe(); };
   }, [processingReportId, queryClient]);
 
   const { data: savedReports = [], isLoading: loadingReports } = useQuery({ queryKey: ['ponPmReports'], queryFn: () => base44.entities.PONPMReport.list('-upload_date') });
@@ -218,19 +224,9 @@ export default function PONPMAnalysis() {
         processing_saved_count: 0,
       });
 
-      // Fire-and-forget: kick off background batch processing for ONT records.
-      // processPonPmRecords handles datasets of any size in 500-row batches,
-      // updating processing_progress on each batch so the UI can poll/subscribe.
-      base44.functions.invoke('processPonPmRecords', {
-        report_id: report.id,
-        file_url: reportData.file_url,
-        report_date: reportData.upload_date,
-      }).then(res => {
-        console.log('Background ONT processing complete:', res.data);
-        queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
-      }).catch(err => {
-        console.error('Background ONT processing failed:', err);
-      });
+      // Background processing is handled automatically by the entity automation
+      // "Process PON PM Records on Report Create" which triggers processPonPmRecords
+      // when a PONPMReport is created. No need to call it directly here.
 
       return report;
     },
