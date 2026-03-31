@@ -126,7 +126,8 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
       .map(g => {
         // If hideEmpty, filter out splitters with 0 ONTs before applying other filters
         const activeSplitters = hideEmpty ? g.splitters.filter(s => s.count > 0) : g.splitters;
-        return { ...g, splitters: activeSplitters };
+        const hiddenEmptyCount = g.splitters.length - activeSplitters.length;
+        return { ...g, splitters: activeSplitters, hiddenEmptyCount };
       })
       .filter(g => {
         if (g.splitters.length === 0) return false;
@@ -320,6 +321,12 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
                 </CollapsibleTrigger>
 
                 <CollapsibleContent>
+                  {hideEmpty && group.hiddenEmptyCount > 0 && (
+                    <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-t text-xs text-gray-500 flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      {group.hiddenEmptyCount} splitter{group.hiddenEmptyCount !== 1 ? 's' : ''} with 0 ONTs hidden
+                    </div>
+                  )}
                   <div className="border-t overflow-x-auto">
                     <Table>
                       <TableHeader>
