@@ -5,6 +5,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import {
+  Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import { TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle } from 'lucide-react';
@@ -120,7 +123,7 @@ export default function LcpTrendChart({ open, onOpenChange, lcpName, splitters =
             {/* Trend Badges */}
             <div className="flex flex-wrap gap-2">
               {trendSummary.map(s => (
-                <TrendBadge key={s.key} splitter={s.splitter} change={s.change} trend={s.trend} remaining={s.remaining} />
+                <TrendBadge key={s.key} splitter={s.splitter} change={s.change} trend={s.trend} remaining={s.remaining} current={s.current} />
               ))}
             </div>
 
@@ -203,26 +206,40 @@ export default function LcpTrendChart({ open, onOpenChange, lcpName, splitters =
   );
 }
 
-function TrendBadge({ splitter, change, trend, remaining }) {
+function TrendBadge({ splitter, change, trend, remaining, current }) {
+  let badgeClass, icon, label, tipText;
+
   if (trend === 'growing') {
     const urgent = remaining <= 4;
-    return (
-      <Badge className={`text-xs gap-1 ${urgent ? 'bg-red-100 text-red-700 border-red-300' : 'bg-amber-100 text-amber-700 border-amber-300'}`} variant="outline">
-        <TrendingUp className="h-3 w-3" /> {splitter}: +{change}{urgent ? ' ⚠' : ''}
-      </Badge>
-    );
+    badgeClass = urgent ? 'bg-red-100 text-red-700 border-red-300' : 'bg-amber-100 text-amber-700 border-amber-300';
+    icon = <TrendingUp className="h-3 w-3" />;
+    label = `${splitter}: +${change}${urgent ? ' ⚠' : ''}`;
+    tipText = `Splitter ${splitter} gained ${change} ONT${change !== 1 ? 's' : ''} over the last reports. Currently at ${current}/${SPLITTER_CAP} (${remaining} port${remaining !== 1 ? 's' : ''} left).`;
+  } else if (trend === 'declining') {
+    badgeClass = 'bg-green-100 text-green-700 border-green-300';
+    icon = <TrendingDown className="h-3 w-3" />;
+    label = `${splitter}: ${change}`;
+    tipText = `Splitter ${splitter} lost ${Math.abs(change)} ONT${Math.abs(change) !== 1 ? 's' : ''} over the last reports. Currently at ${current}/${SPLITTER_CAP}.`;
+  } else {
+    badgeClass = '';
+    icon = <Minus className="h-3 w-3" />;
+    label = `${splitter}: 0`;
+    tipText = `Splitter ${splitter} has had no change. Currently at ${current}/${SPLITTER_CAP}.`;
   }
-  if (trend === 'declining') {
-    return (
-      <Badge className="text-xs gap-1 bg-green-100 text-green-700 border-green-300" variant="outline">
-        <TrendingDown className="h-3 w-3" /> {splitter}: {change}
-      </Badge>
-    );
-  }
+
   return (
-    <Badge className="text-xs gap-1" variant="outline">
-      <Minus className="h-3 w-3" /> {splitter}: 0
-    </Badge>
+    <TooltipProvider delayDuration={200}>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <Badge className={`text-xs gap-1 cursor-default ${badgeClass}`} variant="outline">
+            {icon} {label}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-[260px] text-xs leading-relaxed">
+          {tipText}
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
   );
 }
 
