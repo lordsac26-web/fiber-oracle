@@ -1,10 +1,39 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
-const PAGE_SIZE = 100;
-const DELETE_BATCH = 5;
-const BATCH_DELAY = 300;
+/**
+ * Orphaned ONT Record Cleanup
+ * 
+ * Strategy: Instead of scanning ALL ONT records (expensive, rate-limit prone),
+ * we first get the small set of valid report IDs, then query ONT records
+ * grouped by report_id to find mismatches.
+ * 
+ * This is much more API-friendly than the naive "scan everything" approach.
+ */
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const PAGE_SIZE = 50;
+const DELETE_BATCH = 5;
+const INTER_PAGE_DELAY = 500;   // ms between paginated fetches
+const INTER_DELETE_DELAY = 400; // ms between delete batches
+const MAX_RETRIES = 3;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function withRetry(fn, retries = MAX_RETRIES) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const is429 = err?.status === 429 || err?.message?.includes('Rate limit');
+      if (is429 && attempt < retries) {
+        const backoff = attempt * 2000; // 2s, 4s, 6s
+        console.log(`Rate limited, retrying in ${backoff}ms (attempt ${attempt}/${retries})`);
+        await sleep(backoff);
+        continue;
+      }
+      throw err;
+    }
+  }
+}
 
 Deno.serve(async (req) => {
   try {
@@ -19,64 +48,72 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const dryRun = body.dry_run !== false; // default to dry run for safety
+    const dryRun = body.dry_run !== false;
 
-    // Step 1: Collect all unique report_ids referenced by ONT records
-    console.log('Scanning ONT records for unique report_ids...');
-    const reportIdSet = new Set();
-    let scanOffset = 0;
-    let totalScanned = 0;
+    // Step 1: Get all valid PONPMReport IDs (small dataset)
+    console.log('Step 1: Fetching all existing report IDs...');
+    const validReportIds = new Set();
+    let reportOffset = 0;
 
     while (true) {
-      const records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-        {},
-        '-created_date',
-        PAGE_SIZE,
-        scanOffset
+      const reports = await withRetry(() =>
+        base44.asServiceRole.entities.PONPMReport.filter({}, '-created_date', PAGE_SIZE, reportOffset)
       );
+      const page = Array.isArray(reports) ? reports : [];
+      if (page.length === 0) break;
 
+      for (const r of page) {
+        validReportIds.add(r.id);
+      }
+
+      reportOffset += page.length;
+      if (page.length < PAGE_SIZE) break;
+      await sleep(INTER_PAGE_DELAY);
+    }
+
+    console.log(`Found ${validReportIds.size} valid reports`);
+
+    // Step 2: Scan ONT records in pages, collecting orphan IDs
+    console.log('Step 2: Scanning ONT records for orphans...');
+    const orphanIds = [];
+    const orphanedReportIds = new Set();
+    let totalScanned = 0;
+    let scanOffset = 0;
+
+    while (true) {
+      const records = await withRetry(() =>
+        base44.asServiceRole.entities.ONTPerformanceRecord.filter({}, '-created_date', PAGE_SIZE, scanOffset)
+      );
       const page = Array.isArray(records) ? records : [];
       if (page.length === 0) break;
 
       for (const rec of page) {
-        if (rec.report_id) {
-          reportIdSet.add(rec.report_id);
+        if (rec.report_id && !validReportIds.has(rec.report_id)) {
+          orphanIds.push(rec.id);
+          orphanedReportIds.add(rec.report_id);
         }
       }
 
       totalScanned += page.length;
       scanOffset += page.length;
 
-      // Safety: pause every few pages to avoid rate limits
-      if (scanOffset % (PAGE_SIZE * 3) === 0) {
-        await sleep(200);
+      // Log progress every 5 pages
+      if (scanOffset % (PAGE_SIZE * 5) === 0) {
+        console.log(`  Scanned ${totalScanned} records, found ${orphanIds.length} orphans so far...`);
       }
+
+      if (page.length < PAGE_SIZE) break;
+      await sleep(INTER_PAGE_DELAY);
     }
 
-    console.log(`Scanned ${totalScanned} ONT records, found ${reportIdSet.size} unique report_ids`);
+    console.log(`Scan complete: ${totalScanned} records scanned, ${orphanIds.length} orphans found across ${orphanedReportIds.size} missing report(s)`);
 
-    // Step 2: Check which report_ids still have a valid parent report
-    const orphanedReportIds = [];
-
-    for (const reportId of reportIdSet) {
-      try {
-        await base44.asServiceRole.entities.PONPMReport.get(reportId);
-        // Report exists — not orphaned
-      } catch (_err) {
-        // Report doesn't exist — these ONT records are orphans
-        orphanedReportIds.push(reportId);
-      }
-      await sleep(50); // small delay between lookups
-    }
-
-    console.log(`Found ${orphanedReportIds.length} orphaned report_id(s): ${orphanedReportIds.join(', ')}`);
-
-    if (orphanedReportIds.length === 0) {
+    if (orphanIds.length === 0) {
       return Response.json({
         success: true,
         dry_run: dryRun,
         total_scanned: totalScanned,
-        unique_report_ids: reportIdSet.size,
+        valid_reports: validReportIds.size,
         orphaned_report_ids: 0,
         orphaned_records: 0,
         deleted_records: 0,
@@ -84,73 +121,51 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Step 3: Count and optionally delete orphaned records
-    let orphanedCount = 0;
+    // Step 3: Delete orphans (if not dry run)
     let deletedCount = 0;
 
-    for (const reportId of orphanedReportIds) {
-      let offset = 0;
+    if (!dryRun) {
+      console.log(`Step 3: Deleting ${orphanIds.length} orphaned records...`);
 
-      while (true) {
-        const records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-          { report_id: reportId },
-          '-created_date',
-          PAGE_SIZE
+      for (let i = 0; i < orphanIds.length; i += DELETE_BATCH) {
+        const batch = orphanIds.slice(i, i + DELETE_BATCH);
+        const results = await Promise.allSettled(
+          batch.map((id) => withRetry(() =>
+            base44.asServiceRole.entities.ONTPerformanceRecord.delete(id)
+          ))
         );
 
-        const page = Array.isArray(records) ? records : [];
-        if (page.length === 0) break;
-
-        orphanedCount += page.length;
-
-        if (dryRun) {
-          // In dry run, we still need to paginate using offset since we're not deleting
-          offset += page.length;
-          // But filter doesn't support offset well for counting, so fetch next page via offset
-          const nextPage = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-            { report_id: reportId },
-            '-created_date',
-            PAGE_SIZE,
-            offset
-          );
-          const next = Array.isArray(nextPage) ? nextPage : [];
-          if (next.length === 0) break;
-          orphanedCount += next.length;
-          offset += next.length;
-          // Continue scanning
-          if (next.length < PAGE_SIZE) break;
-          await sleep(200);
-          continue;
+        for (const r of results) {
+          if (r.status === 'fulfilled') deletedCount++;
         }
 
-        // Not dry run — delete in small batches
-        for (let i = 0; i < page.length; i += DELETE_BATCH) {
-          const slice = page.slice(i, i + DELETE_BATCH);
-          const results = await Promise.allSettled(
-            slice.map((rec) => base44.asServiceRole.entities.ONTPerformanceRecord.delete(rec.id))
-          );
+        if (i + DELETE_BATCH < orphanIds.length) {
+          await sleep(INTER_DELETE_DELAY);
+        }
 
-          for (const result of results) {
-            if (result.status === 'fulfilled') deletedCount++;
-          }
-
-          await sleep(BATCH_DELAY);
+        // Progress logging every 50 deletes
+        if ((i + DELETE_BATCH) % 50 === 0) {
+          console.log(`  Deleted ${deletedCount} of ${orphanIds.length}...`);
         }
       }
+
+      console.log(`Deletion complete: ${deletedCount} records removed`);
     }
+
+    const orphanedReportIdList = Array.from(orphanedReportIds);
 
     return Response.json({
       success: true,
       dry_run: dryRun,
       total_scanned: totalScanned,
-      unique_report_ids: reportIdSet.size,
-      orphaned_report_ids: orphanedReportIds.length,
-      orphaned_report_id_list: orphanedReportIds,
-      orphaned_records: dryRun ? orphanedCount : orphanedCount,
+      valid_reports: validReportIds.size,
+      orphaned_report_ids: orphanedReportIds.size,
+      orphaned_report_id_list: orphanedReportIdList,
+      orphaned_records: orphanIds.length,
       deleted_records: deletedCount,
       message: dryRun
-        ? `Found ${orphanedCount} orphaned ONT records across ${orphanedReportIds.length} missing report(s). Run again with dry_run=false to delete them.`
-        : `Deleted ${deletedCount} orphaned ONT records from ${orphanedReportIds.length} missing report(s).`
+        ? `Found ${orphanIds.length} orphaned ONT records across ${orphanedReportIds.size} missing report(s). Run again with dry_run=false to delete them.`
+        : `Deleted ${deletedCount} of ${orphanIds.length} orphaned ONT records from ${orphanedReportIds.size} missing report(s).`
     });
 
   } catch (error) {
