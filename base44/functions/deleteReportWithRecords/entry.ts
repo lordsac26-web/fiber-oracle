@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 const PAGE_SIZE = 100;
 const CONCURRENT = 2;
@@ -63,8 +63,9 @@ Deno.serve(async (req) => {
 
     while (true) {
       const raw = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-        { report_id },
-        { sort: '-created_date', limit: PAGE_SIZE }
+        { report_id: report_id },
+        '-created_date',
+        PAGE_SIZE
       );
 
       const page = extractArray(raw);
@@ -88,8 +89,9 @@ Deno.serve(async (req) => {
 
     // Verify all child records are gone
     const remainingRaw = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-      { report_id },
-      { sort: '-created_date', limit: 1 }
+      { report_id: report_id },
+      '-created_date',
+      1
     );
 
     const remainingRecords = extractArray(remainingRaw);
