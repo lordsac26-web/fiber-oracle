@@ -41,7 +41,7 @@ const MODULES = [
   { id: 'pon', title: 'PON Power Levels', description: 'GPON & XGS-PON specifications', icon: Activity, color: 'from-cyan-500 to-blue-600', page: 'PONLevels', badge: 'Reference' },
   { id: 'tables', title: 'Reference Tables', description: 'Attenuation, connectors, splices & more', icon: BookOpen, color: 'from-slate-500 to-gray-600', page: 'ReferenceTables', badge: 'Reference' },
   { id: 'lcp', title: 'LCP / CLCP Info', description: 'Cabinet & splitter database', icon: Cable, color: 'from-teal-500 to-cyan-600', page: 'LCPInfo', badge: 'Reference' },
-  { id: 'capacityplanning', title: 'Capacity Planning', description: 'Splitter growth projections & forecasting', icon: TrendingUp, color: 'from-orange-500 to-red-600', page: 'CapacityPlanning', badge: 'Reference', isNew: true },
+  { id: 'capacityplanning', title: 'Splitter Utilization', description: 'LCP/CLCP capacity & remaining ports', icon: TrendingUp, color: 'from-orange-500 to-red-600', page: 'CapacityPlanning', badge: 'Reference', isNew: true },
   { id: 'kmlparser', title: 'KML/KMZ Parser', description: 'Extract GPS coordinates from Google Earth', icon: FileText, color: 'from-emerald-500 to-teal-600', page: 'KMLParser', badge: 'Reference', isNew: true },
   { id: 'links', title: 'Industry Links', description: 'Vendors, standards & resources', icon: BookOpen, color: 'from-gray-500 to-slate-600', page: 'IndustryLinks', badge: 'Reference' },
   { id: 'education', title: 'Education Center', description: 'Fiber 101, 102, 103 courses', icon: GraduationCap, color: 'from-green-500 to-emerald-600', page: 'Education', badge: 'Learn' },
