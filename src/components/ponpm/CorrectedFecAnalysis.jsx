@@ -7,14 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
-import { ShieldAlert, Search, Download, ArrowUpDown, ChevronUp, ChevronDown, Activity, Info } from 'lucide-react';
+import {
+  ShieldAlert, Search, Download, ArrowUpDown, ChevronUp, ChevronDown,
+  Activity, Info, Router, Layers, MapPin, List, BarChart3
+} from 'lucide-react';
 import { toast } from 'sonner';
 
-/**
- * Severity tiers for corrected FEC.
- * These are non-zero corrected FEC ONTs that may appear "OK" status-wise
- * but signal degraded service (micro-drops, buffering, retransmits).
- */
 const FEC_SEVERITY = {
   high:     { min: 10000, label: 'High',     color: 'bg-red-100 text-red-800 border-red-300',    rowBg: 'bg-red-50 dark:bg-red-900/10' },
   moderate: { min: 1000,  label: 'Moderate',  color: 'bg-orange-100 text-orange-800 border-orange-300', rowBg: 'bg-orange-50 dark:bg-orange-900/5' },
@@ -34,8 +32,10 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
   const [directionFilter, setDirectionFilter] = useState('all');
   const [sortField, setSortField] = useState('totalCorrected');
   const [sortDir, setSortDir] = useState('desc');
+  const [viewMode, setViewMode] = useState('dashboard'); // dashboard | olt | port | lcp | onts
+  const [drillFilter, setDrillFilter] = useState(null); // { type: 'olt'|'port'|'lcp', value: '...' }
 
-  // Build the corrected FEC dataset from the full ONT array
+  // Build the corrected FEC dataset
   const fecOnts = useMemo(() => {
     if (!onts?.length) return [];
     return onts
@@ -44,13 +44,12 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
         const dsCor = parseInt(ont.DownstreamFecCorrectedCodeWords) || 0;
         const totalCorrected = usCor + dsCor;
         if (totalCorrected === 0) return null;
-        const severity = getSeverity(totalCorrected);
         return {
           ...ont,
           _usFecCor: usCor,
           _dsFecCor: dsCor,
           _totalCorrected: totalCorrected,
-          _severity: severity,
+          _severity: getSeverity(totalCorrected),
           _hasUs: usCor > 0,
           _hasDs: dsCor > 0,
         };
@@ -58,9 +57,70 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
       .filter(Boolean);
   }, [onts]);
 
-  // Apply filters
+  // Summary stats
+  const stats = useMemo(() => {
+    const high = fecOnts.filter(o => o._severity === 'high').length;
+    const moderate = fecOnts.filter(o => o._severity === 'moderate').length;
+    const low = fecOnts.filter(o => o._severity === 'low').length;
+    const usOnly = fecOnts.filter(o => o._hasUs && !o._hasDs).length;
+    const dsOnly = fecOnts.filter(o => !o._hasUs && o._hasDs).length;
+    const both = fecOnts.filter(o => o._hasUs && o._hasDs).length;
+    const hiddenIssues = fecOnts.filter(o => o._analysis?.status === 'ok').length;
+    return { total: fecOnts.length, high, moderate, low, usOnly, dsOnly, both, hiddenIssues };
+  }, [fecOnts]);
+
+  // Aggregations by OLT, Port, LCP
+  const aggregations = useMemo(() => {
+    const oltMap = new Map();
+    const portMap = new Map();
+    const lcpMap = new Map();
+
+    fecOnts.forEach(ont => {
+      const olt = ont._oltName || 'Unknown';
+      const port = `${olt} / ${ont._port || 'Unknown'}`;
+      const lcp = ont._lcpNumber ? `${ont._lcpNumber}/${ont._splitterNumber || ''}` : null;
+
+      // OLT
+      if (!oltMap.has(olt)) oltMap.set(olt, { name: olt, totalCor: 0, usCor: 0, dsCor: 0, count: 0, high: 0, moderate: 0, low: 0 });
+      const o = oltMap.get(olt);
+      o.totalCor += ont._totalCorrected; o.usCor += ont._usFecCor; o.dsCor += ont._dsFecCor; o.count++;
+      if (ont._severity === 'high') o.high++; else if (ont._severity === 'moderate') o.moderate++; else o.low++;
+
+      // Port
+      if (!portMap.has(port)) portMap.set(port, { name: port, olt, portKey: ont._port || 'Unknown', totalCor: 0, usCor: 0, dsCor: 0, count: 0, high: 0, moderate: 0, low: 0 });
+      const p = portMap.get(port);
+      p.totalCor += ont._totalCorrected; p.usCor += ont._usFecCor; p.dsCor += ont._dsFecCor; p.count++;
+      if (ont._severity === 'high') p.high++; else if (ont._severity === 'moderate') p.moderate++; else p.low++;
+
+      // LCP
+      if (lcp) {
+        if (!lcpMap.has(lcp)) lcpMap.set(lcp, { name: lcp, lcpNumber: ont._lcpNumber, splitter: ont._splitterNumber, location: ont._lcpLocation, address: ont._lcpAddress, totalCor: 0, usCor: 0, dsCor: 0, count: 0, high: 0, moderate: 0, low: 0 });
+        const l = lcpMap.get(lcp);
+        l.totalCor += ont._totalCorrected; l.usCor += ont._usFecCor; l.dsCor += ont._dsFecCor; l.count++;
+        if (ont._severity === 'high') l.high++; else if (ont._severity === 'moderate') l.moderate++; else l.low++;
+      }
+    });
+
+    const sortByTotal = (a, b) => b.totalCor - a.totalCor;
+    return {
+      olts: [...oltMap.values()].sort(sortByTotal),
+      ports: [...portMap.values()].sort(sortByTotal),
+      lcps: [...lcpMap.values()].sort(sortByTotal),
+    };
+  }, [fecOnts]);
+
+  // Filtered ONTs for the detail table
   const filtered = useMemo(() => {
     return fecOnts.filter(ont => {
+      // Drill filter from aggregation click
+      if (drillFilter) {
+        if (drillFilter.type === 'olt' && ont._oltName !== drillFilter.value) return false;
+        if (drillFilter.type === 'port' && `${ont._oltName} / ${ont._port}` !== drillFilter.value) return false;
+        if (drillFilter.type === 'lcp') {
+          const lcpKey = ont._lcpNumber ? `${ont._lcpNumber}/${ont._splitterNumber || ''}` : null;
+          if (lcpKey !== drillFilter.value) return false;
+        }
+      }
       const term = searchTerm.toLowerCase();
       const matchesSearch = !term ||
         ont.SerialNumber?.toLowerCase().includes(term) ||
@@ -75,9 +135,9 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
         (directionFilter === 'both' && ont._hasUs && ont._hasDs);
       return matchesSearch && matchesSeverity && matchesDirection;
     });
-  }, [fecOnts, searchTerm, severityFilter, directionFilter]);
+  }, [fecOnts, searchTerm, severityFilter, directionFilter, drillFilter]);
 
-  // Sort
+  // Sort filtered ONTs
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
       let av, bv;
@@ -93,22 +153,14 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
     });
   }, [filtered, sortField, sortDir]);
 
-  // Summary stats
-  const stats = useMemo(() => {
-    const high = fecOnts.filter(o => o._severity === 'high').length;
-    const moderate = fecOnts.filter(o => o._severity === 'moderate').length;
-    const low = fecOnts.filter(o => o._severity === 'low').length;
-    const usOnly = fecOnts.filter(o => o._hasUs && !o._hasDs).length;
-    const dsOnly = fecOnts.filter(o => !o._hasUs && o._hasDs).length;
-    const both = fecOnts.filter(o => o._hasUs && o._hasDs).length;
-    // How many are "OK" status but have corrected FEC
-    const hiddenIssues = fecOnts.filter(o => o._analysis?.status === 'ok').length;
-    return { total: fecOnts.length, high, moderate, low, usOnly, dsOnly, both, hiddenIssues };
-  }, [fecOnts]);
-
   const toggleSort = (field) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortDir('desc'); }
+  };
+
+  const handleDrill = (type, value) => {
+    setDrillFilter({ type, value });
+    setViewMode('onts');
   };
 
   const exportCSV = () => {
@@ -150,8 +202,8 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
         <CardContent className="p-4 flex items-start gap-3">
           <Info className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
           <div className="text-sm text-blue-800 dark:text-blue-200">
-            <strong>Corrected FEC Analysis</strong> — ONTs with non-zero corrected FEC codewords may appear "OK" but are actively 
-            error-correcting, which causes micro-drops, buffering, and degraded subscriber experience. High corrected FEC counts 
+            <strong>Corrected FEC Analysis</strong> — ONTs with non-zero corrected FEC codewords may appear "OK" but are actively
+            error-correcting, which causes micro-drops, buffering, and degraded subscriber experience. High counts
             indicate the link is operating near its correction threshold and may soon become uncorrectable.
           </div>
         </CardContent>
@@ -170,39 +222,278 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
             )}
           </CardContent>
         </Card>
-        <Card className="border-0 shadow bg-red-50 cursor-pointer hover:ring-2 hover:ring-red-300" onClick={() => setSeverityFilter(severityFilter === 'high' ? 'all' : 'high')}>
+        <Card className={`border-0 shadow bg-red-50 cursor-pointer hover:ring-2 hover:ring-red-300 ${severityFilter === 'high' ? 'ring-2 ring-red-500' : ''}`} onClick={() => setSeverityFilter(severityFilter === 'high' ? 'all' : 'high')}>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-red-600">{stats.high}</div>
-            <div className="text-xs text-gray-500">High (≥10k)</div>
+            <div className="text-xs text-gray-500">High (10k+)</div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow bg-orange-50 cursor-pointer hover:ring-2 hover:ring-orange-300" onClick={() => setSeverityFilter(severityFilter === 'moderate' ? 'all' : 'moderate')}>
+        <Card className={`border-0 shadow bg-orange-50 cursor-pointer hover:ring-2 hover:ring-orange-300 ${severityFilter === 'moderate' ? 'ring-2 ring-orange-500' : ''}`} onClick={() => setSeverityFilter(severityFilter === 'moderate' ? 'all' : 'moderate')}>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-orange-600">{stats.moderate}</div>
-            <div className="text-xs text-gray-500">Moderate (≥1k)</div>
+            <div className="text-xs text-gray-500">Moderate (1k+)</div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow bg-amber-50 cursor-pointer hover:ring-2 hover:ring-amber-300" onClick={() => setSeverityFilter(severityFilter === 'low' ? 'all' : 'low')}>
+        <Card className={`border-0 shadow bg-amber-50 cursor-pointer hover:ring-2 hover:ring-amber-300 ${severityFilter === 'low' ? 'ring-2 ring-amber-500' : ''}`} onClick={() => setSeverityFilter(severityFilter === 'low' ? 'all' : 'low')}>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold text-amber-600">{stats.low}</div>
-            <div className="text-xs text-gray-500">Low (1–999)</div>
+            <div className="text-xs text-gray-500">Low (1-999)</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Direction breakdown */}
-      <div className="flex items-center gap-3 flex-wrap text-xs text-gray-600">
-        <span>Direction:</span>
-        <Badge variant="outline" className="cursor-pointer" onClick={() => setDirectionFilter(directionFilter === 'upstream' ? 'all' : 'upstream')}>
-          US only: {stats.usOnly}
-        </Badge>
-        <Badge variant="outline" className="cursor-pointer" onClick={() => setDirectionFilter(directionFilter === 'downstream' ? 'all' : 'downstream')}>
-          DS only: {stats.dsOnly}
-        </Badge>
-        <Badge variant="outline" className="cursor-pointer" onClick={() => setDirectionFilter(directionFilter === 'both' ? 'all' : 'both')}>
-          Both: {stats.both}
-        </Badge>
+      {/* Direction + View Mode Toggle */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3 flex-wrap text-xs text-gray-600">
+          <span>Direction:</span>
+          <Badge variant={directionFilter === 'upstream' ? 'default' : 'outline'} className="cursor-pointer" onClick={() => setDirectionFilter(directionFilter === 'upstream' ? 'all' : 'upstream')}>
+            US only: {stats.usOnly}
+          </Badge>
+          <Badge variant={directionFilter === 'downstream' ? 'default' : 'outline'} className="cursor-pointer" onClick={() => setDirectionFilter(directionFilter === 'downstream' ? 'all' : 'downstream')}>
+            DS only: {stats.dsOnly}
+          </Badge>
+          <Badge variant={directionFilter === 'both' ? 'default' : 'outline'} className="cursor-pointer" onClick={() => setDirectionFilter(directionFilter === 'both' ? 'all' : 'both')}>
+            Both: {stats.both}
+          </Badge>
+        </div>
+
+        <div className="flex border rounded-lg overflow-hidden">
+          <Button variant={viewMode === 'dashboard' ? 'default' : 'ghost'} size="sm" className="rounded-none text-xs" onClick={() => { setViewMode('dashboard'); setDrillFilter(null); }}>
+            <BarChart3 className="h-3.5 w-3.5 mr-1" />Dashboard
+          </Button>
+          <Button variant={viewMode === 'olt' ? 'default' : 'ghost'} size="sm" className="rounded-none text-xs" onClick={() => { setViewMode('olt'); setDrillFilter(null); }}>
+            <Router className="h-3.5 w-3.5 mr-1" />By OLT
+          </Button>
+          <Button variant={viewMode === 'port' ? 'default' : 'ghost'} size="sm" className="rounded-none text-xs" onClick={() => { setViewMode('port'); setDrillFilter(null); }}>
+            <Layers className="h-3.5 w-3.5 mr-1" />By Port
+          </Button>
+          <Button variant={viewMode === 'lcp' ? 'default' : 'ghost'} size="sm" className="rounded-none text-xs" onClick={() => { setViewMode('lcp'); setDrillFilter(null); }}>
+            <MapPin className="h-3.5 w-3.5 mr-1" />By LCP
+          </Button>
+          <Button variant={viewMode === 'onts' ? 'default' : 'ghost'} size="sm" className="rounded-none text-xs" onClick={() => { setViewMode('onts'); setDrillFilter(null); }}>
+            <List className="h-3.5 w-3.5 mr-1" />All ONTs
+          </Button>
+        </div>
       </div>
+
+      {/* Dashboard View */}
+      {viewMode === 'dashboard' && (
+        <DashboardView aggregations={aggregations} onDrill={handleDrill} />
+      )}
+
+      {/* Aggregation Table Views */}
+      {(viewMode === 'olt' || viewMode === 'port' || viewMode === 'lcp') && (
+        <AggregationTable
+          viewMode={viewMode}
+          data={viewMode === 'olt' ? aggregations.olts : viewMode === 'port' ? aggregations.ports : aggregations.lcps}
+          onDrill={handleDrill}
+        />
+      )}
+
+      {/* ONT Detail Table */}
+      {viewMode === 'onts' && (
+        <OntTable
+          drillFilter={drillFilter}
+          setDrillFilter={setDrillFilter}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          severityFilter={severityFilter}
+          setSeverityFilter={setSeverityFilter}
+          directionFilter={directionFilter}
+          setDirectionFilter={setDirectionFilter}
+          sorted={sorted}
+          fecOnts={fecOnts}
+          stats={stats}
+          SortHeader={SortHeader}
+          onSelectOnt={onSelectOnt}
+          exportCSV={exportCSV}
+          setViewMode={setViewMode}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Dashboard View ──────────────────────────────────────────────────────── */
+function DashboardView({ aggregations, onDrill }) {
+  return (
+    <div className="grid md:grid-cols-3 gap-4">
+      <TopListCard
+        title="Top OLTs by Corrected FEC"
+        icon={<Router className="h-4 w-4" />}
+        items={aggregations.olts.slice(0, 8)}
+        onItemClick={(item) => onDrill('olt', item.name)}
+        maxVal={aggregations.olts[0]?.totalCor || 1}
+      />
+      <TopListCard
+        title="Top PON Ports by Corrected FEC"
+        icon={<Layers className="h-4 w-4" />}
+        items={aggregations.ports.slice(0, 8)}
+        onItemClick={(item) => onDrill('port', item.name)}
+        maxVal={aggregations.ports[0]?.totalCor || 1}
+      />
+      <TopListCard
+        title="Top LCP/Splitters by Corrected FEC"
+        icon={<MapPin className="h-4 w-4" />}
+        items={aggregations.lcps.slice(0, 8)}
+        onItemClick={(item) => onDrill('lcp', item.name)}
+        maxVal={aggregations.lcps[0]?.totalCor || 1}
+        renderSubtext={(item) => item.location || item.address || ''}
+      />
+    </div>
+  );
+}
+
+function TopListCard({ title, icon, items, onItemClick, maxVal, renderSubtext }) {
+  if (items.length === 0) {
+    return (
+      <Card className="border-0 shadow">
+        <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2">{icon}{title}</CardTitle></CardHeader>
+        <CardContent className="text-xs text-gray-500">No data</CardContent>
+      </Card>
+    );
+  }
+  return (
+    <Card className="border-0 shadow">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">{icon}{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 pt-0">
+        {items.map((item, idx) => (
+          <div
+            key={idx}
+            className="group cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-2 transition-colors -mx-2"
+            onClick={() => onItemClick(item)}
+          >
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="font-medium text-gray-800 dark:text-gray-200 truncate max-w-[60%]" title={item.name}>
+                {item.name}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-mono font-bold text-gray-900 dark:text-white">{item.totalCor.toLocaleString()}</span>
+                <span className="text-gray-400">({item.count})</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${Math.max(2, (item.totalCor / maxVal) * 100)}%`,
+                    background: item.high > 0 ? '#dc2626' : item.moderate > 0 ? '#ea580c' : '#d97706',
+                  }}
+                />
+              </div>
+              <div className="flex gap-0.5 shrink-0">
+                {item.high > 0 && <span className="text-[9px] px-1 py-0.5 bg-red-100 text-red-700 rounded">{item.high}H</span>}
+                {item.moderate > 0 && <span className="text-[9px] px-1 py-0.5 bg-orange-100 text-orange-700 rounded">{item.moderate}M</span>}
+                {item.low > 0 && <span className="text-[9px] px-1 py-0.5 bg-amber-100 text-amber-700 rounded">{item.low}L</span>}
+              </div>
+            </div>
+            {renderSubtext && renderSubtext(item) && (
+              <div className="text-[10px] text-gray-400 mt-0.5 truncate">{renderSubtext(item)}</div>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ── Aggregation Table ───────────────────────────────────────────────────── */
+function AggregationTable({ viewMode, data, onDrill }) {
+  const typeLabel = viewMode === 'olt' ? 'OLT' : viewMode === 'port' ? 'PON Port' : 'LCP / Splitter';
+  const drillType = viewMode === 'olt' ? 'olt' : viewMode === 'port' ? 'port' : 'lcp';
+  const maxVal = data[0]?.totalCor || 1;
+
+  return (
+    <Card className="border-0 shadow-lg overflow-hidden">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Corrected FEC by {typeLabel} ({data.length})</CardTitle>
+      </CardHeader>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gray-50 dark:bg-gray-800">
+              <TableHead>{typeLabel}</TableHead>
+              <TableHead className="text-right">ONTs</TableHead>
+              <TableHead className="text-right">US FEC Cor</TableHead>
+              <TableHead className="text-right">DS FEC Cor</TableHead>
+              <TableHead className="text-right">Total Corrected</TableHead>
+              <TableHead>Severity Breakdown</TableHead>
+              <TableHead className="w-[200px]">Distribution</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8 text-gray-500">No data for this grouping</TableCell>
+              </TableRow>
+            ) : data.map((row, idx) => (
+              <TableRow key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                <TableCell>
+                  <div className="font-medium text-sm">{row.name}</div>
+                  {viewMode === 'lcp' && row.location && (
+                    <div className="text-[10px] text-gray-400">{row.location}</div>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-mono text-sm">{row.count}</TableCell>
+                <TableCell className="text-right font-mono text-sm">{row.usCor.toLocaleString()}</TableCell>
+                <TableCell className="text-right font-mono text-sm">{row.dsCor.toLocaleString()}</TableCell>
+                <TableCell className={`text-right font-mono text-sm font-bold ${row.high > 0 ? 'text-red-600' : row.moderate > 0 ? 'text-orange-600' : 'text-amber-600'}`}>
+                  {row.totalCor.toLocaleString()}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    {row.high > 0 && <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">{row.high} High</Badge>}
+                    {row.moderate > 0 && <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">{row.moderate} Mod</Badge>}
+                    {row.low > 0 && <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">{row.low} Low</Badge>}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden w-full">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.max(2, (row.totalCor / maxVal) * 100)}%`,
+                        background: row.high > 0 ? '#dc2626' : row.moderate > 0 ? '#ea580c' : '#d97706',
+                      }}
+                    />
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onDrill(drillType, row.name)}>
+                    View ONTs
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </Card>
+  );
+}
+
+/* ── ONT Detail Table ────────────────────────────────────────────────────── */
+function OntTable({
+  drillFilter, setDrillFilter, searchTerm, setSearchTerm,
+  severityFilter, setSeverityFilter, directionFilter, setDirectionFilter,
+  sorted, fecOnts, stats, SortHeader, onSelectOnt, exportCSV, setViewMode
+}) {
+  return (
+    <>
+      {/* Drill filter indicator */}
+      {drillFilter && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 rounded-lg">
+          <span className="text-xs text-indigo-800 dark:text-indigo-200">
+            Filtered to <strong>{drillFilter.type.toUpperCase()}: {drillFilter.value}</strong>
+          </span>
+          <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setDrillFilter(null)}>Clear</Button>
+          <Button variant="ghost" size="sm" className="h-6 text-xs ml-auto" onClick={() => setViewMode('dashboard')}>Back to Dashboard</Button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3 flex-wrap">
@@ -214,9 +505,9 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
           <SelectTrigger className="w-[150px]"><SelectValue placeholder="Severity" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Severity</SelectItem>
-            <SelectItem value="high">High (≥10k)</SelectItem>
-            <SelectItem value="moderate">Moderate (≥1k)</SelectItem>
-            <SelectItem value="low">Low (1–999)</SelectItem>
+            <SelectItem value="high">High (10k+)</SelectItem>
+            <SelectItem value="moderate">Moderate (1k+)</SelectItem>
+            <SelectItem value="low">Low (1-999)</SelectItem>
           </SelectContent>
         </Select>
         <Select value={directionFilter} onValueChange={setDirectionFilter}>
@@ -252,15 +543,13 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
                 <SortHeader field="totalCorrected" className="text-right">Total Cor</SortHeader>
                 <TableHead className="text-right">ONT Rx</TableHead>
                 <TableHead className="text-right">OLT Rx</TableHead>
-                <TableHead className="text-right">US FEC Unc</TableHead>
-                <TableHead className="text-right">DS FEC Unc</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sorted.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={15} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={13} className="text-center py-8 text-gray-500">
                     {fecOnts.length === 0 ? 'No ONTs with corrected FEC in this report' : 'No results match current filters'}
                   </TableCell>
                 </TableRow>
@@ -268,9 +557,7 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
                 const sev = FEC_SEVERITY[ont._severity];
                 return (
                   <TableRow key={idx} className={sev?.rowBg || ''}>
-                    <TableCell>
-                      <Badge className={sev?.color}>{sev?.label}</Badge>
-                    </TableCell>
+                    <TableCell><Badge className={sev?.color}>{sev?.label}</Badge></TableCell>
                     <TableCell>
                       <Badge variant="outline" className={`text-[10px] ${
                         ont._analysis?.status === 'ok' ? 'bg-green-50 text-green-700 border-green-300' :
@@ -278,7 +565,7 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
                         ont._analysis?.status === 'critical' ? 'bg-red-50 text-red-700 border-red-300' :
                         'bg-gray-50 text-gray-600 border-gray-300'
                       }`}>
-                        {ont._analysis?.status?.toUpperCase() || '—'}
+                        {ont._analysis?.status?.toUpperCase() || '-'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">{ont._oltName || '-'}</TableCell>
@@ -307,18 +594,8 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
                     <TableCell className={`text-right font-mono text-sm font-bold ${ont._totalCorrected >= 10000 ? 'text-red-600' : ont._totalCorrected >= 1000 ? 'text-orange-600' : 'text-amber-600'}`}>
                       {ont._totalCorrected.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
-                      {ont.OntRxOptPwr || '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
-                      {ont.OLTRXOptPwr || '-'}
-                    </TableCell>
-                    <TableCell className={`text-right font-mono text-xs ${parseInt(ont.UpstreamFecUncorrectedCodeWords) > 0 ? 'text-red-600 font-bold' : ''}`}>
-                      {ont.UpstreamFecUncorrectedCodeWords || '0'}
-                    </TableCell>
-                    <TableCell className={`text-right font-mono text-xs ${parseInt(ont.DownstreamFecUncorrectedCodeWords) > 0 ? 'text-red-600 font-bold' : ''}`}>
-                      {ont.DownstreamFecUncorrectedCodeWords || '0'}
-                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs">{ont.OntRxOptPwr || '-'}</TableCell>
+                    <TableCell className="text-right font-mono text-xs">{ont.OLTRXOptPwr || '-'}</TableCell>
                     <TableCell>
                       <Button size="sm" variant="outline" className="text-xs h-7 gap-1" onClick={() => onSelectOnt?.(ont)}>
                         <Activity className="h-3 w-3" /> Details
@@ -332,10 +609,11 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
         </div>
         {sorted.length > 0 && (
           <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t text-xs text-gray-500">
-            Showing {sorted.length} of {fecOnts.length} ONTs with corrected FEC • {stats.hiddenIssues} currently marked "OK" status
+            Showing {sorted.length} of {fecOnts.length} ONTs with corrected FEC
+            {stats.hiddenIssues > 0 && ` • ${stats.hiddenIssues} currently marked "OK" status`}
           </div>
         )}
       </Card>
-    </div>
+    </>
   );
 }
