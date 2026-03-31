@@ -19,6 +19,7 @@ import AdvancedAuditFilter from '@/components/admin/AdvancedAuditFilter';
 import ConversationFilter from '@/components/admin/ConversationFilter';
 import AdminOnboardingTour from '@/components/admin/AdminOnboardingTour';
 import ChunkHealthManager from '@/components/admin/ChunkHealthManager';
+import OrphanOntCleanup from '@/components/admin/OrphanOntCleanup';
 import AdminOverviewTab from '@/components/admin/AdminOverviewTab';
 import AdminAnalyticsTab from '@/components/admin/AdminAnalyticsTab';
 
@@ -955,6 +956,7 @@ Thank you for reaching out!
 
                     {/* System Health Tab */}
                     <TabsContent value="health" className="space-y-6">
+                        <OrphanOntCleanup />
                         <SystemHealthMonitor />
                     </TabsContent>
                 </Tabs>
