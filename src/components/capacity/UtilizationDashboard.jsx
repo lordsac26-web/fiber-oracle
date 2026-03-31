@@ -38,6 +38,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
   const [expandedLcps, setExpandedLcps] = useState([]);
   const [sortField, setSortField] = useState('status');
   const [sortDir, setSortDir] = useState('asc');
+  const [hideEmpty, setHideEmpty] = useState(false);
 
   // Build per-splitter rows, then group by LCP
   const { lcpGroups, splitterRows, stats } = useMemo(() => {
@@ -122,7 +123,13 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
   const filteredGroups = useMemo(() => {
     const term = searchTerm.toLowerCase();
     return Object.values(lcpGroups)
+      .map(g => {
+        // If hideEmpty, filter out splitters with 0 ONTs before applying other filters
+        const activeSplitters = hideEmpty ? g.splitters.filter(s => s.count > 0) : g.splitters;
+        return { ...g, splitters: activeSplitters };
+      })
       .filter(g => {
+        if (g.splitters.length === 0) return false;
         const matchesSearch = !term ||
           g.lcp.toLowerCase().includes(term) ||
           g.location.toLowerCase().includes(term) ||
@@ -150,7 +157,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
         }
         return 0;
       });
-  }, [lcpGroups, searchTerm, statusFilter, sortField, sortDir]);
+  }, [lcpGroups, searchTerm, statusFilter, sortField, sortDir, hideEmpty]);
 
   const toggleLcp = (lcp) => {
     setExpandedLcps(prev => prev.includes(lcp) ? prev.filter(l => l !== lcp) : [...prev, lcp]);
@@ -231,6 +238,15 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
             <SelectItem value="available">Available (11+)</SelectItem>
           </SelectContent>
         </Select>
+        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={hideEmpty}
+            onChange={() => setHideEmpty(h => !h)}
+            className="rounded border-gray-300"
+          />
+          Hide 0 ONTs
+        </label>
         <div className="flex items-center gap-1">
           <Button variant="outline" size="sm" onClick={() => setExpandedLcps(filteredGroups.map(g => g.lcp))}>
             <ChevronDown className="h-4 w-4 mr-1" /> Expand All
