@@ -2,12 +2,19 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { Badge } from '@/components/ui/badge';
-import { FlaskConical, ChevronRight } from 'lucide-react';
+import { FlaskConical, ChevronRight, Construction } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function ModuleCard({ module, compact = false, darkMode = true }) {
+  const isDisabled = module.isUnderConstruction;
+
+  const Wrapper = isDisabled ? 'div' : Link;
+  const wrapperProps = isDisabled
+    ? { className: 'block h-full cursor-not-allowed', onClick: (e) => e.preventDefault() }
+    : { to: createPageUrl(module.page), className: 'block h-full' };
+
   return (
-    <Link to={createPageUrl(module.page)} className="block h-full">
+    <Wrapper {...wrapperProps}>
       <div
         className={cn(
           'group relative overflow-hidden rounded-2xl h-full cursor-pointer transition-all duration-300',
@@ -33,11 +40,16 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
         <div className={cn('flex', compact ? 'items-start gap-2 md:gap-3' : 'flex-col items-center text-center md:items-start md:text-left')}>
           {/* Icon */}
           <div className={cn(
-            `bg-gradient-to-br ${module.color} flex items-center justify-center shadow-lg`,
-            'rounded-xl flex-shrink-0 transition-transform duration-300 group-hover:scale-110',
+            'flex items-center justify-center shadow-lg',
+            'rounded-xl flex-shrink-0 transition-transform duration-300',
+            isDisabled ? 'bg-gradient-to-br from-gray-400 to-gray-500' : `bg-gradient-to-br ${module.color}`,
+            !isDisabled && 'group-hover:scale-110',
             compact ? 'w-8 h-8 md:w-9 md:h-9' : 'w-10 h-10 md:w-14 md:h-14 mb-2 md:mb-3'
           )}>
-            <module.icon className={cn('text-white', compact ? 'h-4 w-4' : 'h-5 w-5 md:h-7 md:w-7')} />
+            {isDisabled
+              ? <Construction className={cn('text-white', compact ? 'h-4 w-4' : 'h-5 w-5 md:h-7 md:w-7')} />
+              : <module.icon className={cn('text-white', compact ? 'h-4 w-4' : 'h-5 w-5 md:h-7 md:w-7')} />
+            }
           </div>
 
           <div className="min-w-0 flex-1">
@@ -52,8 +64,13 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
                   <FlaskConical className="h-2 w-2 mr-0.5 inline" />BETA
                 </Badge>
               )}
-              {module.isNew && (
+              {module.isNew && !isDisabled && (
                 <Badge className="ml-1.5 bg-emerald-500/80 text-[8px] px-1 py-0 align-middle">NEW</Badge>
+              )}
+              {isDisabled && (
+                <Badge className="ml-1.5 bg-amber-600/80 text-[8px] px-1 py-0 align-middle">
+                  <Construction className="h-2 w-2 mr-0.5 inline" />WIP
+                </Badge>
               )}
             </h3>
             <p className={cn(
@@ -73,6 +90,6 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
           </div>
         )}
       </div>
-    </Link>
+    </Wrapper>
   );
 }

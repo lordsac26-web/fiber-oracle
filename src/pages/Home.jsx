@@ -32,7 +32,7 @@ const MODULES = [
   { id: 'olts', title: 'OLTS Tier-1', description: 'Method B bidirectional power testing', icon: Activity, color: 'from-emerald-500 to-teal-600', page: 'OLTSTest', badge: 'Testing' },
   { id: 'otdr', title: 'OTDR Tier-2', description: 'Bidirectional trace characterization', icon: Activity, color: 'from-indigo-500 to-purple-600', page: 'OTDRTest', badge: 'Testing' },
   { id: 'cleaning', title: 'Cleaning & Inspection', description: 'IEC 61300-3-35 procedures', icon: Sparkles, color: 'from-cyan-500 to-blue-600', page: 'Cleaning', badge: 'Testing' },
-  { id: 'photon', title: 'P.H.O.T.O.N.', description: 'AI technical assistant & document expert', icon: Zap, color: 'from-cyan-400 to-blue-600', page: 'PhotonChat', badge: 'Troubleshoot', isNew: true },
+  { id: 'photon', title: 'P.H.O.T.O.N.', description: 'Under construction — AI assistant coming soon', icon: Zap, color: 'from-cyan-400 to-blue-600', page: 'PhotonChat', badge: 'Troubleshoot', isUnderConstruction: true },
   { id: 'fieldmode', title: 'Field Mode', description: 'Mobile-optimized tools for technicians', icon: Smartphone, color: 'from-violet-500 to-purple-600', page: 'FieldMode', badge: 'Troubleshoot', isNew: true, requiresPreference: 'fieldModeEnabled' },
   { id: 'doctor', title: 'Fiber Doctor', description: 'Interactive troubleshooting flowchart', icon: Stethoscope, color: 'from-rose-500 to-pink-600', page: 'FiberDoctor', badge: 'Troubleshoot' },
   { id: 'otdranalysis', title: 'AI OTDR Analysis', description: 'AI-powered trace diagnostics', icon: FileSearch, color: 'from-purple-600 to-indigo-700', page: 'OTDRAnalysis', badge: 'Troubleshoot', isBeta: true },
