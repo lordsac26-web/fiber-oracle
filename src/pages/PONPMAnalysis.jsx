@@ -284,21 +284,15 @@ export default function PONPMAnalysis() {
         const avgRx = rxValues.length > 0 ? rxValues.reduce((a, b) => a + b, 0) / rxValues.length : null;
         const minRx = rxValues.length > 0 ? Math.min(...rxValues) : null;
         const maxRx = rxValues.length > 0 ? Math.max(...rxValues) : null;
-
+        const gponCount = response.data.onts.filter(o => o._techType?.includes('GPON')).length;
+        const xgsCount = response.data.onts.filter(o => o._techType?.includes('XGS-PON')).length;
         saveReportMutation.mutate({
-          report_name: reportName,
-          upload_date: fileReportDate,
-          file_url: file_url,
-          ont_count: response.data.summary.totalOnts,
-          critical_count: response.data.summary.criticalCount,
-          warning_count: response.data.summary.warningCount,
-          ok_count: response.data.summary.okCount,
-          olt_count: response.data.summary.oltCount,
-          olts: Object.keys(response.data.olts || {}),
-          avg_ont_rx: avgRx,
-          min_ont_rx: minRx,
-          max_ont_rx: maxRx,
-          onts: response.data.onts, // All ONTs - backend handles large datasets
+          report_name: reportName, upload_date: fileReportDate, file_url: file_url,
+          ont_count: response.data.summary.totalOnts, critical_count: response.data.summary.criticalCount,
+          warning_count: response.data.summary.warningCount, ok_count: response.data.summary.okCount,
+          olt_count: response.data.summary.oltCount, olts: Object.keys(response.data.olts || {}),
+          avg_ont_rx: avgRx, min_ont_rx: minRx, max_ont_rx: maxRx,
+          gpon_count: gponCount, xgs_count: xgsCount, onts: response.data.onts,
         });
       } else {
         toast.error(response.data?.error || 'Failed to parse file', { id: 'pon-parse' });
@@ -1363,7 +1357,13 @@ Be specific, technical, and actionable.`;
             </Card>
 
             {/* KPI Statistics */}
-            {showKPIs && <KPIStatistics result={result} filteredOnts={filteredOnts} />}
+            {showKPIs && <KPIStatistics result={result} filteredOnts={filteredOnts} previousReport={(() => {
+              if (!savedReports || savedReports.length < 2) return null;
+              const ci = selectedReportId ? savedReports.findIndex(r => r.id === selectedReportId) : 0;
+              const prev = savedReports[ci >= 0 ? ci + 1 : 1];
+              if (!prev || (prev.gpon_count == null && prev.xgs_count == null)) return null;
+              return { gponCount: prev.gpon_count ?? 0, xgsCount: prev.xgs_count ?? 0 };
+            })()} />}
 
             {/* Power Distribution Charts */}
             {filteredOnts.length > 0 && (

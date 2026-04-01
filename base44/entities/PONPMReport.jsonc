@@ -54,6 +54,14 @@
       "type": "number",
       "description": "Maximum ONT Rx power"
     },
+    "gpon_count": {
+      "type": "number",
+      "description": "Number of GPON ONTs in this report"
+    },
+    "xgs_count": {
+      "type": "number",
+      "description": "Number of XGS-PON ONTs in this report"
+    },
     "processing_status": {
       "type": "string",
       "enum": [

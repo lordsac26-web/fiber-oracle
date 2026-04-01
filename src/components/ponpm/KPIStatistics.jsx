@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Activity, Zap, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 
-export default function KPIStatistics({ result, filteredOnts }) {
+export default function KPIStatistics({ result, filteredOnts, previousReport }) {
   const stats = useMemo(() => {
     if (!filteredOnts || filteredOnts.length === 0) {
       return null;
@@ -79,8 +79,10 @@ export default function KPIStatistics({ result, filteredOnts }) {
       avgXgsRx: xgsOnts.length > 0 
         ? xgsOnts.map(o => parseFloat(o.OntRxOptPwr)).filter(v => !isNaN(v) && v !== 0).reduce((a, b) => a + b, 0) / xgsOnts.filter(o => !isNaN(parseFloat(o.OntRxOptPwr)) && parseFloat(o.OntRxOptPwr) !== 0).length
         : null,
+      gponDelta: previousReport ? gponOnts.length - (previousReport.gponCount ?? null) : null,
+      xgsDelta: previousReport ? xgsOnts.length - (previousReport.xgsCount ?? null) : null,
     };
-  }, [filteredOnts]);
+  }, [filteredOnts, previousReport]);
 
   if (!stats) return null;
 
@@ -162,6 +164,12 @@ export default function KPIStatistics({ result, filteredOnts }) {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-blue-800 dark:text-blue-200">GPON</span>
                   <Badge className="bg-blue-600 text-white">{stats.gponCount} ONTs</Badge>
+                  {stats.gponDelta !== null && stats.gponDelta !== 0 && (
+                    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ml-1 ${stats.gponDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {stats.gponDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                      {stats.gponDelta > 0 ? '+' : ''}{stats.gponDelta}
+                    </span>
+                  )}
                 </div>
                 {stats.avgGponRx !== null && (
                   <div className="text-sm text-blue-700 dark:text-blue-300">
@@ -173,6 +181,12 @@ export default function KPIStatistics({ result, filteredOnts }) {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-purple-800 dark:text-purple-200">XGS-PON</span>
                   <Badge className="bg-purple-600 text-white">{stats.xgsCount} ONTs</Badge>
+                  {stats.xgsDelta !== null && stats.xgsDelta !== 0 && (
+                    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ml-1 ${stats.xgsDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {stats.xgsDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                      {stats.xgsDelta > 0 ? '+' : ''}{stats.xgsDelta}
+                    </span>
+                  )}
                 </div>
                 {stats.avgXgsRx !== null && (
                   <div className="text-sm text-purple-700 dark:text-purple-300">
