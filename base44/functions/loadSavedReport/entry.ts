@@ -8,9 +8,8 @@
  * The returned shape mirrors parsePonPm's response so the frontend can use it
  * without any changes to how it renders the data.
  */
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
-// Mirror of parsePonPm's detectTechTypeFromModel
 function detectTechType(model) {
   if (!model) return null;
   const m = model.toUpperCase().trim().replace(/\s/g, '');
@@ -21,7 +20,6 @@ function detectTechType(model) {
   return null;
 }
 
-// Mirror of parsePonPm's detectComboPort
 function detectComboPort(shelfSlotPort) {
   if (!shelfSlotPort) return { isCombo: false, techType: null, comboLabel: null };
   const comboMatch = shelfSlotPort.match(/(?:xp)?(\d+)-(\d+)$/i);
@@ -36,7 +34,6 @@ function detectComboPort(shelfSlotPort) {
   return { isCombo: false, techType: null, comboLabel: null };
 }
 
-// Thresholds (must mirror parsePonPm / processPonPmRecords)
 const THRESHOLDS = {
   OntRxOptPwr:  { low: -27, marginal: -25, high: -8 },
   OLTRXOptPwr:  { low: -30, marginal: -28, high: -8 },
@@ -48,19 +45,12 @@ const THRESHOLDS = {
   DownstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
 };
 
-/**
- * Re-derive the _analysis object from stored numeric fields.
- * Keeps the shape identical to what parsePonPm produces so the UI
- * doesn't need any special-casing.
- */
 function deriveAnalysis(rec) {
   const issues = [];
   const warnings = [];
-
   const ontRx = rec.ont_rx_power;
   const oltRx = rec.olt_rx_power;
 
-  // Offline = both sides zero/null
   const isOffline = (ontRx === 0 || ontRx == null) && (oltRx === 0 || oltRx == null);
   if (isOffline) return { issues: [], warnings: [], status: 'offline' };
 
@@ -83,9 +73,9 @@ function deriveAnalysis(rec) {
   const checkErr = (fieldKey, val) => {
     if (val == null || !THRESHOLDS[fieldKey]) return;
     if (val >= THRESHOLDS[fieldKey].critical)
-      issues.push({ field: fieldKey, severity: 'critical', value: val.toLocaleString(), threshold: `≥ ${THRESHOLDS[fieldKey].critical}`, message: 'High error count' });
+      issues.push({ field: fieldKey, severity: 'critical', value: val.toLocaleString(), threshold: `>= ${THRESHOLDS[fieldKey].critical}`, message: 'High error count' });
     else if (val >= THRESHOLDS[fieldKey].warning)
-      warnings.push({ field: fieldKey, severity: 'warning', value: val.toLocaleString(), threshold: `≥ ${THRESHOLDS[fieldKey].warning}`, message: 'Elevated error count' });
+      warnings.push({ field: fieldKey, severity: 'warning', value: val.toLocaleString(), threshold: `>= ${THRESHOLDS[fieldKey].warning}`, message: 'Elevated error count' });
   };
 
   checkErr('UpstreamBipErrors',               rec.us_bip_errors);
@@ -93,7 +83,7 @@ function deriveAnalysis(rec) {
   checkErr('UpstreamMissedBursts',             rec.us_missed_bursts);
   checkErr('UpstreamGemHecErrors',             rec.us_gem_hec_errors);
   checkErr('UpstreamFecUncorrectedCodeWords',  rec.us_fec_uncorrected);
-  checkErr('DownstreamFecUncorrectedCodeWords',rec.ds_fec_uncorrected);
+  checkErr('DownstreamFecUncorrectedCodeWords', rec.ds_fec_uncorrected);
 
   return {
     issues,
@@ -102,17 +92,12 @@ function deriveAnalysis(rec) {
   };
 }
 
-/**
- * Map an ONTPerformanceRecord DB row → the ont shape parsePonPm produces.
- * Field names must match what the UI reads (e.g. ont.OntRxOptPwr, ont._oltName, etc.)
- */
 function recordToOnt(rec) {
   const analysis = deriveAnalysis(rec);
   const modelTech = detectTechType(rec.model);
   const comboInfo = detectComboPort(rec.shelf_slot_port);
 
   return {
-    // Raw CSV-style fields the UI reads
     OLTName:          rec.olt_name || '',
     'Shelf/Slot/Port': rec.shelf_slot_port || '',
     OntID:            rec.ont_id || '',
@@ -130,14 +115,10 @@ function recordToOnt(rec) {
     UpstreamGemHecErrors:  rec.us_gem_hec_errors  != null ? String(rec.us_gem_hec_errors)  : '0',
     UpstreamMissedBursts:  rec.us_missed_bursts   != null ? String(rec.us_missed_bursts)   : '0',
     upTime:           rec.ont_uptime || null,
-
-    // LCP enrichment
     _lcpNumber:       rec.lcp_number     || '',
     _splitterNumber:  rec.splitter_number || '',
     _lcpLocation:     '',
     _lcpAddress:      '',
-
-    // Analysis & routing
     _analysis:   analysis,
     _oltName:    rec.olt_name        || 'Unknown OLT',
     _port:       rec.shelf_slot_port || 'Unknown',
@@ -157,8 +138,8 @@ Deno.serve(async (req) => {
     const { report_id } = await req.json();
     if (!report_id) return Response.json({ error: 'report_id required' }, { status: 400 });
 
-    // 1. Load report summary metadata
-    const reports = await base44.entities.PONPMReport.filter({ id: report_id });
+    // 1. Load report summary metadata (service role bypasses RLS)
+    const reports = await base44.asServiceRole.entities.PONPMReport.filter({ id: report_id });
     const report = reports[0];
     if (!report) return Response.json({ error: 'Report not found' }, { status: 404 });
 
@@ -195,14 +176,13 @@ Deno.serve(async (req) => {
     }
 
     if (allRecords.length === 0) {
-      // Records not yet indexed — fall back with an error so the UI can retry via parsePonPm
       return Response.json({ error: 'NO_RECORDS', message: 'ONT records not yet indexed for this report.' }, { status: 404 });
     }
 
-    // 3. Map DB rows → ont objects
+    // 3. Map DB rows to ont objects
     const onts = allRecords.map(recordToOnt);
 
-    // 4. Rebuild olts/ports segment stats (same structure parsePonPm returns)
+    // 4. Rebuild olts/ports segment stats
     const olts = {};
     for (const ont of onts) {
       const oltName = ont._oltName;
