@@ -87,7 +87,7 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
       if (ont._severity === 'high') o.high++; else if (ont._severity === 'moderate') o.moderate++; else o.low++;
 
       // Port
-      if (!portMap.has(port)) portMap.set(port, { name: port, olt, portKey: ont._port || 'Unknown', totalCor: 0, usCor: 0, dsCor: 0, count: 0, high: 0, moderate: 0, low: 0 });
+      if (!portMap.has(port)) portMap.set(port, { name: port, olt, portKey: ont._port || 'Unknown', totalCor: 0, usCor: 0, dsCor: 0, count: 0, totalOntsOnPort: 0, high: 0, moderate: 0, low: 0 });
       const p = portMap.get(port);
       p.totalCor += ont._totalCorrected; p.usCor += ont._usFecCor; p.dsCor += ont._dsFecCor; p.count++;
       if (ont._severity === 'high') p.high++; else if (ont._severity === 'moderate') p.moderate++; else p.low++;
@@ -101,13 +101,25 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
       }
     });
 
+    // Enrich ports with total ONT count from the full dataset so we can compute % affected
+    if (onts?.length) {
+      const portTotalMap = new Map();
+      onts.forEach(ont => {
+        const key = `${ont._oltName || 'Unknown'} / ${ont._port || 'Unknown'}`;
+        portTotalMap.set(key, (portTotalMap.get(key) || 0) + 1);
+      });
+      for (const p of portMap.values()) {
+        p.totalOntsOnPort = portTotalMap.get(p.name) || p.count;
+      }
+    }
+
     const sortByTotal = (a, b) => b.totalCor - a.totalCor;
     return {
       olts: [...oltMap.values()].sort(sortByTotal),
       ports: [...portMap.values()].sort(sortByTotal),
       lcps: [...lcpMap.values()].sort(sortByTotal),
     };
-  }, [fecOnts]);
+  }, [fecOnts, onts]);
 
   // Filtered ONTs for the detail table
   const filtered = useMemo(() => {
@@ -182,6 +194,28 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
     a.click();
     URL.revokeObjectURL(url);
     toast.success(`Exported ${sorted.length} ONTs with corrected FEC`);
+  };
+
+  const exportTopPorts = () => {
+    const top10 = aggregations.ports.slice(0, 10);
+    if (top10.length === 0) { toast.error('No port data to export'); return; }
+    const headers = ['Rank', 'OLT', 'Port', 'Affected ONTs', 'Total ONTs on Port', '% Affected', 'US FEC Corrected', 'DS FEC Corrected', 'Total Corrected', 'High Severity', 'Moderate Severity', 'Low Severity'];
+    const rows = top10.map((p, i) => {
+      const pctAffected = p.totalOntsOnPort > 0 ? ((p.count / p.totalOntsOnPort) * 100).toFixed(1) : 'N/A';
+      return [
+        i + 1, p.olt, p.portKey, p.count, p.totalOntsOnPort, `${pctAffected}%`,
+        p.usCor, p.dsCor, p.totalCor, p.high, p.moderate, p.low,
+      ];
+    });
+    const csv = [headers, ...rows].map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `top-10-fec-ports-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported top ${top10.length} ports with corrected FEC errors`);
   };
 
   const SortHeader = ({ field, children, className = '' }) => (
@@ -307,6 +341,8 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
           SortHeader={SortHeader}
           onSelectOnt={onSelectOnt}
           exportCSV={exportCSV}
+          exportTopPorts={exportTopPorts}
+          aggregations={aggregations}
           setViewMode={setViewMode}
         />
       )}
@@ -480,7 +516,7 @@ function AggregationTable({ viewMode, data, onDrill }) {
 function OntTable({
   drillFilter, setDrillFilter, searchTerm, setSearchTerm,
   severityFilter, setSeverityFilter, directionFilter, setDirectionFilter,
-  sorted, fecOnts, stats, SortHeader, onSelectOnt, exportCSV, setViewMode
+  sorted, fecOnts, stats, SortHeader, onSelectOnt, exportCSV, exportTopPorts, aggregations, setViewMode
 }) {
   return (
     <>
@@ -522,6 +558,10 @@ function OntTable({
         <Button variant="outline" size="sm" onClick={exportCSV} disabled={sorted.length === 0}>
           <Download className="h-4 w-4 mr-2" />
           Export CSV
+        </Button>
+        <Button variant="outline" size="sm" onClick={exportTopPorts} disabled={aggregations.ports.length === 0}>
+          <Download className="h-4 w-4 mr-2" />
+          Top 10 Ports
         </Button>
       </div>
 
