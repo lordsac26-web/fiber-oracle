@@ -1,59 +1,29 @@
-/**
- * generatePortOntReport - Generate a detailed port & ONT report with optic type breakdown
- * 
- * Returns: Array of port summaries grouped by OLT with columns:
- * - System Name (OLT)
- * - Shelf/Slot/Port
- * - ONT Count
- * - LCP/CLCP
- * - Splitter
- * - Technology Type (optic model)
- */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
-// Detect optic technology from model name
 function detectOpticType(model) {
   if (!model) return 'Unknown';
   const m = model.toUpperCase().trim().replace(/\s/g, '');
-  
-  // XGS-DD models
   if (m.includes('XGS') && m.includes('DD')) return 'XGS-DD';
-  
-  // COMBO variants
   if (m.includes('COMBO')) return 'COMBO/EXT COMBO';
-  
-  // Fallback to specific patterns
   if (m.includes('XGS')) return 'XGS-PON';
   if (m.includes('GPON')) return 'GPON';
-  
   return 'Other';
 }
 
-// Parse COMBO port schema: "1/2/xp11-12" => extracts port numbers
-function parseComboPortSchema(portStr) {
-  if (!portStr) return { xgsPort: null, gponPort: null };
-  const match = portStr.match(/xp?(\d+)[-/]?(\d+)?/i);
-  if (!match) return { xgsPort: null, gponPort: null };
-  const port1 = parseInt(match[1]);
-  const port2 = match[2] ? parseInt(match[2]) : null;
-  // Odd = XGS, Even = GPON
-  if (port2) {
+// Normalize a shelf_slot_port string into {shelf, slot, port}
+function parseShelfSlotPort(str) {
+  if (!str) return null;
+  const parts = str.split('/').map(p => p.trim());
+  if (parts.length >= 3) {
     return {
-      xgsPort: port1 % 2 === 1 ? port1 : port2,
-      gponPort: port1 % 2 === 0 ? port1 : port2,
+      shelf: parts[parts.length - 3],
+      slot:  parts[parts.length - 2],
+      port:  parts[parts.length - 1],
     };
   }
-  return { xgsPort: port1 % 2 === 1 ? port1 : null, gponPort: port1 % 2 === 0 ? port1 : null };
-}
-
-// Determine if ONT is on XGS or GPON side of COMBO port
-function determineComboOntType(ontPort, comboSchema) {
-  if (!ontPort || !comboSchema.xgsPort && !comboSchema.gponPort) return null;
-  const portNum = parseInt(ontPort);
-  if (comboSchema.xgsPort && portNum === comboSchema.xgsPort) return 'xgs';
-  if (comboSchema.gponPort && portNum === comboSchema.gponPort) return 'gpon';
-  // Default based on odd/even
-  return portNum % 2 === 1 ? 'xgs' : 'gpon';
+  if (parts.length === 2) return { shelf: null, slot: parts[0], port: parts[1] };
+  if (parts.length === 1) return { shelf: null, slot: null, port: parts[0] };
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -63,160 +33,146 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { filterType = 'all' } = await req.json();
-    // filterType: 'all' | 'xgs-dd' | 'combo'
 
-    // Load all LCP entries
     const lcpEntries = await base44.asServiceRole.entities.LCPEntry.list('-created_date', 5000);
     if (!lcpEntries?.length) {
-      return Response.json({ 
-        success: true, 
-        filterType, 
-        portReports: [], 
-        summary: { totalPorts: 0, totalOnts: 0, byType: {} } 
+      return Response.json({
+        success: true, filterType, portReports: [],
+        summary: { totalPorts: 0, totalOnts: 0, byType: {} }
       });
     }
 
-    // Aggregate by OLT / Port / Optic type
-    const portMap = new Map(); // key: "OLT|Shelf|Slot|Port"
+    const portMap = new Map(); // key: "oltName|shelf|slot|port"
 
     for (const entry of lcpEntries) {
       const oltName = entry.olt_name || 'Unknown';
-      const shelf = entry.olt_shelf || '-';
-      const slot = entry.olt_slot || '-';
-      const port = entry.olt_port || '-';
+      const shelf   = String(entry.olt_shelf || '-');
+      const slot    = String(entry.olt_slot  || '-');
+      const port    = String(entry.olt_port  || '-');
       const opticType = detectOpticType(entry.optic_type || entry.optic_model);
-      const comboSchema = opticType === 'COMBO/EXT COMBO' ? parseComboPortSchema(port) : null;
-      
       const key = `${oltName}|${shelf}|${slot}|${port}`;
-      
+
       if (!portMap.has(key)) {
         portMap.set(key, {
-          oltName,
-          shelf,
-          slot,
-          port,
-          lcpNumber: entry.lcp_number || '',
+          oltName, shelf, slot, port,
+          lcpNumber:     entry.lcp_number    || '',
           splitterNumber: entry.splitter_number || '',
           opticType,
-          comboSchema,
-          opticMake: entry.optic_make || '',
+          opticMake:  entry.optic_make  || '',
           opticModel: entry.optic_model || '',
           ontCounts: { total: 0, xgs: 0, gpon: 0 },
-          entries: [],
         });
       }
-      
-      portMap.get(key).entries.push(entry);
     }
 
-    // Load ONT records and get LATEST record per serial number per port
+    // Load ONTs — deduplicate by serial+port, keep latest
     const ontRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.list('-updated_date', 100000);
     
-    // Track latest record per serial number per port
-    const latestOntBySerial = new Map(); // key: "OLT|port|serial", value: ont record
+    // BUG 1+2 FIX: key includes shelf+slot so ports don't collide
+    // key: "oltName|shelf|slot|port|serial"
+    const latestOntBySerial = new Map();
 
-    if (ontRecords?.length) {
-      for (const ont of ontRecords) {
-        const shelfSlotPort = ont.shelf_slot_port || '';
-        const serialNumber = ont.serial_number || '';
-        
-        if (!shelfSlotPort || !serialNumber) continue;
-        
-        // Parse port from ONT record
-        const ontParts = shelfSlotPort.split('/').map(p => p.trim());
-        const ontPort = ontParts[ontParts.length - 1];
-        const oltName = ont.olt_name || '';
-        
-        if (!oltName || !ontPort) continue;
-        
-        const serialKey = `${oltName}|${ontPort}|${serialNumber}`;
-        
-        // Keep only the latest record per serial (first in list since sorted by -updated_date)
-        if (!latestOntBySerial.has(serialKey)) {
-          latestOntBySerial.set(serialKey, ont);
-        }
+    for (const ont of ontRecords || []) {
+      const serialNumber  = ont.serial_number || '';
+      const oltName       = ont.olt_name || '';
+      const shelfSlotPort = ont.shelf_slot_port || '';
+
+      if (!serialNumber || !oltName || !shelfSlotPort) continue;
+
+      const parsed = parseShelfSlotPort(shelfSlotPort);
+      if (!parsed) continue;
+
+      // BUG 1+2 FIX: use all three segments in the key
+      const serialKey = `${oltName}|${parsed.shelf}|${parsed.slot}|${parsed.port}|${serialNumber}`;
+      if (!latestOntBySerial.has(serialKey)) {
+        latestOntBySerial.set(serialKey, { ...ont, _parsed: parsed });
       }
     }
 
-    // Now count unique ONTs per port from latest records only
+    // Count ONTs per port
     for (const [key, portInfo] of portMap.entries()) {
-      const keyParts = key.split('|');
-      const [oltName, shelf, slot, port] = keyParts;
-      const portKey = `${oltName}|${port}`;
-      
-      // Count unique ONTs on this port from latest records
       let xgsCount = 0, gponCount = 0, totalCount = 0;
-      
+
       for (const [serialKey, ontRecord] of latestOntBySerial.entries()) {
-        const [recordOlt, recordPort, serial] = serialKey.split('|');
-        
-        if (recordOlt === oltName && recordPort === port) {
+        const p = ontRecord._parsed;
+
+        // BUG 1+2 FIX: match on olt + shelf + slot + port
+        const shelfMatch = portInfo.shelf === '-' || p.shelf === null || String(p.shelf) === portInfo.shelf;
+        const slotMatch  = portInfo.slot  === '-' || p.slot  === null || String(p.slot)  === portInfo.slot;
+
+        if (
+          (ontRecord.olt_name || '') === portInfo.oltName &&
+          shelfMatch &&
+          slotMatch &&
+          String(p.port) === portInfo.port
+        ) {
           totalCount++;
-          
-          // For COMBO, determine which side
-          if (portInfo.opticType === 'COMBO/EXT COMBO' && portInfo.comboSchema) {
-            const techType = determineComboOntType(recordPort, portInfo.comboSchema);
-            if (techType === 'xgs') xgsCount++;
-            else if (techType === 'gpon') gponCount++;
+
+          // BUG 4 FIX: for COMBO, check ont_type field directly if available,
+          // otherwise fall back to odd/even on the last port digit
+          if (portInfo.opticType === 'COMBO/EXT COMBO') {
+            const ontType = (ontRecord.ont_type || ontRecord.technology || '').toUpperCase();
+            if (ontType.includes('XGS')) {
+              xgsCount++;
+            } else if (ontType.includes('GPON')) {
+              gponCount++;
+            } else {
+              // fallback: odd port = XGS, even = GPON
+              const portNum = parseInt(p.port);
+              if (!isNaN(portNum)) {
+                if (portNum % 2 === 1) xgsCount++;
+                else gponCount++;
+              }
+            }
           }
         }
       }
-      
+
       portInfo.ontCounts.total = totalCount;
       if (portInfo.opticType === 'COMBO/EXT COMBO') {
-        portInfo.ontCounts.xgs = xgsCount;
+        portInfo.ontCounts.xgs  = xgsCount;
         portInfo.ontCounts.gpon = gponCount;
       }
     }
 
-    // Build report
     const reports = [];
     const typeCount = {};
 
-    for (const [key, portInfo] of portMap.entries()) {
+    for (const [, portInfo] of portMap.entries()) {
       const opticType = portInfo.opticType;
-      
-      // Apply filter
       if (filterType === 'xgs-dd' && opticType !== 'XGS-DD') continue;
       if (filterType === 'combo' && !opticType.includes('COMBO')) continue;
 
       typeCount[opticType] = (typeCount[opticType] || 0) + 1;
-
       reports.push({
-        oltName: portInfo.oltName,
-        shelf: portInfo.shelf,
-        slot: portInfo.slot,
-        port: portInfo.port,
-        ontCounts: portInfo.ontCounts,
-        lcpNumber: portInfo.lcpNumber,
+        oltName:        portInfo.oltName,
+        shelf:          portInfo.shelf,
+        slot:           portInfo.slot,
+        port:           portInfo.port,
+        ontCounts:      portInfo.ontCounts,
+        lcpNumber:      portInfo.lcpNumber,
         splitterNumber: portInfo.splitterNumber,
         opticType,
-        opticMake: portInfo.opticMake,
-        opticModel: portInfo.opticModel,
+        opticMake:      portInfo.opticMake,
+        opticModel:     portInfo.opticModel,
       });
     }
 
-    // Sort by OLT name, then port
     reports.sort((a, b) => {
       if (a.oltName !== b.oltName) return a.oltName.localeCompare(b.oltName);
-      const aPort = parseInt(a.port) || 0;
-      const bPort = parseInt(b.port) || 0;
-      return aPort - bPort;
+      return (parseInt(a.port) || 0) - (parseInt(b.port) || 0);
     });
 
-    const totalOnts = reports.reduce((s, r) => s + r.ontCount, 0);
-    const summary = {
-      totalPorts: reports.length,
-      totalOnts,
-      byType: typeCount,
-    };
+    // BUG 3 FIX: was r.ontCount, should be r.ontCounts.total
+    const totalOnts = reports.reduce((s, r) => s + (r.ontCounts?.total || 0), 0);
 
     return Response.json({
       success: true,
       filterType,
       portReports: reports,
-      summary,
+      summary: { totalPorts: reports.length, totalOnts, byType: typeCount },
     });
+
   } catch (error) {
     console.error('[generatePortOntReport] Error:', error);
     return Response.json({ error: error.message }, { status: 500 });
