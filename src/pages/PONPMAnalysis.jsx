@@ -88,7 +88,15 @@ import LCPSummarySection from '@/components/ponpm/LCPSummarySection';
 import HistoricalDataManager from '@/components/ponpm/HistoricalDataManager';
 import ReportForm from '@/components/jobreports/ReportForm';
 import ONTDetailView from '@/components/ponpm/ONTDetailView';
-import PortSummaryReport from '@/components/ponpm/PortSummaryReport';
+import KPIStatistics from '@/components/ponpm/KPIStatistics';
+import PowerDistributionChart from '@/components/ponpm/PowerDistributionChart';
+import FileUploadZone from '@/components/ponpm/FileUploadZone';
+import PortHeaderLabel from '@/components/ponpm/PortHeaderLabel';
+import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
+import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
+import { formatUptime } from '@/components/ponpm/formatUptime';
+import { exportLcpPortUtilization } from '@/components/ponpm/exportLcpUtilization';
+import CorrectedFecAnalysis from '@/components/ponpm/CorrectedFecAnalysis';
 import { buildLcpLookupMap, enrichOntsWithLcp } from '@/components/ponpm/lcpLookup';
 const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
 const STATUS_COLORS = {
@@ -140,7 +148,6 @@ export default function PONPMAnalysis() {
   const [jobReportFormData, setJobReportFormData] = useState(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [selectedOntDetail, setSelectedOntDetail] = useState(null);
-  const [showPortSummaryReport, setShowPortSummaryReport] = useState(false);
   const [customThresholds, setCustomThresholds] = useState(() => {
     const saved = localStorage.getItem('ponPmThresholds');
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
@@ -888,11 +895,6 @@ Be specific, technical, and actionable.`;
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => setShowPortSummaryReport(true)}>
-                      <Clipboard className="h-4 w-4 mr-2 text-indigo-500" />
-                      Port ONT Summary Report
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => exportPDF()}>
                       <FileText className="h-4 w-4 mr-2 text-red-500" />
                       Full Issue Report (PDF)
@@ -1942,13 +1944,6 @@ Be specific, technical, and actionable.`;
           allOnts={result?.onts}
         />
       )}
-
-      {/* Port Summary Report */}
-      <PortSummaryReport
-        isOpen={showPortSummaryReport}
-        onClose={() => setShowPortSummaryReport(false)}
-        onts={result?.onts || []}
-      />
 
       {/* Job Report Creation Dialog */}
       <Dialog open={!!creatingJobReport} onOpenChange={(open) => {
