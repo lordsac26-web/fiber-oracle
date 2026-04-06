@@ -117,18 +117,21 @@ Deno.serve(async (req) => {
         const shelfSlotPort = ont.shelf_slot_port || '';
         if (!shelfSlotPort) continue;
         
-        // Find matching port in portMap
+        // Parse shelf/slot/port from ONT record (e.g., "1/1/1" or "1/1/1/1")
+        const ontParts = shelfSlotPort.split('/').map(p => p.trim());
+        const ontPort = ontParts[ontParts.length - 1];
+        
+        // Find matching port in portMap by exact OLT + port match
         for (const [key, portInfo] of portMap.entries()) {
-          // Match by port number at the end of shelf/slot/port string
           const keyParts = key.split('|');
-          const portNum = keyParts[keyParts.length - 1];
+          const [oltName, shelf, slot, port] = keyParts;
           
-          if (shelfSlotPort.endsWith(portNum) || shelfSlotPort.includes(`/${portNum}`) || shelfSlotPort.includes(`|${portNum}`)) {
+          // Match OLT name and port number
+          if (ont.olt_name === oltName && ontPort === port) {
             portInfo.ontCounts.total++;
             
             // For COMBO ports, determine XGS vs GPON
             if (portInfo.opticType === 'COMBO/EXT COMBO' && portInfo.comboSchema) {
-              const ontPort = shelfSlotPort.split('/').pop();
               const techType = determineComboOntType(ontPort, portInfo.comboSchema);
               if (techType === 'xgs') portInfo.ontCounts.xgs++;
               else if (techType === 'gpon') portInfo.ontCounts.gpon++;
