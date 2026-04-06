@@ -9,13 +9,14 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Download, Loader2, AlertCircle } from 'lucide-react';
+import { Download, FileDown, Loader2, AlertCircle } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 
 export default function PortOntReportDialog({ open, onOpenChange }) {
   const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [error, setError] = useState(null);
 
@@ -67,6 +68,52 @@ export default function PortOntReportDialog({ open, onOpenChange }) {
     toast.success(`Exported ${reportData.portReports.length} ports`);
   };
 
+  const handleExportPDF = async () => {
+    if (!reportData?.portReports) return;
+    setExporting(true);
+    try {
+      const response = await base44.functions.invoke('exportPortOntReport', {
+        reportData,
+        format: 'pdf'
+      });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Port_ONT_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      toast.error('Failed to export PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!reportData?.portReports) return;
+    setExporting(true);
+    try {
+      const response = await base44.functions.invoke('exportPortOntReport', {
+        reportData,
+        format: 'excel'
+      });
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Port_ONT_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('Excel exported successfully');
+    } catch (error) {
+      toast.error('Failed to export Excel');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const filterLabel = filterType === 'xgs-dd' ? 'XGS-DD' : filterType === 'combo' ? 'COMBO/EXT COMBO' : 'Full ONT Summary';
 
   return (
@@ -106,11 +153,30 @@ export default function PortOntReportDialog({ open, onOpenChange }) {
             </Button>
             <Button
               variant="outline"
+              size="sm"
               onClick={handleExportCSV}
-              disabled={!reportData?.portReports?.length}
+              disabled={!reportData?.portReports?.length || exporting}
             >
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
+              <Download className="h-4 w-4 mr-1" />
+              CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPDF}
+              disabled={!reportData?.portReports?.length || exporting}
+            >
+              <FileDown className="h-4 w-4 mr-1" />
+              PDF
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              disabled={!reportData?.portReports?.length || exporting}
+            >
+              <FileDown className="h-4 w-4 mr-1" />
+              Excel
             </Button>
           </div>
 
