@@ -13,10 +13,9 @@ import {
 } from "@/components/ui/collapsible";
 import {
   Search, ChevronDown, ChevronRight, MapPin, ArrowUpDown,
-  ChevronUp, AlertCircle, AlertTriangle, CheckCircle2, XCircle, TrendingUp, Download,
+  ChevronUp, AlertCircle, AlertTriangle, CheckCircle2, XCircle, TrendingUp,
 } from 'lucide-react';
 import LcpTrendChart from './LcpTrendChart';
-import PortOntReportDialog from './PortOntReportDialog';
 
 const SPLITTER_CAP = 32;
 
@@ -42,7 +41,6 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
   const [sortDir, setSortDir] = useState('asc');
   const [hideEmpty, setHideEmpty] = useState(false);
   const [trendLcp, setTrendLcp] = useState(null);
-  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   // Build per-splitter rows, then group by LCP
   const { lcpGroups, splitterRows, stats } = useMemo(() => {
@@ -253,9 +251,6 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
           Hide 0 ONTs
         </label>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" onClick={() => setReportDialogOpen(true)}>
-            <Download className="h-4 w-4 mr-1" /> Port Report
-          </Button>
           <Button variant="outline" size="sm" onClick={() => setExpandedLcps(filteredGroups.map(g => g.lcp))}>
             <ChevronDown className="h-4 w-4 mr-1" /> Expand All
           </Button>
@@ -426,9 +421,6 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
         lcpName={trendLcp?.lcp}
         splitters={trendLcp?.splitters || []}
       />
-
-      {/* Port ONT Report Dialog */}
-      <PortOntReportDialog open={reportDialogOpen} onOpenChange={setReportDialogOpen} />
     </div>
   );
 }
