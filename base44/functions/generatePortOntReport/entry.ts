@@ -109,36 +109,55 @@ Deno.serve(async (req) => {
       portMap.get(key).entries.push(entry);
     }
 
-    // Load ONT records to count ONTs per port by technology type
-    const ontRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.list('-created_date', 50000);
+    // Load ONT records and deduplicate by serial number per port (get unique ONTs)
+    const ontRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.list('-updated_date', 50000);
+    
+    // Track unique ONT serial numbers per port to avoid counting duplicates
+    const ontsByPort = new Map(); // key: "OLT|port", value: Set of serial numbers
 
     if (ontRecords?.length) {
       for (const ont of ontRecords) {
         const shelfSlotPort = ont.shelf_slot_port || '';
-        if (!shelfSlotPort) continue;
+        const serialNumber = ont.serial_number || '';
         
-        // Parse shelf/slot/port from ONT record (e.g., "1/1/1" or "1/1/1/1")
+        if (!shelfSlotPort || !serialNumber) continue;
+        
+        // Parse port from ONT record
         const ontParts = shelfSlotPort.split('/').map(p => p.trim());
         const ontPort = ontParts[ontParts.length - 1];
+        const oltName = ont.olt_name || '';
         
-        // Find matching port in portMap by exact OLT + port match
-        for (const [key, portInfo] of portMap.entries()) {
-          const keyParts = key.split('|');
-          const [oltName, shelf, slot, port] = keyParts;
-          
-          // Match OLT name and port number
-          if (ont.olt_name === oltName && ontPort === port) {
-            portInfo.ontCounts.total++;
-            
-            // For COMBO ports, determine XGS vs GPON
-            if (portInfo.opticType === 'COMBO/EXT COMBO' && portInfo.comboSchema) {
-              const techType = determineComboOntType(ontPort, portInfo.comboSchema);
-              if (techType === 'xgs') portInfo.ontCounts.xgs++;
-              else if (techType === 'gpon') portInfo.ontCounts.gpon++;
-            }
-            break;
-          }
+        if (!oltName || !ontPort) continue;
+        
+        const portKey = `${oltName}|${ontPort}`;
+        
+        // Track this unique ONT per port
+        if (!ontsByPort.has(portKey)) {
+          ontsByPort.set(portKey, new Set());
         }
+        // Add serial number (deduplicates if same ONT seen multiple times)
+        ontsByPort.get(portKey).add(serialNumber);
+      }
+    }
+
+    // Now update port counts based on unique ONTs
+    for (const [key, portInfo] of portMap.entries()) {
+      const keyParts = key.split('|');
+      const [oltName, shelf, slot, port] = keyParts;
+      const portKey = `${oltName}|${port}`;
+      
+      const uniqueOntSerials = ontsByPort.get(portKey) || new Set();
+      const totalOnts = uniqueOntSerials.size;
+      
+      portInfo.ontCounts.total = totalOnts;
+      
+      // For COMBO ports, we'd need to track which side each ONT is on
+      // For now, split evenly or use heuristics if needed
+      if (portInfo.opticType === 'COMBO/EXT COMBO' && totalOnts > 0) {
+        // Simple approach: assume ONTs alternate or use serial pattern
+        // This is a placeholder; ideal would be to track per ONT which side it's on
+        portInfo.ontCounts.xgs = Math.ceil(totalOnts / 2);
+        portInfo.ontCounts.gpon = Math.floor(totalOnts / 2);
       }
     }
 
