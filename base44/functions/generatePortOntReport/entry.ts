@@ -100,16 +100,39 @@ Deno.serve(async (req) => {
         const shelfMatch = portInfo.shelf === '-' || p.shelf === null || String(p.shelf) === portInfo.shelf;
         const slotMatch  = portInfo.slot  === '-' || p.slot  === null || String(p.slot)  === portInfo.slot;
 
+        let portMatches = false;
+        let portNumberForTech = null;
+
+        // Check for COMBO port pair matching (xp11-12)
+        if (p.portPair && portInfo.opticType === 'COMBO/EXT COMBO') {
+          // For COMBO: the ontRecord port could match either odd or even
+          const ontPortNum = parseInt(p.port);
+          const oddPortNum = parseInt(p.portPair.odd);
+          const evenPortNum = parseInt(p.portPair.even);
+          
+          if (!isNaN(ontPortNum)) {
+            // Check if ONT's port matches the COMBO port pair
+            if (ontPortNum === oddPortNum || ontPortNum === evenPortNum) {
+              portMatches = true;
+              portNumberForTech = ontPortNum;
+            }
+          }
+        } else {
+          // Standard port matching
+          portMatches = String(p.port) === portInfo.port;
+          portNumberForTech = parseInt(p.port);
+        }
+
         if (
           (ontRecord.olt_name || '') === portInfo.oltName &&
           shelfMatch &&
           slotMatch &&
-          String(p.port) === portInfo.port
+          portMatches
         ) {
           totalCount++;
 
           // BUG 4 FIX: for COMBO, check ont_type field directly if available,
-          // otherwise fall back to odd/even on the last port digit
+          // otherwise fall back to odd/even port numbers
           if (portInfo.opticType === 'COMBO/EXT COMBO') {
             const ontType = (ontRecord.ont_type || ontRecord.technology || '').toUpperCase();
             if (ontType.includes('XGS')) {
@@ -117,11 +140,10 @@ Deno.serve(async (req) => {
             } else if (ontType.includes('GPON')) {
               gponCount++;
             } else {
-              // fallback: odd port = XGS, even = GPON
-              const portNum = parseInt(p.port);
-              if (!isNaN(portNum)) {
-                if (portNum % 2 === 1) xgsCount++;
-                else gponCount++;
+              // fallback: ODD port number = XGS, EVEN port number = GPON
+              if (!isNaN(portNumberForTech)) {
+                if (portNumberForTech % 2 === 1) xgsCount++; // ODD = XGS
+                else gponCount++; // EVEN = GPON
               }
             }
           }
