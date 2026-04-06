@@ -109,11 +109,11 @@ Deno.serve(async (req) => {
       portMap.get(key).entries.push(entry);
     }
 
-    // Load ONT records and deduplicate by serial number per port (get unique ONTs)
-    const ontRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.list('-updated_date', 50000);
+    // Load ONT records and get LATEST record per serial number per port
+    const ontRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.list('-updated_date', 100000);
     
-    // Track unique ONT serial numbers per port to avoid counting duplicates
-    const ontsByPort = new Map(); // key: "OLT|port", value: Set of serial numbers
+    // Track latest record per serial number per port
+    const latestOntBySerial = new Map(); // key: "OLT|port|serial", value: ont record
 
     if (ontRecords?.length) {
       for (const ont of ontRecords) {
@@ -129,35 +129,43 @@ Deno.serve(async (req) => {
         
         if (!oltName || !ontPort) continue;
         
-        const portKey = `${oltName}|${ontPort}`;
+        const serialKey = `${oltName}|${ontPort}|${serialNumber}`;
         
-        // Track this unique ONT per port
-        if (!ontsByPort.has(portKey)) {
-          ontsByPort.set(portKey, new Set());
+        // Keep only the latest record per serial (first in list since sorted by -updated_date)
+        if (!latestOntBySerial.has(serialKey)) {
+          latestOntBySerial.set(serialKey, ont);
         }
-        // Add serial number (deduplicates if same ONT seen multiple times)
-        ontsByPort.get(portKey).add(serialNumber);
       }
     }
 
-    // Now update port counts based on unique ONTs
+    // Now count unique ONTs per port from latest records only
     for (const [key, portInfo] of portMap.entries()) {
       const keyParts = key.split('|');
       const [oltName, shelf, slot, port] = keyParts;
       const portKey = `${oltName}|${port}`;
       
-      const uniqueOntSerials = ontsByPort.get(portKey) || new Set();
-      const totalOnts = uniqueOntSerials.size;
+      // Count unique ONTs on this port from latest records
+      let xgsCount = 0, gponCount = 0, totalCount = 0;
       
-      portInfo.ontCounts.total = totalOnts;
+      for (const [serialKey, ontRecord] of latestOntBySerial.entries()) {
+        const [recordOlt, recordPort, serial] = serialKey.split('|');
+        
+        if (recordOlt === oltName && recordPort === port) {
+          totalCount++;
+          
+          // For COMBO, determine which side
+          if (portInfo.opticType === 'COMBO/EXT COMBO' && portInfo.comboSchema) {
+            const techType = determineComboOntType(recordPort, portInfo.comboSchema);
+            if (techType === 'xgs') xgsCount++;
+            else if (techType === 'gpon') gponCount++;
+          }
+        }
+      }
       
-      // For COMBO ports, we'd need to track which side each ONT is on
-      // For now, split evenly or use heuristics if needed
-      if (portInfo.opticType === 'COMBO/EXT COMBO' && totalOnts > 0) {
-        // Simple approach: assume ONTs alternate or use serial pattern
-        // This is a placeholder; ideal would be to track per ONT which side it's on
-        portInfo.ontCounts.xgs = Math.ceil(totalOnts / 2);
-        portInfo.ontCounts.gpon = Math.floor(totalOnts / 2);
+      portInfo.ontCounts.total = totalCount;
+      if (portInfo.opticType === 'COMBO/EXT COMBO') {
+        portInfo.ontCounts.xgs = xgsCount;
+        portInfo.ontCounts.gpon = gponCount;
       }
     }
 
