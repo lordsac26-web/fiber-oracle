@@ -20,16 +20,40 @@ function detectOpticType(model) {
   if (m.includes('XGS') && m.includes('DD')) return 'XGS-DD';
   
   // COMBO variants
-  if (m.includes('COMBO')) {
-    if (m.includes('EXT')) return 'COMBO/EXT COMBO';
-    return 'COMBO/EXT COMBO';
-  }
+  if (m.includes('COMBO')) return 'COMBO/EXT COMBO';
   
   // Fallback to specific patterns
   if (m.includes('XGS')) return 'XGS-PON';
   if (m.includes('GPON')) return 'GPON';
   
   return 'Other';
+}
+
+// Parse COMBO port schema: "1/2/xp11-12" => extracts port numbers
+function parseComboPortSchema(portStr) {
+  if (!portStr) return { xgsPort: null, gponPort: null };
+  const match = portStr.match(/xp?(\d+)[-/]?(\d+)?/i);
+  if (!match) return { xgsPort: null, gponPort: null };
+  const port1 = parseInt(match[1]);
+  const port2 = match[2] ? parseInt(match[2]) : null;
+  // Odd = XGS, Even = GPON
+  if (port2) {
+    return {
+      xgsPort: port1 % 2 === 1 ? port1 : port2,
+      gponPort: port1 % 2 === 0 ? port1 : port2,
+    };
+  }
+  return { xgsPort: port1 % 2 === 1 ? port1 : null, gponPort: port1 % 2 === 0 ? port1 : null };
+}
+
+// Determine if ONT is on XGS or GPON side of COMBO port
+function determineComboOntType(ontPort, comboSchema) {
+  if (!ontPort || !comboSchema.xgsPort && !comboSchema.gponPort) return null;
+  const portNum = parseInt(ontPort);
+  if (comboSchema.xgsPort && portNum === comboSchema.xgsPort) return 'xgs';
+  if (comboSchema.gponPort && portNum === comboSchema.gponPort) return 'gpon';
+  // Default based on odd/even
+  return portNum % 2 === 1 ? 'xgs' : 'gpon';
 }
 
 Deno.serve(async (req) => {
@@ -61,6 +85,7 @@ Deno.serve(async (req) => {
       const slot = entry.olt_slot || '-';
       const port = entry.olt_port || '-';
       const opticType = detectOpticType(entry.optic_type || entry.optic_model);
+      const comboSchema = opticType === 'COMBO/EXT COMBO' ? parseComboPortSchema(port) : null;
       
       const key = `${oltName}|${shelf}|${slot}|${port}`;
       
@@ -73,8 +98,10 @@ Deno.serve(async (req) => {
           lcpNumber: entry.lcp_number || '',
           splitterNumber: entry.splitter_number || '',
           opticType,
+          comboSchema,
           opticMake: entry.optic_make || '',
           opticModel: entry.optic_model || '',
+          ontCounts: { total: 0, xgs: 0, gpon: 0 },
           entries: [],
         });
       }
@@ -82,24 +109,30 @@ Deno.serve(async (req) => {
       portMap.get(key).entries.push(entry);
     }
 
-    // Now load ONT records to count ONTs per port
+    // Load ONT records to count ONTs per port by technology type
     const ontRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.list('-created_date', 50000);
-    const ontCountByPort = new Map(); // key: "OLT|Shelf|Slot|Port"
 
     if (ontRecords?.length) {
       for (const ont of ontRecords) {
-        const parts = (ont.shelf_slot_port || '').split('/');
-        if (parts.length < 3) continue;
+        const shelfSlotPort = ont.shelf_slot_port || '';
+        if (!shelfSlotPort) continue;
         
-        // Try to match the port key - this is a best-effort lookup
-        // ONT records may have limited port info, so we aggregate by OLT + port pattern
-        const portPattern = parts[parts.length - 1]; // Last part is the port number
-        
-        // Find matching entry in portMap
+        // Find matching port in portMap
         for (const [key, portInfo] of portMap.entries()) {
-          if (key.endsWith(`|${portPattern}`)) {
-            const count = ontCountByPort.get(key) || 0;
-            ontCountByPort.set(key, count + 1);
+          // Match by port number at the end of shelf/slot/port string
+          const keyParts = key.split('|');
+          const portNum = keyParts[keyParts.length - 1];
+          
+          if (shelfSlotPort.endsWith(portNum) || shelfSlotPort.includes(`/${portNum}`) || shelfSlotPort.includes(`|${portNum}`)) {
+            portInfo.ontCounts.total++;
+            
+            // For COMBO ports, determine XGS vs GPON
+            if (portInfo.opticType === 'COMBO/EXT COMBO' && portInfo.comboSchema) {
+              const ontPort = shelfSlotPort.split('/').pop();
+              const techType = determineComboOntType(ontPort, portInfo.comboSchema);
+              if (techType === 'xgs') portInfo.ontCounts.xgs++;
+              else if (techType === 'gpon') portInfo.ontCounts.gpon++;
+            }
             break;
           }
         }
@@ -117,7 +150,6 @@ Deno.serve(async (req) => {
       if (filterType === 'xgs-dd' && opticType !== 'XGS-DD') continue;
       if (filterType === 'combo' && !opticType.includes('COMBO')) continue;
 
-      const ontCount = ontCountByPort.get(key) || 0;
       typeCount[opticType] = (typeCount[opticType] || 0) + 1;
 
       reports.push({
@@ -125,7 +157,7 @@ Deno.serve(async (req) => {
         shelf: portInfo.shelf,
         slot: portInfo.slot,
         port: portInfo.port,
-        ontCount,
+        ontCounts: portInfo.ontCounts,
         lcpNumber: portInfo.lcpNumber,
         splitterNumber: portInfo.splitterNumber,
         opticType,

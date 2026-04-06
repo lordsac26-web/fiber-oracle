@@ -45,11 +45,16 @@ export default function PortOntReportDialog({ open, onOpenChange }) {
   const handleExportCSV = () => {
     if (!reportData?.portReports) return;
     
-    const headers = ['System Name (OLT)', 'Shelf', 'Slot', 'Port', 'ONT Count', 'LCP/CLCP', 'Splitter', 'Technology Type', 'Optic Make', 'Optic Model'];
-    const rows = reportData.portReports.map(p => [
-      p.oltName, p.shelf, p.slot, p.port, p.ontCount,
-      p.lcpNumber, p.splitterNumber, p.opticType, p.opticMake, p.opticModel,
-    ]);
+    const headers = ['System Name (OLT)', 'Shelf', 'Slot', 'Port', 'Total ONTs', 'XGS ONTs', 'GPON ONTs', 'LCP/CLCP', 'Splitter', 'Technology Type', 'Optic Make', 'Optic Model'];
+    const rows = reportData.portReports.map(p => {
+      const xgsCount = p.ontCounts?.xgs || 0;
+      const gponCount = p.ontCounts?.gpon || 0;
+      const totalCount = p.ontCounts?.total || 0;
+      return [
+        p.oltName, p.shelf, p.slot, p.port, totalCount, xgsCount, gponCount,
+        p.lcpNumber, p.splitterNumber, p.opticType, p.opticMake, p.opticModel,
+      ];
+    });
     
     const csv = [headers, ...rows].map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -171,13 +176,20 @@ export default function PortOntReportDialog({ open, onOpenChange }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {reportData.portReports.map((port, idx) => (
+                  {reportData.portReports.map((port, idx) => {
+                    const totalOnts = port.ontCounts?.total || 0;
+                    const xgsOnts = port.ontCounts?.xgs || 0;
+                    const gponOnts = port.ontCounts?.gpon || 0;
+                    const displayOntCount = port.opticType === 'COMBO/EXT COMBO' && (xgsOnts || gponOnts)
+                      ? `${xgsOnts} xgs / ${gponOnts} gpon`
+                      : totalOnts;
+                    return (
                     <TableRow key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                       <TableCell className="font-medium">{port.oltName}</TableCell>
                       <TableCell>{port.shelf}</TableCell>
                       <TableCell>{port.slot}</TableCell>
                       <TableCell className="font-mono">{port.port}</TableCell>
-                      <TableCell className="text-right font-mono font-bold">{port.ontCount}</TableCell>
+                      <TableCell className="text-right font-mono font-bold text-sm">{displayOntCount}</TableCell>
                       <TableCell className="text-xs">{port.lcpNumber || '-'}</TableCell>
                       <TableCell className="text-xs">{port.splitterNumber || '-'}</TableCell>
                       <TableCell>
@@ -188,7 +200,8 @@ export default function PortOntReportDialog({ open, onOpenChange }) {
                       <TableCell className="text-xs">{port.opticMake || '-'}</TableCell>
                       <TableCell className="text-xs text-gray-600">{port.opticModel || '-'}</TableCell>
                     </TableRow>
-                  ))}
+                  );
+                  })}
                 </TableBody>
               </Table>
             </div>
