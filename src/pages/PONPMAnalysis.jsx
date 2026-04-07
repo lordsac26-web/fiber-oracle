@@ -96,6 +96,7 @@ import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
 import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
 import { formatUptime } from '@/components/ponpm/formatUptime';
 import { exportLcpPortUtilization } from '@/components/ponpm/exportLcpUtilization';
+import { exportIssueReport as exportIssueReportUtil } from '@/components/ponpm/exportIssueReport';
 import CorrectedFecAnalysis from '@/components/ponpm/CorrectedFecAnalysis';
 import { buildLcpLookupMap, enrichOntsWithLcp } from '@/components/ponpm/lcpLookup';
 const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
@@ -812,11 +813,6 @@ Be specific, technical, and actionable.`;
     toast.success(`Exported ${portMap.size} ports with ONT inventory`);
   };
 
-  const exportIssueReport = () => {
-    if (!result?.onts) return;
-
-    const criticalOnts = result.onts.filter(o => o._analysis.status === 'critical');
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
@@ -902,9 +898,9 @@ Be specific, technical, and actionable.`;
                       <FileText className="h-4 w-4 mr-2 text-red-600" />
                       Critical Issues Only (PDF)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={exportIssueReport}>
+                    <DropdownMenuItem onClick={() => exportIssueReportUtil(result?.onts)}>
                       <FileText className="h-4 w-4 mr-2" />
-                      Issue Report (TXT)
+                      Issue Report (CSV)
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => exportCSV('all')}>
