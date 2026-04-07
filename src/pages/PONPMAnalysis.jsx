@@ -1992,5 +1992,3 @@ Be specific, technical, and actionable.`;
       </div>
     );
   }
-
-export default PONPMAnalysis;
