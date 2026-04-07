@@ -752,71 +752,70 @@ Be specific, technical, and actionable.`;
     }
   };
 
+  const exportPortInventory = () => {
+    if (!result?.onts) return;
+
+    // Aggregate ONTs by port
+    const portMap = new Map();
+    result.onts.forEach(ont => {
+      const key = `${ont._oltName || 'Unknown'}|${ont._port || 'Unknown'}`;
+      if (!portMap.has(key)) {
+        portMap.set(key, {
+          olt: ont._oltName || 'Unknown',
+          port: ont._port || 'Unknown',
+          onts: [],
+          lcps: new Set(),
+          models: new Set(),
+          opticTypes: new Set(),
+        });
+      }
+      const portData = portMap.get(key);
+      portData.onts.push(ont);
+      if (ont._lcpNumber) portData.lcps.add(`${ont._lcpNumber}${ont._splitterNumber ? '/' + ont._splitterNumber : ''}`);
+      if (ont.model) portData.models.add(ont.model);
+      if (ont._techType) portData.opticTypes.add(ont._techType);
+    });
+
+    const headers = ['OLT', 'Port', 'Total ONTs', 'LCP/Splitters', 'ONT Models', 'Optic Types', 'Status Breakdown'];
+    const rows = [...portMap.values()]
+      .sort((a, b) => {
+        const oltCmp = a.olt.localeCompare(b.olt, undefined, { numeric: true });
+        return oltCmp !== 0 ? oltCmp : a.port.localeCompare(b.port, undefined, { numeric: true });
+      })
+      .map(p => {
+        const statusBreakdown = {
+          ok: p.onts.filter(o => o._analysis.status === 'ok').length,
+          warning: p.onts.filter(o => o._analysis.status === 'warning').length,
+          critical: p.onts.filter(o => o._analysis.status === 'critical').length,
+          offline: p.onts.filter(o => o._analysis.status === 'offline').length,
+        };
+        const breakdown = `OK: ${statusBreakdown.ok} | Warning: ${statusBreakdown.warning} | Critical: ${statusBreakdown.critical} | Offline: ${statusBreakdown.offline}`;
+        return [
+          p.olt,
+          p.port,
+          p.onts.length,
+          [...p.lcps].join('; ') || 'N/A',
+          [...p.models].join('; ') || 'N/A',
+          [...p.opticTypes].join('; ') || 'N/A',
+          breakdown,
+        ];
+      });
+
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell || ''}"` ).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `port-inventory-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${portMap.size} ports with ONT inventory`);
+  };
+
   const exportIssueReport = () => {
     if (!result?.onts) return;
 
     const criticalOnts = result.onts.filter(o => o._analysis.status === 'critical');
-    const warningOnts = result.onts.filter(o => o._analysis.status === 'warning');
-
-    let report = `PON PM Issue Report - ${new Date().toLocaleDateString()}\n`;
-    report += `${'='.repeat(60)}\n\n`;
-    report += `Summary:\n`;
-    report += `  Total ONTs: ${result.summary.totalOnts}\n`;
-    report += `  Critical: ${result.summary.criticalCount}\n`;
-    report += `  Warnings: ${result.summary.warningCount}\n`;
-    report += `  Healthy: ${result.summary.okCount}\n\n`;
-    
-    report += `Thresholds Used:\n`;
-    report += `  ONT Rx Power: Critical < ${customThresholds.OntRxOptPwr.low} dBm, Warning < ${customThresholds.OntRxOptPwr.marginal} dBm\n`;
-    report += `  OLT Rx Power: Critical < ${customThresholds.OLTRXOptPwr.low} dBm, Warning < ${customThresholds.OLTRXOptPwr.marginal} dBm\n`;
-    report += `  BIP Errors: Critical >= ${customThresholds.UpstreamBipErrors.critical}, Warning >= ${customThresholds.UpstreamBipErrors.warning}\n`;
-    report += `  FEC Uncorrected: Critical >= ${customThresholds.UpstreamFecUncorrectedCodeWords.critical}, Warning >= ${customThresholds.UpstreamFecUncorrectedCodeWords.warning}\n\n`;
-
-    if (criticalOnts.length > 0) {
-      report += `${'='.repeat(60)}\n`;
-      report += `CRITICAL ISSUES (${criticalOnts.length})\n`;
-      report += `${'='.repeat(60)}\n\n`;
-      
-      criticalOnts.forEach(ont => {
-        report += `ONT: ${ont.OntID} | Serial: ${ont.SerialNumber}\n`;
-        report += `Location: ${ont._oltName} / ${ont._port}\n`;
-        report += `Model: ${ont.model || 'N/A'}\n`;
-        report += `Issues:\n`;
-        ont._analysis.issues.forEach(issue => {
-          report += `  - ${issue.field}: ${issue.value} (Threshold: ${issue.threshold})\n`;
-          report += `    ${issue.message}\n`;
-        });
-        report += `\n`;
-      });
-    }
-
-    if (warningOnts.length > 0) {
-      report += `${'='.repeat(60)}\n`;
-      report += `WARNINGS (${warningOnts.length})\n`;
-      report += `${'='.repeat(60)}\n\n`;
-      
-      warningOnts.forEach(ont => {
-        report += `ONT: ${ont.OntID} | Serial: ${ont.SerialNumber}\n`;
-        report += `Location: ${ont._oltName} / ${ont._port}\n`;
-        report += `Model: ${ont.model || 'N/A'}\n`;
-        report += `Warnings:\n`;
-        ont._analysis.warnings.forEach(warn => {
-          report += `  - ${warn.field}: ${warn.value} (Threshold: ${warn.threshold})\n`;
-          report += `    ${warn.message}\n`;
-        });
-        report += `\n`;
-      });
-    }
-
-    const blob = new Blob([report], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pon-pm-issue-report-${new Date().toISOString().slice(0,10)}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Issue report exported');
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -930,6 +929,10 @@ Be specific, technical, and actionable.`;
                       Offline ONTs (CSV)
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={exportPortInventory}>
+                      <FileSpreadsheet className="h-4 w-4 mr-2 text-blue-500" />
+                      Port Inventory Report (CSV)
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => exportLcpPortUtilization(result?.onts)}>
                       <FileSpreadsheet className="h-4 w-4 mr-2 text-indigo-500" />
                       LCP/Splitter Port Utilization (CSV)
@@ -1986,10 +1989,12 @@ Be specific, technical, and actionable.`;
                 isEditing={false}
                 isSubmitting={false}
               />
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
+              </>
+              ) : null}
+              </DialogContent>
+              </Dialog>
+              </div>
+              );
+              }
+
+              export default PONPMAnalysis;
