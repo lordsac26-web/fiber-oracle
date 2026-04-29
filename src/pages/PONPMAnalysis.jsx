@@ -98,6 +98,7 @@ import SubscriberUpload, { buildSubscriberLookup, enrichOntsWithSubscriber } fro
 import { useSubscriberData } from '@/components/ponpm/useSubscriberData';
 import SubscriberDataBanner from '@/components/ponpm/SubscriberDataBanner';
 import ONTTableRow from '@/components/ponpm/ONTTableRow';
+import LCPExportMenu from '@/components/lcp/LCPExportMenu';
 const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
 const STATUS_COLORS = {
   critical: 'bg-red-500',
@@ -151,6 +152,7 @@ export default function PONPMAnalysis() {
   const {
     subscriberMeta,
     subscriberMatchCount,
+    subscriberRecords,
     setSubscriberMatchCount,
     handleSubscriberDataLoaded: persistSubscriberData,
     enrichOnts: enrichOntsFromDB,
@@ -200,6 +202,14 @@ export default function PONPMAnalysis() {
 
   const { data: savedReports = [], isLoading: loadingReports } = useQuery({ queryKey: ['ponPmReports'], queryFn: () => base44.entities.PONPMReport.list('-upload_date') });
   const { data: lcpEntriesForEnrich = [] } = useLcpQuery();
+  const { data: lcpOntCounts = {} } = useQuery({
+    queryKey: ['lcpOntCounts'],
+    queryFn: async () => {
+      const res = await base44.functions.invoke('getLatestLcpOntCounts', {});
+      return res.data?.counts || {};
+    },
+    staleTime: 5 * 60 * 1000,
+  });
   const lcpMapRef = useRef(new Map());
   useEffect(() => { lcpMapRef.current = buildLcpLookupMap(lcpEntriesForEnrich); }, [lcpEntriesForEnrich]);
   const enrichedRef = useRef(false);
@@ -896,6 +906,12 @@ Be specific, technical, and actionable.`;
                   onUpdate={updateThreshold}
                   onSave={saveThresholds}
                   onReset={resetThresholds}
+                />
+
+                <LCPExportMenu
+                  lcpEntries={lcpEntriesForEnrich}
+                  latestOntCountsByKey={lcpOntCounts}
+                  subscriberRecords={subscriberRecords}
                 />
 
                 <DropdownMenu>
