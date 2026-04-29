@@ -1620,25 +1620,25 @@ Be specific, technical, and actionable.`;
                                         <Table>
                                           <TableHeader>
                                             <TableRow>
-                                              <TableHead className="w-12">Status</TableHead>
-                                              <TableHead>ONT ID</TableHead>
-                                              {subscriberMatchCount > 0 && <TableHead>Subscriber</TableHead>}
-                                              <TableHead>LCP/Splitter</TableHead>
-                                              <TableHead>Serial</TableHead>
-                                              <TableHead>Model</TableHead>
-                                              <TableHead className="text-right">ONT Rx</TableHead>
-                                              <TableHead className="text-right">OLT Rx</TableHead>
-                                              <TableHead className="text-right">US BIP</TableHead>
-                                              <TableHead className="text-right">DS BIP</TableHead>
-                                              <TableHead className="text-right">US FEC Unc</TableHead>
-                                              <TableHead className="text-right">DS FEC Unc</TableHead>
-                                              <TableHead className="text-right">US FEC Cor</TableHead>
-                                              <TableHead className="text-right">DS FEC Cor</TableHead>
-                                              <TableHead className="text-right">Missed Burst</TableHead>
-                                              <TableHead className="text-right">GEM HEC</TableHead>
-                                              <TableHead>Uptime</TableHead>
-                                              <TableHead>Issues</TableHead>
-                                              <TableHead></TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] w-8">St</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px]">ID</TableHead>
+                                              {subscriberMatchCount > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Subscriber</TableHead>}
+                                              <TableHead className="px-1.5 py-1 text-[10px]">LCP/Spl</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px]">Serial</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px]">Model</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">ONT Rx</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">OLT Rx</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">US BIP</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">DS BIP</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC U</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC U</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC C</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC C</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">MBurst</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">HEC</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px]">Up</TableHead>
+                                              <TableHead className="px-1.5 py-1 text-[10px]">Issues</TableHead>
+                                              <TableHead className="px-1 py-1 w-16"></TableHead>
                                             </TableRow>
                                           </TableHeader>
                                           <TableBody>
