@@ -16,6 +16,8 @@ import LCPImportDialog from '@/components/lcp/LCPImportDialog';
 import LCPTableView from '@/components/lcp/LCPTableView';
 import LCPListView from '@/components/lcp/LCPListView';
 import LCPAdvancedFilters from '@/components/lcp/LCPAdvancedFilters';
+import LCPExportMenu from '@/components/lcp/LCPExportMenu';
+import { useSubscriberData } from '@/components/ponpm/useSubscriberData';
 import {
   ArrowLeft, Plus, Search, Trash2, X, Cable, Upload, Download, Map,
   Loader2, CloudOff, Cloud, List, LayoutGrid, Info, ArrowUpDown, Server
@@ -53,6 +55,8 @@ export default function LCPInfo() {
     queryKey: ['lcpEntries'],
     queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
   });
+
+  const { subscriberRecords } = useSubscriberData();
 
   const { data: latestLcpCountData = null, isLoading: isLoadingLatestCounts } = useQuery({
     queryKey: ['latestPonPmOntCounts'],
@@ -306,7 +310,7 @@ export default function LCPInfo() {
                   <Link to={createPageUrl('LCPMap')}><Button variant="outline" className="relative"><Map className="h-4 w-4 mr-2" />Map View{!entriesWithCoords.length && <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full" />}</Button></Link>
                   <Button variant="outline" onClick={() => setShowOpticImport(true)}><Server className="h-4 w-4 mr-2" />Optic Inventory</Button>
                   <Button variant="outline" onClick={() => setShowImportDialog(true)}><Upload className="h-4 w-4 mr-2" />Import</Button>
-                  <Button variant="outline" onClick={exportToCSV} disabled={!lcpEntries.length}><Download className="h-4 w-4 mr-2" />Export</Button>
+                  <LCPExportMenu lcpEntries={lcpEntries} latestOntCountsByKey={latestOntCountsByKey} subscriberRecords={subscriberRecords} />
                 </>
               )}
               <LCPEntryForm open={showAddDialog} onOpenChange={setShowAddDialog} formData={formData} setFormData={setFormData} editingId={editingId} onSubmit={handleSubmit} onReset={resetForm}>

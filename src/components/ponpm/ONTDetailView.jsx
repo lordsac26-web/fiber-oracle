@@ -215,12 +215,30 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                     }`}>
                       {ont.OntRxOptPwr || 'N/A'} dBm
                     </div>
+                    {peerData.avgMetrics && (() => {
+                      const delta = parseFloat(ont.OntRxOptPwr) - peerData.avgMetrics.avgRx;
+                      if (isNaN(delta)) return null;
+                      return (
+                        <div className={`text-xs font-mono mt-0.5 ${delta < -2 ? 'text-red-600' : delta < 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                          {delta > 0 ? '+' : ''}{delta.toFixed(1)} dB vs port avg ({peerData.avgMetrics.avgRx.toFixed(1)})
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">OLT Rx Power</div>
                     <div className="text-lg font-bold font-mono">
                       {ont.OLTRXOptPwr || 'N/A'} dBm
                     </div>
+                    {peerData.avgMetrics && (() => {
+                      const delta = parseFloat(ont.OLTRXOptPwr) - peerData.avgMetrics.avgOltRx;
+                      if (isNaN(delta)) return null;
+                      return (
+                        <div className={`text-xs font-mono mt-0.5 ${delta < -2 ? 'text-red-600' : delta < 0 ? 'text-amber-600' : 'text-green-600'}`}>
+                          {delta > 0 ? '+' : ''}{delta.toFixed(1)} dB vs port avg ({peerData.avgMetrics.avgOltRx.toFixed(1)})
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">ONT Tx Power</div>
