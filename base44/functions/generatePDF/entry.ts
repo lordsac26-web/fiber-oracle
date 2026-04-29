@@ -864,6 +864,18 @@ function generateJobReportPDF(data) {
     y += 11;
   };
 
+  // ── SUBSCRIBER INFO ────────────────────────────────────────────────────────
+  if (data.subscriber_info && (data.subscriber_info.name || data.subscriber_info.account)) {
+    const si = data.subscriber_info;
+    sectionTitle('Subscriber Info', [16, 185, 129]);
+    if (si.name)     infoRow('Customer Name',     si.name);
+    if (si.account)  infoRow('Account',           si.account);
+    const addr = [si.address, si.city, si.zip].filter(Boolean).join(', ');
+    if (addr)        infoRow('Address',           addr);
+    if (si.ont_ranged)        infoRow('ONT Ranged',        si.ont_ranged);
+    if (si.software_version)  infoRow('SW Version',        si.software_version);
+  }
+
   // ── JOB DETAILS ────────────────────────────────────────────────────────────
   sectionTitle('Job Details');
   infoRow('Technician', data.technician_name);

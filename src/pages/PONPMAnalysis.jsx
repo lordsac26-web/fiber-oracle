@@ -719,6 +719,15 @@ Be specific, technical, and actionable.`;
           lcp: ont._lcpNumber,
           splitter: ont._splitterNumber
         },
+        subscriber_info: sub ? {
+          name: sub.name || null,
+          account: sub.account || null,
+          address: sub.address || null,
+          city: sub.city || null,
+          zip: sub.zip || null,
+          ont_ranged: sub.ontRanged || null,
+          software_version: sub.softwareVersion || null,
+        } : null,
         photo_urls: [],
         historical_trends: trendDetails.length > 0 ? trendDetails : null
       };
