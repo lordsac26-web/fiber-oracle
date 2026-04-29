@@ -48,6 +48,7 @@
  * The mainPage value must match a key in the PAGES object exactly.
  */
 import AdminPanel from './pages/AdminPanel';
+import CalixSmxAnalysis from './pages/CalixSmxAnalysis';
 import CapacityPlanning from './pages/CapacityPlanning';
 import BendRadius from './pages/BendRadius';
 import Brochure from './pages/Brochure';
@@ -95,6 +96,7 @@ import __Layout from './Layout.jsx';
 
 export const PAGES = {
     "AdminPanel": AdminPanel,
+    "CalixSmxAnalysis": CalixSmxAnalysis,
     "CapacityPlanning": CapacityPlanning,
     "BendRadius": BendRadius,
     "Brochure": Brochure,
