@@ -868,111 +868,117 @@ function generateJobReportPDF(data) {
   if (data.subscriber_info && (data.subscriber_info.name || data.subscriber_info.account)) {
     const si = data.subscriber_info;
     sectionTitle('Subscriber Info', [16, 185, 129]);
-    if (si.name)     infoRow('Customer Name',     si.name);
-    if (si.account)  infoRow('Account',           si.account);
+    if (si.name)    infoRow('Customer Name', si.name);
+    if (si.account) infoRow('Account',       si.account);
     const addr = [si.address, si.city, si.zip].filter(Boolean).join(', ');
-    if (addr)        infoRow('Address',           addr);
-    if (si.ont_ranged)        infoRow('ONT Ranged',        si.ont_ranged);
-    if (si.software_version)  infoRow('SW Version',        si.software_version);
+    if (addr)       infoRow('Address',       addr);
+    if (si.ont_ranged)       infoRow('ONT Ranged', si.ont_ranged);
+    if (si.software_version) infoRow('SW Version', si.software_version);
   }
 
-  // ── JOB DETAILS ────────────────────────────────────────────────────────────
+  // ── JOB DETAILS + ONT INFO (compact two-column layout) ───────────────────
   sectionTitle('Job Details');
   infoRow('Technician', data.technician_name);
-  infoRow('Location', data.location);
+  infoRow('Location',   data.location);
   const statusColor = data.status === 'completed' ? C.emerald : data.status === 'needs_followup' ? C.red : C.amber;
   infoRow('Status', (data.status || 'N/A').replace(/_/g, ' ').toUpperCase(), statusColor);
-  infoRow('Date', data.completion_date ? new Date(data.completion_date).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }) : data.created_date ? new Date(data.created_date).toLocaleDateString() : 'N/A');
+  infoRow('Date', data.completion_date
+    ? new Date(data.completion_date).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
+    : data.created_date ? new Date(data.created_date).toLocaleDateString() : 'N/A');
 
-  // ── ONT INFORMATION ───────────────────────────────────────────────────────
   if (data.fiber_info) {
     sectionTitle('ONT Information', [59, 130, 246]);
-    infoRow('FSAN Serial', data.fiber_info.fsan);
-    infoRow('ONT ID', data.fiber_info.ont_id);
-    infoRow('Model', data.fiber_info.model);
-    infoRow('OLT / Port', `${data.fiber_info.olt || 'N/A'} / ${data.fiber_info.port || 'N/A'}`);
+    infoRow('FSAN Serial',   data.fiber_info.fsan);
+    infoRow('ONT ID / Model', `${data.fiber_info.ont_id || 'N/A'} / ${data.fiber_info.model || 'N/A'}`);
+    infoRow('OLT / Port',    `${data.fiber_info.olt || 'N/A'} / ${data.fiber_info.port || 'N/A'}`);
     if (data.fiber_info.lcp) infoRow('LCP / Splitter', `${data.fiber_info.lcp}${data.fiber_info.splitter ? ' / ' + data.fiber_info.splitter : ''}`);
   }
 
   // ── POWER READINGS ────────────────────────────────────────────────────────
   sectionTitle('Power Readings', C.emerald);
-  infoRow('Start Power Level', data.start_power_level != null ? data.start_power_level + ' dBm' : 'N/A');
-  infoRow('End Power Level',   data.end_power_level   != null ? data.end_power_level   + ' dBm' : 'N/A');
+  infoRow('Start Power', data.start_power_level != null ? data.start_power_level + ' dBm' : 'N/A');
+  infoRow('End Power',   data.end_power_level   != null ? data.end_power_level   + ' dBm' : 'N/A');
   if (data.start_power_level != null && data.end_power_level != null) {
     const imp = (data.end_power_level - data.start_power_level).toFixed(2);
     infoRow('Improvement', (imp > 0 ? '+' : '') + imp + ' dB', imp >= 0 ? C.emerald : C.red);
   }
 
-  // ── DIAGNOSIS ─────────────────────────────────────────────────────────────
-  if (data.diagnosis_used && data.diagnosis_result) {
-    sectionTitle('Fiber Doctor Diagnosis', [168, 85, 247]);
-    checkPage(16);
-    doc.setFontSize(8.5);
+  // ── TECHNICIAN NOTES ──────────────────────────────────────────────────────
+  if (data.notes) {
+    sectionTitle('Technician Notes');
+    checkPage(14);
+    // Strip the verbose AI sections from notes — just show the human-written portion
+    // Notes may begin with AI boilerplate ("DIAGNOSIS:\n..."); show first ~600 chars cleanly
+    const rawNotes = s(data.notes);
+    // If notes contain AI sections, trim to just a clean summary (first paragraph before DIAGNOSIS block)
+    const noteTrimmed = rawNotes.length > 800
+      ? rawNotes.substring(0, 800).trimEnd() + '...'
+      : rawNotes;
+    doc.setFillColor(241, 245, 249);
+    const noteLines = doc.splitTextToSize(noteTrimmed, CW - 8);
+    const noteH = Math.min(noteLines.length * 5.5 + 8, 55); // cap height to keep on one page
+    doc.roundedRect(M, y, CW, noteH, 2, 2, 'F');
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...C.dark);
-    const diagLines = doc.splitTextToSize(s(data.diagnosis_result), CW);
-    doc.text(diagLines, M, y);
-    y += diagLines.length * 5.5 + 3;
+    doc.text(doc.splitTextToSize(noteTrimmed, CW - 8).slice(0, 9), M + 4, y + 5.5);
+    y += noteH + 3;
+  }
 
-    if (data.diagnosis_steps && data.diagnosis_steps.length > 0) {
+  // ── HELPFUL INFORMATION (Fiber Doctor synopsis + equipment) ───────────────
+  const hasDiag = data.diagnosis_used && data.diagnosis_result;
+  const hasEquip = data.equipment_used && data.equipment_used.length > 0;
+  if (hasDiag || hasEquip) {
+    sectionTitle('Helpful Information', [168, 85, 247]);
+
+    // Brief diagnosis synopsis (2 sentences max to keep compact)
+    if (hasDiag) {
       checkPage(10);
+      doc.setFontSize(7.5);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
       doc.setTextColor(...C.slate);
-      doc.text('Steps Taken:', M, y);
+      doc.text('Diagnosis:', M, y);
+      y += 5;
+      // Trim diagnosis to ~300 chars for brevity
+      const diagText = s(data.diagnosis_result);
+      const diagBrief = diagText.length > 320 ? diagText.substring(0, 320).trimEnd() + '...' : diagText;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.dark);
+      const diagLines = doc.splitTextToSize(diagBrief, CW);
+      doc.text(diagLines, M, y);
+      y += diagLines.length * 5 + 3;
+    }
+
+    // Equipment as compact inline list
+    if (hasEquip) {
+      checkPage(10);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.slate);
+      doc.text('Recommended Tools:', M, y);
       y += 5;
       doc.setFont('helvetica', 'normal');
-      data.diagnosis_steps.forEach((step, i) => {
-        checkPage(8);
-        const stepLines = doc.splitTextToSize(s(`${i + 1}. ${step}`), CW);
-        doc.setTextColor(...C.dark);
-        doc.text(stepLines, M, y);
-        y += stepLines.length * 5 + 2;
-      });
+      doc.setTextColor(...C.dark);
+      const equipText = data.equipment_used.map(e => `• ${s(e)}`).join('   ');
+      const eqLines = doc.splitTextToSize(equipText, CW);
+      doc.setFontSize(7.5);
+      doc.text(eqLines, M, y);
+      y += eqLines.length * 5 + 2;
     }
   }
 
-  // ── EQUIPMENT USED ────────────────────────────────────────────────────────
-  if (data.equipment_used && data.equipment_used.length > 0) {
-    sectionTitle('Equipment Used', C.amber);
-    data.equipment_used.forEach(eq => {
-      checkPage(7);
-      doc.setFontSize(8.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...C.dark);
-      const eqLines = doc.splitTextToSize(s(`• ${eq}`), CW);
-      doc.text(eqLines, M, y);
-      y += eqLines.length * 5 + 1;
-    });
-  }
-
-  // ── HISTORICAL TRENDS ─────────────────────────────────────────────────────
+  // ── HISTORICAL TRENDS (compact, kept last) ────────────────────────────────
   if (data.historical_trends && data.historical_trends.length > 0) {
     sectionTitle('Historical Performance', [20, 184, 166]);
     data.historical_trends.forEach(trend => {
       checkPage(7);
       const tLines = doc.splitTextToSize(s(trend), CW);
-      doc.setFontSize(8);
+      doc.setFontSize(7.5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...C.dark);
       doc.text(tLines, M, y);
-      y += tLines.length * 5 + 2;
+      y += tLines.length * 5 + 1;
     });
-  }
-
-  // ── NOTES ─────────────────────────────────────────────────────────────────
-  if (data.notes) {
-    sectionTitle('Technician Notes');
-    checkPage(14);
-    doc.setFillColor(241, 245, 249);
-    const noteLines = doc.splitTextToSize(s(data.notes), CW - 8);
-    const noteH = noteLines.length * 5.5 + 8;
-    doc.roundedRect(M, y, CW, noteH, 2, 2, 'F');
-    doc.setFontSize(8.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...C.dark);
-    doc.text(noteLines, M + 4, y + 6);
-    y += noteH + 4;
   }
 
   // ── FINAL FOOTER ──────────────────────────────────────────────────────────
