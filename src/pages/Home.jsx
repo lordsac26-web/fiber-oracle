@@ -29,7 +29,7 @@ const MODULES = [
   { id: 'splitterloss', title: 'Splitter Loss', description: 'Instant loss values by split ratio', icon: Activity, color: 'from-purple-500 to-pink-600', page: 'SplitterLoss', badge: 'Calculators' },
   { id: 'bendradius', title: 'Bend Radius', description: 'Minimum bend radius by cable type', icon: Cable, color: 'from-amber-500 to-orange-600', page: 'BendRadius', badge: 'Calculators' },
   { id: 'calixsmx', title: 'Calix SMx ONT Analysis', description: 'NOC-style PON PM, LCP & utilization hub', icon: Activity, color: 'from-cyan-500 to-blue-700', page: 'CalixSmxAnalysis', badge: 'Testing', isNew: true },
-  { id: 'ponpm', title: 'PON PM Analysis', description: 'Parse & analyze SMx PM exports', icon: FileText, color: 'from-cyan-500 to-blue-600', page: 'PONPMAnalysis', badge: 'Testing' },
+
   { id: 'olts', title: 'OLTS Tier-1', description: 'Method B bidirectional power testing', icon: Activity, color: 'from-emerald-500 to-teal-600', page: 'OLTSTest', badge: 'Testing' },
   { id: 'otdr', title: 'OTDR Tier-2', description: 'Bidirectional trace characterization', icon: Activity, color: 'from-indigo-500 to-purple-600', page: 'OTDRTest', badge: 'Testing' },
   { id: 'cleaning', title: 'Cleaning & Inspection', description: 'IEC 61300-3-35 procedures', icon: Sparkles, color: 'from-cyan-500 to-blue-600', page: 'Cleaning', badge: 'Testing' },
@@ -41,8 +41,7 @@ const MODULES = [
   { id: 'fiberlocator', title: 'Fiber Locator', description: 'TIA-598 color code identifier', icon: Cable, color: 'from-orange-500 to-amber-600', page: 'FiberLocator', badge: 'Reference' },
   { id: 'pon', title: 'PON Power Levels', description: 'GPON & XGS-PON specifications', icon: Activity, color: 'from-cyan-500 to-blue-600', page: 'PONLevels', badge: 'Reference' },
   { id: 'tables', title: 'Reference Tables', description: 'Attenuation, connectors, splices & more', icon: BookOpen, color: 'from-slate-500 to-gray-600', page: 'ReferenceTables', badge: 'Reference' },
-  { id: 'lcp', title: 'LCP / CLCP Info', description: 'Cabinet & splitter database', icon: Cable, color: 'from-teal-500 to-cyan-600', page: 'LCPInfo', badge: 'Reference' },
-  { id: 'capacityplanning', title: 'Splitter Utilization', description: 'LCP/CLCP capacity & remaining ports', icon: TrendingUp, color: 'from-orange-500 to-red-600', page: 'CapacityPlanning', badge: 'Reference', isNew: true },
+
   { id: 'kmlparser', title: 'KML/KMZ Parser', description: 'Extract GPS coordinates from Google Earth', icon: FileText, color: 'from-emerald-500 to-teal-600', page: 'KMLParser', badge: 'Reference', isNew: true },
   { id: 'links', title: 'Industry Links', description: 'Vendors, standards & resources', icon: BookOpen, color: 'from-gray-500 to-slate-600', page: 'IndustryLinks', badge: 'Reference' },
   { id: 'education', title: 'Education Center', description: 'Fiber 101, 102, 103 courses', icon: GraduationCap, color: 'from-green-500 to-emerald-600', page: 'Education', badge: 'Learn' },

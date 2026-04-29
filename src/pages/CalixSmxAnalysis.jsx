@@ -18,7 +18,7 @@ const TABS = [
   { id: 'utilization', label: 'Splitter Utilization', icon: TrendingUp, description: 'Capacity & remaining ports' },
 ];
 
-function NocStatusBar({ reports, latestReport }) {
+function NocStatusBar({ latestReport }) {
   const totalOnts = latestReport?.ont_count || 0;
   const criticalCount = latestReport?.critical_count || 0;
   const warningCount = latestReport?.warning_count || 0;
@@ -28,12 +28,12 @@ function NocStatusBar({ reports, latestReport }) {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-      <StatusCard label="Total ONTs" value={totalOnts.toLocaleString()} color="text-blue-600" />
-      <StatusCard label="OLTs" value={oltCount} color="text-indigo-600" />
-      <StatusCard label="Critical" value={criticalCount} color="text-red-600" icon={AlertCircle} />
-      <StatusCard label="Warnings" value={warningCount} color="text-amber-600" icon={AlertTriangle} />
-      <StatusCard label="Healthy" value={okCount.toLocaleString()} color="text-green-600" icon={CheckCircle2} />
-      <StatusCard label="Health" value={`${healthPct}%`} color="text-emerald-600" />
+      <StatusCard label="Total ONTs" value={totalOnts.toLocaleString()} color="text-blue-600 dark:text-blue-400" />
+      <StatusCard label="OLTs" value={oltCount} color="text-indigo-600 dark:text-indigo-400" />
+      <StatusCard label="Critical" value={criticalCount} color="text-red-600 dark:text-red-400" icon={AlertCircle} />
+      <StatusCard label="Warnings" value={warningCount} color="text-amber-600 dark:text-amber-400" icon={AlertTriangle} />
+      <StatusCard label="Healthy" value={okCount.toLocaleString()} color="text-green-600 dark:text-green-400" icon={CheckCircle2} />
+      <StatusCard label="Health" value={`${healthPct}%`} color="text-emerald-600 dark:text-emerald-400" />
     </div>
   );
 }
@@ -46,7 +46,7 @@ function StatusCard({ label, value, color, icon: Icon }) {
           {Icon && <Icon className="h-4 w-4" />}
           {value}
         </div>
-        <div className="text-[11px] text-gray-500 mt-0.5">{label}</div>
+        <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{label}</div>
       </CardContent>
     </Card>
   );
@@ -68,38 +68,38 @@ export default function CalixSmxAnalysis() {
   const latestReport = savedReports[0] || null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       {/* Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-900/80 border-b border-slate-700/50">
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Link to={createPageUrl('Home')}>
-                <Button variant="ghost" size="icon" className="rounded-full text-slate-400 hover:text-white hover:bg-white/10">
+                <Button variant="ghost" size="icon" className="rounded-full">
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
               </Link>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
                   <Radio className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-white tracking-wide">Calix SMx ONT Analysis</h1>
-                  <p className="text-[11px] text-cyan-400/70">Network Operations Center</p>
+                  <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Calix SMx ONT Analysis</h1>
+                  <p className="text-xs text-gray-500">Network Operations Center</p>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {latestReport && (
-                <Badge variant="outline" className="text-xs border-cyan-500/30 text-cyan-300 bg-cyan-500/10">
+                <Badge variant="outline" className="text-xs">
                   <Database className="h-3 w-3 mr-1" />
                   {latestReport.report_name?.substring(0, 30)}
                 </Badge>
               )}
-              <Badge variant="outline" className="text-xs border-slate-600 text-slate-400">
+              <Badge variant="outline" className="text-xs">
                 {lcpEntries.length} LCPs
               </Badge>
-              <Badge variant="outline" className="text-xs border-slate-600 text-slate-400">
+              <Badge variant="outline" className="text-xs">
                 {savedReports.length} Reports
               </Badge>
             </div>
@@ -111,14 +111,14 @@ export default function CalixSmxAnalysis() {
         {/* NOC Status Bar */}
         {loadingReports ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-5 w-5 text-cyan-400 animate-spin mr-2" />
-            <span className="text-sm text-slate-400">Loading network status...</span>
+            <Loader2 className="h-5 w-5 text-blue-500 animate-spin mr-2" />
+            <span className="text-sm text-gray-500">Loading network status...</span>
           </div>
         ) : latestReport ? (
-          <NocStatusBar reports={savedReports} latestReport={latestReport} />
+          <NocStatusBar latestReport={latestReport} />
         ) : (
-          <Card className="border border-slate-700 bg-slate-800/50">
-            <CardContent className="p-4 text-center text-slate-400 text-sm">
+          <Card className="border-0 shadow-lg">
+            <CardContent className="p-4 text-center text-gray-500 text-sm">
               No PON PM reports yet. Upload your first report in the PON PM Analysis tab.
             </CardContent>
           </Card>
@@ -134,8 +134,8 @@ export default function CalixSmxAnalysis() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all border whitespace-nowrap
                   ${isActive
-                    ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 border-cyan-400/50 text-cyan-300 shadow-[0_0_12px_rgba(0,240,255,0.15)]'
-                    : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white hover:border-slate-600'
+                    ? 'bg-blue-600 dark:bg-blue-600 border-blue-700 text-white shadow-md'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
                   }`}
               >
                 <tab.icon className="h-4 w-4" />
@@ -145,8 +145,8 @@ export default function CalixSmxAnalysis() {
           })}
         </div>
 
-        {/* Tab Content — navigates to existing pages */}
-        <Card className="border border-slate-700 bg-slate-800/30 shadow-xl">
+        {/* Tab Content */}
+        <Card className="border-0 shadow-lg">
           <CardContent className="p-6">
             {activeTab === 'ponpm' && (
               <TabLauncher
@@ -229,32 +229,32 @@ function TabLauncher({ icon: Icon, title, description, features, pageName, butto
   return (
     <div className="space-y-5">
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/30 flex items-center justify-center shrink-0">
-          <Icon className="h-6 w-6 text-cyan-400" />
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 dark:from-cyan-500/20 dark:to-blue-600/20 border border-blue-200 dark:border-blue-500/30 flex items-center justify-center shrink-0">
+          <Icon className="h-6 w-6 text-blue-600 dark:text-cyan-400" />
         </div>
         <div className="flex-1">
-          <h3 className="text-xl font-bold text-white">{title}</h3>
-          <p className="text-sm text-slate-400 mt-1">{description}</p>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{description}</p>
         </div>
       </div>
 
       {stats && (
         <div className="grid grid-cols-3 gap-3">
           {stats.map((s, i) => (
-            <div key={i} className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-center">
-              <div className="text-sm font-bold text-white truncate">{s.value}</div>
-              <div className="text-[10px] text-slate-500 uppercase tracking-wide mt-0.5">{s.label}</div>
+            <div key={i} className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-center">
+              <div className="text-sm font-bold text-gray-900 dark:text-white truncate">{s.value}</div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mt-0.5">{s.label}</div>
             </div>
           ))}
         </div>
       )}
 
-      <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-        <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Capabilities</h4>
+      <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Capabilities</h4>
         <ul className="space-y-2">
           {features.map((f, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-              <CheckCircle2 className="h-4 w-4 text-cyan-500 shrink-0 mt-0.5" />
+            <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <CheckCircle2 className="h-4 w-4 text-blue-500 dark:text-cyan-500 shrink-0 mt-0.5" />
               {f}
             </li>
           ))}
@@ -262,7 +262,7 @@ function TabLauncher({ icon: Icon, title, description, features, pageName, butto
       </div>
 
       <Link to={createPageUrl(pageName)}>
-        <Button className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20">
+        <Button className="w-full">
           <Icon className="h-4 w-4 mr-2" />
           {buttonLabel}
         </Button>
@@ -274,14 +274,14 @@ function TabLauncher({ icon: Icon, title, description, features, pageName, butto
 function QuickLink({ to, icon: Icon, label, description }) {
   return (
     <Link to={createPageUrl(to)}>
-      <Card className="border border-slate-700 bg-slate-800/30 hover:bg-slate-800/60 hover:border-slate-600 transition-all cursor-pointer">
+      <Card className="border-0 shadow hover:shadow-md transition-all cursor-pointer">
         <CardContent className="p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-slate-700/50 flex items-center justify-center shrink-0">
-            <Icon className="h-4 w-4 text-slate-400" />
+          <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
+            <Icon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           </div>
           <div>
-            <div className="text-sm font-medium text-white">{label}</div>
-            <div className="text-[11px] text-slate-500">{description}</div>
+            <div className="text-sm font-medium text-gray-900 dark:text-white">{label}</div>
+            <div className="text-[11px] text-gray-500 dark:text-gray-400">{description}</div>
           </div>
         </CardContent>
       </Card>
