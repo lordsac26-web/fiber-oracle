@@ -15,6 +15,7 @@ import LCPEntryForm from '@/components/lcp/LCPEntryForm';
 import LCPImportDialog from '@/components/lcp/LCPImportDialog';
 import LCPTableView from '@/components/lcp/LCPTableView';
 import LCPListView from '@/components/lcp/LCPListView';
+import LCPAdvancedFilters from '@/components/lcp/LCPAdvancedFilters';
 import {
   ArrowLeft, Plus, Search, Trash2, X, Cable, Upload, Download, Map,
   Loader2, CloudOff, Cloud, List, LayoutGrid, Info, ArrowUpDown, Server
@@ -29,7 +30,11 @@ const INITIAL_FORM = {
 export default function LCPInfo() {
   const queryClient = useQueryClient();
   const { preferences } = useUserPreferences();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({
+    searchTerm: '', oltName: 'all', opticMake: 'all', opticModel: 'all',
+    opticType: 'all', hasGps: 'all',
+  });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [viewMode, setViewMode] = useState('table');
   const [sortBy, setSortBy] = useState('lcp_number');
   const [sortOrder, setSortOrder] = useState('asc');
@@ -249,9 +254,25 @@ export default function LCPInfo() {
 
   const filteredEntries = lcpEntries
     .filter(entry => {
-      const term = searchTerm.toLowerCase();
-      return (entry.lcp_number||'').toLowerCase().includes(term) || (entry.splitter_number||'').toLowerCase().includes(term) ||
-             (entry.location||'').toLowerCase().includes(term) || `${entry.olt_shelf}/${entry.olt_slot}/${entry.olt_port}`.includes(term);
+      const term = filters.searchTerm.toLowerCase();
+      if (term) {
+        const matchesText = (entry.lcp_number||'').toLowerCase().includes(term) || 
+          (entry.splitter_number||'').toLowerCase().includes(term) ||
+          (entry.location||'').toLowerCase().includes(term) || 
+          (entry.olt_name||'').toLowerCase().includes(term) ||
+          (entry.optic_model||'').toLowerCase().includes(term) ||
+          (entry.optic_make||'').toLowerCase().includes(term) ||
+          (entry.optic_serial||'').toLowerCase().includes(term) ||
+          `${entry.olt_shelf}/${entry.olt_slot}/${entry.olt_port}`.includes(term);
+        if (!matchesText) return false;
+      }
+      if (filters.oltName !== 'all' && entry.olt_name !== filters.oltName) return false;
+      if (filters.opticMake !== 'all' && entry.optic_make !== filters.opticMake) return false;
+      if (filters.opticModel !== 'all' && entry.optic_model !== filters.opticModel) return false;
+      if (filters.opticType !== 'all' && entry.optic_type !== filters.opticType) return false;
+      if (filters.hasGps === 'yes' && (!entry.gps_lat || !entry.gps_lng)) return false;
+      if (filters.hasGps === 'no' && entry.gps_lat && entry.gps_lng) return false;
+      return true;
     })
     .sort((a, b) => {
       const dir = sortOrder === 'asc' ? 1 : -1;
@@ -311,13 +332,17 @@ export default function LCPInfo() {
           </div>
         )}
 
-        <div className="flex gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <Input placeholder="Search..." className="pl-10 h-12" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          </div>
+        <LCPAdvancedFilters
+          lcpEntries={lcpEntries}
+          filters={filters}
+          onFiltersChange={setFilters}
+          showAdvanced={showAdvancedFilters}
+          onToggleAdvanced={() => setShowAdvancedFilters(p => !p)}
+        />
+
+        <div className="flex gap-2 items-center">
           <Select value={`${sortBy}-${sortOrder}`} onValueChange={(val) => { const [f,o] = val.split('-'); setSortBy(f); setSortOrder(o); }}>
-            <SelectTrigger className="w-[160px] h-12"><ArrowUpDown className="h-4 w-4 mr-2" /><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[160px] h-10"><ArrowUpDown className="h-4 w-4 mr-2" /><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="created_date-desc">Newest First</SelectItem>
               <SelectItem value="created_date-asc">Oldest First</SelectItem>
@@ -337,6 +362,9 @@ export default function LCPInfo() {
             <Button variant={viewMode==='list'?'default':'ghost'} size="icon" className="rounded-none" onClick={() => setViewMode('list')}><List className="h-4 w-4" /></Button>
             <Button variant={viewMode==='table'?'default':'ghost'} size="icon" className="rounded-none" onClick={() => setViewMode('table')}><LayoutGrid className="h-4 w-4" /></Button>
           </div>
+          {filteredEntries.length !== lcpEntries.length && (
+            <Badge variant="outline" className="text-xs">{filteredEntries.length} of {lcpEntries.length}</Badge>
+          )}
         </div>
 
         {isLoading ? (
