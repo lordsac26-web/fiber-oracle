@@ -63,13 +63,8 @@ import {
   FileSpreadsheet,
   Router,
   Loader2,
-  Filter,
-  Settings,
   FileText,
-  RotateCcw,
-  History,
   Database,
-  Trash2,
   Calendar,
   TrendingUp,
   TrendingDown,
@@ -94,11 +89,13 @@ import FileUploadZone from '@/components/ponpm/FileUploadZone';
 import PortHeaderLabel from '@/components/ponpm/PortHeaderLabel';
 import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
 import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
-import { formatUptime } from '@/components/ponpm/formatUptime';
+// formatUptime moved to ONTTableRow component
 import { exportLcpPortUtilization } from '@/components/ponpm/exportLcpUtilization';
 import { exportIssueReport as exportIssueReportUtil } from '@/components/ponpm/exportIssueReport';
 import CorrectedFecAnalysis from '@/components/ponpm/CorrectedFecAnalysis';
 import { buildLcpLookupMap, enrichOntsWithLcp } from '@/components/ponpm/lcpLookup';
+import SubscriberUpload, { buildSubscriberLookup, enrichOntsWithSubscriber } from '@/components/ponpm/SubscriberUpload';
+import ONTTableRow from '@/components/ponpm/ONTTableRow';
 const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
 const STATUS_COLORS = {
   critical: 'bg-red-500',
@@ -149,6 +146,8 @@ export default function PONPMAnalysis() {
   const [jobReportFormData, setJobReportFormData] = useState(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [selectedOntDetail, setSelectedOntDetail] = useState(null);
+  const [subscriberData, setSubscriberData] = useState(null);
+  const [subscriberMatchCount, setSubscriberMatchCount] = useState(0);
   const [customThresholds, setCustomThresholds] = useState(() => {
     const saved = localStorage.getItem('ponPmThresholds');
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
@@ -202,6 +201,26 @@ export default function PONPMAnalysis() {
     if (count > 0 && !enrichedRef.current) { enrichedRef.current = true; setResult(prev => ({ ...prev })); }
   }, [result?.onts?.length, lcpEntriesForEnrich]);
   useEffect(() => { enrichedRef.current = false; }, [result?.source]);
+
+  // Subscriber data enrichment
+  const subscriberLookupRef = useRef(null);
+  const handleSubscriberDataLoaded = useCallback((records) => {
+    const lookup = buildSubscriberLookup(records);
+    subscriberLookupRef.current = lookup;
+    setSubscriberData(records);
+    if (result?.onts) {
+      const matched = enrichOntsWithSubscriber(lookup, result.onts);
+      setSubscriberMatchCount(matched);
+      setResult(prev => ({ ...prev })); // trigger re-render
+    }
+  }, [result]);
+
+  // Re-enrich when result changes and subscriber data exists
+  useEffect(() => {
+    if (!result?.onts || !subscriberLookupRef.current) return;
+    const matched = enrichOntsWithSubscriber(subscriberLookupRef.current, result.onts);
+    setSubscriberMatchCount(matched);
+  }, [result?.onts?.length]);
 
   // Save report metadata, then kick off async background processing for ONT records
   const saveReportMutation = useMutation({
@@ -324,11 +343,15 @@ export default function PONPMAnalysis() {
 
   const filteredOnts = useMemo(() => {
     let filtered = result?.onts?.filter(ont => {
+      const term = searchTerm.toLowerCase();
       const matchesSearch = !searchTerm || 
-        ont.SerialNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ont.SerialNumber?.toLowerCase().includes(term) ||
         ont.OntID?.toString().includes(searchTerm) ||
-        ont['Shelf/Slot/Port']?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ont.OLTName?.toLowerCase().includes(searchTerm.toLowerCase());
+        ont['Shelf/Slot/Port']?.toLowerCase().includes(term) ||
+        ont.OLTName?.toLowerCase().includes(term) ||
+        ont._subscriber?.name?.toLowerCase().includes(term) ||
+        ont._subscriber?.account?.toLowerCase().includes(term) ||
+        ont._subscriber?.address?.toLowerCase().includes(term);
       
       const matchesStatus = statusFilter === 'all' || ont._analysis.status === statusFilter;
       const matchesOlt = oltFilter === 'all' || ont._oltName === oltFilter;
@@ -837,41 +860,7 @@ Be specific, technical, and actionable.`;
                       Viewing saved report
                     </Badge>
                   )}
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setShowTrends(true)}
-                    disabled={savedReports.length < 1}
-                    title={savedReports.length < 1 ? 'Need at least 1 report for trends' : 'View historical trends'}
-                  >
-                    <History className="h-4 w-4 mr-2" />
-                    Trends
-                    {savedReports.length > 0 && (
-                      <Badge variant="secondary" className="ml-1 text-xs">{savedReports.length}</Badge>
-                    )}
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setShowHistoricalReports(true)}
-                  >
-                    <Database className="h-4 w-4 mr-2" />
-                    History
-                  </Button>
-                  <div className="flex gap-2">
-                    <Link to={createPageUrl('DataManagement')}>
-                      <Button variant="outline" size="sm">
-                        <Database className="h-4 w-4 mr-2" />
-                        Records
-                      </Button>
-                    </Link>
-                    <Link to={createPageUrl('ReportManagement')}>
-                      <Button variant="outline" size="sm">
-                        <FileText className="h-4 w-4 mr-2" />
-                        Reports
-                      </Button>
-                    </Link>
-                  </div>
+                <SubscriberUpload onDataLoaded={handleSubscriberDataLoaded} subscriberCount={subscriberMatchCount} />
                 <ThresholdSettingsDialog
                   open={showThresholdSettings}
                   onOpenChange={setShowThresholdSettings}
@@ -1633,6 +1622,7 @@ Be specific, technical, and actionable.`;
                                             <TableRow>
                                               <TableHead className="w-12">Status</TableHead>
                                               <TableHead>ONT ID</TableHead>
+                                              {subscriberMatchCount > 0 && <TableHead>Subscriber</TableHead>}
                                               <TableHead>LCP/Splitter</TableHead>
                                               <TableHead>Serial</TableHead>
                                               <TableHead>Model</TableHead>
@@ -1653,196 +1643,9 @@ Be specific, technical, and actionable.`;
                                           </TableHeader>
                                           <TableBody>
                                             {portOnts.filter(ont => !hideOntStatus[ont._analysis.status]).map((ont, idx) => (
-                                              <TableRow key={idx} className={
-                                                ont._analysis.status === 'critical' ? 'bg-red-50 dark:bg-red-900/10' : 
-                                                ont._analysis.status === 'warning' ? 'bg-amber-50 dark:bg-amber-900/10' : 
-                                                ont._analysis.status === 'offline' ? 'bg-purple-50 dark:bg-purple-900/10' : 
-                                                ''
-                                              }>
-                                                <TableCell>
-                                                  <div className={`w-3 h-3 rounded-full ${STATUS_COLORS[ont._analysis.status]}`} />
-                                                </TableCell>
-                                                <TableCell className="font-mono">{ont.OntID || '-'}</TableCell>
-                                                <TableCell className="text-xs">
-                                                  {ont._lcpNumber ? (
-                                                    <TooltipProvider>
-                                                      <Tooltip>
-                                                        <TooltipTrigger>
-                                                          <span className="text-blue-600 font-medium">{ont._lcpNumber}/{ont._splitterNumber}</span>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                          {ont._lcpLocation && <div>{ont._lcpLocation}</div>}
-                                                          {ont._lcpAddress && <div className="text-gray-400">{ont._lcpAddress}</div>}
-                                                        </TooltipContent>
-                                                      </Tooltip>
-                                                    </TooltipProvider>
-                                                  ) : '-'}
-                                                </TableCell>
-                                                <TableCell className="font-mono text-xs">{ont.SerialNumber || '-'}</TableCell>
-                                                <TableCell className="text-xs">{ont.model || '-'}</TableCell>
-                                                <TableCell className="text-right font-mono text-xs">
-                                                  <div className="flex flex-col items-end gap-0.5">
-                                                    <span className={
-                                                      parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' :
-                                                      parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : ''
-                                                    }>
-                                                      {ont.OntRxOptPwr || '-'}
-                                                    </span>
-                                                    {ont._trends?.ont_rx_change !== null && ont._trends?.ont_rx_change !== undefined && (
-                                                      <span className={`text-[9px] flex items-center gap-0.5 ${
-                                                        ont._trends.ont_rx_change < -1 ? 'text-red-600' :
-                                                        ont._trends.ont_rx_change > 1 ? 'text-green-600' :
-                                                        'text-gray-500'
-                                                      }`}>
-                                                        {ont._trends.ont_rx_change < -0.1 ? '↓' : ont._trends.ont_rx_change > 0.1 ? '↑' : '→'}
-                                                        {Math.abs(ont._trends.ont_rx_change).toFixed(1)}dB
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs">
-                                                  <div className="flex flex-col items-end gap-0.5">
-                                                    <span className={
-                                                      parseFloat(ont.OLTRXOptPwr) < -30 ? 'text-red-600 font-bold' :
-                                                      parseFloat(ont.OLTRXOptPwr) < -28 ? 'text-amber-600' : ''
-                                                    }>
-                                                      {ont.OLTRXOptPwr || '-'}
-                                                    </span>
-                                                    {ont._trends?.olt_rx_change !== null && ont._trends?.olt_rx_change !== undefined && (
-                                                      <span className={`text-[9px] flex items-center gap-0.5 ${
-                                                        ont._trends.olt_rx_change < -1 ? 'text-red-600' :
-                                                        ont._trends.olt_rx_change > 1 ? 'text-green-600' :
-                                                        'text-gray-500'
-                                                      }`}>
-                                                        {ont._trends.olt_rx_change < -0.1 ? '↓' : ont._trends.olt_rx_change > 0.1 ? '↑' : '→'}
-                                                        {Math.abs(ont._trends.olt_rx_change).toFixed(1)}dB
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs">
-                                                  <div className="flex flex-col items-end gap-0.5">
-                                                    <span className={parseInt(ont.UpstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
-                                                      {ont.UpstreamBipErrors || '0'}
-                                                    </span>
-                                                    {ont._trends && ont._trends.us_bip_change !== null && ont._trends.us_bip_change !== 0 && (
-                                                      <span className={`text-[9px] ${ont._trends.us_bip_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                        {ont._trends.us_bip_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.us_bip_change)}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs">
-                                                  <div className="flex flex-col items-end gap-0.5">
-                                                    <span className={parseInt(ont.DownstreamBipErrors) > 100 ? 'text-amber-600' : ''}>
-                                                      {ont.DownstreamBipErrors || '0'}
-                                                    </span>
-                                                    {ont._trends && ont._trends.ds_bip_change !== null && ont._trends.ds_bip_change !== 0 && (
-                                                      <span className={`text-[9px] ${ont._trends.ds_bip_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                        {ont._trends.ds_bip_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.ds_bip_change)}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs">
-                                                  <div className="flex flex-col items-end gap-0.5">
-                                                    <span className={parseInt(ont.UpstreamFecUncorrectedCodeWords) > 10 ? 'text-amber-600' : ''}>
-                                                      {ont.UpstreamFecUncorrectedCodeWords || '0'}
-                                                    </span>
-                                                    {ont._trends && ont._trends.us_fec_change !== null && ont._trends.us_fec_change !== 0 && (
-                                                      <span className={`text-[9px] ${ont._trends.us_fec_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                        {ont._trends.us_fec_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.us_fec_change)}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs">
-                                                  <div className="flex flex-col items-end gap-0.5">
-                                                    <span className={parseInt(ont.DownstreamFecUncorrectedCodeWords) > 10 ? 'text-amber-600' : ''}>
-                                                      {ont.DownstreamFecUncorrectedCodeWords || '0'}
-                                                    </span>
-                                                    {ont._trends && ont._trends.ds_fec_change !== null && ont._trends.ds_fec_change !== 0 && (
-                                                      <span className={`text-[9px] ${ont._trends.ds_fec_change > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                        {ont._trends.ds_fec_change > 0 ? '↑' : '↓'}{Math.abs(ont._trends.ds_fec_change)}
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs">
-                                                  {ont.UpstreamFecCorrectedCodeWords || '0'}
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs">
-                                                  {ont.DownstreamFecCorrectedCodeWords || '0'}
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs">
-                                                  <span className={parseInt(ont.UpstreamMissedBursts) >= 10 ? 'text-amber-600' : ''}>
-                                                    {ont.UpstreamMissedBursts || '0'}
-                                                  </span>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono text-xs">
-                                                  <span className={parseInt(ont.UpstreamGemHecErrors) >= 10 ? 'text-amber-600' : ''}>
-                                                    {ont.UpstreamGemHecErrors || '0'}
-                                                  </span>
-                                                </TableCell>
-                                                <TableCell className="text-xs text-gray-500 whitespace-nowrap">
-                                                  {formatUptime(ont.upTime)}
-                                                </TableCell>
-                                                <TableCell>
-                                                  <TooltipProvider>
-                                                    <div className="flex flex-wrap gap-1">
-                                                      {ont._analysis.issues.slice(0, 2).map((issue, i) => (
-                                                        <Tooltip key={i}>
-                                                          <TooltipTrigger>
-                                                            <Badge variant="outline" className="text-[10px] bg-red-50 border-red-300 text-red-700">
-                                                              {issue.field}
-                                                            </Badge>
-                                                          </TooltipTrigger>
-                                                          <TooltipContent>{issue.message}</TooltipContent>
-                                                        </Tooltip>
-                                                      ))}
-                                                      {ont._analysis.warnings.slice(0, 2).map((warn, i) => (
-                                                        <Tooltip key={`w-${i}`}>
-                                                          <TooltipTrigger>
-                                                            <Badge variant="outline" className="text-[10px] bg-amber-50 border-amber-300 text-amber-700">
-                                                              {warn.field}
-                                                            </Badge>
-                                                          </TooltipTrigger>
-                                                          <TooltipContent>{warn.message}</TooltipContent>
-                                                        </Tooltip>
-                                                      ))}
-                                                      {(ont._analysis.issues.length + ont._analysis.warnings.length) > 4 && (
-                                                        <Badge variant="outline" className="text-[10px]">
-                                                          +{ont._analysis.issues.length + ont._analysis.warnings.length - 4}
-                                                        </Badge>
-                                                      )}
-                                                    </div>
-                                                  </TooltipProvider>
-                                                </TableCell>
-                                                <TableCell>
-                                                  <div className="flex gap-1">
-                                                    <Button
-                                                      size="sm"
-                                                      variant="outline"
-                                                      onClick={(e) => { e.stopPropagation(); setSelectedOntDetail(ont); }}
-                                                      className="text-xs h-7 gap-1"
-                                                    >
-                                                      <Activity className="h-3 w-3" />
-                                                      Details
-                                                    </Button>
-                                                    <Button
-                                                      size="sm"
-                                                      variant="outline"
-                                                      onClick={(e) => { e.stopPropagation(); createJobReportForONT(ont); }}
-                                                      className="text-xs h-7 gap-1"
-                                                    >
-                                                      <Clipboard className="h-3 w-3" />
-                                                      Job
-                                                    </Button>
-                                                  </div>
-                                                </TableCell>
-                                                </TableRow>
-                                                ))}
-                                                </TableBody>
+                                              <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} onSelectDetail={setSelectedOntDetail} onCreateJobReport={createJobReportForONT} />
+                                            ))}
+                                          </TableBody>
                                                 </Table>
                                                 </div>
                                                 </div>
