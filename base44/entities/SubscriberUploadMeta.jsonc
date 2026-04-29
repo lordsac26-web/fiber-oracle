@@ -1,0 +1,82 @@
+{
+  "name": "SubscriberUploadMeta",
+  "type": "object",
+  "properties": {
+    "file_name": {
+      "type": "string",
+      "description": "Original uploaded file name"
+    },
+    "record_count": {
+      "type": "number",
+      "description": "Number of subscriber records in this upload"
+    },
+    "upload_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the subscriber data was uploaded"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "replaced"
+      ],
+      "default": "active",
+      "description": "Whether this is the current active dataset"
+    }
+  },
+  "required": [
+    "file_name",
+    "record_count"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

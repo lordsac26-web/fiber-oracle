@@ -95,6 +95,8 @@ import { exportIssueReport as exportIssueReportUtil } from '@/components/ponpm/e
 import CorrectedFecAnalysis from '@/components/ponpm/CorrectedFecAnalysis';
 import { buildLcpLookupMap, enrichOntsWithLcp } from '@/components/ponpm/lcpLookup';
 import SubscriberUpload, { buildSubscriberLookup, enrichOntsWithSubscriber } from '@/components/ponpm/SubscriberUpload';
+import { useSubscriberData } from '@/components/ponpm/useSubscriberData';
+import SubscriberDataBanner from '@/components/ponpm/SubscriberDataBanner';
 import ONTTableRow from '@/components/ponpm/ONTTableRow';
 const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
 const STATUS_COLORS = {
@@ -146,8 +148,14 @@ export default function PONPMAnalysis() {
   const [jobReportFormData, setJobReportFormData] = useState(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [selectedOntDetail, setSelectedOntDetail] = useState(null);
-  const [subscriberData, setSubscriberData] = useState(null);
-  const [subscriberMatchCount, setSubscriberMatchCount] = useState(0);
+  const {
+    subscriberMeta,
+    subscriberMatchCount,
+    setSubscriberMatchCount,
+    handleSubscriberDataLoaded: persistSubscriberData,
+    enrichOnts: enrichOntsFromDB,
+    isLoading: subscriberLoading,
+  } = useSubscriberData();
   const [customThresholds, setCustomThresholds] = useState(() => {
     const saved = localStorage.getItem('ponPmThresholds');
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
@@ -202,25 +210,23 @@ export default function PONPMAnalysis() {
   }, [result?.onts?.length, lcpEntriesForEnrich]);
   useEffect(() => { enrichedRef.current = false; }, [result?.source]);
 
-  // Subscriber data enrichment
-  const subscriberLookupRef = useRef(null);
-  const handleSubscriberDataLoaded = useCallback((records) => {
-    const lookup = buildSubscriberLookup(records);
-    subscriberLookupRef.current = lookup;
-    setSubscriberData(records);
+  // Subscriber data enrichment — uses persistent hook
+  const handleSubscriberDataLoaded = useCallback(async (records, fileName) => {
+    await persistSubscriberData(records, fileName);
     if (result?.onts) {
+      const lookup = buildSubscriberLookup(records);
       const matched = enrichOntsWithSubscriber(lookup, result.onts);
       setSubscriberMatchCount(matched);
       setResult(prev => ({ ...prev })); // trigger re-render
     }
-  }, [result]);
+  }, [result, persistSubscriberData]);
 
-  // Re-enrich when result changes and subscriber data exists
+  // Auto-enrich ONTs when result loads and subscriber data exists in DB
   useEffect(() => {
-    if (!result?.onts || !subscriberLookupRef.current) return;
-    const matched = enrichOntsWithSubscriber(subscriberLookupRef.current, result.onts);
-    setSubscriberMatchCount(matched);
-  }, [result?.onts?.length]);
+    if (!result?.onts || subscriberLoading) return;
+    const matched = enrichOntsFromDB(result.onts);
+    if (matched > 0) setResult(prev => ({ ...prev }));
+  }, [result?.onts?.length, subscriberLoading, enrichOntsFromDB]);
 
   // Save report metadata, then kick off async background processing for ONT records
   const saveReportMutation = useMutation({
@@ -860,7 +866,7 @@ Be specific, technical, and actionable.`;
                       Viewing saved report
                     </Badge>
                   )}
-                <SubscriberUpload onDataLoaded={handleSubscriberDataLoaded} subscriberCount={subscriberMatchCount} />
+                <SubscriberUpload onDataLoaded={handleSubscriberDataLoaded} subscriberCount={subscriberMatchCount} subscriberMeta={subscriberMeta} />
                 <ThresholdSettingsDialog
                   open={showThresholdSettings}
                   onOpenChange={setShowThresholdSettings}
@@ -1032,6 +1038,9 @@ Be specific, technical, and actionable.`;
         {/* Results Section */}
         {result && (
           <>
+            {/* Subscriber data freshness banner */}
+            <SubscriberDataBanner subscriberMeta={subscriberMeta} matchCount={subscriberMatchCount} />
+
             {/* Background processing progress bar */}
             <ProcessingProgressBar
               status={processingStatus}

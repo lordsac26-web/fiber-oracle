@@ -23,6 +23,7 @@ import {
   Navigation,
   TrendingDown,
   Loader2,
+  Users,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -482,6 +483,35 @@ export default function LCPSummarySection({ result, onPortClick }) {
                   </div>
                 </Card>
               )}
+
+              {/* Subscribers at this LCP */}
+              {(() => {
+                const subsAtLcp = selectedLCP.onts.filter(o => o._subscriber);
+                if (subsAtLcp.length === 0) return null;
+                return (
+                  <Card className="border border-indigo-200 bg-indigo-50/30">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Subscribers ({subsAtLcp.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="max-h-48 overflow-y-auto space-y-1">
+                        {subsAtLcp.map((ont, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-xs px-2 py-1.5 bg-white rounded border">
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium truncate">{ont._subscriber.name || ont._subscriber.account || 'Unknown'}</span>
+                              {ont._subscriber.address && <span className="text-gray-500 ml-2 truncate">{ont._subscriber.address}</span>}
+                            </div>
+                            <span className="font-mono text-gray-400 ml-2 shrink-0">ONT {ont.OntID}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               {/* Ports Served */}
               <Card className="border">

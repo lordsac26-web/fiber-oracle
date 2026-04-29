@@ -181,9 +181,10 @@ export function enrichOntsWithSubscriber(lookup, onts) {
   return matched;
 }
 
-export default function SubscriberUpload({ onDataLoaded, subscriberCount }) {
+export default function SubscriberUpload({ onDataLoaded, subscriberCount, subscriberMeta }) {
   const [open, setOpen] = useState(false);
   const [parsing, setParsing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState(null);
   const fileRef = useRef(null);
 
@@ -215,12 +216,19 @@ export default function SubscriberUpload({ onDataLoaded, subscriberCount }) {
     if (fileRef.current) fileRef.current.value = '';
   };
 
-  const confirmLoad = () => {
+  const confirmLoad = async () => {
     if (!preview) return;
-    onDataLoaded(preview.records);
-    toast.success(`Loaded ${preview.records.length} subscriber records`);
-    setPreview(null);
-    setOpen(false);
+    setSaving(true);
+    try {
+      await onDataLoaded(preview.records, preview.fileName);
+      toast.success(`Loaded & saved ${preview.records.length} subscriber records`);
+      setPreview(null);
+      setOpen(false);
+    } catch (error) {
+      toast.error('Failed to save subscriber data');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -331,11 +339,32 @@ export default function SubscriberUpload({ onDataLoaded, subscriberCount }) {
             )}
           </div>
 
+          {/* Current data status */}
+          {subscriberMeta && !preview && (
+            <Card className="border bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200">
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-indigo-800 dark:text-indigo-200">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="font-medium">Current data loaded from database</span>
+                  </div>
+                  <div className="text-xs text-indigo-600 dark:text-indigo-300">
+                    {subscriberMeta.record_count?.toLocaleString()} records • {subscriberMeta.file_name}
+                  </div>
+                </div>
+                <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-1">
+                  Upload a new CSV to replace the existing data.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => { setOpen(false); setPreview(null); }}>Cancel</Button>
-            <Button onClick={confirmLoad} disabled={!preview?.records?.length}>
+            <Button onClick={confirmLoad} disabled={!preview?.records?.length || saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               <Users className="h-4 w-4 mr-2" />
-              Load {preview?.records?.length || 0} Records
+              {saving ? 'Saving...' : `Load & Save ${preview?.records?.length || 0} Records`}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -699,6 +699,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                     <TableRow className="bg-gray-100 dark:bg-gray-800">
                       <TableHead className="w-10 text-gray-700 dark:text-gray-200 font-semibold">Status</TableHead>
                       <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">ONT ID</TableHead>
+                      <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">Subscriber</TableHead>
                       <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">Serial</TableHead>
                       <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">Model</TableHead>
                       <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">ONT Rx</TableHead>
@@ -724,6 +725,9 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                           }`} />
                         </TableCell>
                         <TableCell className="font-mono text-gray-900 dark:text-white">{ont.OntID || '-'}</TableCell>
+                        <TableCell className="text-xs text-gray-900 dark:text-white max-w-[120px] truncate">
+                          {ont._subscriber ? (ont._subscriber.name || ont._subscriber.account || '-') : '-'}
+                        </TableCell>
                         <TableCell className="font-mono text-xs text-gray-900 dark:text-white">{ont.SerialNumber || '-'}</TableCell>
                         <TableCell className="text-xs text-gray-900 dark:text-white">{ont.model || '-'}</TableCell>
                         <TableCell className="text-right font-mono">

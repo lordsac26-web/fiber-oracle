@@ -1,0 +1,110 @@
+{
+  "name": "SubscriberRecord",
+  "type": "object",
+  "properties": {
+    "SubscriberName": {
+      "type": "string",
+      "description": "Customer/subscriber name"
+    },
+    "AccountName": {
+      "type": "string",
+      "description": "Account name or ID"
+    },
+    "Address": {
+      "type": "string",
+      "description": "Street address"
+    },
+    "City": {
+      "type": "string",
+      "description": "City"
+    },
+    "Zip": {
+      "type": "string",
+      "description": "Zip code"
+    },
+    "OntID": {
+      "type": "string",
+      "description": "ONT ID on the port",
+      "index": true
+    },
+    "ONTRanged": {
+      "type": "string",
+      "description": "Whether ONT is ranged"
+    },
+    "ONTSerialNo": {
+      "type": "string",
+      "description": "ONT serial number (FSAN)",
+      "index": true
+    },
+    "ONTModel": {
+      "type": "string",
+      "description": "ONT model identifier"
+    },
+    "CurrentONTSoftwareVersion": {
+      "type": "string",
+      "description": "Current ONT software version"
+    },
+    "DeviceName": {
+      "type": "string",
+      "description": "OLT device name",
+      "index": true
+    },
+    "LinkedPon": {
+      "type": "string",
+      "description": "Linked PON port (shelf/slot/port)"
+    }
+  },
+  "required": [
+    "OntID"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
