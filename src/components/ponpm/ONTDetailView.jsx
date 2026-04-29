@@ -429,8 +429,11 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                     {ont._subscriber.city && (
                       <div className="flex justify-between"><span className="text-gray-500">City/Zip:</span><span className="font-medium">{ont._subscriber.city}{ont._subscriber.zip ? `, ${ont._subscriber.zip}` : ''}</span></div>
                     )}
-                    {ont._subscriber.model && (
-                      <div className="flex justify-between"><span className="text-gray-500">ONT Model:</span><span className="font-medium">{ont._subscriber.model}</span></div>
+                    {(ont._subscriber.model || ont.model) && (
+                      <div className="flex justify-between"><span className="text-gray-500">ONT Model:</span><span className="font-medium">{ont._subscriber.model || ont.model}</span></div>
+                    )}
+                    {ont._subscriber.serialNo && !ont.SerialNumber && (
+                      <div className="flex justify-between"><span className="text-gray-500">Serial (CSV):</span><span className="font-mono text-xs">{ont._subscriber.serialNo}</span></div>
                     )}
                     {ont._subscriber.softwareVersion && (
                       <div className="flex justify-between"><span className="text-gray-500">Software:</span><span className="font-mono text-xs">{ont._subscriber.softwareVersion}</span></div>

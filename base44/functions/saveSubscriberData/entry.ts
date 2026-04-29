@@ -22,18 +22,25 @@ Deno.serve(async (req) => {
       await base44.entities.SubscriberUploadMeta.update(meta.id, { status: 'replaced' });
     }
 
-    // 2) Delete all existing subscriber records for this user
-    const existingRecords = await base44.entities.SubscriberRecord.filter(
-      { created_by: user.email }, null, 10000
-    );
-    // Batch delete in chunks of 50
-    for (let i = 0; i < existingRecords.length; i += 50) {
-      const chunk = existingRecords.slice(i, i + 50);
-      await Promise.all(chunk.map(r => base44.entities.SubscriberRecord.delete(r.id)));
+    // 2) Delete all existing subscriber records for this user — paginate to handle >10k
+    let deleteOffset = 0;
+    const DELETE_PAGE = 500;
+    while (true) {
+      const existingBatch = await base44.entities.SubscriberRecord.filter(
+        { created_by: user.email }, null, DELETE_PAGE, deleteOffset
+      );
+      if (!existingBatch.length) break;
+      // Delete in parallel chunks of 50 for speed
+      for (let i = 0; i < existingBatch.length; i += 50) {
+        const chunk = existingBatch.slice(i, i + 50);
+        await Promise.all(chunk.map(r => base44.entities.SubscriberRecord.delete(r.id)));
+      }
+      if (existingBatch.length < DELETE_PAGE) break;
+      // Don't advance offset — we deleted records so the next page is now at 0
     }
 
-    // 3) Bulk-create new records in chunks of 100
-    const CHUNK_SIZE = 100;
+    // 3) Bulk-create new records in chunks of 200 for better throughput
+    const CHUNK_SIZE = 200;
     let savedCount = 0;
     for (let i = 0; i < records.length; i += CHUNK_SIZE) {
       const chunk = records.slice(i, i + CHUNK_SIZE);

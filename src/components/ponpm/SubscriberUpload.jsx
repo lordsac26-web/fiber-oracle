@@ -113,6 +113,17 @@ export function parseSubscriberCSV(text) {
  * Primary key: "OLT|PORT|ONTID" (from DeviceName + LinkedPon + OntID)
  * Fallback key: serial number (ONTSerialNo)
  */
+/**
+ * Normalizes a port path string for consistent matching.
+ * Subscriber CSV may use "1/1/1" or "0/1/1" (with/without shelf prefix).
+ * PM data uses "Shelf/Slot/Port" from the OLT.
+ * We normalize to trimmed uppercase, removing any leading "0/" shelf prefix
+ * ambiguity by storing BOTH the full path AND a slot/port-only fallback.
+ */
+function normalizePort(port) {
+  return (port || '').trim().replace(/\s+/g, '');
+}
+
 export function buildSubscriberLookup(records) {
   const byComposite = new Map(); // "OLT|PORT|ONTID" → record
   const bySerial = new Map();    // "SERIAL" → record
@@ -120,11 +131,13 @@ export function buildSubscriberLookup(records) {
   for (const rec of records) {
     // Build composite key from DeviceName (OLT) + LinkedPon (port) + OntID
     if (rec.DeviceName && rec.LinkedPon && rec.OntID) {
-      const oltName = rec.DeviceName.trim();
-      const linkedPon = rec.LinkedPon.trim();
-      const ontId = rec.OntID.trim();
-      const key = `${oltName}|${linkedPon}|${ontId}`.toUpperCase();
-      byComposite.set(key, rec);
+      const oltName = rec.DeviceName.trim().toUpperCase();
+      const linkedPon = normalizePort(rec.LinkedPon).toUpperCase();
+      const ontId = rec.OntID.trim().toUpperCase();
+      // Primary key: exact match
+      byComposite.set(`${oltName}|${linkedPon}|${ontId}`, rec);
+      // Fallback key without OLT name (in case OLT names differ between systems)
+      byComposite.set(`|${linkedPon}|${ontId}`, rec);
     }
 
     if (rec.ONTSerialNo) {
@@ -148,15 +161,19 @@ export function enrichOntsWithSubscriber(lookup, onts) {
   let matched = 0;
 
   for (const ont of onts) {
-    // Strategy 1: composite key
-    const oltName = (ont._oltName || ont.OLTName || '').trim();
-    const port = (ont['Shelf/Slot/Port'] || ont._port || '').trim();
-    const ontId = (ont.OntID || '').toString().trim();
+    // Strategy 1: composite key (OLT + port + ONT ID)
+    const oltName = (ont._oltName || ont.OLTName || '').trim().toUpperCase();
+    const port = normalizePort(ont['Shelf/Slot/Port'] || ont._port || '').toUpperCase();
+    const ontId = (ont.OntID || '').toString().trim().toUpperCase();
 
     let sub = null;
     if (oltName && port && ontId) {
-      const key = `${oltName}|${port}|${ontId}`.toUpperCase();
-      sub = byComposite.get(key);
+      sub = byComposite.get(`${oltName}|${port}|${ontId}`);
+    }
+
+    // Strategy 1b: port + ONT ID without OLT name (cross-system name mismatch)
+    if (!sub && port && ontId) {
+      sub = byComposite.get(`|${port}|${ontId}`);
     }
 
     // Strategy 2: serial fallback
@@ -173,7 +190,14 @@ export function enrichOntsWithSubscriber(lookup, onts) {
         zip: sub.Zip || '',
         ontRanged: sub.ONTRanged || '',
         softwareVersion: sub.CurrentONTSoftwareVersion || '',
+        // ONT device fields from subscriber data — used in ONTDetailView, job reports, exports
+        model: sub.ONTModel || '',
+        serialNo: sub.ONTSerialNo || '',
       };
+      // If the PM data doesn't have a model but subscriber data does, backfill it
+      if (!ont.model && sub.ONTModel) {
+        ont.model = sub.ONTModel;
+      }
       matched++;
     }
   }

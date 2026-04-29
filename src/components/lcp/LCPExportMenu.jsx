@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Download, FileSpreadsheet, ChevronDown, Users, Cable, Server } from 'lucide-react';
 import { toast } from 'sonner';
+import { buildSubscriberLookup } from '@/components/ponpm/SubscriberUpload';
 
 function buildCSVString(headers, rows) {
   return [
@@ -46,33 +47,28 @@ export default function LCPExportMenu({ lcpEntries, latestOntCountsByKey, subscr
     return [...set].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [lcpEntries]);
 
-  // Build subscriber lookup by DeviceName|LinkedPon|OntID and by serial
-  const subscriberByKey = useMemo(() => {
-    const byComposite = new Map();
-    const bySerial = new Map();
-    (subscriberRecords || []).forEach(rec => {
-      if (rec.DeviceName && rec.LinkedPon && rec.OntID) {
-        const key = `${rec.DeviceName.trim()}|${rec.LinkedPon.trim()}|${rec.OntID.trim()}`.toUpperCase();
-        byComposite.set(key, rec);
-      }
-      if (rec.ONTSerialNo) {
-        bySerial.set(rec.ONTSerialNo.trim().toUpperCase(), rec);
-      }
-    });
-    return { byComposite, bySerial };
-  }, [subscriberRecords]);
+  // Subscriber lookup — used for fast per-splitter matching in exports
+  const subscriberLookup = useMemo(
+    () => buildSubscriberLookup(subscriberRecords || []),
+    [subscriberRecords]
+  );
 
-  // For a given LCP entry, find the matching subscriber records
+  // For a given LCP entry, find the matching subscriber records.
+  // Normalize both sides: trim + uppercase. Support OLT-name mismatch by also
+  // matching on port+shelf/slot/port alone when OLT names don't agree.
   const getSubscribersForEntry = (entry) => {
     if (!subscriberRecords?.length) return [];
-    // Match by OLT + port path (shelf/slot/port) — subscriber LinkedPon should match
-    const port = `${entry.olt_shelf || ''}/${entry.olt_slot || ''}/${entry.olt_port || ''}`;
+    const port = `${entry.olt_shelf || ''}/${entry.olt_slot || ''}/${entry.olt_port || ''}`.replace(/\s+/g, '');
     const oltName = (entry.olt_name || '').trim().toUpperCase();
 
-    return subscriberRecords.filter(rec => {
+    return (subscriberRecords || []).filter(rec => {
       const recOlt = (rec.DeviceName || '').trim().toUpperCase();
-      const recPon = (rec.LinkedPon || '').trim();
-      return recOlt === oltName && recPon === port;
+      const recPon = (rec.LinkedPon || '').trim().replace(/\s+/g, '');
+      // Primary: exact OLT + port match
+      if (oltName && recOlt === oltName && recPon === port) return true;
+      // Fallback: port path only (handles OLT name discrepancies between systems)
+      if (port && recPon === port && !recOlt) return true;
+      return false;
     });
   };
 
