@@ -632,6 +632,18 @@ export default function PONPMAnalysis() {
         }
       }
       
+      // Build subscriber info block for AI prompt
+      const sub = ont._subscriber;
+      const subscriberBlock = sub ? `
+Subscriber Information:
+- Customer Name: ${sub.name || 'N/A'}
+- Account: ${sub.account || 'N/A'}
+- Address: ${sub.address || 'N/A'}
+- City: ${sub.city || 'N/A'}
+- Zip: ${sub.zip || 'N/A'}
+- ONT Ranged: ${sub.ontRanged || 'N/A'}
+- Software Version: ${sub.softwareVersion || 'N/A'}` : '\nSubscriber Information: Not available';
+
       // Use AI to generate smart diagnosis and recommendations
       const aiPrompt = `You are a fiber optic technician creating a job report for an ONT with the following data:
 
@@ -642,6 +654,7 @@ OLT: ${ont._oltName}
 Port: ${ont._port}
 Location: ${ont._lcpLocation || ont._lcpNumber ? `LCP ${ont._lcpNumber}${ont._splitterNumber ? ' / Splitter ' + ont._splitterNumber : ''}` : 'Unknown'}
 Address: ${ont._lcpAddress || 'Unknown'}
+${subscriberBlock}
 
 Current Power Levels:
 - ONT Rx: ${ont.OntRxOptPwr} dBm
@@ -693,7 +706,7 @@ Be specific, technical, and actionable.`;
         start_power_level: ont.OntRxOptPwr,
         end_power_level: '',
         status: aiResponse.suggested_status || 'in_progress',
-        notes: `DIAGNOSIS:\n${aiResponse.diagnosis}\n\nRECOMMENDED ACTIONS:\n${aiResponse.recommended_actions?.map((a, i) => `${i + 1}. ${a}`).join('\n') || 'None'}\n\nEXPECTED OUTCOME:\n${aiResponse.expected_outcome}${trendSummary}\n\nONT DETAILS:\n- FSAN: ${ont.SerialNumber}\n- ONT ID: ${ont.OntID || 'Unknown'}\n- Model: ${ont.model || 'Unknown'}\n- OLT: ${ont._oltName} / ${ont._port}\n- LCP: ${ont._lcpNumber || 'Unknown'}${ont._splitterNumber ? ' / Splitter ' + ont._splitterNumber : ''}`,
+        notes: `DIAGNOSIS:\n${aiResponse.diagnosis}\n\nRECOMMENDED ACTIONS:\n${aiResponse.recommended_actions?.map((a, i) => `${i + 1}. ${a}`).join('\n') || 'None'}\n\nEXPECTED OUTCOME:\n${aiResponse.expected_outcome}${trendSummary}\n\nONT DETAILS:\n- FSAN: ${ont.SerialNumber}\n- ONT ID: ${ont.OntID || 'Unknown'}\n- Model: ${ont.model || 'Unknown'}\n- OLT: ${ont._oltName} / ${ont._port}\n- LCP: ${ont._lcpNumber || 'Unknown'}${ont._splitterNumber ? ' / Splitter ' + ont._splitterNumber : ''}${sub ? `\n\nSUBSCRIBER INFO:\n- Customer: ${sub.name || 'N/A'}\n- Account: ${sub.account || 'N/A'}\n- Address: ${[sub.address, sub.city, sub.zip].filter(Boolean).join(', ') || 'N/A'}\n- ONT Ranged: ${sub.ontRanged || 'N/A'}\n- Software Version: ${sub.softwareVersion || 'N/A'}` : ''}`,
         equipment_used: aiResponse.equipment_needed || [],
         diagnosis_used: true,
         diagnosis_result: aiResponse.diagnosis,
