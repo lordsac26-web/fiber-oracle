@@ -32,6 +32,22 @@ import { useQuery } from '@tanstack/react-query';
 
 const SPLITTER_CAPACITY = 32;
 
+// Distinct color palette for splitter color-coding (up to 12 splitters)
+const SPLITTER_COLORS = [
+  { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700', dot: 'bg-blue-500', bar: 'bg-blue-200' },
+  { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-700', dot: 'bg-emerald-500', bar: 'bg-emerald-200' },
+  { bg: 'bg-violet-50', border: 'border-violet-300', text: 'text-violet-700', dot: 'bg-violet-500', bar: 'bg-violet-200' },
+  { bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-700', dot: 'bg-amber-500', bar: 'bg-amber-200' },
+  { bg: 'bg-rose-50', border: 'border-rose-300', text: 'text-rose-700', dot: 'bg-rose-500', bar: 'bg-rose-200' },
+  { bg: 'bg-cyan-50', border: 'border-cyan-300', text: 'text-cyan-700', dot: 'bg-cyan-500', bar: 'bg-cyan-200' },
+  { bg: 'bg-orange-50', border: 'border-orange-300', text: 'text-orange-700', dot: 'bg-orange-500', bar: 'bg-orange-200' },
+  { bg: 'bg-indigo-50', border: 'border-indigo-300', text: 'text-indigo-700', dot: 'bg-indigo-500', bar: 'bg-indigo-200' },
+  { bg: 'bg-pink-50', border: 'border-pink-300', text: 'text-pink-700', dot: 'bg-pink-500', bar: 'bg-pink-200' },
+  { bg: 'bg-teal-50', border: 'border-teal-300', text: 'text-teal-700', dot: 'bg-teal-500', bar: 'bg-teal-200' },
+  { bg: 'bg-lime-50', border: 'border-lime-300', text: 'text-lime-700', dot: 'bg-lime-500', bar: 'bg-lime-200' },
+  { bg: 'bg-fuchsia-50', border: 'border-fuchsia-300', text: 'text-fuchsia-700', dot: 'bg-fuchsia-500', bar: 'bg-fuchsia-200' },
+];
+
 export default function LCPSummarySection({ result, onPortClick }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLCP, setSelectedLCP] = useState(null);
@@ -425,15 +441,21 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {selectedLCP.splitters.map((splitter) => (
-                      <div key={splitter.splitterNumber} className="flex items-center justify-between rounded-lg border bg-gray-50 px-3 py-2 text-sm">
-                        <span className="font-medium text-gray-700">Splitter {splitter.splitterNumber}</span>
-                        <div className="flex items-center gap-3 font-mono text-xs text-gray-600">
-                          <span>{splitter.ontCount} ONTs</span>
-                          <span>~{splitter.approxFibersLeft} fibers left</span>
+                    {selectedLCP.splitters.map((splitter, idx) => {
+                      const color = SPLITTER_COLORS[idx % SPLITTER_COLORS.length];
+                      return (
+                        <div key={splitter.splitterNumber} className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${color.bg} ${color.border}`}>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${color.dot}`} />
+                            <span className={`font-medium ${color.text}`}>Splitter {splitter.splitterNumber}</span>
+                          </div>
+                          <div className="flex items-center gap-3 font-mono text-xs text-gray-600">
+                            <span>{splitter.ontCount} ONTs</span>
+                            <span>~{splitter.approxFibersLeft} fibers left</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -484,10 +506,33 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </Card>
               )}
 
-              {/* Subscribers at this LCP */}
+              {/* Subscribers at this LCP — color-coded by splitter */}
               {(() => {
                 const subsAtLcp = selectedLCP.onts.filter(o => o._subscriber);
                 if (subsAtLcp.length === 0) return null;
+
+                // Build splitter index for color lookup
+                const splitterColorMap = {};
+                selectedLCP.splitters.forEach((s, idx) => {
+                  splitterColorMap[s.splitterNumber] = SPLITTER_COLORS[idx % SPLITTER_COLORS.length];
+                });
+
+                // Group subscribers by splitter
+                const bySplitter = {};
+                subsAtLcp.forEach(ont => {
+                  const spl = ont._splitterNumber || 'Unknown';
+                  if (!bySplitter[spl]) bySplitter[spl] = [];
+                  bySplitter[spl].push(ont);
+                });
+
+                // Sort splitter keys to match the order in selectedLCP.splitters
+                const splitterOrder = selectedLCP.splitters.map(s => s.splitterNumber);
+                const sortedKeys = Object.keys(bySplitter).sort((a, b) => {
+                  const ai = splitterOrder.indexOf(a);
+                  const bi = splitterOrder.indexOf(b);
+                  return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+                });
+
                 return (
                   <Card className="border border-indigo-200 bg-indigo-50/30">
                     <CardHeader className="pb-2">
@@ -497,16 +542,31 @@ export default function LCPSummarySection({ result, onPortClick }) {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="max-h-48 overflow-y-auto space-y-1">
-                        {subsAtLcp.map((ont, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-xs px-2 py-1.5 bg-white rounded border">
-                            <div className="flex-1 min-w-0">
-                              <span className="font-medium truncate">{ont._subscriber.name || ont._subscriber.account || 'Unknown'}</span>
-                              {ont._subscriber.address && <span className="text-gray-500 ml-2 truncate">{ont._subscriber.address}</span>}
+                      <div className="max-h-64 overflow-y-auto space-y-3">
+                        {sortedKeys.map(splKey => {
+                          const color = splitterColorMap[splKey] || { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-700', dot: 'bg-gray-500' };
+                          const onts = bySplitter[splKey];
+                          return (
+                            <div key={splKey}>
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <span className={`w-2.5 h-2.5 rounded-full ${color.dot}`} />
+                                <span className={`text-xs font-semibold ${color.text}`}>Splitter {splKey}</span>
+                                <span className="text-[10px] text-gray-400">({onts.length})</span>
+                              </div>
+                              <div className="space-y-1 ml-4">
+                                {onts.map((ont, idx) => (
+                                  <div key={idx} className={`flex items-center justify-between text-xs px-2 py-1.5 rounded border ${color.bg} ${color.border}`}>
+                                    <div className="flex-1 min-w-0">
+                                      <span className={`font-medium truncate ${color.text}`}>{ont._subscriber.name || ont._subscriber.account || 'Unknown'}</span>
+                                      {ont._subscriber.address && <span className="text-gray-500 ml-2 truncate">{ont._subscriber.address}</span>}
+                                    </div>
+                                    <span className="font-mono text-gray-400 ml-2 shrink-0">ONT {ont.OntID}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                            <span className="font-mono text-gray-400 ml-2 shrink-0">ONT {ont.OntID}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </CardContent>
                   </Card>
