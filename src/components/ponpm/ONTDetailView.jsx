@@ -35,6 +35,7 @@ import {
   Zap,
   Router,
   Wifi,
+  Users,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -386,6 +387,43 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
               </Card>
             </div>
 
+
+            {/* Subscriber Info */}
+            {ont._subscriber && (
+              <Card className="border-indigo-200 bg-indigo-50/30">
+                <CardHeader>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Subscriber / Customer Info
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                    {ont._subscriber.name && (
+                      <div className="flex justify-between"><span className="text-gray-500">Name:</span><span className="font-medium">{ont._subscriber.name}</span></div>
+                    )}
+                    {ont._subscriber.account && (
+                      <div className="flex justify-between"><span className="text-gray-500">Account:</span><span className="font-mono font-medium">{ont._subscriber.account}</span></div>
+                    )}
+                    {ont._subscriber.address && (
+                      <div className="flex justify-between"><span className="text-gray-500">Address:</span><span className="font-medium">{ont._subscriber.address}</span></div>
+                    )}
+                    {ont._subscriber.city && (
+                      <div className="flex justify-between"><span className="text-gray-500">City/Zip:</span><span className="font-medium">{ont._subscriber.city}{ont._subscriber.zip ? `, ${ont._subscriber.zip}` : ''}</span></div>
+                    )}
+                    {ont._subscriber.model && (
+                      <div className="flex justify-between"><span className="text-gray-500">ONT Model:</span><span className="font-medium">{ont._subscriber.model}</span></div>
+                    )}
+                    {ont._subscriber.softwareVersion && (
+                      <div className="flex justify-between"><span className="text-gray-500">Software:</span><span className="font-mono text-xs">{ont._subscriber.softwareVersion}</span></div>
+                    )}
+                    {ont._subscriber.ontRanged && (
+                      <div className="flex justify-between"><span className="text-gray-500">Ranged:</span><span className="font-medium">{ont._subscriber.ontRanged}</span></div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Issues & Warnings */}
             {(ont._analysis.issues.length > 0 || ont._analysis.warnings.length > 0) && (
