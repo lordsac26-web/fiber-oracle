@@ -4,14 +4,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useCalixNavigation } from '@/pages/CalixSmxSupport';
 import { Zap, AlertCircle, AlertTriangle, Router } from 'lucide-react';
-import CalixShelfMap from './CalixShelfMap';
 
 /**
  * CalixOLTView — OLT drill-down showing all ports within selected OLT
  */
 
 export default function CalixOLTView({ oltName, onNavigate }) {
-  const { reportData, lcpEntries, navigate } = useCalixNavigation();
+  const { reportData } = useCalixNavigation();
 
   // Filter ONTs by OLT
   const oltData = useMemo(() => {
@@ -107,16 +106,6 @@ export default function CalixOLTView({ oltName, onNavigate }) {
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Shelf Image Map */}
-      <Card className="border-0 shadow">
-        <CardHeader>
-          <CardTitle className="text-base">Physical Shelf Layout</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <CalixShelfMap reportData={reportData} lcpEntries={lcpEntries || []} oltName={oltName} />
         </CardContent>
       </Card>
 
