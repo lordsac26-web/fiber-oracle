@@ -3,7 +3,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 const BATCH_SIZE = 100;
 
 // Helper to batch delete records
-async function batchDeleteRecords(base44, entity, entityName) {
+async function batchDeleteRecords(base44, entityName) {
   let deletedCount = 0;
   let hasMore = true;
 
@@ -57,9 +57,9 @@ Deno.serve(async (req) => {
     // Purge PON PM data (reports + associated ONT records)
     if (module_type === 'pon_pm_all') {
       // First delete all ONT records (associated with reports)
-      deletedCount += await batchDeleteRecords(base44, ONTPerformanceRecord, 'ONTPerformanceRecord');
+      deletedCount += await batchDeleteRecords(base44, 'ONTPerformanceRecord');
       // Then delete all reports
-      deletedCount += await batchDeleteRecords(base44, PONPMReport, 'PONPMReport');
+      deletedCount += await batchDeleteRecords(base44, 'PONPMReport');
 
       return Response.json({
         success: true,
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
 
     // Purge LCP data
     if (module_type === 'lcp_all') {
-      deletedCount = await batchDeleteRecords(base44, LCPEntry, 'LCPEntry');
+      deletedCount = await batchDeleteRecords(base44, 'LCPEntry');
       return Response.json({
         success: true,
         message: `Purged ${deletedCount} LCP entries`,
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
 
     // Purge Job Reports
     if (module_type === 'job_reports_all') {
-      deletedCount = await batchDeleteRecords(base44, JobReport, 'JobReport');
+      deletedCount = await batchDeleteRecords(base44, 'JobReport');
       return Response.json({
         success: true,
         message: `Purged ${deletedCount} job reports`,
@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
 
     // Purge Test Reports
     if (module_type === 'test_reports_all') {
-      deletedCount = await batchDeleteRecords(base44, TestReport, 'TestReport');
+      deletedCount = await batchDeleteRecords(base44, 'TestReport');
       return Response.json({
         success: true,
         message: `Purged ${deletedCount} test reports`,
