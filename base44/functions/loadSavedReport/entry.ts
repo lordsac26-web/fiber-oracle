@@ -93,7 +93,15 @@ function deriveAnalysis(rec) {
 }
 
 function recordToOnt(rec) {
-  const analysis = deriveAnalysis(rec);
+  // Use the status stored in the DB at ingest time — it was computed by processPonPmRecords
+  // using the full threshold set including BER rates. Re-deriving it here would be inaccurate
+  // because we don't store BER columns and can't apply segment-peer comparison.
+  // Build a minimal analysis object that matches the shape the UI expects.
+  const storedStatus = rec.status || 'ok';
+  const analysis = deriveAnalysis(rec); // still used for issue detail messages in the UI
+  // Override the re-derived status with the authoritative stored value
+  analysis.status = storedStatus;
+
   const modelTech = detectTechType(rec.model);
   const comboInfo = detectComboPort(rec.shelf_slot_port);
 
@@ -115,6 +123,16 @@ function recordToOnt(rec) {
     UpstreamGemHecErrors:  rec.us_gem_hec_errors  != null ? String(rec.us_gem_hec_errors)  : '0',
     UpstreamMissedBursts:  rec.us_missed_bursts   != null ? String(rec.us_missed_bursts)   : '0',
     upTime:           rec.ont_uptime || null,
+    // Subscriber fields stored at ingest time — no UI-side enrichment needed for saved reports
+    _subscriberAccountName: rec.subscriber_account_name || '',
+    _subscriberAddress:     rec.subscriber_address      || '',
+    _subscriberModel:       rec.subscriber_model        || '',
+    // Expose as _subscriber shape so the UI subscriber block works
+    _subscriber: (rec.subscriber_account_name || rec.subscriber_address) ? {
+      account:  rec.subscriber_account_name || '',
+      address:  rec.subscriber_address      || '',
+      name:     rec.subscriber_account_name || '',
+    } : null,
     _lcpNumber:       rec.lcp_number     || '',
     _splitterNumber:  rec.splitter_number || '',
     _lcpLocation:     '',
@@ -163,17 +181,17 @@ Deno.serve(async (req) => {
 
     console.log(`[loadSavedReport] Loaded ${allRecords.length} ONT records for report ${report_id}`);
 
-    // Deduplicate by serial_number + shelf_slot_port in case processPonPmRecords ran twice
-    const seen = new Set();
+    // Deduplicate by DB record id — use the record's own unique id as the key.
+    // Deduplicating by serial_number|shelf_slot_port|ont_id silently drops valid ONTs
+    // that have blank serial numbers (some OLTs report no FSAN), collapsing them all
+    // to a single record per port. Use the DB-assigned id which is always unique.
+    const seenIds = new Set();
     allRecords = allRecords.filter(rec => {
-      const key = `${rec.serial_number}|${rec.shelf_slot_port}|${rec.ont_id}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
+      if (seenIds.has(rec.id)) return false;
+      seenIds.add(rec.id);
       return true;
     });
-    if (allRecords.length !== seen.size) {
-      console.log(`[loadSavedReport] Deduplicated to ${allRecords.length} unique records`);
-    }
+    console.log(`[loadSavedReport] After dedup: ${allRecords.length} records`);
 
     if (allRecords.length === 0) {
       return Response.json({ error: 'NO_RECORDS', message: 'ONT records not yet indexed for this report.' }, { status: 404 });
@@ -233,13 +251,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 5. Build summary counts
+    // 5. Build summary counts from stored status (authoritative — matches what was saved at ingest)
+    const criticalCount = allRecords.filter(r => r.status === 'critical').length;
+    const warningCount  = allRecords.filter(r => r.status === 'warning').length;
+    const okCount       = allRecords.filter(r => r.status === 'ok').length;
+    const offlineCount  = allRecords.filter(r => r.status === 'offline').length;
+
+    console.log(`[loadSavedReport] Counts from stored status — total: ${allRecords.length}, critical: ${criticalCount}, warning: ${warningCount}, ok: ${okCount}, offline: ${offlineCount}`);
+
     const summary = {
-      totalOnts:     onts.length,
-      criticalCount: onts.filter(o => o._analysis.status === 'critical').length,
-      warningCount:  onts.filter(o => o._analysis.status === 'warning').length,
-      okCount:       onts.filter(o => o._analysis.status === 'ok').length,
-      offlineCount:  onts.filter(o => o._analysis.status === 'offline').length,
+      totalOnts:     allRecords.length,
+      criticalCount,
+      warningCount,
+      okCount,
+      offlineCount,
       oltCount:      Object.keys(olts).length,
       portCount:     Object.values(olts).reduce((s, o) => s + Object.keys(o.ports).length, 0),
     };

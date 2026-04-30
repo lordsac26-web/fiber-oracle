@@ -87,9 +87,10 @@
       "enum": [
         "ok",
         "warning",
-        "critical"
+        "critical",
+        "offline"
       ],
-      "description": "Analysis status"
+      "description": "Analysis status \u2014 computed at ingest time, treat as authoritative"
     },
     "lcp_number": {
       "type": "string",

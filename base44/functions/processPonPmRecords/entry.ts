@@ -420,11 +420,44 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Mark completed
+    // Tally final status counts from what was actually saved — these become the
+    // authoritative numbers shown in the report list card and must match loadSavedReport.
+    let finalCritical = 0, finalWarning = 0, finalOk = 0, finalOffline = 0;
+    // We already computed analysis per record; tally from the batch results above
+    // by re-reading the counts we tracked. Since we can't re-iterate the already-mapped
+    // records array (it's out of scope per batch), do a lightweight DB count scan.
+    // For large datasets this is a single paginated read of just the status field.
+    try {
+      let countPage = 0;
+      while (true) {
+        const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+          { report_id: reportId }, 'status', 2000, countPage * 2000
+        );
+        if (!batch || batch.length === 0) break;
+        for (const r of batch) {
+          if (r.status === 'critical') finalCritical++;
+          else if (r.status === 'warning') finalWarning++;
+          else if (r.status === 'offline') finalOffline++;
+          else finalOk++;
+        }
+        if (batch.length < 2000) break;
+        countPage++;
+      }
+      console.log(`[processPonPmRecords] Final counts — critical: ${finalCritical}, warning: ${finalWarning}, ok: ${finalOk}, offline: ${finalOffline}`);
+    } catch (countErr) {
+      console.log(`[processPonPmRecords] Count scan failed (non-fatal): ${countErr.message}`);
+    }
+
+    // Mark completed and write accurate summary counts back to the report record
     await base44.asServiceRole.entities.PONPMReport.update(reportId, {
       processing_status: 'completed',
       processing_progress: 100,
       processing_saved_count: savedCount,
+      // Overwrite the preliminary counts that parsePonPm wrote — these are now accurate
+      ont_count:      savedCount,
+      critical_count: finalCritical,
+      warning_count:  finalWarning,
+      ok_count:       finalOk,
     });
 
     console.log(`[processPonPmRecords] Done — saved ${savedCount} records (LCP matched: ${lcpMatched}, unmatched: ${lcpUnmatched})`);
