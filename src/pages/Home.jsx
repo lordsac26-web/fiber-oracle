@@ -12,7 +12,7 @@ import OnboardingTour from '@/components/OnboardingTour';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import BottomNavigationBar from '@/components/BottomNavigationBar';
-import SyncStatusIndicator from '@/components/SyncStatusIndicator';
+
 import { useUserPreferences } from '@/components/UserPreferencesContext';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription
@@ -45,7 +45,6 @@ const MODULES = [
   { id: 'links', title: 'Industry Links', description: 'Vendors, standards & resources', icon: BookOpen, color: 'from-gray-500 to-slate-600', page: 'IndustryLinks', badge: 'Reference' },
   { id: 'education', title: 'Education Center', description: 'Fiber 101, 102, 103 courses', icon: GraduationCap, color: 'from-green-500 to-emerald-600', page: 'Education', badge: 'Learn' },
   { id: 'userguide', title: 'User Guide', description: 'Complete how-to documentation', icon: BookOpen, color: 'from-blue-500 to-indigo-600', page: 'UserGuide', badge: 'Learn' },
-  { id: 'offline', title: 'Offline Documents', description: 'Saved PDFs for offline access', icon: FileText, color: 'from-slate-500 to-gray-600', page: 'OfflineDocuments', badge: 'Reference' },
   { id: 'jobreports', title: 'Job Reports', description: 'Track & document fiber jobs', icon: ClipboardList, color: 'from-slate-500 to-gray-600', page: 'JobReports', badge: 'Testing' },
 ];
 
@@ -293,10 +292,6 @@ export default function Home() {
           <p className={`text-sm md:text-base max-w-xl mx-auto ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
             Calculators, diagnostics, and reference tools — built for the field.
           </p>
-        </div>
-
-        <div className="flex justify-center">
-          <SyncStatusIndicator compact />
         </div>
 
         {/* Category filter pills */}

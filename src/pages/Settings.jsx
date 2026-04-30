@@ -43,7 +43,7 @@ import {
   Zap
 } from 'lucide-react';
 import ModuleVisibilitySettings from '@/components/ModuleVisibilitySettings';
-import SyncStatusIndicator from '@/components/SyncStatusIndicator';
+
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -466,35 +466,6 @@ export default function Settings() {
 
                 <Separator />
 
-                {/* Field Mode */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200/50 dark:border-green-700/50">
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 rounded-lg bg-green-500/10">
-                        <Zap className="w-5 h-5 text-green-600 dark:text-green-400" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <Label className="text-base font-semibold">Field Mode</Label>
-                          <Badge variant="outline" className="text-xs">Offline-Ready</Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          Enable offline-capable field mode with location tracking, camera integration, and sync capabilities for field technicians.
-                        </p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={preferences.fieldModeEnabled || false}
-                      onCheckedChange={async (checked) => {
-                        await updatePreferences({ fieldModeEnabled: checked });
-                        toast.success(checked ? 'Field Mode enabled' : 'Field Mode disabled');
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <Separator />
-
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl border border-indigo-200/50 dark:border-indigo-700/50">
                     <div className="flex items-start gap-3">
@@ -502,9 +473,9 @@ export default function Settings() {
                         <Download className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                       </div>
                       <div>
-                        <Label className="text-base font-semibold">Install & Offline</Label>
+                        <Label className="text-base font-semibold">Install App</Label>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          Install Fiber Oracle to your device and monitor offline sync readiness.
+                          Install Fiber Oracle to your device for easier access.
                         </p>
                       </div>
                     </div>
@@ -519,7 +490,6 @@ export default function Settings() {
                       Reset Install Prompt
                     </Button>
                   </div>
-                  <SyncStatusIndicator />
                 </div>
 
                 {!isAuthenticated && (

@@ -20,12 +20,9 @@ import {
   Cloud
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getDraftReports, getTestResults, initDB } from '@/components/OfflineStorage';
 import CameraCapture from '@/components/CameraCapture';
 import { useGeolocation } from '@/components/useGeolocation';
 import LocationMap from '@/components/LocationMap';
-import SyncStatusIndicator from '@/components/SyncStatusIndicator';
-import { syncService } from '@/components/SyncService';
 
 const FIELD_TOOLS = [
   {
@@ -76,70 +73,12 @@ const FIELD_TOOLS = [
 ];
 
 export default function FieldMode() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [draftCount, setDraftCount] = useState(0);
-  const [testCount, setTestCount] = useState(0);
-  const [dbReady, setDbReady] = useState(false);
-  const [recentLocations, setRecentLocations] = useState([]);
   const { location, loading: locationLoading, getCurrentLocation } = useGeolocation();
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Initialize IndexedDB and load counts
-    initDB()
-      .then(() => {
-        setDbReady(true);
-        loadCounts();
-        loadRecentLocations();
-      })
-      .catch(() => toast.error('Offline storage unavailable'));
-
     // Get current location on mount
     getCurrentLocation();
-
-    // Start auto-sync
-    syncService.startAutoSync(60000); // Every 60 seconds
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      syncService.stopAutoSync();
-    };
   }, []);
-
-  const loadCounts = async () => {
-    try {
-      const drafts = await getDraftReports();
-      const tests = await getTestResults();
-      setDraftCount(drafts.filter(d => !d.synced).length);
-      setTestCount(tests.length);
-    } catch (error) {
-      console.error('Failed to load counts:', error);
-    }
-  };
-
-  const loadRecentLocations = async () => {
-    try {
-      const tests = await getTestResults();
-      const locationsWithGPS = tests
-        .filter(t => t.gps?.latitude && t.gps?.longitude)
-        .slice(0, 10)
-        .map((t, idx) => ({
-          gps: t.gps,
-          title: t.title || `Test ${idx + 1}`,
-          description: t.type,
-          timestamp: t.timestamp
-        }));
-      setRecentLocations(locationsWithGPS);
-    } catch (error) {
-      console.error('Failed to load locations:', error);
-    }
-  };
 
   const handlePhotoCapture = (photo) => {
     toast.success('Photo ready for attachment');
@@ -171,22 +110,14 @@ export default function FieldMode() {
               <Badge
                 variant="outline"
                 className={`${
-                  isOnline
-                    ? 'border-emerald-500 text-emerald-400 bg-emerald-950/50'
-                    : 'border-amber-500 text-amber-400 bg-amber-950/50'
+                  'border-blue-500 text-blue-400 bg-blue-950/50'
                 }`}
               >
-                {isOnline ? (
-                  <>
-                    <Wifi className="h-3 w-3 mr-1" />
-                    Online
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="h-3 w-3 mr-1" />
-                    Offline
-                  </>
-                )}
+                <>
+                  <Wifi className="h-3 w-3 mr-1" />
+                  Connected
+                </>
+              
               </Badge>
             </div>
           </div>
@@ -194,9 +125,6 @@ export default function FieldMode() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Sync Status */}
-        <SyncStatusIndicator />
-
         {/* Quick Actions */}
         <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
           <CardHeader>
@@ -221,44 +149,12 @@ export default function FieldMode() {
           </CardContent>
         </Card>
 
-        {/* Offline Data Status */}
-        {dbReady && (draftCount > 0 || testCount > 0) && (
-          <Card className="bg-amber-900/20 border-amber-700/50">
-            <CardContent className="py-3 px-4">
-              <div className="flex items-center gap-3">
-                <CloudOff className="h-5 w-5 text-amber-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-amber-200">
-                    Pending Sync
-                  </p>
-                  <p className="text-xs text-amber-300/80">
-                    {draftCount} report{draftCount !== 1 ? 's' : ''}, {testCount} test result{testCount !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                {isOnline && (
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="border-amber-500 text-amber-400 hover:bg-amber-500/20"
-                    onClick={() => syncService.syncAll()}
-                  >
-                    <Upload className="h-3 w-3 mr-1" />
-                    Sync Now
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Tools Grid */}
         <div className="grid grid-cols-2 gap-3">
           {FIELD_TOOLS.map((tool) => (
             <Link key={tool.id} to={createPageUrl(tool.page)}>
               <Card
-                className={`border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full ${
-                  !isOnline && !tool.offline ? 'opacity-50 pointer-events-none' : ''
-                }`}
+                className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full"
               >
                 <CardContent className="p-4 flex flex-col items-center text-center space-y-3">
                   <div
@@ -274,26 +170,14 @@ export default function FieldMode() {
                       {tool.description}
                     </p>
                   </div>
-                  {tool.offline && (
-                    <Badge variant="outline" className="text-xs border-emerald-500 text-emerald-600">
-                      <Cloud className="h-3 w-3 mr-1" />
-                      Offline
-                    </Badge>
-                  )}
+
                 </CardContent>
               </Card>
             </Link>
           ))}
         </div>
 
-        {/* Location Map */}
-        {location && (
-          <LocationMap 
-            currentLocation={location}
-            locations={recentLocations}
-            height="300px"
-          />
-        )}
+
 
         {/* Tips */}
         <Card className="bg-blue-900/20 border-blue-700/50">
@@ -302,12 +186,12 @@ export default function FieldMode() {
               <Download className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-blue-200">
-                  {location ? 'GPS Active' : 'Offline Mode Active'}
+                  {location ? 'GPS Active' : 'Location Services'}
                 </p>
                 <p className="text-xs text-blue-300/80 mt-1">
                   {location 
-                    ? `GPS coordinates captured automatically with photos and test results. Current accuracy: ±${location.accuracy.toFixed(0)}m`
-                    : 'Tools marked with offline badge work without internet. Data syncs automatically when online.'
+                    ? `GPS coordinates captured automatically. Current accuracy: ±${location.accuracy.toFixed(0)}m`
+                    : 'Enable location services for accurate GPS coordinates with photos and test results.'
                   }
                 </p>
               </div>
