@@ -103,6 +103,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
       if (lcpEntry.splitter_number && !lcpMap[lcpNumber].splitters[lcpEntry.splitter_number]) {
         lcpMap[lcpNumber].splitters[lcpEntry.splitter_number] = {
           splitterNumber: lcpEntry.splitter_number,
+          opticType: lcpEntry.optic_type,
           ontCount: 0,
         };
       }
@@ -144,6 +145,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
       if (!lcp.splitters[splitterNumber]) {
         lcp.splitters[splitterNumber] = {
           splitterNumber,
+          opticType: undefined,
           ontCount: 0,
         };
       }
@@ -467,6 +469,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                           </div>
                           <div className="flex items-center gap-3 font-mono text-xs text-gray-600">
                             <span>{splitter.ontCount} ONTs</span>
+                            {splitter.opticType && <span className="text-gray-500">{splitter.opticType}</span>}
                             <span>~{splitter.approxFibersLeft} fibers left</span>
                           </div>
                         </div>
