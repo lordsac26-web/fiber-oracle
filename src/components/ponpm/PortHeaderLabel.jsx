@@ -16,8 +16,8 @@ export default function PortHeaderLabel({ portKey, portStats, portOnts }) {
   const lcpOnt = portOnts.find(o => o._lcpNumber);
 
   // Detect port type from optic model number (from LCP enrichment)
+  // All ONTs on the same port share the same optic, so get it from any ONT with optic_model
   const detectedType = useMemo(() => {
-    // Get optic model from any ONT with LCP data (all ONTs on same port share same optic)
     const ontWithOptic = portOnts.find(o => o._opticModel);
     const opticModel = ontWithOptic?._opticModel?.trim();
     
@@ -25,10 +25,8 @@ export default function PortHeaderLabel({ portKey, portStats, portOnts }) {
     if (opticModel === '100-05674') return 'XGS-COMBO';
     if (opticModel === '100-05929') return 'XGS-COMBO-EXT';
     
-    // Fallback: detect from ONT tech type if no optic model
-    const hasXgs = portOnts.some(o => o._techType?.includes('XGS-PON'));
-    if (hasXgs) return 'XGS-ONLY'; // Conservative default for detected XGS
-    return 'GPON';
+    // No optic model available — return unknown
+    return 'UNKNOWN';
   }, [portOnts]);
 
   const badgeColor = {

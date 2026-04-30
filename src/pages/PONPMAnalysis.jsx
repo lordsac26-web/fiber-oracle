@@ -320,15 +320,12 @@ export default function PONPMAnalysis() {
         const avgRx = rxValues.length > 0 ? rxValues.reduce((a, b) => a + b, 0) / rxValues.length : null;
         const minRx = rxValues.length > 0 ? Math.min(...rxValues) : null;
         const maxRx = rxValues.length > 0 ? Math.max(...rxValues) : null;
-        const gponCount = response.data.onts.filter(o => o._techType?.includes('GPON')).length;
-        const xgsCount = response.data.onts.filter(o => o._techType?.includes('XGS-PON')).length;
         saveReportMutation.mutate({
           report_name: reportName, upload_date: fileReportDate, file_url: file_url,
           ont_count: response.data.summary.totalOnts, critical_count: response.data.summary.criticalCount,
           warning_count: response.data.summary.warningCount, ok_count: response.data.summary.okCount,
           olt_count: response.data.summary.oltCount, olts: Object.keys(response.data.olts || {}),
-          avg_ont_rx: avgRx, min_ont_rx: minRx, max_ont_rx: maxRx,
-          gpon_count: gponCount, xgs_count: xgsCount, onts: response.data.onts,
+          avg_ont_rx: avgRx, min_ont_rx: minRx, max_ont_rx: maxRx, onts: response.data.onts,
         });
       } else {
         toast.error(response.data?.error || 'Failed to parse file', { id: 'pon-parse' });
@@ -373,9 +370,8 @@ export default function PONPMAnalysis() {
       const matchesOlt = oltFilter === 'all' || ont._oltName === oltFilter;
       const matchesPort = portFilter === 'all' || ont._port === portFilter;
       
-      const matchesTech = techFilter === 'all' || 
-        (techFilter === 'gpon' && (!ont._techType || ont._techType.includes('GPON'))) ||
-        (techFilter === 'xgs' && ont._techType?.includes('XGS-PON'));
+      // Tech filter now disabled — optic type comes from LCP enrichment only
+      const matchesTech = true;
       
       let matchesPowerRange = true;
       if (powerRangeFilter !== 'all') {
@@ -835,7 +831,7 @@ Be specific, technical, and actionable.`;
       portData.onts.push(ont);
       if (ont._lcpNumber) portData.lcps.add(`${ont._lcpNumber}${ont._splitterNumber ? '/' + ont._splitterNumber : ''}`);
       if (ont.model) portData.models.add(ont.model);
-      if (ont._techType) portData.opticTypes.add(ont._techType);
+      if (ont._opticModel) portData.opticTypes.add(ont._opticModel);
     });
 
     const headers = ['OLT', 'Port', 'Total ONTs', 'LCP/Splitters', 'ONT Models', 'Optic Types', 'Status Breakdown'];

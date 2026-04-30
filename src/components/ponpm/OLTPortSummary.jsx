@@ -191,8 +191,6 @@ export default function OLTPortSummary({ result, onDrillDown }) {
           degradingCount: portDegradingCount,
           hasCorrelatedIssue: portHasCorrelatedIssue,
           issueRate: portIssueRate,
-          isCombo: portStats.isCombo,
-          techType: portStats.techType,
           lcpNumber: lcpInfo?._lcpNumber || resolvedLcp?.lcp_number || '',
           lcpSplitter: lcpInfo?._splitterNumber || resolvedLcp?.splitter_number || '',
           lcpLocation: lcpInfo?._lcpLocation || resolvedLcp?.location || '',
@@ -541,13 +539,8 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                         onClick={() => setSelectedPort(port)}
                       >
                         <TableCell>
-                          <div className="font-medium text-sm text-gray-900 dark:text-white flex items-center gap-1">
+                          <div className="font-medium text-sm text-gray-900 dark:text-white">
                             {port.portKey}
-                            {port.isCombo && (
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 bg-purple-50 border-purple-300 text-purple-700">
-                                {port.techType}
-                              </Badge>
-                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-center font-mono text-gray-900 dark:text-white">{port.ontCount}</TableCell>
@@ -621,11 +614,6 @@ export default function OLTPortSummary({ result, onDrillDown }) {
             <DialogTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5 text-blue-500" />
               {selectedPort?.oltName} / {selectedPort?.portKey}
-              {selectedPort?.isCombo && (
-                <Badge variant="outline" className="text-xs bg-purple-50 border-purple-300 text-purple-700">
-                  {selectedPort.techType}
-                </Badge>
-              )}
             </DialogTitle>
             <DialogDescription className="sr-only">ONT details for port {selectedPort?.portKey}</DialogDescription>
           </DialogHeader>
