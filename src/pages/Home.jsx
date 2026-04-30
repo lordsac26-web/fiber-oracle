@@ -23,7 +23,6 @@ import ModuleCard from '@/components/home/ModuleCard';
 
 const MODULES = [
   { id: 'opticalcalc', title: 'Optical Calculator', description: 'Link loss, PON power & dB converter', icon: Calculator, color: 'from-indigo-500 to-purple-600', page: 'OpticalCalculator', badge: 'Calculators', isNew: true },
-  { id: 'powercalc', title: 'Power Calculator', description: 'Estimate ONT Rx power for GPON & XGS-PON', icon: Zap, color: 'from-emerald-500 to-teal-600', page: 'PowerLevelCalc', badge: 'Calculators' },
   { id: 'calculator', title: 'Loss Budget', description: 'Calculate total link loss (TIA-568-D)', icon: Calculator, color: 'from-blue-500 to-indigo-600', page: 'LossBudget', badge: 'Calculators' },
   { id: 'splitterloss', title: 'Splitter Loss', description: 'Instant loss values by split ratio', icon: Activity, color: 'from-purple-500 to-pink-600', page: 'SplitterLoss', badge: 'Calculators' },
   { id: 'bendradius', title: 'Bend Radius', description: 'Minimum bend radius by cable type', icon: Cable, color: 'from-amber-500 to-orange-600', page: 'BendRadius', badge: 'Calculators' },
