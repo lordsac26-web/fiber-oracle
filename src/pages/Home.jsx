@@ -289,7 +289,7 @@ export default function Home() {
             Fiber Oracle Intelligence Suite
           </h2>
           <p className={`text-sm md:text-base max-w-xl mx-auto ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-            Calculators, diagnostics, and reference tools — built for the field.
+            Calculators, diagnostics, reference tools, and education — built for the beginner to expert technician.
           </p>
         </div>
 
