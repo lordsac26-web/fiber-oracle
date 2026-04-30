@@ -37,7 +37,7 @@ export default function ModeTransition({ isTransitioning, mode, onComplete }) {
                 />
                 <div className="relative bg-slate-900 rounded-full p-8">
                   <img 
-                    src="https://ucarecdn.com/17a5eb5c-d020-483c-a1d1-a73d39b65e50/FiberOraclelogowithbgremoved.png" 
+                    src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png" 
                     alt="Fiber Oracle Logo" 
                     className="w-32 h-32 object-contain"
                   />
