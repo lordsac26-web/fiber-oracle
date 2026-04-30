@@ -11,7 +11,6 @@ import {
 import OnboardingTour from '@/components/OnboardingTour';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import BottomNavigationBar from '@/components/BottomNavigationBar';
 
 import { useUserPreferences } from '@/components/UserPreferencesContext';
 import {
@@ -423,12 +422,11 @@ export default function Home() {
         </FadeSection>
 
         {/* Footer */}
-        <div className="text-center py-4">
-          <p className={`text-xs ${darkMode ? 'text-slate-600' : 'text-slate-400'}`}>Fiber Oracle © 2025</p>
-        </div>
+         <div className="text-center py-4">
+           <p className={`text-xs ${darkMode ? 'text-slate-600' : 'text-slate-400'}`}>Ver 2.0.0 - Updated 2026</p>
+         </div>
       </main>
 
-      <BottomNavigationBar selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
       <OnboardingTour isOpen={showTour} onClose={handleTourClose} onComplete={handleTourComplete} />
     </div>
   );
