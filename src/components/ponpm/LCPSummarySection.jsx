@@ -558,7 +558,8 @@ export default function LCPSummarySection({ result, onPortClick }) {
                                               ont._analysis?.status === 'ok' ? 'bg-green-500' :
                                               ont._analysis?.status === 'warning' ? 'bg-amber-500' :
                                               ont._analysis?.status === 'critical' ? 'bg-red-500' :
-                                              'bg-gray-400'
+                                              ont._analysis?.status === 'offline' ? 'bg-gray-500' :
+                                              'bg-gray-500'
                                             }`} />
                                           </TooltipTrigger>
                                           <TooltipContent side="left" className="text-xs">
