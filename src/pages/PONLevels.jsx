@@ -21,7 +21,7 @@ const GPON_SPECS = {
       minOltTx: 1.5,
       maxOltTx: 5.0,
       minOnuRx: -28.0,
-      maxOnuRx: -8.0,
+      maxOnuRx: -8.0,  // CORRECTED: Both B+ and C+ have -8 dBm max RX
       minOnuTx: 0.5,
       maxOnuTx: 5.0,
       minOltRx: -28.0,
@@ -35,11 +35,11 @@ const GPON_SPECS = {
       minOltTx: 3.0,
       maxOltTx: 7.0,
       minOnuRx: -32.0,
-      maxOnuRx: -12.0,
+      maxOnuRx: -8.0,  // CORRECTED: RX sensitivity extends to -32, but RX max (overload) is -8 dBm
       minOnuTx: 0.5,
       maxOnuTx: 5.0,
       minOltRx: -32.0,
-      maxOltRx: -12.0,
+      maxOltRx: -8.0,  // CORRECTED: Consistent with B+
       maxBudget: 32.0,
       splitRatio: '1:128',
       common: true
@@ -98,13 +98,13 @@ const XGSPON_SPECS = {
 };
 
 const SPLITTER_LOSS = [
-  { ratio: '1:2', loss: 3.6 },
-  { ratio: '1:4', loss: 7.2 },
-  { ratio: '1:8', loss: 10.5 },
-  { ratio: '1:16', loss: 13.8 },
-  { ratio: '1:32', loss: 17.1 },
-  { ratio: '1:64', loss: 20.4 },
-  { ratio: '1:128', loss: 23.7 },
+  { ratio: '1:2', loss: 3.8 },   // CORRECTED: Match FiberConstants for consistency
+  { ratio: '1:4', loss: 7.4 },
+  { ratio: '1:8', loss: 10.7 },
+  { ratio: '1:16', loss: 14.1 },
+  { ratio: '1:32', loss: 17.5 },
+  { ratio: '1:64', loss: 20.9 },
+  { ratio: '1:128', loss: 24.3 },
 ];
 
 const PON_ERRORS = {

@@ -84,6 +84,7 @@ import Settings from './pages/Settings';
 import SplitterLoss from './pages/SplitterLoss';
 import StudyGuide from './pages/StudyGuide';
 import UserGuide from './pages/UserGuide';
+import Standards from './pages/Standards';
 import __Layout from './Layout.jsx';
 
 
@@ -122,6 +123,7 @@ export const PAGES = {
     "ReportManagement": ReportManagement,
     "Settings": Settings,
     "SplitterLoss": SplitterLoss,
+    "Standards": Standards,
     "StudyGuide": StudyGuide,
     "UserGuide": UserGuide,
 }

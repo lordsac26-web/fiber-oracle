@@ -16,16 +16,24 @@ export const FIBER_ATTENUATION = {
     "1625nm": 0.30,
   },
   // Multimode Fiber - TIA-568-D.1
+  OM1: {
+    "850nm": 11.0,  // dB/km legacy 62.5 micron - obsolete
+    "1300nm": 5.0,
+  },
+  OM2: {
+    "850nm": 5.0,  // dB/km legacy 50 micron - obsolete
+    "1300nm": 2.5,
+  },
   OM3: {
-    "850nm": 3.0,  // dB/km
-    "1300nm": 1.0, // dB/km
+    "850nm": 3.0,  // dB/km max
+    "1300nm": 1.0, // dB/km max
   },
   OM4: {
-    "850nm": 3.0,
-    "1300nm": 1.0,
+    "850nm": 3.0,   // dB/km max - same as OM3
+    "1300nm": 1.0,  // dB/km max - same as OM3
   },
   OM5: {
-    "850nm": 3.0,
+    "850nm": 3.0,   // dB/km - WBMMF supports 850nm via SWDM
     "953nm": 2.3,  // SWDM wavelength
     "1300nm": 1.0,
   },
@@ -66,6 +74,59 @@ export const SPLICE_LOSS = {
     smf: 0.30,  // dB max
     mmf: 0.30,  // dB max
     description: "Mechanical splice"
+  }
+};
+
+// PON Power Class Specifications - ITU-T G.984.2 / G.9807.1 / G.9804.3
+export const PON_POWER_CLASSES = {
+  GPON: {
+    "Class B+": {
+      standard: "ITU-T G.984.2",
+      oltTxMin: 1.5, oltTxMax: 5.0,      // OLT transmit power range (dBm)
+      ontRxMin: -28, ontRxMax: -8,       // ONT receive sensitivity (dBm) - NOT -8 MAX
+      ontTxMin: 0.5, ontTxMax: 5.0,      // ONT transmit power range (dBm)
+      oltRxMin: -28, oltRxMax: -8,       // OLT receive sensitivity (dBm)
+      maxBudget: 28.0,                    // Maximum power budget (dB)
+      maxSplitRatio: "1:64"               // Theoretical maximum
+    },
+    "Class C+": {
+      standard: "ITU-T G.984.2 Amendment 2",
+      oltTxMin: 3.0, oltTxMax: 7.0,
+      ontRxMin: -32, ontRxMax: -8,       // CRITICAL: ONT RX MAX is -8 dBm, not -12
+      ontTxMin: 0.5, ontTxMax: 5.0,
+      oltRxMin: -32, oltRxMax: -8,
+      maxBudget: 32.0,
+      maxSplitRatio: "1:128"
+    }
+  },
+  XGSPON: {
+    "N1": {
+      standard: "ITU-T G.9807.1",
+      oltTxMin: 2.0, oltTxMax: 7.0,      // Note: Extended TX range
+      ontRxMin: -28, ontRxMax: -1,       // Higher overload power than GPON
+      ontTxMin: 2.0, ontTxMax: 7.0,
+      oltRxMin: -29.5, oltRxMax: -9.0,
+      maxBudget: 29.0,
+      maxSplitRatio: "1:64"
+    },
+    "N2": {
+      standard: "ITU-T G.9807.1",
+      oltTxMin: 4.0, oltTxMax: 9.0,
+      ontRxMin: -31, ontRxMax: -1,
+      ontTxMin: 2.0, ontTxMax: 7.0,
+      oltRxMin: -31.5, oltRxMax: -10.0,
+      maxBudget: 31.0,
+      maxSplitRatio: "1:128"
+    },
+    "E1 (Extended Reach)": {
+      standard: "ITU-T G.9807.1",
+      oltTxMin: 3.0, oltTxMax: 8.0,
+      ontRxMin: -33, ontRxMax: -2,
+      ontTxMin: 4.0, ontTxMax: 9.0,       // Higher ONT TX for return path
+      oltRxMin: -33.5, oltRxMax: -10.0,
+      maxBudget: 35.0,
+      maxSplitRatio: "1:256"
+    }
   }
 };
 
