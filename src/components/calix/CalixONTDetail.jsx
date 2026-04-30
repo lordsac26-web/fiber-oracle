@@ -44,7 +44,7 @@ export default function CalixONTDetail({ ont }) {
               </div>
               <div>
                 <div className="text-xs text-gray-500">Model</div>
-                <div className="text-sm font-semibold">{ont.model || 'Unknown'}</div>
+                <div className="text-sm font-semibold">{ont.subscriber_model || ont.model || 'Unknown'}</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500">Uptime</div>
