@@ -15,12 +15,9 @@ import {
   GraduationCap,
   Settings,
   Zap,
-  MessageSquare,
-  Upload,
   Shield,
   Eye,
-  FileText,
-  Brain
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -35,58 +32,6 @@ const getTourSteps = (isAdmin) => {
       description: 'Your complete field reference tool for fiber optic professionals. Let\'s take a quick tour of the core features.',
       icon: Zap,
       color: 'from-indigo-500 to-purple-600',
-    },
-    {
-      id: 'photon',
-      title: 'Meet P.H.O.T.O.N.',
-      description: 'Your AI technical assistant. Ask questions, troubleshoot issues, and get expert guidance in natural language.',
-      icon: Brain,
-      color: 'from-cyan-400 to-blue-600',
-      actionButton: {
-        label: 'Try P.H.O.T.O.N.',
-        link: 'PhotonChat',
-        icon: MessageSquare
-      },
-      features: [
-        'Natural language queries',
-        'Real-time troubleshooting',
-        'Document Q&A',
-        'Conversation history'
-      ],
-      visualGuide: {
-        steps: [
-          '1. Click any module to access tools',
-          '2. Or start a P.H.O.T.O.N. chat',
-          '3. Ask: "How do I test fiber loss?"',
-          '4. Get instant expert answers'
-        ]
-      }
-    },
-    {
-      id: 'upload-docs',
-      title: 'Upload Reference Documents',
-      description: 'Add PDFs, websites, or Google Drive files to expand P.H.O.T.O.N.\'s knowledge base.',
-      icon: Upload,
-      color: 'from-emerald-500 to-teal-600',
-      actionButton: {
-        label: 'Upload Documents',
-        link: 'PhotonChat',
-        icon: Upload
-      },
-      features: [
-        'PDF manuals & datasheets',
-        'Website content',
-        'Google Drive integration',
-        'Searchable knowledge base'
-      ],
-      visualGuide: {
-        steps: [
-          '1. Open P.H.O.T.O.N. chat',
-          '2. Click upload icon (top right)',
-          '3. Choose PDF, URL, or Drive',
-          '4. Documents auto-indexed for AI'
-        ]
-      }
     },
     {
       id: 'calculators',
