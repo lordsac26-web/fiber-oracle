@@ -56,11 +56,19 @@ Deno.serve(async (req) => {
       status: 'active',
     });
 
+    // 5) Kick off background sync to enrich all existing ONTPerformanceRecords.
+    //    Fire-and-forget — don't await so this response returns quickly.
+    //    The sync function handles its own logging and error recovery.
+    base44.functions.invoke('syncSubscriberToOntRecords', {}).catch((err) => {
+      console.error('[saveSubscriberData] Background sync failed to start:', err.message);
+    });
+
     return Response.json({
       success: true,
       saved_count: savedCount,
       meta_id: meta.id,
       upload_date: meta.upload_date,
+      sync_started: true,
     });
   } catch (error) {
     console.error('Save subscriber data error:', error);

@@ -254,6 +254,45 @@ Deno.serve(async (req) => {
       processing_saved_count: 0,
     });
 
+    // ── Load Subscriber lookup for enrichment at ingest time ─────────────────
+    // Build two maps: composite (OLT|PORT|ONTID) and serial fallback
+    const subCompositeMap = new Map();
+    const subSerialMap = new Map();
+    try {
+      const PAGE = 10000;
+      const subPage1 = await base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, 0);
+      let allSubs = [...subPage1];
+      if (subPage1.length === PAGE) {
+        const [s2, s3, s4, s5] = await Promise.all([
+          base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE),
+          base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE * 2),
+          base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE * 3),
+          base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE * 4),
+        ]);
+        allSubs = [...allSubs, ...s2, ...s3, ...s4, ...s5];
+      }
+      for (const rec of allSubs) {
+        const fields = {
+          subscriber_account_name: rec.AccountName || '',
+          subscriber_address:      rec.Address      || '',
+          subscriber_model:        rec.ONTModel      || '',
+        };
+        // Composite key: normalize OLT + PON port (strip xp prefix) + ONT ID
+        const oltNorm = rec.DeviceName ? rec.DeviceName.trim().toUpperCase() : null;
+        const sspNorm = rec.LinkedPon  ? rec.LinkedPon.trim().toUpperCase().replace(/\/XP(\d)/g, '/$1') : null;
+        const ontId   = rec.OntID !== null && rec.OntID !== undefined ? String(rec.OntID).trim() : null;
+        if (oltNorm && sspNorm && ontId !== null) {
+          subCompositeMap.set(`${oltNorm}|${sspNorm}|${ontId}`, fields);
+        }
+        // Serial fallback
+        const serial = rec.ONTSerialNo ? rec.ONTSerialNo.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') : null;
+        if (serial && !subSerialMap.has(serial)) subSerialMap.set(serial, fields);
+      }
+      console.log(`[processPonPmRecords] Subscriber lookup: ${subCompositeMap.size} composite, ${subSerialMap.size} serial keys from ${allSubs.length} records`);
+    } catch (err) {
+      console.log(`[processPonPmRecords] Subscriber lookup failed (non-fatal): ${err.message}`);
+    }
+
     // ── Load LCP lookup (robust Map-based version) ───────────────────────────
     let lcpMap = new Map();
     try {
@@ -323,6 +362,18 @@ Deno.serve(async (req) => {
         if (lcpData) lcpMatched++;
         else if (oltName && shelfSlotPort) lcpUnmatched++;
 
+        // Subscriber enrichment: composite key first, serial fallback
+        const oltNorm = oltName.trim().toUpperCase();
+        const sspNorm = shelfSlotPort.trim().toUpperCase().replace(/\/XP(\d)/g, '/$1');
+        const ontIdStr = ont.OntID !== null && ont.OntID !== undefined ? String(ont.OntID).trim() : null;
+        let subFields = null;
+        if (oltNorm && sspNorm && ontIdStr !== null) {
+          subFields = subCompositeMap.get(`${oltNorm}|${sspNorm}|${ontIdStr}`) || null;
+        }
+        if (!subFields && serial) {
+          subFields = subSerialMap.get(serial) || null;
+        }
+
         // Analyse
         const analysis = analyzeOnt(ont);
 
@@ -349,6 +400,10 @@ Deno.serve(async (req) => {
           status: analysis.status,
           lcp_number: lcpData?.lcp_number || '',
           splitter_number: lcpData?.splitter_number || '',
+          // Subscriber fields — empty string if no match (keeps field consistent)
+          subscriber_account_name: subFields?.subscriber_account_name || '',
+          subscriber_address:      subFields?.subscriber_address      || '',
+          subscriber_model:        subFields?.subscriber_model         || '',
         };
       });
 

@@ -1,0 +1,169 @@
+{
+  "name": "ONTPerformanceRecord",
+  "type": "object",
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "description": "Reference to parent PONPMReport",
+      "index": true
+    },
+    "report_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Date of the report for easier querying",
+      "index": true
+    },
+    "serial_number": {
+      "type": "string",
+      "description": "ONT Serial Number (FSAN)",
+      "index": true
+    },
+    "ont_id": {
+      "type": "string",
+      "description": "ONT ID on the port"
+    },
+    "olt_name": {
+      "type": "string",
+      "description": "OLT name"
+    },
+    "shelf_slot_port": {
+      "type": "string",
+      "description": "Full shelf/slot/port path"
+    },
+    "model": {
+      "type": "string",
+      "description": "ONT model"
+    },
+    "ont_rx_power": {
+      "type": "number",
+      "description": "ONT Rx optical power in dBm"
+    },
+    "olt_rx_power": {
+      "type": "number",
+      "description": "OLT Rx optical power in dBm"
+    },
+    "ont_tx_power": {
+      "type": "number",
+      "description": "ONT Tx power in dBm"
+    },
+    "us_bip_errors": {
+      "type": "number",
+      "description": "Upstream BIP errors"
+    },
+    "ds_bip_errors": {
+      "type": "number",
+      "description": "Downstream BIP errors"
+    },
+    "us_fec_uncorrected": {
+      "type": "number",
+      "description": "Upstream FEC uncorrected codewords"
+    },
+    "ds_fec_uncorrected": {
+      "type": "number",
+      "description": "Downstream FEC uncorrected codewords"
+    },
+    "us_fec_corrected": {
+      "type": "number",
+      "description": "Upstream FEC corrected codewords"
+    },
+    "ds_fec_corrected": {
+      "type": "number",
+      "description": "Downstream FEC corrected codewords"
+    },
+    "us_gem_hec_errors": {
+      "type": "number",
+      "description": "Upstream GEM HEC errors"
+    },
+    "us_missed_bursts": {
+      "type": "number",
+      "description": "Upstream missed bursts"
+    },
+    "ont_uptime": {
+      "type": "string",
+      "description": "ONT uptime value as reported by OLT"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "warning",
+        "critical"
+      ],
+      "description": "Analysis status"
+    },
+    "lcp_number": {
+      "type": "string",
+      "description": "Associated LCP number resolved from LCPEntry"
+    },
+    "splitter_number": {
+      "type": "string",
+      "description": "Associated splitter number resolved from LCPEntry"
+    },
+    "subscriber_account_name": {
+      "type": "string",
+      "description": "Account name from subscriber data \u2014 denormalized for display without join"
+    },
+    "subscriber_address": {
+      "type": "string",
+      "description": "Street address from subscriber data \u2014 denormalized for display without join"
+    },
+    "subscriber_model": {
+      "type": "string",
+      "description": "ONT model from subscriber data \u2014 may differ from reported model; denormalized for enrichment"
+    }
+  },
+  "required": [
+    "report_id",
+    "serial_number"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
