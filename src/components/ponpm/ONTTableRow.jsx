@@ -55,7 +55,7 @@ export default function ONTTableRow({ ont, hasSubscriberData, onSelectDetail, on
         ) : '-'}
       </TableCell>
       <TableCell className={`${monoCls} max-w-[80px] truncate`}>{ont.SerialNumber || '-'}</TableCell>
-      <TableCell className={`${cellCls} max-w-[60px] truncate`}>{ont.model || '-'}</TableCell>
+      <TableCell className={`${cellCls} max-w-[60px] truncate`}>{ont._subscriber?.model || ont.model || '-'}</TableCell>
       {/* ONT Rx */}
       <TableCell className={rightMono}>
         <span className={parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' : parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : ''}>{ont.OntRxOptPwr || '-'}</span>

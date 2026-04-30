@@ -35,21 +35,30 @@ import {
   BarChart3,
   Users,
   Zap,
+  HelpCircle,
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 
 // Compute aggregate error totals from a list of ONTs
 function computeErrorTotals(onts) {
-  let usBip = 0, dsBip = 0, usFecUn = 0, dsFecUn = 0, usHec = 0, usMissed = 0;
+  let usBip = 0, dsBip = 0, usFecUn = 0, dsFecUn = 0, usFecCor = 0, dsFecCor = 0, usHec = 0, usMissed = 0;
   for (const o of onts) {
     usBip   += parseInt(o.UpstreamBipErrors) || 0;
     dsBip   += parseInt(o.DownstreamBipErrors) || 0;
     usFecUn += parseInt(o.UpstreamFecUncorrectedCodeWords) || 0;
     dsFecUn += parseInt(o.DownstreamFecUncorrectedCodeWords) || 0;
+    usFecCor += parseInt(o.UpstreamFecCorrectedCodeWords) || 0;
+    dsFecCor += parseInt(o.DownstreamFecCorrectedCodeWords) || 0;
     usHec   += parseInt(o.UpstreamGemHecErrors) || 0;
     usMissed += parseInt(o.UpstreamMissedBursts) || 0;
   }
-  return { usBip, dsBip, usFecUn, dsFecUn, usHec, usMissed, total: usBip + dsBip + usFecUn + dsFecUn + usHec + usMissed };
+  return { usBip, dsBip, usFecUn, dsFecUn, usFecCor, dsFecCor, usHec, usMissed, total: usBip + dsBip + usFecUn + dsFecUn + usFecCor + dsFecCor + usHec + usMissed };
 }
 
 function ErrorMetricsBadges({ errors, compact = false }) {
@@ -57,8 +66,10 @@ function ErrorMetricsBadges({ errors, compact = false }) {
   const items = [
     { label: 'US BIP', value: errors.usBip },
     { label: 'DS BIP', value: errors.dsBip },
-    { label: 'US FEC', value: errors.usFecUn },
-    { label: 'DS FEC', value: errors.dsFecUn },
+    { label: 'US FEC U', value: errors.usFecUn },
+    { label: 'DS FEC U', value: errors.dsFecUn },
+    { label: 'US FEC C', value: errors.usFecCor },
+    { label: 'DS FEC C', value: errors.dsFecCor },
     { label: 'HEC', value: errors.usHec },
     { label: 'Missed', value: errors.usMissed },
   ].filter(i => i.value > 0);
@@ -572,9 +583,20 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                         </TableCell>
                         <TableCell className="text-xs">
                           {port.lcpNumber ? (
-                            <span className="text-blue-600 font-medium">
-                              {port.lcpNumber}{port.lcpSplitter ? `/${port.lcpSplitter}` : ''}
-                            </span>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger className="text-blue-600 font-medium underline decoration-dotted cursor-help">
+                                  {port.lcpNumber}{port.lcpSplitter ? `/${port.lcpSplitter}` : ''}
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <div className="space-y-1 text-xs">
+                                    {port.lcpLocation && <div><strong>Location:</strong> {port.lcpLocation}</div>}
+                                    {port.lcpAddress && <div><strong>Address:</strong> {port.lcpAddress}</div>}
+                                    {!port.lcpLocation && !port.lcpAddress && <div>No location data</div>}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           ) : '-'}
                         </TableCell>
                         <TableCell>
@@ -729,7 +751,9 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                           {ont._subscriber ? (ont._subscriber.name || ont._subscriber.account || '-') : '-'}
                         </TableCell>
                         <TableCell className="font-mono text-xs text-gray-900 dark:text-white">{ont.SerialNumber || '-'}</TableCell>
-                        <TableCell className="text-xs text-gray-900 dark:text-white">{ont.model || '-'}</TableCell>
+                        <TableCell className="text-xs text-gray-900 dark:text-white">
+                          {ont._subscriber?.model || ont.model || '-'}
+                        </TableCell>
                         <TableCell className="text-right font-mono">
                           <span className={
                             parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' :

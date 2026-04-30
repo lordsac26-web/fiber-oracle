@@ -38,13 +38,17 @@ export default function KPIStatistics({ result, filteredOnts, previousReport }) 
     const totalDsBip = filteredOnts.reduce((sum, o) => sum + (parseInt(o.DownstreamBipErrors) || 0), 0);
     const totalUsFec = filteredOnts.reduce((sum, o) => sum + (parseInt(o.UpstreamFecUncorrectedCodeWords) || 0), 0);
     const totalDsFec = filteredOnts.reduce((sum, o) => sum + (parseInt(o.DownstreamFecUncorrectedCodeWords) || 0), 0);
+    const totalUsFecCor = filteredOnts.reduce((sum, o) => sum + (parseInt(o.UpstreamFecCorrectedCodeWords) || 0), 0);
+    const totalDsFecCor = filteredOnts.reduce((sum, o) => sum + (parseInt(o.DownstreamFecCorrectedCodeWords) || 0), 0);
+    const totalUsHec = filteredOnts.reduce((sum, o) => sum + (parseInt(o.UpstreamGemHecErrors) || 0), 0);
 
     // ONTs with errors
     const ontsWithErrors = filteredOnts.filter(o => 
       (parseInt(o.UpstreamBipErrors) || 0) > 0 ||
       (parseInt(o.DownstreamBipErrors) || 0) > 0 ||
       (parseInt(o.UpstreamFecUncorrectedCodeWords) || 0) > 0 ||
-      (parseInt(o.DownstreamFecUncorrectedCodeWords) || 0) > 0
+      (parseInt(o.DownstreamFecUncorrectedCodeWords) || 0) > 0 ||
+      (parseInt(o.UpstreamGemHecErrors) || 0) > 0
     ).length;
 
     // Power ranges
@@ -69,6 +73,9 @@ export default function KPIStatistics({ result, filteredOnts, previousReport }) 
       totalDsBip,
       totalUsFec,
       totalDsFec,
+      totalUsFecCor,
+      totalDsFecCor,
+      totalUsHec,
       ontsWithErrors,
       errorRate: filteredOnts.length > 0 ? (ontsWithErrors / filteredOnts.length * 100) : 0,
       lowPowerOnts,
@@ -229,6 +236,24 @@ export default function KPIStatistics({ result, filteredOnts, previousReport }) 
                 {stats.totalDsFec.toLocaleString()}
               </div>
               <div className="text-[10px] text-gray-600 dark:text-gray-400">DS FEC Uncorrected</div>
+            </div>
+            <div className="text-center p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
+              <div className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                {stats.totalUsFecCor.toLocaleString()}
+              </div>
+              <div className="text-[10px] text-blue-600 dark:text-blue-400">US FEC Corrected</div>
+            </div>
+            <div className="text-center p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
+              <div className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                {stats.totalDsFecCor.toLocaleString()}
+              </div>
+              <div className="text-[10px] text-blue-600 dark:text-blue-400">DS FEC Corrected</div>
+            </div>
+            <div className="text-center p-2 bg-purple-100 dark:bg-purple-900/30 rounded">
+              <div className="text-lg font-bold text-purple-700 dark:text-purple-300">
+                {stats.totalUsHec.toLocaleString()}
+              </div>
+              <div className="text-[10px] text-purple-600 dark:text-purple-400">GEM HEC Errors</div>
             </div>
           </div>
         </CardContent>
