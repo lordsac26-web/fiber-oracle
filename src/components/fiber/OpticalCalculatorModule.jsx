@@ -49,16 +49,8 @@ const SPLICE_LOSS = {
   'Mechanical': 0.30,
 };
 
-const SPLITTER_LOSS = {
-  '1:2': 3.8,
-  '1:4': 7.4,
-  '1:8': 10.7,
-  '1:16': 14.1,
-  '1:32': 17.5,
-  '1:64': 20.9,
-  '1:128': 24.3,
-  'None': 0,
-};
+// Splitter loss moved to FiberConstants and Reference Tables
+// Import if needed: import { SPLITTER_LOSS } from '@/components/fiber/FiberConstants';
 
 const PON_CLASSES = {
   // GPON - ITU-T G.984.2
@@ -129,6 +121,12 @@ function LinkLossCalculator() {
   const [spliceType, setSpliceType] = useState('Fusion');
   const [splitterRatio, setSplitterRatio] = useState('1:32');
   const [safetyMargin, setSafetyMargin] = useState(3);
+  
+  // Splitter loss values (reference table in ReferenceTables)
+  const SPLITTER_LOSS = {
+    '1:2': 3.8, '1:4': 7.4, '1:8': 10.7, '1:16': 14.1,
+    '1:32': 17.5, '1:64': 20.9, '1:128': 24.3, 'None': 0,
+  };
 
   const availableWavelengths = useMemo(() => {
     return Object.keys(FIBER_ATTENUATION[fiberType] || {});
@@ -372,6 +370,12 @@ function PONPowerCalculator() {
   const [splitterRatio, setSplitterRatio] = useState('1:32');
   const [connectors, setConnectors] = useState(4);
   const [splices, setSplices] = useState(2);
+  
+  // Splitter loss values (reference table in ReferenceTables)
+  const SPLITTER_LOSS = {
+    '1:2': 3.8, '1:4': 7.4, '1:8': 10.7, '1:16': 14.1,
+    '1:32': 17.5, '1:64': 20.9, '1:128': 24.3, 'None': 0,
+  };
 
   const classInfo = PON_CLASSES[ponClass];
 

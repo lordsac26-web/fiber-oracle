@@ -444,6 +444,19 @@ export const ETHERNET_WIRING = {
   }
 };
 
+export const SPLITTER_LOSS = {
+  // PLC/FBT Splitter Loss - Theoretical and Measured Values
+  // Approximate insertion loss for passive optical splitters (dB)
+  '1:2': 3.8,
+  '1:4': 7.4,
+  '1:8': 10.7,
+  '1:16': 14.1,
+  '1:32': 17.5,
+  '1:64': 20.9,
+  '1:128': 24.3,
+  'None': 0,
+};
+
 export const WAVELENGTH_INFO = {
   "850nm": { type: "Multimode", application: "Short-reach datacenter", window: "First" },
   "1300nm": { type: "Multimode", application: "Extended multimode", window: "Second" },

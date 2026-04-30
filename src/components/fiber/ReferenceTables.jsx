@@ -12,6 +12,7 @@ import {
   FIBER_ATTENUATION, 
   CONNECTOR_LOSS, 
   SPLICE_LOSS, 
+  SPLITTER_LOSS,
   STANDARD_BUDGETS,
   OTDR_EVENTS,
   REFLECTANCE_LIMITS,
@@ -444,6 +445,10 @@ export default function ReferenceTables() {
             <Scissors className="h-4 w-4 mr-2" />
             Splices
           </TabsTrigger>
+          <TabsTrigger value="splitters" className="rounded-lg data-[state=active]:bg-cyan-100 data-[state=active]:text-cyan-700">
+            <Layers className="h-4 w-4 mr-2" />
+            Splitters
+          </TabsTrigger>
           <TabsTrigger value="standards" className="rounded-lg data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700">
             <Radio className="h-4 w-4 mr-2" />
             Standards
@@ -631,6 +636,53 @@ export default function ReferenceTables() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Splitter Loss Table */}
+        <TabsContent value="splitters">
+          <Card className="border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5 text-cyan-600" />
+                Passive Splitter Loss (dB)
+              </CardTitle>
+              <p className="text-sm text-gray-500">PLC and FBT splitter insertion loss values</p>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50 dark:bg-gray-800">
+                    <TableHead>Split Ratio</TableHead>
+                    <TableHead className="text-center">Insertion Loss (dB)</TableHead>
+                    <TableHead>Description</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(SPLITTER_LOSS).map(([ratio, loss]) => (
+                    <TableRow key={ratio}>
+                      <TableCell className="font-medium">{ratio}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="font-mono">{loss} dB</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">
+                        {ratio === '1:2' ? 'Single split - minimal loss' :
+                         ratio === '1:4' ? 'Common FDH splitter' :
+                         ratio === '1:8' ? 'Standard FDH first stage' :
+                         ratio === '1:16' ? 'Multi-stage distribution' :
+                         ratio === '1:32' ? 'GPON/PON standard - single stage' :
+                         ratio === '1:64' ? 'Extended reach - two stage' :
+                         ratio === '1:128' ? 'High-fiber-count networks' :
+                         'No splitter'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="mt-4 p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg text-sm">
+                <strong>Note:</strong> Loss values are typical for passive optical splitters. PLC (Planar Lightwave Circuit) splitters provide more uniform port-to-port loss than FBT (Fused Biconical Taper) splitters. Actual values may vary ±0.5 dB based on manufacturer and wavelength.
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Splice Loss Table */}
