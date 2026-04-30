@@ -100,6 +100,10 @@
       "type": "string",
       "description": "Associated splitter number resolved from LCPEntry"
     },
+    "optic_model": {
+      "type": "string",
+      "description": "Optic model number from LCP (e.g., 100-05730=XGS-ONLY, 100-05764=XGS-COMBO, 100-05929=XGS-COMBO-EXT)"
+    },
     "subscriber_account_name": {
       "type": "string",
       "description": "Account name from subscriber data \u2014 denormalized for display without join"

@@ -49,6 +49,7 @@ function buildLcpLookup(lcpEntries) {
     const payload = {
       lcp_number:      lcp.lcp_number      || '',
       splitter_number: lcp.splitter_number || '',
+      optic_model:     lcp.optic_model     || '',
     };
 
     // Handle port ranges like "1-4"
@@ -237,7 +238,11 @@ Deno.serve(async (req) => {
 
         pendingUpdates.push({
           id: record.id,
-          data: { lcp_number: match.lcp_number, splitter_number: match.splitter_number },
+          data: { 
+            lcp_number: match.lcp_number, 
+            splitter_number: match.splitter_number,
+            optic_model: match.optic_model,
+          },
         });
       }
 

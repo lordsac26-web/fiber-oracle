@@ -1,7 +1,13 @@
 /**
  * PortHeaderLabel
- * Shows the port key, combo type badge (XGS-COMBO, GPON-COMBO, or XGS-ONLY based on ONT loadout),
+ * Shows the port key, optic type badge (XGS-ONLY, XGS-COMBO, XGS-COMBO-EXT based on optic model),
  * ONT count, and LCP/Splitter info.
+ * 
+ * Model mapping:
+ *   100-05730 → XGS-ONLY (pure XGS laser)
+ *   100-05764 → XGS-COMBO (combo optic, supports XGS+GPON)
+ *   100-05929 → XGS-COMBO-EXT (extended combo optic)
+ *   Other/GPON → GPON
  */
 import React, { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -9,14 +15,20 @@ import { Badge } from '@/components/ui/badge';
 export default function PortHeaderLabel({ portKey, portStats, portOnts }) {
   const lcpOnt = portOnts.find(o => o._lcpNumber);
 
-  // Detect port type from ONT loadout: check for mixed XGS/GPON or single tech
+  // Detect port type from optic model number (from LCP enrichment)
   const detectedType = useMemo(() => {
-    const hasXgs = portOnts.some(o => o._techType?.includes('XGS-PON'));
-    const hasGpon = portOnts.some(o => !o._techType || o._techType.includes('GPON'));
+    // Get optic model from any ONT with LCP data (all ONTs on same port share same optic)
+    const ontWithOptic = portOnts.find(o => o._opticModel);
+    const opticModel = ontWithOptic?._opticModel?.trim();
     
-    if (hasXgs && hasGpon) return 'XGS-COMBO';
-    if (hasXgs) return 'XGS-ONLY';
-    return 'GPON'; // Default/fallback
+    if (opticModel === '100-05730') return 'XGS-ONLY';
+    if (opticModel === '100-05764') return 'XGS-COMBO';
+    if (opticModel === '100-05929') return 'XGS-COMBO-EXT';
+    
+    // Fallback: detect from ONT tech type if no optic model
+    const hasXgs = portOnts.some(o => o._techType?.includes('XGS-PON'));
+    if (hasXgs) return 'XGS-ONLY'; // Conservative default for detected XGS
+    return 'GPON';
   }, [portOnts]);
 
   const badgeColor = {
