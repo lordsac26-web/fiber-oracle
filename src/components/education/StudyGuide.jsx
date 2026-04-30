@@ -16,7 +16,6 @@ import {
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
-import { saveDocumentOffline, isDocumentSavedOffline } from '@/components/OfflineDocumentService';
 import { toast } from 'sonner';
 
 // Study guide content for each module
@@ -328,17 +327,7 @@ const STUDY_GUIDES = {
 
 export default function StudyGuide({ courseId }) {
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isSavedOffline, setIsSavedOffline] = useState(false);
   const guide = STUDY_GUIDES[courseId];
-
-  // Check if already saved offline
-  React.useEffect(() => {
-    const checkOffline = async () => {
-      const saved = await isDocumentSavedOffline(`studyguide-${courseId}`);
-      setIsSavedOffline(saved);
-    };
-    checkOffline();
-  }, [courseId]);
 
   if (!guide) {
     return (
@@ -354,30 +343,19 @@ export default function StudyGuide({ courseId }) {
     setIsDownloading(true);
     try {
       const response = await base44.functions.invoke('generatePDF', { 
-        type: 'studyGuide',
-        data: {
-          courseId,
-          title: guide.title,
-          subtitle: guide.subtitle,
-          passingScore: guide.passingScore,
-          sections: guide.sections
-        }
-      }, { responseType: 'arraybuffer' });
-      
-      // Save for offline access
-      if (saveOffline) {
-        await saveDocumentOffline(
-          `studyguide-${courseId}`,
-          'studyGuide',
-          guide.title,
-          response.data,
-          { courseId, passingScore: guide.passingScore }
-        );
-        setIsSavedOffline(true);
-        toast.success('Study guide saved for offline access');
-      }
-      
-      const blob = new Blob([response.data], { type: 'application/pdf' });
+         type: 'studyGuide',
+         data: {
+           courseId,
+           title: guide.title,
+           subtitle: guide.subtitle,
+           passingScore: guide.passingScore,
+           sections: guide.sections
+         }
+       }, { responseType: 'arraybuffer' });
+
+       toast.success('Study guide generated successfully');
+
+       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -405,22 +383,14 @@ export default function StudyGuide({ courseId }) {
               <p className="text-blue-100">{guide.subtitle}</p>
             </div>
             <div className="flex items-center gap-3">
-              <Badge className="bg-white/20 text-white border-0">
-                Passing Score: {guide.passingScore}%
-              </Badge>
-              <div className="flex items-center gap-2">
-                {isSavedOffline && (
-                  <Badge className="bg-emerald-500/80 text-white border-0">
-                    <WifiOff className="h-3 w-3 mr-1" />
-                    Saved Offline
-                  </Badge>
-                )}
-                <Button onClick={() => handleDownloadPDF(true)} disabled={isDownloading} variant="secondary" className="bg-white text-blue-700 hover:bg-blue-50">
-                  {isDownloading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                  {isDownloading ? 'Generating...' : 'Download PDF'}
-                </Button>
-              </div>
-            </div>
+               <Badge className="bg-white/20 text-white border-0">
+                 Passing Score: {guide.passingScore}%
+               </Badge>
+               <Button onClick={() => handleDownloadPDF()} disabled={isDownloading} variant="secondary" className="bg-white text-blue-700 hover:bg-blue-50">
+                 {isDownloading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                 {isDownloading ? 'Generating...' : 'Download PDF'}
+               </Button>
+             </div>
           </div>
         </CardContent>
       </Card>
