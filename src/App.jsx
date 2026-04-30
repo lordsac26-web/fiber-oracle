@@ -1,4 +1,5 @@
 import './App.css'
+import React from 'react'
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -15,6 +16,9 @@ import AppSyncBootstrap from '@/components/AppSyncBootstrap';
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
 const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
+
+// Lazy load CalixSmxSupport
+const CalixSmxSupport = React.lazy(() => import('./pages/CalixSmxSupport'));
 
 const LayoutWrapper = ({ children, currentPageName }) => Layout ?
   <Layout currentPageName={currentPageName}>{children}</Layout>
@@ -62,14 +66,29 @@ const AuthenticatedApp = () => {
           }
         />
       ))}
+      
+      {/* Calix SMx Support - New NOC Center */}
+      <Route
+        path="/CalixSmxSupport"
+        element={
+          <React.Suspense fallback={
+            <div className="flex items-center justify-center h-screen">
+              <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+            </div>
+          }>
+            <LayoutWrapper currentPageName="CalixSmxSupport">
+              <CalixSmxSupport />
+            </LayoutWrapper>
+          </React.Suspense>
+        }
+      />
+
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
 };
 
-
 function App() {
-
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
