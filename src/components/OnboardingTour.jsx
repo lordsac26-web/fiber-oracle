@@ -89,16 +89,70 @@ const getTourSteps = (isAdmin) => {
       }
     },
     {
-      id: 'modules',
-      title: 'Powerful Tools',
-      description: 'Calculators, testing wizards, troubleshooting flowcharts, and reference tables—all at your fingertips.',
+      id: 'calculators',
+      title: 'Optical Calculators',
+      description: 'Calculate link loss, PON power budgets, bend radius, and converter tools in seconds.',
       icon: Calculator,
-      color: 'from-purple-500 to-pink-600',
+      color: 'from-indigo-500 to-purple-600',
+      actionButton: {
+        label: 'Optical Calculator',
+        link: 'OpticalCalculator',
+        icon: Calculator
+      },
       features: [
-        'Optical calculators',
-        'OLTS/OTDR testing wizards', 
-        'Fiber Doctor diagnostics',
-        'PON PM analysis'
+        'Link loss analysis',
+        'PON power budgets',
+        'dB/linear conversion',
+        'Splitter loss reference'
+      ]
+    },
+    {
+      id: 'testing',
+      title: 'Testing Tools',
+      description: 'OLTS Tier-1 testing, OTDR Tier-2 characterization, and cleaning/inspection procedures.',
+      icon: Activity,
+      color: 'from-emerald-500 to-teal-600',
+      features: [
+        'OLTS Method B testing',
+        'OTDR bidirectional traces',
+        'IEC 61300-3-35 inspection',
+        'Field testing guides'
+      ]
+    },
+    {
+      id: 'troubleshoot',
+      title: 'Troubleshooting & Diagnostics',
+      description: 'Interactive Fiber Doctor flowchart, impairment library, and AI-powered OTDR analysis.',
+      icon: Stethoscope,
+      color: 'from-rose-500 to-pink-600',
+      actionButton: {
+        label: 'Fiber Doctor',
+        link: 'FiberDoctor',
+        icon: Stethoscope
+      },
+      features: [
+        'Interactive diagnostics',
+        'Defect reference guides',
+        'AI trace analysis',
+        'Field troubleshooting'
+      ]
+    },
+    {
+      id: 'reference',
+      title: 'Standards & Reference',
+      description: 'TIA, IEEE, IEC, and ITU-T standards, fiber specifications, color codes, and lookup tables.',
+      icon: BookOpen,
+      color: 'from-slate-500 to-gray-600',
+      actionButton: {
+        label: 'View Standards',
+        link: 'Standards',
+        icon: BookOpen
+      },
+      features: [
+        'TIA-568-D specifications',
+        'PON power levels',
+        'Reference tables',
+        'Fiber color codes'
       ]
     },
     {
@@ -123,28 +177,28 @@ const getTourSteps = (isAdmin) => {
 
   const adminSteps = [
     {
-      id: 'admin-panel',
-      title: 'Admin Control Panel',
-      description: 'As an admin, you have access to the Control Panel for managing users, documents, and system settings.',
+      id: 'data-management',
+      title: 'Data Management Tools',
+      description: 'As an admin, you can manage PON PM reports, LCP entries, job reports, and subscriber data.',
       icon: Shield,
       color: 'from-purple-600 to-indigo-600',
       actionButton: {
-        label: 'Open Control Panel',
-        link: 'AdminPanel',
+        label: 'Data Management',
+        link: 'DataManagement',
         icon: Shield
       },
       features: [
-        'User management',
-        'Document approval',
-        'System analytics',
-        'Data management'
+        'Upload & manage PON PM data',
+        'LCP/splitter inventory',
+        'Subscriber database',
+        'Report storage & cleanup'
       ],
       visualGuide: {
         steps: [
-          '1. Look for purple bar at top',
-          '2. Click "Control Panel" link',
-          '3. Review pending documents',
-          '4. Monitor system health'
+          '1. Go to Data Management',
+          '2. Upload CSV/Excel files',
+          '3. View processing status',
+          '4. Export or purge data'
         ]
       },
       isAdminOnly: true
