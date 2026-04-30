@@ -152,11 +152,12 @@ export default function LCPSummarySection({ result, onPortClick }) {
       lcp.onts.push(ont);
       lcp.ports.add(`${ont._oltName}/${ont._port}`);
 
-      // Count status
+      // Count status — prioritize offline detection
       const status = ont._analysis?.status;
-      if (status === 'critical') lcp.critical++;
+      if (status === 'offline') lcp.offline++;
+      else if (status === 'critical') lcp.critical++;
       else if (status === 'warning') lcp.warning++;
-      else if (status === 'offline') lcp.offline++;
+      else if (!status || status === undefined || status === null) lcp.offline++;
       else lcp.ok++;
 
       // Check if degrading
