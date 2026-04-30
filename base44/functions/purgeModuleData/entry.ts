@@ -1,6 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 50;
+const BATCH_DELAY_MS = 500; // Small delay between batches to prevent timeout
 
 // Helper to batch delete records
 async function batchDeleteRecords(base44, entityName) {
@@ -25,6 +26,9 @@ async function batchDeleteRecords(base44, entityName) {
         console.error(`Failed to delete ${entityName} ${record.id}:`, err.message);
       }
     }
+
+    // Small delay between batches to prevent timeout
+    await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
   }
 
   return deletedCount;
