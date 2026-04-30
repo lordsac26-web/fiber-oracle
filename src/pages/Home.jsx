@@ -270,11 +270,7 @@ export default function Home() {
                 <HelpCircle className="h-4 w-4" />
               </button>
 
-              <Link to={createPageUrl('Brochure')} className="hidden md:block">
-                <button aria-label="About Fiber Oracle" className={`h-11 w-11 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`} title="About">
-                  <Info className="h-4 w-4" />
-                </button>
-              </Link>
+
 
               <Link to={createPageUrl('Settings')} className="hidden md:block">
                 <button aria-label="Open settings" className={`h-11 w-11 rounded-lg transition-all flex items-center justify-center ${darkMode ? 'text-slate-400 hover:text-cyan-300 hover:bg-white/10' : 'text-slate-600 hover:text-blue-700 hover:bg-slate-200'}`} title="Settings">

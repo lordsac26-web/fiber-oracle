@@ -51,7 +51,6 @@ import AdminPanel from './pages/AdminPanel';
 import CalixSmxAnalysis from './pages/CalixSmxAnalysis';
 import CapacityPlanning from './pages/CapacityPlanning';
 import BendRadius from './pages/BendRadius';
-import Brochure from './pages/Brochure';
 import CertificationExam from './pages/CertificationExam';
 import Certifications from './pages/Certifications';
 import Cleaning from './pages/Cleaning';
@@ -97,7 +96,6 @@ export const PAGES = {
     "CalixSmxAnalysis": CalixSmxAnalysis,
     "CapacityPlanning": CapacityPlanning,
     "BendRadius": BendRadius,
-    "Brochure": Brochure,
     "CertificationExam": CertificationExam,
     "Certifications": Certifications,
     "Cleaning": Cleaning,
