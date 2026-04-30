@@ -2,9 +2,8 @@ import React from 'react';
 import { Toaster } from 'sonner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserPreferencesProvider, useUserPreferences } from '@/components/UserPreferencesContext';
-import ModeTransition from '@/components/ModeTransition';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { Shield } from 'lucide-react';
@@ -12,12 +11,8 @@ import { Shield } from 'lucide-react';
 const queryClient = new QueryClient();
 
 function LayoutContent({ children, currentPageName }) {
-  const { preferences, isAuthenticated } = useUserPreferences();
-  const navigate = useNavigate();
-  const [isTransitioning, setIsTransitioning] = React.useState(false);
-  const [targetMode, setTargetMode] = React.useState(null);
+  const { isAuthenticated } = useUserPreferences();
   const [isAdmin, setIsAdmin] = React.useState(false);
-  const prevAiModeRef = React.useRef(preferences.aiCentricMode);
 
   // Check admin status
   React.useEffect(() => {
@@ -28,39 +23,10 @@ function LayoutContent({ children, currentPageName }) {
     }
   }, [isAuthenticated]);
 
-  React.useEffect(() => {
-    if (prevAiModeRef.current !== preferences.aiCentricMode) {
-      const newMode = preferences.aiCentricMode ? 'ai' : 'traditional';
-      if (currentPageName === 'Home' || currentPageName === 'PhotonChat') {
-        setTargetMode(newMode);
-        setIsTransitioning(true);
-      }
-      prevAiModeRef.current = preferences.aiCentricMode;
-    }
-  }, [preferences.aiCentricMode, currentPageName]);
-
-  React.useEffect(() => {
-    if (isAuthenticated && currentPageName === 'Home' && preferences.aiCentricMode) {
-      navigate(createPageUrl('PhotonChat'));
-    }
-  }, [isAuthenticated, preferences.aiCentricMode, currentPageName, navigate]);
-
-  const handleTransitionComplete = () => {
-    setIsTransitioning(false);
-    if (targetMode === 'ai') navigate(createPageUrl('PhotonChat'));
-    else if (targetMode === 'traditional') navigate(createPageUrl('Home'));
-    setTargetMode(null);
-  };
-
   return (
     <>
       <Toaster position="top-center" richColors />
       <PWAInstallPrompt />
-      <ModeTransition
-        isTransitioning={isTransitioning}
-        mode={targetMode}
-        onComplete={handleTransitionComplete}
-      />
       {isAdmin && (
         <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-1 text-xs flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-2">

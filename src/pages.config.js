@@ -82,8 +82,6 @@ import OfflineDocuments from './pages/OfflineDocuments';
 import OpticalCalculator from './pages/OpticalCalculator';
 import PONLevels from './pages/PONLevels';
 import PONPMAnalysis from './pages/PONPMAnalysis';
-import PhotonAuditLogs from './pages/PhotonAuditLogs';
-import PhotonChat from './pages/PhotonChat';
 import PowerLevelCalc from './pages/PowerLevelCalc';
 import ReferenceTables from './pages/ReferenceTables';
 import ReportManagement from './pages/ReportManagement';
@@ -130,8 +128,6 @@ export const PAGES = {
     "OpticalCalculator": OpticalCalculator,
     "PONLevels": PONLevels,
     "PONPMAnalysis": PONPMAnalysis,
-    "PhotonAuditLogs": PhotonAuditLogs,
-    "PhotonChat": PhotonChat,
     "PowerLevelCalc": PowerLevelCalc,
     "ReferenceTables": ReferenceTables,
     "ReportManagement": ReportManagement,
