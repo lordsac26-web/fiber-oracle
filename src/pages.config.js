@@ -47,7 +47,6 @@
  *
  * The mainPage value must match a key in the PAGES object exactly.
  */
-import AdminPanel from './pages/AdminPanel';
 import CalixSmxAnalysis from './pages/CalixSmxAnalysis';
 import CapacityPlanning from './pages/CapacityPlanning';
 import BendRadius from './pages/BendRadius';
@@ -57,8 +56,6 @@ import Cleaning from './pages/Cleaning';
 import Contact from './pages/Contact';
 import ContactAdmin from './pages/ContactAdmin';
 import DataManagement from './pages/DataManagement';
-import DocumentReview from './pages/DocumentReview';
-import DocumentSearch from './pages/DocumentSearch';
 import Education from './pages/Education';
 import Fiber101 from './pages/Fiber101';
 import Fiber102 from './pages/Fiber102';
@@ -77,7 +74,7 @@ import LossBudget from './pages/LossBudget';
 import OLTSTest from './pages/OLTSTest';
 import OTDRAnalysis from './pages/OTDRAnalysis';
 import OTDRTest from './pages/OTDRTest';
-import OfflineDocuments from './pages/OfflineDocuments';
+
 import OpticalCalculator from './pages/OpticalCalculator';
 import PONLevels from './pages/PONLevels';
 import PONPMAnalysis from './pages/PONPMAnalysis';
@@ -92,7 +89,6 @@ import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
-    "AdminPanel": AdminPanel,
     "CalixSmxAnalysis": CalixSmxAnalysis,
     "CapacityPlanning": CapacityPlanning,
     "BendRadius": BendRadius,
@@ -102,8 +98,6 @@ export const PAGES = {
     "Contact": Contact,
     "ContactAdmin": ContactAdmin,
     "DataManagement": DataManagement,
-    "DocumentReview": DocumentReview,
-    "DocumentSearch": DocumentSearch,
     "Education": Education,
     "Fiber101": Fiber101,
     "Fiber102": Fiber102,
@@ -122,7 +116,6 @@ export const PAGES = {
     "OLTSTest": OLTSTest,
     "OTDRAnalysis": OTDRAnalysis,
     "OTDRTest": OTDRTest,
-    "OfflineDocuments": OfflineDocuments,
     "OpticalCalculator": OpticalCalculator,
     "PONLevels": PONLevels,
     "PONPMAnalysis": PONPMAnalysis,

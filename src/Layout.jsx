@@ -32,12 +32,7 @@ function LayoutContent({ children, currentPageName }) {
           <div className="flex items-center gap-2">
             <Shield className="h-3 w-3" />
             <span className="font-medium">Admin Mode</span>
-            <Link
-              to={createPageUrl('AdminPanel')}
-              className="ml-2 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded transition-colors"
-            >
-              Control Panel
-            </Link>
+
           </div>
         </div>
       )}
