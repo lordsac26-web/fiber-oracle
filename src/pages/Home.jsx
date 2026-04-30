@@ -178,7 +178,7 @@ export default function Home() {
       {darkMode && <AnimatedBackground />}
 
       {/* ── Header ── */}
-      <header className={`sticky top-0 z-50 backdrop-blur-xl border-b shadow-sm ${darkMode ? 'bg-black/30 border-white/10 shadow-[0_1px_0_rgba(0,240,255,0.08)]' : 'bg-white/80 border-slate-200'}`}>
+      <header className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-xl border-b shadow-sm ${darkMode ? 'bg-black/30 border-white/10 shadow-[0_1px_0_rgba(0,240,255,0.08)]' : 'bg-white/80 border-slate-200'}`}>
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2.5">
           <div className="flex items-center justify-between">
             {/* Logo */}
@@ -281,7 +281,7 @@ export default function Home() {
       </header>
 
       {/* ── Main ── */}
-      <main className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6 pb-24 md:pb-10">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6 pb-24 md:pb-10 pt-24">
 
         {/* Hero tagline — fade in on mount */}
         <div className={`text-center py-4 md:py-6 transition-all duration-700 ${headerVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
