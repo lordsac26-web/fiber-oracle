@@ -25,6 +25,12 @@ import {
   Loader2,
   Users,
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { base44 } from '@/api/base44Client';
@@ -535,12 +541,24 @@ export default function LCPSummarySection({ result, onPortClick }) {
                                       {ont._subscriber.address && <span className="text-gray-500 ml-2 truncate">{ont._subscriber.address}</span>}
                                     </div>
                                     <div className="flex items-center gap-2 ml-2 shrink-0">
-                                      <span className={`inline-block w-2 h-2 rounded-full ${
-                                        ont._analysis?.status === 'ok' ? 'bg-green-500' :
-                                        ont._analysis?.status === 'warning' ? 'bg-amber-500' :
-                                        ont._analysis?.status === 'critical' ? 'bg-red-500' :
-                                        'bg-gray-400'
-                                      }`} />
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <span className={`inline-block w-2 h-2 rounded-full cursor-help ${
+                                              ont._analysis?.status === 'ok' ? 'bg-green-500' :
+                                              ont._analysis?.status === 'warning' ? 'bg-amber-500' :
+                                              ont._analysis?.status === 'critical' ? 'bg-red-500' :
+                                              'bg-gray-400'
+                                            }`} />
+                                          </TooltipTrigger>
+                                          <TooltipContent side="left" className="text-xs">
+                                            {ont._analysis?.status === 'ok' ? 'Healthy' :
+                                             ont._analysis?.status === 'warning' ? 'Warning - Check signal levels' :
+                                             ont._analysis?.status === 'critical' ? 'Critical - Immediate attention needed' :
+                                             'Unknown status'}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
                                       <span className="font-mono text-gray-400">ONT {ont.OntID}</span>
                                     </div>
                                   </div>
