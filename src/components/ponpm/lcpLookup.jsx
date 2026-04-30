@@ -29,6 +29,8 @@ export function buildLcpLookupMap(lcpEntries) {
       gps_lng: lcp.gps_lng,
       splitter_ratio: lcp.splitter_ratio,
       fiber_count: lcp.fiber_count,
+      optic_type: lcp.optic_type || '',
+      optic_model: lcp.optic_model || '',
     };
 
     const rng = numericPort.match(/^(\d+)\s*-\s*(\d+)$/);
@@ -91,6 +93,8 @@ export function enrichOntsWithLcp(lcpMap, onts) {
       ont._lcpAddress = match.address || '';
       ont._lcpGpsLat = match.gps_lat;
       ont._lcpGpsLng = match.gps_lng;
+      ont._opticType = match.optic_type;
+      ont._opticModel = match.optic_model;
       enriched++;
     }
   }
