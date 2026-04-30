@@ -1,5 +1,35 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+const BATCH_SIZE = 100;
+
+// Helper to batch delete records
+async function batchDeleteRecords(base44, entity, entityName) {
+  let deletedCount = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    // Fetch batch of records
+    const batch = await base44.asServiceRole.entities[entityName].list('-created_date', BATCH_SIZE);
+    
+    if (batch.length === 0) {
+      hasMore = false;
+      break;
+    }
+
+    // Delete each record in batch
+    for (const record of batch) {
+      try {
+        await base44.asServiceRole.entities[entityName].delete(record.id);
+        deletedCount++;
+      } catch (err) {
+        console.error(`Failed to delete ${entityName} ${record.id}:`, err.message);
+      }
+    }
+  }
+
+  return deletedCount;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -26,26 +56,10 @@ Deno.serve(async (req) => {
 
     // Purge PON PM data (reports + associated ONT records)
     if (module_type === 'pon_pm_all') {
-      // Get all reports to delete their associated ONT records
-      const reports = await base44.asServiceRole.entities.PONPMReport.list('-created_date', 10000);
-      const reportIds = reports.map(r => r.id);
-
-      // Delete ONT records for these reports
-      if (reportIds.length > 0) {
-        const ontRecords = await base44.asServiceRole.entities.ONTPerformanceRecord.list('-created_date', 100000);
-        const recordsToDelete = ontRecords.filter(r => reportIds.includes(r.report_id));
-        
-        for (const record of recordsToDelete) {
-          await base44.asServiceRole.entities.ONTPerformanceRecord.delete(record.id);
-          deletedCount++;
-        }
-      }
-
-      // Delete the reports themselves
-      for (const report of reports) {
-        await base44.asServiceRole.entities.PONPMReport.delete(report.id);
-        deletedCount++;
-      }
+      // First delete all ONT records (associated with reports)
+      deletedCount += await batchDeleteRecords(base44, ONTPerformanceRecord, 'ONTPerformanceRecord');
+      // Then delete all reports
+      deletedCount += await batchDeleteRecords(base44, PONPMReport, 'PONPMReport');
 
       return Response.json({
         success: true,
@@ -55,12 +69,7 @@ Deno.serve(async (req) => {
 
     // Purge LCP data
     if (module_type === 'lcp_all') {
-      const lcpEntries = await base44.asServiceRole.entities.LCPEntry.list('-created_date', 10000);
-      for (const entry of lcpEntries) {
-        await base44.asServiceRole.entities.LCPEntry.delete(entry.id);
-        deletedCount++;
-      }
-
+      deletedCount = await batchDeleteRecords(base44, LCPEntry, 'LCPEntry');
       return Response.json({
         success: true,
         message: `Purged ${deletedCount} LCP entries`,
@@ -69,12 +78,7 @@ Deno.serve(async (req) => {
 
     // Purge Job Reports
     if (module_type === 'job_reports_all') {
-      const jobReports = await base44.asServiceRole.entities.JobReport.list('-created_date', 10000);
-      for (const report of jobReports) {
-        await base44.asServiceRole.entities.JobReport.delete(report.id);
-        deletedCount++;
-      }
-
+      deletedCount = await batchDeleteRecords(base44, JobReport, 'JobReport');
       return Response.json({
         success: true,
         message: `Purged ${deletedCount} job reports`,
@@ -83,12 +87,7 @@ Deno.serve(async (req) => {
 
     // Purge Test Reports
     if (module_type === 'test_reports_all') {
-      const testReports = await base44.asServiceRole.entities.TestReport.list('-created_date', 10000);
-      for (const report of testReports) {
-        await base44.asServiceRole.entities.TestReport.delete(report.id);
-        deletedCount++;
-      }
-
+      deletedCount = await batchDeleteRecords(base44, TestReport, 'TestReport');
       return Response.json({
         success: true,
         message: `Purged ${deletedCount} test reports`,
