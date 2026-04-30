@@ -480,32 +480,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </CardContent>
               </Card>
 
-              {/* Map */}
-              {selectedLCP.hasGPS && (
-                <Card className="border overflow-hidden">
-                  <div style={{ height: '300px', width: '100%' }}>
-                    <MapContainer
-                      center={[selectedLCP.gps_lat, selectedLCP.gps_lng]}
-                      zoom={15}
-                      style={{ height: '100%', width: '100%' }}
-                    >
-                      <TileLayer
-                        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                      />
-                      <Marker position={[selectedLCP.gps_lat, selectedLCP.gps_lng]}>
-                        <Popup>
-                          <div className="text-sm">
-                            <div className="font-bold">{selectedLCP.lcpNumber}</div>
-                            <div className="text-xs text-gray-600">{selectedLCP.location}</div>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    </MapContainer>
-                  </div>
-                </Card>
-              )}
-
               {/* Subscribers at this LCP — color-coded by splitter */}
               {(() => {
                 const subsAtLcp = selectedLCP.onts.filter(o => o._subscriber);
@@ -650,6 +624,32 @@ export default function LCPSummarySection({ result, onPortClick }) {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Map — moved to bottom */}
+              {selectedLCP.hasGPS && (
+                <Card className="border overflow-hidden">
+                  <div style={{ height: '300px', width: '100%' }}>
+                    <MapContainer
+                      center={[selectedLCP.gps_lat, selectedLCP.gps_lng]}
+                      zoom={15}
+                      style={{ height: '100%', width: '100%' }}
+                    >
+                      <TileLayer
+                        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                      />
+                      <Marker position={[selectedLCP.gps_lat, selectedLCP.gps_lng]}>
+                        <Popup>
+                          <div className="text-sm">
+                            <div className="font-bold">{selectedLCP.lcpNumber}</div>
+                            <div className="text-xs text-gray-600">{selectedLCP.location}</div>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    </MapContainer>
+                  </div>
+                </Card>
+              )}
             </div>
           )}
         </DialogContent>
