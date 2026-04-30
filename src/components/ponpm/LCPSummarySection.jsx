@@ -534,7 +534,15 @@ export default function LCPSummarySection({ result, onPortClick }) {
                                       <span className={`font-medium truncate ${color.text}`}>{ont._subscriber.name || ont._subscriber.account || 'Unknown'}</span>
                                       {ont._subscriber.address && <span className="text-gray-500 ml-2 truncate">{ont._subscriber.address}</span>}
                                     </div>
-                                    <span className="font-mono text-gray-400 ml-2 shrink-0">ONT {ont.OntID}</span>
+                                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                                      <span className={`inline-block w-2 h-2 rounded-full ${
+                                        ont.status === 'ok' ? 'bg-green-500' :
+                                        ont.status === 'warning' ? 'bg-amber-500' :
+                                        ont.status === 'critical' ? 'bg-red-500' :
+                                        'bg-gray-400'
+                                      }`} />
+                                      <span className="font-mono text-gray-400">ONT {ont.OntID}</span>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
