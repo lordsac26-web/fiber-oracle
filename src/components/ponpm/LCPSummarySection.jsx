@@ -536,9 +536,9 @@ export default function LCPSummarySection({ result, onPortClick }) {
                                     </div>
                                     <div className="flex items-center gap-2 ml-2 shrink-0">
                                       <span className={`inline-block w-2 h-2 rounded-full ${
-                                        ont.status === 'ok' ? 'bg-green-500' :
-                                        ont.status === 'warning' ? 'bg-amber-500' :
-                                        ont.status === 'critical' ? 'bg-red-500' :
+                                        ont._analysis?.status === 'ok' ? 'bg-green-500' :
+                                        ont._analysis?.status === 'warning' ? 'bg-amber-500' :
+                                        ont._analysis?.status === 'critical' ? 'bg-red-500' :
                                         'bg-gray-400'
                                       }`} />
                                       <span className="font-mono text-gray-400">ONT {ont.OntID}</span>
