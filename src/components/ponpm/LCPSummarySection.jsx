@@ -344,6 +344,11 @@ export default function LCPSummarySection({ result, onPortClick }) {
                       </div>
 
                       <div className="flex gap-1 flex-wrap">
+                        {lcp.ok > 0 && (
+                          <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px] px-1.5">
+                            {lcp.ok} Healthy
+                          </Badge>
+                        )}
                         {lcp.critical > 0 && (
                           <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px] px-1.5">
                             {lcp.critical} Critical
@@ -355,7 +360,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                           </Badge>
                         )}
                         {lcp.offline > 0 && (
-                          <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-[10px] px-1.5">
+                          <Badge className="bg-gray-100 text-gray-800 border-gray-300 text-[10px] px-1.5">
                             {lcp.offline} Offline
                           </Badge>
                         )}
@@ -363,11 +368,6 @@ export default function LCPSummarySection({ result, onPortClick }) {
                           <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px] px-1.5">
                             <TrendingDown className="h-3 w-3 mr-0.5" />
                             {lcp.degrading}
-                          </Badge>
-                        )}
-                        {getTileStatus(lcp) === 'healthy' && (
-                          <Badge className="bg-green-100 text-green-800 border-green-300 text-[10px]">
-                            Healthy
                           </Badge>
                         )}
                       </div>
@@ -405,7 +405,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
           {selectedLCP && (
             <div className="space-y-4">
               {/* LCP Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
                 <Card className="border">
                   <CardContent className="p-3 text-center">
                     <div className="text-2xl font-bold">{selectedLCP.ontCount}</div>
@@ -424,10 +424,13 @@ export default function LCPSummarySection({ result, onPortClick }) {
                     <div className="text-xs text-gray-500">PON Ports</div>
                   </CardContent>
                 </Card>
-                <Card className={`border ${
-                  selectedLCP.critical > 0 ? 'bg-red-50' : 
-                  selectedLCP.warning > 0 ? 'bg-amber-50' : 'bg-green-50'
-                }`}>
+                <Card className="border bg-green-50">
+                  <CardContent className="p-3 text-center">
+                    <div className="text-2xl font-bold text-green-600">{selectedLCP.ok}</div>
+                    <div className="text-xs text-gray-500">Healthy</div>
+                  </CardContent>
+                </Card>
+                <Card className="border bg-red-50">
                   <CardContent className="p-3 text-center">
                     <div className="text-2xl font-bold text-red-600">{selectedLCP.critical}</div>
                     <div className="text-xs text-gray-500">Critical</div>
@@ -437,6 +440,12 @@ export default function LCPSummarySection({ result, onPortClick }) {
                   <CardContent className="p-3 text-center">
                     <div className="text-2xl font-bold text-amber-600">{selectedLCP.warning}</div>
                     <div className="text-xs text-gray-500">Warning</div>
+                  </CardContent>
+                </Card>
+                <Card className="border bg-gray-50">
+                  <CardContent className="p-3 text-center">
+                    <div className="text-2xl font-bold text-gray-600">{selectedLCP.offline}</div>
+                    <div className="text-xs text-gray-500">Offline</div>
                   </CardContent>
                 </Card>
               </div>
@@ -555,7 +564,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                                             {ont._analysis?.status === 'ok' ? 'Healthy' :
                                              ont._analysis?.status === 'warning' ? 'Warning - Check signal levels' :
                                              ont._analysis?.status === 'critical' ? 'Critical - Immediate attention needed' :
-                                             'Unknown status'}
+                                             'Offline'}
                                           </TooltipContent>
                                         </Tooltip>
                                       </TooltipProvider>
@@ -645,6 +654,18 @@ export default function LCPSummarySection({ result, onPortClick }) {
                           />
                         </div>
                         <span className="text-sm font-mono w-12 text-right">{selectedLCP.critical}</span>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Offline</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gray-500" 
+                            style={{ width: `${(selectedLCP.offline / selectedLCP.ontCount * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-mono w-12 text-right">{selectedLCP.offline}</span>
                       </div>
                     </div>
                   </div>
