@@ -102,7 +102,7 @@
     },
     "optic_model": {
       "type": "string",
-      "description": "Optic model number from LCP (e.g., 100-05730=XGS-ONLY, 100-05764=XGS-COMBO, 100-05929=XGS-COMBO-EXT)"
+      "description": "Optic model number from LCP (e.g., 100-05730=XGS-ONLY, 100-05674=XGS-COMBO, 100-05929=XGS-COMBO-EXT)"
     },
     "subscriber_account_name": {
       "type": "string",

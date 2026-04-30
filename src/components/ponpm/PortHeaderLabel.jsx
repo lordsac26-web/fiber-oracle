@@ -5,7 +5,7 @@
  * 
  * Model mapping:
  *   100-05730 → XGS-ONLY (pure XGS laser)
- *   100-05764 → XGS-COMBO (combo optic, supports XGS+GPON)
+ *   100-05674 → XGS-COMBO (combo optic, supports XGS+GPON)
  *   100-05929 → XGS-COMBO-EXT (extended combo optic)
  *   Other/GPON → GPON
  */
@@ -22,7 +22,7 @@ export default function PortHeaderLabel({ portKey, portStats, portOnts }) {
     const opticModel = ontWithOptic?._opticModel?.trim();
     
     if (opticModel === '100-05730') return 'XGS-ONLY';
-    if (opticModel === '100-05764') return 'XGS-COMBO';
+    if (opticModel === '100-05674') return 'XGS-COMBO';
     if (opticModel === '100-05929') return 'XGS-COMBO-EXT';
     
     // Fallback: detect from ONT tech type if no optic model
