@@ -576,20 +576,16 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                         </TableCell>
                         <TableCell className="text-xs">
                           {port.lcpNumber ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger className="text-blue-600 font-medium underline decoration-dotted cursor-help">
-                                  {port.lcpNumber}{port.lcpSplitter ? `/${port.lcpSplitter}` : ''}
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <div className="space-y-1 text-xs">
-                                    {port.lcpLocation && <div><strong>Location:</strong> {port.lcpLocation}</div>}
-                                    {port.lcpAddress && <div><strong>Address:</strong> {port.lcpAddress}</div>}
-                                    {!port.lcpLocation && !port.lcpAddress && <div>No location data</div>}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <div className="relative group inline-block">
+                              <span className="text-blue-600 font-medium underline decoration-dotted cursor-help">
+                                {port.lcpNumber}{port.lcpSplitter ? `/${port.lcpSplitter}` : ''}
+                              </span>
+                              <div className="absolute bottom-full left-0 mb-1.5 z-50 hidden group-hover:block w-56 rounded-md bg-gray-900 text-white text-xs shadow-lg p-2 space-y-0.5 pointer-events-none">
+                                {port.lcpLocation && <div><span className="text-gray-400">Location:</span> {port.lcpLocation}</div>}
+                                {port.lcpAddress && <div><span className="text-gray-400">Address:</span> {port.lcpAddress}</div>}
+                                {!port.lcpLocation && !port.lcpAddress && <div className="text-gray-400">No location data</div>}
+                              </div>
+                            </div>
                           ) : '-'}
                         </TableCell>
                         <TableCell>
