@@ -359,6 +359,22 @@ export default function Settings() {
             </TabsTrigger>
           </TabsList>
 
+          {/* Alert Thresholds quick-link (shown outside tabs so it's always visible) */}
+          <Link to="/AlertThresholds">
+            <div className="flex items-center justify-between p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800 hover:shadow-md transition-shadow cursor-pointer">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/40">
+                  <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">Global Alert Thresholds</p>
+                  <p className="text-xs text-gray-500">Configure dBm and error limits for PON PM analysis</p>
+                </div>
+              </div>
+              <Zap className="h-5 w-5 text-red-400" />
+            </div>
+          </Link>
+
           {/* User Preferences Tab */}
           <TabsContent value="preferences" className="space-y-6">
             <Card className="border-0 shadow-lg">

@@ -305,8 +305,8 @@ export default function PONPMAnalysis() {
       // Upload file first
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
-      // Parse the file
-      const response = await base44.functions.invoke('parsePonPm', { file_url });
+      // Parse the file — pass custom thresholds so the backend uses current alert config
+      const response = await base44.functions.invoke('parsePonPm', { file_url, thresholds: customThresholds });
 
       if (response.data?.success) {
         setResult(response.data);

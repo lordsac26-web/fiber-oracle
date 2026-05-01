@@ -1,8 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import { parse } from 'npm:csv-parse@5.5.2/sync';
 
-// Thresholds for analysis
-const THRESHOLDS = {
+// Default thresholds — can be overridden per-request via body.thresholds
+const DEFAULT_THRESHOLDS = {
   OntRxOptPwr: { low: -27, marginal: -25, high: -8 },
   OLTRXOptPwr: { low: -30, marginal: -28, high: -8 },
   OntTxPwr: { low: 0.5, high: 5 },
@@ -15,6 +15,9 @@ const THRESHOLDS = {
   UpstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
   DownstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
 };
+
+// Will be set per-request after merging with caller-supplied overrides
+let THRESHOLDS = { ...DEFAULT_THRESHOLDS };
 
 // Detect technology type based on ONT model
 function detectTechTypeFromModel(model) {
@@ -318,7 +321,25 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { file_url, skip_trends } = body;
+    const { file_url, skip_trends, thresholds: customThresholds } = body;
+
+    // Merge caller-supplied thresholds (from Global Alert config) with defaults.
+    // Only numeric values are accepted to prevent injection of bad data.
+    if (customThresholds && typeof customThresholds === 'object') {
+      THRESHOLDS = { ...DEFAULT_THRESHOLDS };
+      for (const [field, values] of Object.entries(customThresholds)) {
+        if (DEFAULT_THRESHOLDS[field] && typeof values === 'object') {
+          THRESHOLDS[field] = { ...DEFAULT_THRESHOLDS[field] };
+          for (const [key, val] of Object.entries(values)) {
+            if (typeof val === 'number' && isFinite(val)) {
+              THRESHOLDS[field][key] = val;
+            }
+          }
+        }
+      }
+    } else {
+      THRESHOLDS = { ...DEFAULT_THRESHOLDS };
+    }
 
     if (!file_url) {
       return Response.json({ error: 'No file URL provided' }, { status: 400 });
