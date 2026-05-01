@@ -350,6 +350,8 @@ Deno.serve(async (req) => {
           address: lcp.address,
           gps_lat: lcp.gps_lat,
           gps_lng: lcp.gps_lng,
+          optic_type: lcp.optic_type || '',
+          optic_model: lcp.optic_model || '',
         };
         
         // Base key: olt_name|shelf/slot/port
@@ -441,6 +443,8 @@ Deno.serve(async (req) => {
         ont._lcpAddress = lcpMatch.address || '';
         ont._lcpGpsLat = lcpMatch.gps_lat;
         ont._lcpGpsLng = lcpMatch.gps_lng;
+        ont._opticType = lcpMatch.optic_type || '';
+        ont._opticModel = lcpMatch.optic_model || '';
       }
       
       // Detect DZS model based on FSAN prefix if model is unknown

@@ -84,18 +84,21 @@ export function resolveLcpForOnt(lcpMap, ont) {
 export function enrichOntsWithLcp(lcpMap, onts) {
   let enriched = 0;
   for (const ont of onts) {
-    if (ont._lcpNumber) continue; // already has LCP data
     const match = resolveLcpForOnt(lcpMap, ont);
     if (match) {
-      ont._lcpNumber = match.lcp_number;
-      ont._splitterNumber = match.splitter_number;
-      ont._lcpLocation = match.location;
-      ont._lcpAddress = match.address || '';
-      ont._lcpGpsLat = match.gps_lat;
-      ont._lcpGpsLng = match.gps_lng;
+      // Always overwrite optic fields — they may not be set on saved reports
       ont._opticType = match.optic_type;
       ont._opticModel = match.optic_model;
-      enriched++;
+      // Only set LCP location/address fields if not already populated
+      if (!ont._lcpNumber) {
+        ont._lcpNumber = match.lcp_number;
+        ont._splitterNumber = match.splitter_number;
+        ont._lcpLocation = match.location;
+        ont._lcpAddress = match.address || '';
+        ont._lcpGpsLat = match.gps_lat;
+        ont._lcpGpsLng = match.gps_lng;
+        enriched++;
+      }
     }
   }
   return enriched;

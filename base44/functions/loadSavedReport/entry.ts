@@ -10,6 +10,16 @@
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
+// Map optic model number → human-readable type label (same mapping as PortHeaderLabel)
+function resolveOpticType(opticModel) {
+  if (!opticModel) return '';
+  const m = opticModel.trim();
+  if (m === '100-05730') return 'XGS-ONLY';
+  if (m === '100-05674') return 'XGS-COMBO';
+  if (m === '100-05929') return 'XGS-COMBO-EXT';
+  return m; // return raw model as fallback
+}
+
 function detectTechType(model) {
   if (!model) return null;
   const m = model.toUpperCase().trim().replace(/\s/g, '');
@@ -137,6 +147,8 @@ function recordToOnt(rec) {
     _splitterNumber:  rec.splitter_number || '',
     _lcpLocation:     '',
     _lcpAddress:      '',
+    _opticModel:      rec.optic_model    || '',
+    _opticType:       rec.optic_model ? resolveOpticType(rec.optic_model) : '',
     _analysis:   analysis,
     _oltName:    rec.olt_name        || 'Unknown OLT',
     _port:       rec.shelf_slot_port || 'Unknown',

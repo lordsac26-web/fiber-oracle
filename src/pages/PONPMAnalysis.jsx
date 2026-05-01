@@ -215,8 +215,13 @@ export default function PONPMAnalysis() {
   const enrichedRef = useRef(false);
   useEffect(() => {
     if (!result?.onts || lcpMapRef.current.size === 0) return;
-    const count = enrichOntsWithLcp(lcpMapRef.current, result.onts);
-    if (count > 0 && !enrichedRef.current) { enrichedRef.current = true; setResult(prev => ({ ...prev })); }
+    enrichOntsWithLcp(lcpMapRef.current, result.onts);
+    // Always trigger a re-render to pick up optic type updates (even on saved reports
+    // where _lcpNumber is already set but _opticModel may not be populated)
+    if (!enrichedRef.current) {
+      enrichedRef.current = true;
+      setResult(prev => ({ ...prev }));
+    }
   }, [result?.onts?.length, lcpEntriesForEnrich]);
   useEffect(() => { enrichedRef.current = false; }, [result?.source]);
 
