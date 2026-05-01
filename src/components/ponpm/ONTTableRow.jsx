@@ -46,12 +46,7 @@ export default function ONTTableRow({ ont, hasSubscriberData, onSelectDetail, on
       )}
       <TableCell className={cellCls}>
         {ont._lcpNumber ? (
-          <TooltipProvider><Tooltip><TooltipTrigger>
-            <span className="text-blue-600 font-medium">{ont._lcpNumber}/{ont._splitterNumber}</span>
-          </TooltipTrigger><TooltipContent className="text-xs">
-            {ont._lcpLocation && <div>{ont._lcpLocation}</div>}
-            {ont._lcpAddress && <div className="text-gray-400">{ont._lcpAddress}</div>}
-          </TooltipContent></Tooltip></TooltipProvider>
+          <span className="text-blue-600 font-medium">{ont._lcpNumber}/{ont._splitterNumber}</span>
         ) : '-'}
       </TableCell>
       <TableCell className={`${monoCls} max-w-[80px] truncate`}>{ont.SerialNumber || '-'}</TableCell>
