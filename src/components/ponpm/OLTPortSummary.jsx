@@ -92,6 +92,28 @@ function ErrorMetricsBadges({ errors, compact = false }) {
   );
 }
 
+function LcpHoverCell({ lcpNumber, lcpSplitter, lcpLocation, lcpAddress }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div className="relative inline-block">
+      <span
+        className="text-blue-600 font-medium underline decoration-dotted cursor-help"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {lcpNumber}{lcpSplitter ? `/${lcpSplitter}` : ''}
+      </span>
+      {hovered && (
+        <div className="absolute bottom-full left-0 mb-2 z-[9999] w-60 rounded-md bg-gray-900 text-white text-xs shadow-xl p-2.5 space-y-1 pointer-events-none">
+          {lcpLocation && <div><span className="text-gray-400">Location: </span>{lcpLocation}</div>}
+          {lcpAddress && <div><span className="text-gray-400">Address: </span>{lcpAddress}</div>}
+          {!lcpLocation && !lcpAddress && <div className="text-gray-400">No location data</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OLTPortSummary({ result, onDrillDown }) {
   // Fetch LCP entries for real-time lookup
   const { data: lcpEntries = [] } = useQuery({
@@ -576,16 +598,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
                         </TableCell>
                         <TableCell className="text-xs">
                           {port.lcpNumber ? (
-                            <div className="relative group inline-block">
-                              <span className="text-blue-600 font-medium underline decoration-dotted cursor-help">
-                                {port.lcpNumber}{port.lcpSplitter ? `/${port.lcpSplitter}` : ''}
-                              </span>
-                              <div className="absolute bottom-full left-0 mb-1.5 z-50 hidden group-hover:block w-56 rounded-md bg-gray-900 text-white text-xs shadow-lg p-2 space-y-0.5 pointer-events-none">
-                                {port.lcpLocation && <div><span className="text-gray-400">Location:</span> {port.lcpLocation}</div>}
-                                {port.lcpAddress && <div><span className="text-gray-400">Address:</span> {port.lcpAddress}</div>}
-                                {!port.lcpLocation && !port.lcpAddress && <div className="text-gray-400">No location data</div>}
-                              </div>
-                            </div>
+                            <LcpHoverCell lcpNumber={port.lcpNumber} lcpSplitter={port.lcpSplitter} lcpLocation={port.lcpLocation} lcpAddress={port.lcpAddress} />
                           ) : '-'}
                         </TableCell>
                         <TableCell>
