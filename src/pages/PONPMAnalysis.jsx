@@ -377,9 +377,8 @@ export default function PONPMAnalysis() {
       const matchesOlt = oltFilter === 'all' || ont._oltName === oltFilter;
       const matchesPort = portFilter === 'all' || ont._port === portFilter;
       
-      const matchesTech = techFilter === 'all' ||
-        (techFilter === 'gpon' && ont._techType?.includes('GPON')) ||
-        (techFilter === 'xgs' && ont._techType?.includes('XGS-PON'));
+      // Tech filter now disabled — optic type comes from LCP enrichment only
+      const matchesTech = true;
       
       let matchesPowerRange = true;
       if (powerRangeFilter !== 'all') {
