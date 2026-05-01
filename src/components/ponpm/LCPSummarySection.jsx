@@ -554,6 +554,11 @@ export default function LCPSummarySection({ result, onPortClick }) {
                                       {ont._subscriber.address && <span className="text-gray-500 ml-2 truncate">{ont._subscriber.address}</span>}
                                     </div>
                                     <div className="flex items-center gap-2 ml-2 shrink-0">
+                                      {(ont._subscriber?.model || ont.Model || ont.ONTModel) && (
+                                        <span className="font-mono text-[10px] text-gray-500 bg-gray-100 border border-gray-200 rounded px-1 py-0.5">
+                                          {ont._subscriber?.model || ont.Model || ont.ONTModel}
+                                        </span>
+                                      )}
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
