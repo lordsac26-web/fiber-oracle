@@ -335,9 +335,14 @@ export default function LCPSummarySection({ result, onPortClick }) {
                         <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-500">Splitter usage</div>
                         <div className="space-y-1">
                           {lcp.splitters.slice(0, 3).map((splitter) => (
-                            <div key={splitter.splitterNumber} className="flex items-center justify-between text-[11px]">
-                              <span className="font-medium text-gray-700">S{splitter.splitterNumber}</span>
-                              <span className="font-mono text-gray-600">{splitter.ontCount} ONTs • ~{splitter.approxFibersLeft} left</span>
+                            <div key={splitter.splitterNumber} className="flex items-center justify-between text-[11px] gap-1">
+                              <span className="font-medium text-gray-700 shrink-0">S{splitter.splitterNumber}</span>
+                              {splitter.opticType && (
+                                <span className="rounded px-1 py-0.5 text-[9px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200 shrink-0">
+                                  {splitter.opticType}
+                                </span>
+                              )}
+                              <span className="font-mono text-gray-600 ml-auto">{splitter.ontCount} ONTs • ~{splitter.approxFibersLeft} left</span>
                             </div>
                           ))}
                           {lcp.splitters.length > 3 && (
@@ -469,7 +474,16 @@ export default function LCPSummarySection({ result, onPortClick }) {
                           </div>
                           <div className="flex items-center gap-3 font-mono text-xs text-gray-600">
                             <span>{splitter.ontCount} ONTs</span>
-                            {splitter.opticType && <span className="text-gray-500">{splitter.opticType}</span>}
+                            {splitter.opticType && (
+                              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold bg-indigo-100 text-indigo-700 border border-indigo-200 font-sans tracking-wide">
+                                {splitter.opticType}
+                              </span>
+                            )}
+                            {!splitter.opticType && (
+                              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-sans text-gray-400 border border-dashed border-gray-300">
+                                no optic type
+                              </span>
+                            )}
                             <span>~{splitter.approxFibersLeft} fibers left</span>
                           </div>
                         </div>
