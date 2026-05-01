@@ -8,7 +8,14 @@ import { format, differenceInDays } from 'date-fns';
  * Shows at the top of the report so the user knows if data is current or stale.
  */
 export default function SubscriberDataBanner({ subscriberMeta, matchCount }) {
-  if (!subscriberMeta) return null;
+  if (!subscriberMeta) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2 rounded-lg border bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
+        <Users className="h-4 w-4" />
+        <span>Customer Data: No entries — upload a subscriber report to enrich ONT data</span>
+      </div>
+    );
+  }
 
   const uploadDate = new Date(subscriberMeta.upload_date || subscriberMeta.created_date);
   const daysOld = differenceInDays(new Date(), uploadDate);

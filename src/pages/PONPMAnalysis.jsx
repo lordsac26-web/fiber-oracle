@@ -309,6 +309,8 @@ export default function PONPMAnalysis() {
       const response = await base44.functions.invoke('parsePonPm', { file_url, thresholds: customThresholds });
 
       if (response.data?.success) {
+        // Eagerly enrich with subscriber data already in DB before setting result
+        if (response.data.onts) enrichOntsFromDB(response.data.onts);
         setResult(response.data);
         setExpandedOlts([]);
         setExpandedPorts([]);
