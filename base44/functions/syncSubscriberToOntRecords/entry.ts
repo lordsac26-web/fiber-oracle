@@ -8,6 +8,9 @@
  * Matching strategy (same as frontend SubscriberUpload):
  *   PRIMARY:   normalized OLT name + shelf/slot/port + ONT ID  → composite key
  *   SECONDARY: normalized serial number (FSAN)
+ *              Vendor prefixes (CXNK = Calix, ZNTS = DZS) are stripped from
+ *              subscriber serials before matching so both datasets share a
+ *              consistent raw-hex serial format.
  *
  * Designed to be called:
  *   A) Via entity automation when a new SubscriberUploadMeta record is created
@@ -18,6 +21,10 @@
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+
+// Known vendor prefixes that appear in subscriber export serial numbers but NOT
+// in the PONPM report serial numbers. Strip these before building lookup keys.
+const VENDOR_PREFIXES = ['CXNK', 'ZNTS'];
 
 // ─── Key normalization (must mirror SubscriberUpload.buildSubscriberLookup) ──
 function normalizeOltPort(oltName, linkedPon) {
@@ -31,7 +38,18 @@ function normalizeOltPort(oltName, linkedPon) {
 
 function normalizeSerial(serial) {
   if (!serial || typeof serial !== 'string') return null;
-  const n = serial.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  let n = serial.trim().toUpperCase();
+
+  // Strip known vendor prefixes so subscriber serials (e.g. "CXNK1A2B3C4D")
+  // align with PONPM serials (e.g. "1A2B3C4D") which never carry a prefix.
+  for (const prefix of VENDOR_PREFIXES) {
+    if (n.startsWith(prefix)) {
+      n = n.substring(prefix.length);
+      break; // only one prefix can match
+    }
+  }
+
+  n = n.replace(/[^A-Z0-9]/g, '');
   return n.length > 0 ? n : null;
 }
 
@@ -63,7 +81,7 @@ function buildLookups(subscriberRecords) {
       compositeMap.set(`${portKey}|${ontId}`, fields);
     }
 
-    // Serial number fallback
+    // Serial number fallback — vendor prefix stripped by normalizeSerial
     const serial = normalizeSerial(rec.ONTSerialNo);
     if (serial && !serialMap.has(serial)) {
       serialMap.set(serial, fields);
@@ -91,7 +109,8 @@ function matchSubscriber(record, compositeMap, serialMap) {
     if (compositeMap.has(key)) return compositeMap.get(key);
   }
 
-  // Secondary: serial number
+  // Secondary: serial number — PONPM serials have no prefix so normalizeSerial
+  // passes them through unchanged; subscriber serials get their prefix stripped.
   const serial = normalizeSerial(record.serial_number);
   if (serial && serialMap.has(serial)) return serialMap.get(serial);
 
