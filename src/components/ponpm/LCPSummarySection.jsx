@@ -568,6 +568,12 @@ export default function LCPSummarySection({ result, onPortClick }) {
                                       {ont._subscriber.address && <span className="text-gray-500 ml-2 truncate">{ont._subscriber.address}</span>}
                                     </div>
                                     <div className="flex items-center gap-2 ml-2 shrink-0">
+                                      {ont._techType === 'xgs' && (
+                                        <span className="rounded px-1 py-0.5 text-[9px] font-bold bg-violet-100 text-violet-700 border border-violet-200">XGS</span>
+                                      )}
+                                      {ont._techType === 'gpon' && (
+                                        <span className="rounded px-1 py-0.5 text-[9px] font-bold bg-cyan-100 text-cyan-700 border border-cyan-200">GPON</span>
+                                      )}
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
