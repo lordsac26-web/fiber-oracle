@@ -30,24 +30,29 @@ export function useSubscriberData() {
 
   const subscriberMeta = metaList.length > 0 ? metaList[0] : null;
 
-  // Load subscriber records from DB — fetch up to 50k records in two pages
-  // to handle large subscriber datasets without silent truncation
+  // Load subscriber records from DB — fetch up to 50k records sequentially
+  // in 10k pages with a small inter-page delay. Parallel pagination triggers
+  // the platform's per-second read rate limit on large datasets, causing
+  // partial loads that silently degrade enrichment match rates. Sequential
+  // is slower but reliable.
   const { data: subscriberRecords = [], isLoading: recordsLoading } = useQuery({
     queryKey: ['subscriber-records'],
     queryFn: async () => {
-      const page1 = await base44.entities.SubscriberRecord.list('-created_date', 10000, 0);
-      if (page1.length < 10000) return page1;
-      // Has more — fetch additional pages
-      const [page2, page3, page4, page5] = await Promise.all([
-        base44.entities.SubscriberRecord.list('-created_date', 10000, 10000),
-        base44.entities.SubscriberRecord.list('-created_date', 10000, 20000),
-        base44.entities.SubscriberRecord.list('-created_date', 10000, 30000),
-        base44.entities.SubscriberRecord.list('-created_date', 10000, 40000),
-      ]);
-      return [...page1, ...page2, ...page3, ...page4, ...page5];
+      const all = [];
+      const PAGE = 10000;
+      const MAX_PAGES = 5; // 50k cap
+      for (let i = 0; i < MAX_PAGES; i++) {
+        const page = await base44.entities.SubscriberRecord.list('-created_date', PAGE, i * PAGE);
+        all.push(...page);
+        if (page.length < PAGE) break; // last page
+        await new Promise(r => setTimeout(r, 150)); // breathe between pages
+      }
+      return all;
     },
     staleTime: 5 * 60 * 1000,
     enabled: !!subscriberMeta,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
   const isLoading = metaLoading || recordsLoading;
