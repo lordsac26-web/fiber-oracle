@@ -14,15 +14,8 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'No records provided' }, { status: 400 });
     }
 
-    // 1) Mark any existing active upload as 'replaced'
-    const existingMeta = await base44.entities.SubscriberUploadMeta.filter(
-      { status: 'active', created_by: user.email }
-    );
-    for (const meta of existingMeta) {
-      await base44.entities.SubscriberUploadMeta.update(meta.id, { status: 'replaced' });
-    }
-
-    // 2) Delete all existing subscriber records for this user — paginate to handle >10k
+    // 1) Delete all existing subscriber records for this user — paginate to handle >10k
+    //    (Done first so the old data set is cleared before the new one is inserted.)
     let deleteOffset = 0;
     const DELETE_PAGE = 500;
     while (true) {
@@ -39,7 +32,7 @@ Deno.serve(async (req) => {
       // Don't advance offset — we deleted records so the next page is now at 0
     }
 
-    // 3) Bulk-create new records in chunks of 200 for better throughput
+    // 2) Bulk-create new records in chunks of 200 for better throughput
     const CHUNK_SIZE = 200;
     let savedCount = 0;
     for (let i = 0; i < records.length; i += CHUNK_SIZE) {
@@ -48,13 +41,23 @@ Deno.serve(async (req) => {
       savedCount += chunk.length;
     }
 
-    // 4) Create upload metadata record
+    // 3) Create the new active metadata record FIRST (before marking old ones replaced).
+    //    This ensures there's always at least one 'active' meta — even if step 4 fails.
     const meta = await base44.entities.SubscriberUploadMeta.create({
       file_name: file_name || 'subscriber_data.csv',
       record_count: savedCount,
       upload_date: new Date().toISOString(),
       status: 'active',
     });
+
+    // 4) Mark any prior active uploads as 'replaced' (excluding the one just created).
+    const existingMeta = await base44.entities.SubscriberUploadMeta.filter(
+      { status: 'active', created_by: user.email }
+    );
+    for (const old of existingMeta) {
+      if (old.id === meta.id) continue;
+      await base44.entities.SubscriberUploadMeta.update(old.id, { status: 'replaced' });
+    }
 
     // 5) Kick off background sync to enrich all existing ONTPerformanceRecords.
     //    Fire-and-forget — don't await so this response returns quickly.
