@@ -242,12 +242,15 @@ export default function PONPMAnalysis() {
     }
   }, [result, persistSubscriberData]);
 
-  // Auto-enrich ONTs when result loads and subscriber data exists in DB
+  // Auto-enrich ONTs when result loads OR when subscriber records become available.
+  // Depend on subscriberRecords.length so that if records arrive AFTER the report
+  // (common on auto-load, since both queries run in parallel), we still enrich.
   useEffect(() => {
     if (!result?.onts || subscriberLoading) return;
+    if (!subscriberRecords || subscriberRecords.length === 0) return;
     const matched = enrichOntsFromDB(result.onts);
     if (matched > 0) setResult(prev => ({ ...prev }));
-  }, [result?.onts?.length, subscriberLoading, enrichOntsFromDB]);
+  }, [result?.onts?.length, subscriberLoading, subscriberRecords?.length, enrichOntsFromDB]);
 
   // Fetch sparkline history whenever a new result is loaded
   // We use a ref to avoid re-fetching for the same result source
