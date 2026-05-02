@@ -5,10 +5,11 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Activity, Clipboard } from 'lucide-react';
 import { formatUptime } from '@/components/ponpm/formatUptime';
+import ONTSparkline from '@/components/ponpm/ONTSparkline';
 
 const STATUS_COLORS = { critical: 'bg-red-500', warning: 'bg-amber-500', ok: 'bg-green-500', offline: 'bg-purple-500' };
 
-export default function ONTTableRow({ ont, hasSubscriberData, onSelectDetail, onCreateJobReport }) {
+export default function ONTTableRow({ ont, hasSubscriberData, hasSparklines, onSelectDetail, onCreateJobReport }) {
   const cellCls = "px-1.5 py-1 text-[10px]";
   const monoCls = `${cellCls} font-mono`;
   const rightMono = `${monoCls} text-right`;
@@ -56,6 +57,12 @@ export default function ONTTableRow({ ont, hasSubscriberData, onSelectDetail, on
         <span className={parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' : parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : ''}>{ont.OntRxOptPwr || '-'}</span>
         {ont._trends?.ont_rx_change != null && <div className={`text-[8px] leading-tight ${ont._trends.ont_rx_change < -1 ? 'text-red-600' : ont._trends.ont_rx_change > 1 ? 'text-green-600' : 'text-gray-400'}`}>{ont._trends.ont_rx_change < -0.1 ? '↓' : ont._trends.ont_rx_change > 0.1 ? '↑' : '→'}{Math.abs(ont._trends.ont_rx_change).toFixed(1)}</div>}
       </TableCell>
+      {/* Rx Sparkline */}
+      {hasSparklines && (
+        <TableCell className="px-0.5 py-1">
+          <ONTSparkline data={ont._sparklines?.rx} type="rx" width={68} height={26} />
+        </TableCell>
+      )}
       {/* OLT Rx */}
       <TableCell className={rightMono}>
         <span className={parseFloat(ont.OLTRXOptPwr) < -30 ? 'text-red-600 font-bold' : parseFloat(ont.OLTRXOptPwr) < -28 ? 'text-amber-600' : ''}>{ont.OLTRXOptPwr || '-'}</span>
@@ -76,6 +83,12 @@ export default function ONTTableRow({ ont, hasSubscriberData, onSelectDetail, on
         <span className={parseInt(ont.UpstreamFecUncorrectedCodeWords) > 10 ? 'text-amber-600' : ''}>{ont.UpstreamFecUncorrectedCodeWords || '0'}</span>
         {ont._trends?.us_fec_change != null && ont._trends.us_fec_change !== 0 && <div className={`text-[8px] leading-tight ${ont._trends.us_fec_change > 0 ? 'text-red-600' : 'text-green-600'}`}>{ont._trends.us_fec_change > 0 ? '+' : ''}{ont._trends.us_fec_change}</div>}
       </TableCell>
+      {/* FEC Sparkline */}
+      {hasSparklines && (
+        <TableCell className="px-0.5 py-1">
+          <ONTSparkline data={ont._sparklines?.fec} type="fec" width={68} height={26} />
+        </TableCell>
+      )}
       {/* DS FEC Unc */}
       <TableCell className={rightMono}>
         <span className={parseInt(ont.DownstreamFecUncorrectedCodeWords) > 10 ? 'text-amber-600' : ''}>{ont.DownstreamFecUncorrectedCodeWords || '0'}</span>

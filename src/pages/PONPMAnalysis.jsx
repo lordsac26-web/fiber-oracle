@@ -149,6 +149,10 @@ export default function PONPMAnalysis() {
   const [jobReportFormData, setJobReportFormData] = useState(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [selectedOntDetail, setSelectedOntDetail] = useState(null);
+  // Sparkline history: { [serial_number]: { rx: number[], fec: number[] } }
+  const [sparklineHistory, setSparklineHistory] = useState({});
+  const sparklinesFetchedForRef = useRef(null); // tracks which result source we've fetched for
+
   const {
     subscriberMeta,
     subscriberMatchCount,
@@ -243,6 +247,43 @@ export default function PONPMAnalysis() {
     if (matched > 0) setResult(prev => ({ ...prev }));
   }, [result?.onts?.length, subscriberLoading, enrichOntsFromDB]);
 
+  // Fetch sparkline history whenever a new result is loaded
+  // We use a ref to avoid re-fetching for the same result source
+  useEffect(() => {
+    if (!result?.onts || result.onts.length === 0) return;
+    // Use a stable key to deduplicate fetches (report_id or first serial as proxy)
+    const sourceKey = result.source || (result.onts[0]?.SerialNumber ?? '');
+    if (sparklinesFetchedForRef.current === sourceKey) return;
+    sparklinesFetchedForRef.current = sourceKey;
+
+    const serials = [...new Set(result.onts.map(o => o.SerialNumber).filter(Boolean))];
+    if (serials.length === 0) return;
+
+    base44.functions.invoke('getBatchOntHistory', { serial_numbers: serials, limit_per_ont: 10 })
+      .then(res => {
+        if (res.data?.success && res.data?.history) {
+          setSparklineHistory(res.data.history);
+          // Attach _sparklines to each ont in-place, then force re-render
+          result.onts.forEach(ont => {
+            const sn = (ont.SerialNumber || '').toUpperCase();
+            if (res.data.history[sn]) {
+              ont._sparklines = res.data.history[sn];
+            }
+          });
+          setResult(prev => ({ ...prev }));
+        }
+      })
+      .catch(err => console.warn('Sparkline fetch failed:', err));
+  }, [result?.onts?.length, result?.source]);
+
+  // Reset sparklines fetch tracker when result is cleared
+  useEffect(() => {
+    if (!result) {
+      sparklinesFetchedForRef.current = null;
+      setSparklineHistory({});
+    }
+  }, [result]);
+
   // Save report metadata, then kick off async background processing for ONT records
   const saveReportMutation = useMutation({
     mutationFn: async (reportData) => {
@@ -311,7 +352,8 @@ export default function PONPMAnalysis() {
       if (response.data?.success) {
         // Eagerly enrich with subscriber data already in DB before setting result
         if (response.data.onts) enrichOntsFromDB(response.data.onts);
-        setResult(response.data);
+        // Attach file date to result so the header badge can display it
+        setResult({ ...response.data, reportDate: fileReportDate, source: fileReportDate });
         setExpandedOlts([]);
         setExpandedPorts([]);
         setSelectedReportId(null); // Clear selection for new upload
@@ -894,13 +936,36 @@ Be specific, technical, and actionable.`;
               </div>
             </div>
             {result && (
-              <div className="flex items-center gap-2">
-                  {selectedReportId && (
-                    <Badge variant="outline" className="text-xs">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      Viewing saved report
-                    </Badge>
-                  )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Report date notification */}
+                {result.reportDate || result.upload_date ? (
+                  <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-300 gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Report: {format(new Date(result.reportDate || result.upload_date), 'MMM d, yyyy h:mm a')}
+                  </Badge>
+                ) : selectedReportId && savedReports.length > 0 ? (
+                  (() => {
+                    const rep = savedReports.find(r => r.id === selectedReportId);
+                    return rep?.upload_date ? (
+                      <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-300 gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Report: {format(new Date(rep.upload_date), 'MMM d, yyyy h:mm a')}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Saved report
+                      </Badge>
+                    );
+                  })()
+                ) : null}
+                {/* Subscriber data date */}
+                {subscriberMeta && (
+                  <Badge variant="outline" className="text-xs gap-1 text-indigo-700 border-indigo-300 bg-indigo-50">
+                    <span>👥</span>
+                    Sub data: {format(new Date(subscriberMeta.upload_date || subscriberMeta.created_date), 'MMM d, yyyy')}
+                  </Badge>
+                )}
                 <SubscriberUpload onDataLoaded={handleSubscriberDataLoaded} subscriberCount={subscriberMatchCount} subscriberMeta={subscriberMeta} />
                 <ThresholdSettingsDialog
                   open={showThresholdSettings}
@@ -1677,10 +1742,12 @@ Be specific, technical, and actionable.`;
                                               <TableHead className="px-1.5 py-1 text-[10px]">Serial</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px]">Model</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">ONT Rx</TableHead>
+                                              {Object.keys(sparklineHistory).length > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Rx Trend</TableHead>}
                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">OLT Rx</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">US BIP</TableHead>
                                                <TableHead className="px-1.5 py-1 text-[10px] text-right">DS BIP</TableHead>
                                                <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC U</TableHead>
+                                               {Object.keys(sparklineHistory).length > 0 && <TableHead className="px-1.5 py-1 text-[10px]">FEC Trend</TableHead>}
                                                <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC U</TableHead>
                                                <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC C</TableHead>
                                                <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC C</TableHead>
@@ -1693,7 +1760,7 @@ Be specific, technical, and actionable.`;
                                           </TableHeader>
                                           <TableBody>
                                             {portOnts.filter(ont => !hideOntStatus[ont._analysis.status]).map((ont, idx) => (
-                                              <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} onSelectDetail={setSelectedOntDetail} onCreateJobReport={createJobReportForONT} />
+                                             <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} hasSparklines={Object.keys(sparklineHistory).length > 0} onSelectDetail={setSelectedOntDetail} onCreateJobReport={createJobReportForONT} />
                                             ))}
                                           </TableBody>
                                                 </Table>
@@ -1744,7 +1811,7 @@ Be specific, technical, and actionable.`;
                 const response = await base44.functions.invoke('loadSavedReport', { report_id: report.id });
 
                 if (response.data?.success && response.data?.onts && response.data?.summary) {
-                  setResult(response.data);
+                  setResult({ ...response.data, reportDate: report.upload_date, source: report.id });
                   setSelectedReportId(report.id);
                   setExpandedOlts([]);
                   setExpandedPorts([]);
@@ -1755,7 +1822,7 @@ Be specific, technical, and actionable.`;
                   toast.loading('Records not yet indexed, parsing CSV...', { id: 'load-report' });
                   const fallback = await base44.functions.invoke('parsePonPm', { file_url: report.file_url, skip_trends: true });
                   if (fallback.data?.success && fallback.data?.onts && fallback.data?.summary) {
-                    setResult(fallback.data);
+                    setResult({ ...fallback.data, reportDate: report.upload_date, source: report.id });
                     setSelectedReportId(report.id);
                     setExpandedOlts([]);
                     setExpandedPorts([]);
