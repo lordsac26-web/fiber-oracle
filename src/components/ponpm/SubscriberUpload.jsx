@@ -121,7 +121,25 @@ export function parseSubscriberCSV(text) {
  * ambiguity by storing BOTH the full path AND a slot/port-only fallback.
  */
 function normalizePort(port) {
-  return (port || '').trim().replace(/\s+/g, '');
+  // Strip whitespace AND the "xp" port-segment prefix so subscriber CSV ports
+  // (e.g. "1/1/xp13") match PM data ports (e.g. "1/1/13"). Mirrors backend
+  // syncSubscriberToOntRecords.js normalization.
+  return (port || '').trim().replace(/\s+/g, '').replace(/\/xp(\d)/gi, '/$1');
+}
+
+// Vendor prefixes that appear in subscriber-export serial numbers but NOT in
+// PM-report serial numbers. Must mirror functions/syncSubscriberToOntRecords.js
+// so frontend live-enrichment matches what the backend sync would set.
+const VENDOR_PREFIXES = ['CXNK', 'ZNTS'];
+
+function normalizeSerial(serial) {
+  if (!serial || typeof serial !== 'string') return null;
+  let n = serial.trim().toUpperCase();
+  for (const prefix of VENDOR_PREFIXES) {
+    if (n.startsWith(prefix)) { n = n.substring(prefix.length); break; }
+  }
+  n = n.replace(/[^A-Z0-9]/g, '');
+  return n.length > 0 ? n : null;
 }
 
 export function buildSubscriberLookup(records) {
@@ -140,8 +158,11 @@ export function buildSubscriberLookup(records) {
       byComposite.set(`|${linkedPon}|${ontId}`, rec);
     }
 
-    if (rec.ONTSerialNo) {
-      bySerial.set(rec.ONTSerialNo.trim().toUpperCase(), rec);
+    // Strip vendor prefix when storing so subscriber serials align with PM-report
+    // serials (which never carry a CXNK/ZNTS prefix).
+    const normSerial = normalizeSerial(rec.ONTSerialNo);
+    if (normSerial && !bySerial.has(normSerial)) {
+      bySerial.set(normSerial, rec);
     }
   }
 
@@ -176,9 +197,10 @@ export function enrichOntsWithSubscriber(lookup, onts) {
       sub = byComposite.get(`|${port}|${ontId}`);
     }
 
-    // Strategy 2: serial fallback
+    // Strategy 2: serial fallback — normalize both sides identically
     if (!sub && ont.SerialNumber) {
-      sub = bySerial.get(ont.SerialNumber.trim().toUpperCase());
+      const normSn = normalizeSerial(ont.SerialNumber);
+      if (normSn) sub = bySerial.get(normSn);
     }
 
     if (sub) {

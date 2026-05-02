@@ -135,19 +135,33 @@ Deno.serve(async (req) => {
     console.log('[syncSubscriber] Starting subscriber → ONT sync...');
     const startTime = Date.now();
 
-    // ── 1. Load all active SubscriberRecords (paginated up to 50k) ─────────
-    const PAGE = 10000;
-    const page1 = await base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, 0);
-    let allSubscribers = [...page1];
+    // Optional resumable-job parameters (called repeatedly from admin UI):
+    //   start_offset — where to begin in the ONT records list (default 0)
+    //   max_batches  — how many ONT pages to process this invocation (default unlimited)
+    //   time_budget_ms — soft budget; stop after this many ms even if more work remains
+    // Returns: next_offset (or null when complete) so the caller can resume.
+    const startOffset  = Number.isFinite(body.start_offset) ? body.start_offset : 0;
+    const maxBatches   = Number.isFinite(body.max_batches)  ? body.max_batches  : Infinity;
+    const timeBudgetMs = Number.isFinite(body.time_budget_ms) ? body.time_budget_ms : 22000;
 
-    if (page1.length === PAGE) {
-      const [p2, p3, p4, p5] = await Promise.all([
-        base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE),
-        base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE * 2),
-        base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE * 3),
-        base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE * 4),
-      ]);
-      allSubscribers = [...allSubscribers, ...p2, ...p3, ...p4, ...p5];
+    // ── 1. Load all active SubscriberRecords (paginated, no implicit cap) ──
+    // The platform caps list() at 5000 per call regardless of the requested
+    // page size, so we MUST loop until a short page is returned. The previous
+    // code requested 10000 and assumed only one extra page was needed if the
+    // first came back full — that silently truncated datasets > 5000 rows.
+    const PAGE = 5000;
+    let allSubscribers = [];
+    let subOffset = 0;
+    while (true) {
+      const batch = await base44.asServiceRole.entities.SubscriberRecord.list(
+        '-created_date', PAGE, subOffset
+      );
+      if (!batch || batch.length === 0) break;
+      allSubscribers = allSubscribers.concat(batch);
+      if (batch.length < PAGE) break;
+      subOffset += batch.length;
+      // Brief pause to avoid the platform's per-second read rate limit.
+      await new Promise(r => setTimeout(r, 500));
     }
 
     if (allSubscribers.length === 0) {
@@ -159,19 +173,26 @@ Deno.serve(async (req) => {
     // ── 2. Build lookup maps ───────────────────────────────────────────────
     const { compositeMap, serialMap } = buildLookups(allSubscribers);
 
-    // ── 3. Iterate all ONTPerformanceRecords in pages & update matches ─────
-    const ONT_PAGE = 2000;
-    let offset = 0;
+    // ── 3. Iterate ONTPerformanceRecords in pages & update matches ─────────
+    // Stable sort by id so resumable offsets are deterministic across calls.
+    const ONT_PAGE = 1000;
+    let offset = startOffset;
     let totalUpdated = 0;
     let totalSkipped = 0;
     let totalNoMatch = 0;
+    let batchesProcessed = 0;
+    let exhausted = false;
 
     while (true) {
+      // Stop conditions before fetching the next page
+      if (batchesProcessed >= maxBatches) break;
+      if ((Date.now() - startTime) > timeBudgetMs) break;
+
       const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.list(
-        '-report_date', ONT_PAGE, offset
+        'id', ONT_PAGE, offset
       );
 
-      if (!batch || batch.length === 0) break;
+      if (!batch || batch.length === 0) { exhausted = true; break; }
 
       // Find records that need updating
       const toUpdate = [];
@@ -195,27 +216,38 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Parallel update in chunks of 50 for throughput without overwhelming the API
-      const CHUNK = 50;
-      for (let i = 0; i < toUpdate.length; i += CHUNK) {
-        const chunk = toUpdate.slice(i, i + CHUNK);
-        await Promise.all(
-          chunk.map(({ id, fields }) =>
-            base44.asServiceRole.entities.ONTPerformanceRecord.update(id, fields)
-          )
-        );
+      // Sequential updates with a small delay — keeps us under the platform's
+      // strict per-second write rate limit. Slower than batched parallelism
+      // but reliable. Use the resumable start_offset/max_batches parameters
+      // to chunk the work across multiple invocations for very large datasets.
+      for (const { id, fields } of toUpdate) {
+        let attempt = 0;
+        while (true) {
+          try {
+            await base44.asServiceRole.entities.ONTPerformanceRecord.update(id, fields);
+            break;
+          } catch (err) {
+            attempt++;
+            const isRateLimit = err?.status === 429 || /rate limit/i.test(err?.message || '');
+            if (!isRateLimit || attempt >= 3) throw err;
+            await new Promise(r => setTimeout(r, attempt * 500 + 500));
+          }
+        }
+        await new Promise(r => setTimeout(r, 60)); // ~16 writes/sec
       }
 
       totalUpdated += toUpdate.length;
       offset += batch.length;
+      batchesProcessed++;
 
-      console.log(`[syncSubscriber] Processed ${offset} records so far — updated: ${totalUpdated}, skipped: ${totalSkipped}, no-match: ${totalNoMatch}`);
+      console.log(`[syncSubscriber] Processed up to offset ${offset} — updated: ${totalUpdated}, skipped: ${totalSkipped}, no-match: ${totalNoMatch}`);
 
-      if (batch.length < ONT_PAGE) break;
+      if (batch.length < ONT_PAGE) { exhausted = true; break; }
     }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[syncSubscriber] Complete in ${elapsed}s — updated: ${totalUpdated}, skipped (unchanged): ${totalSkipped}, no-match: ${totalNoMatch}`);
+    const nextOffset = exhausted ? null : offset;
+    console.log(`[syncSubscriber] Slice done in ${elapsed}s — updated: ${totalUpdated}, skipped: ${totalSkipped}, no-match: ${totalNoMatch}, next_offset: ${nextOffset}`);
 
     return Response.json({
       success: true,
@@ -223,6 +255,9 @@ Deno.serve(async (req) => {
       skipped_unchanged: totalSkipped,
       no_match: totalNoMatch,
       elapsed_seconds: parseFloat(elapsed),
+      start_offset: startOffset,
+      next_offset: nextOffset,
+      complete: exhausted,
     });
 
   } catch (error) {
