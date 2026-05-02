@@ -205,8 +205,10 @@ export function enrichOntsWithSubscriber(lookup, onts) {
   return matched;
 }
 
-export default function SubscriberUpload({ onDataLoaded, subscriberCount, subscriberMeta }) {
-  const [open, setOpen] = useState(false);
+export default function SubscriberUpload({ onDataLoaded, subscriberCount, subscriberMeta, open: controlledOpen, onOpenChange, hideTrigger = false }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -257,15 +259,17 @@ export default function SubscriberUpload({ onDataLoaded, subscriberCount, subscr
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-1.5">
-        <Users className="h-4 w-4" />
-        Subscriber Data
-        {subscriberCount > 0 && (
-          <Badge className="text-[10px] bg-green-100 text-green-700 border-green-300 ml-1">
-            {subscriberCount}
-          </Badge>
-        )}
-      </Button>
+      {!hideTrigger && (
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-1.5">
+          <Users className="h-4 w-4" />
+          Subscriber Data
+          {subscriberCount > 0 && (
+            <Badge className="text-[10px] bg-green-100 text-green-700 border-green-300 ml-1">
+              {subscriberCount}
+            </Badge>
+          )}
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">

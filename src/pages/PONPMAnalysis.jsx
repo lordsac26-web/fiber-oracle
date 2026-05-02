@@ -143,7 +143,9 @@ export default function PONPMAnalysis() {
   const [showThresholdSettings, setShowThresholdSettings] = useState(false);
   const [hideOntStatus, setHideOntStatus] = useState({ ok: false, warning: false, critical: false, offline: false });
   const [showHistoricalReports, setShowHistoricalReports] = useState(false);
+  const [showSubscriberDialog, setShowSubscriberDialog] = useState(false);
   const [showTrends, setShowTrends] = useState(false);
+  const autoLoadAttemptedRef = useRef(false);
   const [viewMode, setViewMode] = useState('hierarchy');
   const [creatingJobReport, setCreatingJobReport] = useState(null);
   const [jobReportFormData, setJobReportFormData] = useState(null);
@@ -326,6 +328,54 @@ export default function PONPMAnalysis() {
       toast.error('Failed to save report to history');
     },
   });
+
+  // Reusable: load a saved report into the view (used by manual selection and auto-load)
+  const loadSavedReport = useCallback(async (report) => {
+    if (!report?.id) return;
+    setIsLoading(true);
+    toast.loading('Loading report...', { id: 'load-report' });
+    try {
+      const response = await base44.functions.invoke('loadSavedReport', { report_id: report.id });
+      if (response.data?.success && response.data?.onts && response.data?.summary) {
+        setResult({ ...response.data, reportDate: report.upload_date, source: report.id });
+        setSelectedReportId(report.id);
+        setExpandedOlts([]);
+        setExpandedPorts([]);
+        toast.success('Report loaded', { id: 'load-report' });
+      } else if (response.data?.error === 'NO_RECORDS') {
+        toast.loading('Records not yet indexed, parsing CSV...', { id: 'load-report' });
+        const fallback = await base44.functions.invoke('parsePonPm', { file_url: report.file_url, skip_trends: true });
+        if (fallback.data?.success && fallback.data?.onts && fallback.data?.summary) {
+          setResult({ ...fallback.data, reportDate: report.upload_date, source: report.id });
+          setSelectedReportId(report.id);
+          setExpandedOlts([]);
+          setExpandedPorts([]);
+          toast.success('Report loaded (from CSV)', { id: 'load-report' });
+        } else {
+          toast.error(fallback.data?.error || 'Failed to load report', { id: 'load-report' });
+        }
+      } else {
+        toast.error(response.data?.error || 'Failed to load report', { id: 'load-report' });
+      }
+    } catch (error) {
+      console.error('Load report error:', error);
+      toast.error(`Failed to load report: ${error.message}`, { id: 'load-report' });
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Auto-load the most recent saved report on first visit so users land on a populated dashboard.
+  // LCP enrichment + subscriber enrichment are applied automatically by existing effects below.
+  useEffect(() => {
+    if (autoLoadAttemptedRef.current) return;
+    if (loadingReports) return;
+    if (result || isLoading) return;
+    autoLoadAttemptedRef.current = true;
+    if (savedReports.length > 0) {
+      loadSavedReport(savedReports[0]);
+    }
+  }, [loadingReports, savedReports, result, isLoading, loadSavedReport]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -937,36 +987,66 @@ Be specific, technical, and actionable.`;
             </div>
             {result && (
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Report date notification */}
-                {result.reportDate || result.upload_date ? (
-                  <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-300 gap-1">
-                    <Calendar className="h-3 w-3" />
-                    Report: {format(new Date(result.reportDate || result.upload_date), 'MMM d, yyyy h:mm a')}
-                  </Badge>
-                ) : selectedReportId && savedReports.length > 0 ? (
-                  (() => {
-                    const rep = savedReports.find(r => r.id === selectedReportId);
-                    return rep?.upload_date ? (
-                      <Badge className="text-xs bg-blue-100 text-blue-800 border-blue-300 gap-1">
-                        <Calendar className="h-3 w-3" />
-                        Report: {format(new Date(rep.upload_date), 'MMM d, yyyy h:mm a')}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-xs gap-1">
-                        <Calendar className="h-3 w-3" />
-                        Saved report
-                      </Badge>
-                    );
-                  })()
-                ) : null}
-                {/* Subscriber data date */}
-                {subscriberMeta && (
-                  <Badge variant="outline" className="text-xs gap-1 text-indigo-700 border-indigo-300 bg-indigo-50">
-                    <span>👥</span>
-                    Sub data: {format(new Date(subscriberMeta.upload_date || subscriberMeta.created_date), 'MMM d, yyyy')}
-                  </Badge>
-                )}
-                <SubscriberUpload onDataLoaded={handleSubscriberDataLoaded} subscriberCount={subscriberMatchCount} subscriberMeta={subscriberMeta} />
+                {/* Report date — click to choose another report or upload new */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 border border-blue-300 rounded-md px-2.5 py-1 font-semibold transition-colors cursor-pointer"
+                      title="Click to switch report or upload a new one"
+                      aria-label="Switch or upload PON PM report"
+                    >
+                      <Calendar className="h-3 w-3" />
+                      {(() => {
+                        const d = result.reportDate || result.upload_date || savedReports.find(r => r.id === selectedReportId)?.upload_date;
+                        return d ? `Report: ${format(new Date(d), 'MMM d, yyyy h:mm a')}` : 'Saved report';
+                      })()}
+                      <ChevronDown className="h-3 w-3 ml-0.5 opacity-70" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={() => setShowHistoricalReports(true)}>
+                      <Database className="h-4 w-4 mr-2 text-blue-500" />
+                      Choose another report
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <label className="cursor-pointer">
+                        <Upload className="h-4 w-4 mr-2 text-cyan-500" />
+                        Upload new PON PM CSV
+                        <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                      </label>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Subscriber data date — click to upload new subscriber data */}
+                <button
+                  type="button"
+                  onClick={() => setShowSubscriberDialog(true)}
+                  className={`inline-flex items-center gap-1 text-xs rounded-md px-2.5 py-1 font-semibold border transition-colors cursor-pointer ${
+                    subscriberMeta
+                      ? 'text-indigo-700 border-indigo-300 bg-indigo-50 hover:bg-indigo-100'
+                      : 'text-gray-600 border-gray-300 bg-gray-50 hover:bg-gray-100'
+                  }`}
+                  title="Click to upload or replace subscriber data"
+                  aria-label="Upload or replace subscriber data"
+                >
+                  <span>👥</span>
+                  {subscriberMeta
+                    ? `Sub data: ${format(new Date(subscriberMeta.upload_date || subscriberMeta.created_date), 'MMM d, yyyy')}`
+                    : 'Upload subscriber data'}
+                  <ChevronDown className="h-3 w-3 ml-0.5 opacity-70" />
+                </button>
+
+                {/* Hidden controlled subscriber upload dialog (opened by badge above) */}
+                <SubscriberUpload
+                  onDataLoaded={handleSubscriberDataLoaded}
+                  subscriberCount={subscriberMatchCount}
+                  subscriberMeta={subscriberMeta}
+                  open={showSubscriberDialog}
+                  onOpenChange={setShowSubscriberDialog}
+                  hideTrigger
+                />
                 <ThresholdSettingsDialog
                   open={showThresholdSettings}
                   onOpenChange={setShowThresholdSettings}
@@ -1051,10 +1131,10 @@ Be specific, technical, and actionable.`;
                 <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto" />
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Loading Report...
+                    Loading Latest Report...
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">
-                    Parsing PON PM data
+                    Restoring last PON PM analysis with current LCP &amp; subscriber data
                   </p>
                 </div>
               </div>
@@ -1802,45 +1882,8 @@ Be specific, technical, and actionable.`;
             isLoading={loadingReports}
             onReportDeleted={() => queryClient.invalidateQueries({ queryKey: ['ponPmReports'] })}
             onReportSelected={async (report) => {
-              // Close dialog immediately so loading state is visible
               setShowHistoricalReports(false);
-              setIsLoading(true);
-              toast.loading('Loading report...', { id: 'load-report' });
-              try {
-                // Load from indexed DB records — avoids re-parsing the CSV and hitting CPU limits
-                const response = await base44.functions.invoke('loadSavedReport', { report_id: report.id });
-
-                if (response.data?.success && response.data?.onts && response.data?.summary) {
-                  setResult({ ...response.data, reportDate: report.upload_date, source: report.id });
-                  setSelectedReportId(report.id);
-                  setExpandedOlts([]);
-                  setExpandedPorts([]);
-                  setIsLoading(false);
-                  toast.success('Report loaded', { id: 'load-report' });
-                } else if (response.data?.error === 'NO_RECORDS') {
-                  // Records not yet indexed — fall back to CSV re-parse
-                  toast.loading('Records not yet indexed, parsing CSV...', { id: 'load-report' });
-                  const fallback = await base44.functions.invoke('parsePonPm', { file_url: report.file_url, skip_trends: true });
-                  if (fallback.data?.success && fallback.data?.onts && fallback.data?.summary) {
-                    setResult({ ...fallback.data, reportDate: report.upload_date, source: report.id });
-                    setSelectedReportId(report.id);
-                    setExpandedOlts([]);
-                    setExpandedPorts([]);
-                    setIsLoading(false);
-                    toast.success('Report loaded (from CSV)', { id: 'load-report' });
-                  } else {
-                    toast.error(fallback.data?.error || 'Failed to load report', { id: 'load-report' });
-                    setIsLoading(false);
-                  }
-                } else {
-                  toast.error(response.data?.error || 'Failed to load report', { id: 'load-report' });
-                  setIsLoading(false);
-                }
-              } catch (error) {
-                console.error('Load report error:', error);
-                toast.error(`Failed to load report: ${error.message}`, { id: 'load-report' });
-                setIsLoading(false);
-              }
+              await loadSavedReport(report);
             }}
             onClose={() => setShowHistoricalReports(false)}
           />
