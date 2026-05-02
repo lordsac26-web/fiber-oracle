@@ -18,6 +18,7 @@ import LCPListView from '@/components/lcp/LCPListView';
 import LCPAdvancedFilters from '@/components/lcp/LCPAdvancedFilters';
 import LCPExportMenu from '@/components/lcp/LCPExportMenu';
 import { useSubscriberData } from '@/components/ponpm/useSubscriberData';
+import { validateCsvFile, LCP_CSV_SPEC } from '@/lib/csvValidator';
 import {
   ArrowLeft, Plus, Search, Trash2, X, Cable, Upload, Download, Map,
   Loader2, CloudOff, Cloud, List, LayoutGrid, Info, ArrowUpDown, Server
@@ -199,15 +200,23 @@ export default function LCPInfo() {
     return null;
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0]; if (!file) return;
     const fn = file.name.toLowerCase();
     if (fn.endsWith('.xlsx') || fn.endsWith('.xls')) { setImportError('Excel not supported. Save as CSV first.'); return; }
-    if (!fn.endsWith('.csv') && !fn.endsWith('.txt')) { setImportError('Please upload CSV or TXT.'); return; }
+
     setImportError(''); setImportPreview([]); setImportWarnings([]);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const lines = ev.target.result.split(/\r?\n/).filter(l => l.trim());
+
+    // Shared validator — checks extension, size, header row, required cols.
+    const validation = await validateCsvFile(file, LCP_CSV_SPEC);
+    if (!validation.ok) {
+      setImportError(validation.message);
+      e.target.value = '';
+      return;
+    }
+
+    const onParse = (text) => {
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
       if (lines.length < 2) { setImportError('Need header + data'); return; }
       const fl = lines[0]; let delim = ',';
       if (fl.includes('\t')) delim = '\t';
@@ -230,7 +239,8 @@ export default function LCPInfo() {
       if (!entries.length) { setImportError('No valid entries found'); return; }
       setImportPreview(entries); setImportWarnings(warnings);
     };
-    reader.readAsText(file);
+    onParse(validation.text);
+    e.target.value = '';
   };
 
   const confirmImport = () => {

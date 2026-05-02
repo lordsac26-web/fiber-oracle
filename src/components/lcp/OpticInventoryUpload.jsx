@@ -3,9 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileText, Info, Loader2, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Upload, FileText, Info, Loader2, CheckCircle2, AlertTriangle, XCircle, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
+import { validateCsvFile, downloadCsvTemplate, OPTIC_INVENTORY_CSV_SPEC } from '@/lib/csvValidator';
 
 const OPTIC_TYPE_MAP = {
   '100-05730': 'XGS-DD',
@@ -126,87 +127,63 @@ export default function OpticInventoryUpload({ open, onOpenChange, lcpEntries, o
     onOpenChange(open);
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith('.csv') && !fileName.endsWith('.txt')) {
-      setParseError('Please upload a CSV file.');
-      return;
-    }
 
     setParseError('');
     setCsvRows([]);
     setMatchResults([]);
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target.result;
-      const lines = text.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) {
-        setParseError('File must have a header row and at least one data row.');
-        return;
-      }
+    // Shared validator — extension, size, headers, required columns.
+    const validation = await validateCsvFile(file, OPTIC_INVENTORY_CSV_SPEC);
+    if (!validation.ok) {
+      setParseError(validation.message);
+      e.target.value = '';
+      return;
+    }
 
-      const firstLine = lines[0];
-      let delimiter = ',';
-      if (firstLine.includes('\t')) delimiter = '\t';
-      else if ((firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length) delimiter = ';';
+    // validateCsvFile already read the file and gave us text + delimiter.
+    const text = validation.text;
+    const delimiter = validation.delimiter;
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
 
-      const headers = parseCSVLine(firstLine, delimiter).map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+    const headers = parseCSVLine(lines[0], delimiter).map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
 
-      // Map expected headers
-      const headerMap = {
-        'systemname': 'systemName', 'system_name': 'systemName', 'system name': 'systemName',
-        'shelf': 'shelf',
-        'slot': 'slot',
-        'port': 'port',
-        'optic-make': 'opticMake', 'optic_make': 'opticMake', 'opticmake': 'opticMake',
-        'optic-model': 'opticModel', 'optic_model': 'opticModel', 'opticmodel': 'opticModel',
-        'optic-serial': 'opticSerial', 'optic_serial': 'opticSerial', 'opticserial': 'opticSerial',
-      };
-
-      const mappedHeaders = headers.map(h => headerMap[h] || h);
-
-      const requiredFields = ['systemName', 'shelf', 'slot', 'port'];
-      const missing = requiredFields.filter(f => !mappedHeaders.includes(f));
-      if (missing.length > 0) {
-        setParseError(`Missing required columns: ${missing.join(', ')}. Expected: SystemName, Shelf, Slot, Port, OPTIC-MAKE, OPTIC-MODEL, OPTIC-SERIAL`);
-        return;
-      }
-
-      const rows = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const values = parseCSVLine(line, delimiter);
-        const row = {};
-        mappedHeaders.forEach((header, idx) => {
-          if (values[idx] !== undefined) {
-            row[header] = values[idx].replace(/^["']|["']$/g, '');
-          }
-        });
-        // Include row if it has at least a systemName — even if port is missing,
-        // we may still have optic data worth importing
-        if (row.systemName) {
-          rows.push(row);
-        }
-      }
-
-      if (rows.length === 0) {
-        setParseError('No valid data rows found.');
-        return;
-      }
-
-      setCsvRows(rows);
-      const results = matchEntries(rows, lcpEntries);
-      setMatchResults(results);
+    // Map expected headers to internal field names
+    const headerMap = {
+      'systemname': 'systemName', 'system_name': 'systemName', 'system name': 'systemName',
+      'shelf': 'shelf',
+      'slot': 'slot',
+      'port': 'port',
+      'optic-make': 'opticMake', 'optic_make': 'opticMake', 'opticmake': 'opticMake',
+      'optic-model': 'opticModel', 'optic_model': 'opticModel', 'opticmodel': 'opticModel',
+      'optic-serial': 'opticSerial', 'optic_serial': 'opticSerial', 'opticserial': 'opticSerial',
     };
-    reader.onerror = () => setParseError('Failed to read file.');
-    reader.readAsText(file);
+    const mappedHeaders = headers.map(h => headerMap[h] || h);
 
-    // Reset file input so the same file can be re-uploaded
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      const values = parseCSVLine(line, delimiter);
+      const row = {};
+      mappedHeaders.forEach((header, idx) => {
+        if (values[idx] !== undefined) {
+          row[header] = values[idx].replace(/^["']|["']$/g, '');
+        }
+      });
+      if (row.systemName) rows.push(row);
+    }
+
+    if (rows.length === 0) {
+      setParseError('No valid data rows found in the file.');
+      e.target.value = '';
+      return;
+    }
+
+    setCsvRows(rows);
+    setMatchResults(matchEntries(rows, lcpEntries));
     e.target.value = '';
   };
 
@@ -321,6 +298,19 @@ export default function OpticInventoryUpload({ open, onOpenChange, lcpEntries, o
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => downloadCsvTemplate(OPTIC_INVENTORY_CSV_SPEC)}
+            >
+              <Download className="h-3 w-3 mr-1.5" />
+              Download template
+            </Button>
           </div>
 
           <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">

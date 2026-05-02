@@ -5,8 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from "@/components/ui/dialog";
-import { Users, Upload, CheckCircle2, AlertTriangle, Loader2, X, FileSpreadsheet } from 'lucide-react';
+import { Users, Upload, CheckCircle2, AlertTriangle, Loader2, X, FileSpreadsheet, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { validateCsvFile, downloadCsvTemplate, SUBSCRIBER_CSV_SPEC } from '@/lib/csvValidator';
 
 /**
  * Parses a subscriber/customer ONT CSV and returns a Map keyed by composite 
@@ -236,30 +237,32 @@ export default function SubscriberUpload({ onDataLoaded, subscriberCount, subscr
   const [preview, setPreview] = useState(null);
   const fileRef = useRef(null);
 
-  const handleFile = (e) => {
+  const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const fn = file.name.toLowerCase();
-    if (!fn.endsWith('.csv') && !fn.endsWith('.txt')) {
-      toast.error('Please upload a CSV file');
+    setParsing(true);
+
+    // Shared validator — checks extension, size, header, required columns.
+    // On failure shows a clear error pointing to the listed format / template.
+    const validation = await validateCsvFile(file, SUBSCRIBER_CSV_SPEC);
+    if (!validation.ok) {
+      setParsing(false);
+      toast.error(validation.message, { duration: 7000 });
+      if (fileRef.current) fileRef.current.value = '';
       return;
     }
 
-    setParsing(true);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const { records, error, hasDevice, hasLinkedPon } = parseSubscriberCSV(ev.target.result);
-      setParsing(false);
+    const { records, error, hasDevice, hasLinkedPon } = parseSubscriberCSV(validation.text);
+    setParsing(false);
 
-      if (error) {
-        toast.error(error);
-        return;
-      }
+    if (error) {
+      toast.error(error);
+      if (fileRef.current) fileRef.current.value = '';
+      return;
+    }
 
-      setPreview({ records, hasDevice, hasLinkedPon, fileName: file.name });
-    };
-    reader.readAsText(file);
+    setPreview({ records, hasDevice, hasLinkedPon, fileName: file.name });
     // Reset input so same file can be re-selected
     if (fileRef.current) fileRef.current.value = '';
   };
@@ -327,6 +330,16 @@ export default function SubscriberUpload({ onDataLoaded, subscriberCount, subscr
                 <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-2">
                   Matching uses DeviceName + LinkedPon + OntID as the primary key, with serial number as fallback.
                 </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 h-7 text-xs"
+                  onClick={() => downloadCsvTemplate(SUBSCRIBER_CSV_SPEC)}
+                >
+                  <Download className="h-3 w-3 mr-1.5" />
+                  Download template
+                </Button>
               </CardContent>
             </Card>
 

@@ -159,10 +159,12 @@ export default function PONPMAnalysis() {
     subscriberMeta,
     subscriberMatchCount,
     subscriberRecords,
+    recordsLoaded: subscriberRecordsLoaded,
     setSubscriberMatchCount,
     handleSubscriberDataLoaded: persistSubscriberData,
     enrichOnts: enrichOntsFromDB,
     isLoading: subscriberLoading,
+    loadNow: loadSubscriberRecordsNow,
   } = useSubscriberData();
   const [customThresholds, setCustomThresholds] = useState(() => {
     const saved = localStorage.getItem('ponPmThresholds');
@@ -1022,24 +1024,60 @@ Be specific, technical, and actionable.`;
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Subscriber data date — click to upload new subscriber data */}
-                <button
-                  type="button"
-                  onClick={() => setShowSubscriberDialog(true)}
-                  className={`inline-flex items-center gap-1 text-xs rounded-md px-2.5 py-1 font-semibold border transition-colors cursor-pointer ${
-                    subscriberMeta
-                      ? 'text-indigo-700 border-indigo-300 bg-indigo-50 hover:bg-indigo-100'
-                      : 'text-gray-600 border-gray-300 bg-gray-50 hover:bg-gray-100'
-                  }`}
-                  title="Click to upload or replace subscriber data"
-                  aria-label="Upload or replace subscriber data"
-                >
-                  <span>👥</span>
-                  {subscriberMeta
-                    ? `Sub data: ${format(new Date(subscriberMeta.upload_date || subscriberMeta.created_date), 'MMM d, yyyy')}`
-                    : 'Upload subscriber data'}
-                  <ChevronDown className="h-3 w-3 ml-0.5 opacity-70" />
-                </button>
+                {/* Subscriber data — dropdown with two clear actions:
+                    upload new CSV, or reload latest from DB into memory. */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className={`inline-flex items-center gap-1 text-xs rounded-md px-2.5 py-1 font-semibold border transition-colors cursor-pointer ${
+                        subscriberRecordsLoaded
+                          ? 'text-indigo-700 border-indigo-300 bg-indigo-50 hover:bg-indigo-100'
+                          : subscriberMeta
+                            ? 'text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100'
+                            : 'text-gray-600 border-gray-300 bg-gray-50 hover:bg-gray-100'
+                      }`}
+                      title="Subscriber data actions"
+                      aria-label="Subscriber data actions"
+                    >
+                      <span>👥</span>
+                      {subscriberRecordsLoaded
+                        ? `Sub data: ${format(new Date(subscriberMeta.upload_date || subscriberMeta.created_date), 'MMM d, yyyy')}`
+                        : subscriberMeta
+                          ? 'Sub data not loaded'
+                          : 'Upload subscriber data'}
+                      <ChevronDown className="h-3 w-3 ml-0.5 opacity-70" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuItem onClick={() => setShowSubscriberDialog(true)}>
+                      <Upload className="h-4 w-4 mr-2 text-cyan-500" />
+                      Upload new subscriber CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={!subscriberMeta || subscriberLoading}
+                      onClick={async () => {
+                        toast.loading('Reloading subscriber data…', { id: 'sub-reload' });
+                        try {
+                          await loadSubscriberRecordsNow();
+                          toast.success('Subscriber data reloaded', { id: 'sub-reload' });
+                        } catch (e) {
+                          toast.error('Failed to reload subscriber data', { id: 'sub-reload' });
+                        }
+                      }}
+                    >
+                      <Database className="h-4 w-4 mr-2 text-indigo-500" />
+                      {subscriberLoading ? 'Reloading…' : 'Reload latest from database'}
+                    </DropdownMenuItem>
+                    {subscriberMeta && (
+                      <div className="px-2 py-1.5 text-[10px] text-gray-500 border-t mt-1">
+                        Latest in DB: {subscriberMeta.record_count?.toLocaleString()} records
+                        <br />
+                        {format(new Date(subscriberMeta.upload_date || subscriberMeta.created_date), 'MMM d, yyyy h:mm a')}
+                      </div>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 {/* Hidden controlled subscriber upload dialog (opened by badge above) */}
                 <SubscriberUpload

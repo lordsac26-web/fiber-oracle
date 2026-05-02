@@ -30,11 +30,13 @@ export function useSubscriberData() {
 
   const subscriberMeta = metaList.length > 0 ? metaList[0] : null;
 
-  // Load subscriber records from DB — fetch up to 50k records sequentially
-  // in 10k pages with a small inter-page delay. Parallel pagination triggers
-  // the platform's per-second read rate limit on large datasets, causing
-  // partial loads that silently degrade enrichment match rates. Sequential
-  // is slower but reliable.
+  // Load subscriber records from DB — DISABLED by default. The fetch is
+  // expensive (up to 50k records, sequentially paginated) and trips the
+  // platform's read rate limit if it runs alongside other queries on page
+  // load. The user must explicitly trigger it (via the "Reload subscriber
+  // data" menu item or by uploading a new CSV), which calls loadNow().
+  // This avoids partial silent loads after a fresh page reload.
+  const [recordsEnabled, setRecordsEnabled] = useState(false);
   const { data: subscriberRecords = [], isLoading: recordsLoading } = useQuery({
     queryKey: ['subscriber-records'],
     queryFn: async () => {
@@ -50,10 +52,16 @@ export function useSubscriberData() {
       return all;
     },
     staleTime: 5 * 60 * 1000,
-    enabled: !!subscriberMeta,
+    enabled: !!subscriberMeta && recordsEnabled,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
+
+  // Trigger a (re)load of subscriber records on demand.
+  const loadNow = useCallback(async () => {
+    setRecordsEnabled(true);
+    await queryClient.invalidateQueries({ queryKey: ['subscriber-records'] });
+  }, [queryClient]);
 
   const isLoading = metaLoading || recordsLoading;
 
@@ -101,9 +109,11 @@ export function useSubscriberData() {
     subscriberLookup: subscriberLookupRef.current,
     subscriberMeta,
     isLoading,
+    recordsLoaded: recordsEnabled && subscriberRecords.length > 0,
     subscriberMatchCount,
     setSubscriberMatchCount,
     handleSubscriberDataLoaded,
     enrichOnts,
+    loadNow,
   };
 }

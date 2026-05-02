@@ -1,37 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from "@/components/ui/input";
-import { Upload, Loader2 } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Upload, Loader2, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { validateCsvFile, downloadCsvTemplate, PONPM_CSV_SPEC } from '@/lib/csvValidator';
 
 /**
  * Validated CSV upload zone for PON PM Analysis.
- * Shows a dashed drop-target and enforces file-type / size constraints
- * before calling onChange.
+ * Uses the shared csvValidator so errors are consistent and reference the
+ * same template/column list shown in the UI.
  */
 export default function FileUploadZone({ onChange, isLoading }) {
-  const handleChange = (e) => {
+  const [validating, setValidating] = useState(false);
+
+  const handleChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    const name = file.name.toLowerCase();
+    setValidating(true);
+    const validation = await validateCsvFile(file, PONPM_CSV_SPEC);
+    setValidating(false);
 
-    if (!name.endsWith('.csv')) {
-      toast.error(
-        `Invalid file: "${file.name}". PON PM Analysis requires a CSV export from your SMx system. Please upload a .csv file.`,
-        { duration: 6000 }
-      );
-      e.target.value = '';
-      return;
-    }
-
-    if (file.size === 0) {
-      toast.error('The selected file is empty. Please choose a valid CSV export.', { duration: 5000 });
-      e.target.value = '';
-      return;
-    }
-
-    if (file.size > 100 * 1024 * 1024) {
-      toast.error('File is too large (max 100 MB). Please upload a smaller CSV export.', { duration: 5000 });
+    if (!validation.ok) {
+      toast.error(validation.message, { duration: 7000 });
       e.target.value = '';
       return;
     }
@@ -39,28 +30,46 @@ export default function FileUploadZone({ onChange, isLoading }) {
     onChange(e);
   };
 
+  const busy = isLoading || validating;
+
   return (
-    <label className="block">
-      <div className="border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer border-gray-300 hover:border-blue-400 hover:bg-blue-50/50">
-        <div className="flex flex-col items-center gap-3">
-          {isLoading ? (
-            <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
-          ) : (
-            <Upload className="h-10 w-10 text-gray-400" />
-          )}
-          <span className="text-sm text-gray-600">
-            {isLoading ? 'Processing…' : 'Click to upload or drag and drop'}
-          </span>
-          <span className="text-xs text-gray-400">CSV files only (.csv)</span>
+    <div className="space-y-2">
+      <label className="block">
+        <div className="border-2 border-dashed rounded-xl p-8 transition-colors cursor-pointer border-gray-300 hover:border-blue-400 hover:bg-blue-50/50">
+          <div className="flex flex-col items-center gap-3">
+            {busy ? (
+              <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
+            ) : (
+              <Upload className="h-10 w-10 text-gray-400" />
+            )}
+            <span className="text-sm text-gray-600">
+              {busy ? 'Processing…' : 'Click to upload or drag and drop'}
+            </span>
+            <span className="text-xs text-gray-400">
+              CSV exports from your SMx PON PM system (.csv)
+            </span>
+          </div>
         </div>
+        <Input
+          type="file"
+          accept=".csv"
+          onChange={handleChange}
+          className="hidden"
+          disabled={busy}
+        />
+      </label>
+      <div className="text-center">
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="text-xs h-auto py-1"
+          onClick={() => downloadCsvTemplate(PONPM_CSV_SPEC)}
+        >
+          <Download className="h-3 w-3 mr-1" />
+          Download blank template (column reference)
+        </Button>
       </div>
-      <Input
-        type="file"
-        accept=".csv"
-        onChange={handleChange}
-        className="hidden"
-        disabled={isLoading}
-      />
-    </label>
+    </div>
   );
 }
