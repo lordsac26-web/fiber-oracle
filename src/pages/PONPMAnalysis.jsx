@@ -382,8 +382,9 @@ export default function PONPMAnalysis() {
     }
   }, [loadingReports, savedReports, result, isLoading, loadSavedReport]);
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
+  // Accepts either a File object (from FileUploadZone) or a change event (from header dropdown input)
+  const handleFileUpload = async (fileOrEvent) => {
+    const file = fileOrEvent instanceof File ? fileOrEvent : fileOrEvent?.target?.files?.[0];
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.csv')) {

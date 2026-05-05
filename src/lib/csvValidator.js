@@ -190,18 +190,16 @@ export const SUBSCRIBER_CSV_SPEC = {
 
 export const PONPM_CSV_SPEC = {
   label: 'PON PM Report',
-  requiredColumns: ['SerialNumber'],
+  // No requiredColumns — vendor-exported files use many different column names.
+  // We only validate extension + non-empty to avoid blocking valid files.
+  requiredColumns: [],
   optionalColumns: [
-    'OntID', 'Shelf/Slot/Port', 'OLTName', 'Model',
+    'SerialNumber', 'OntID', 'Shelf/Slot/Port', 'OLTName', 'Model',
     'OntRxOptPwr', 'OLTRXOptPwr', 'OntTxPwr',
     'UpstreamBipErrors', 'DownstreamBipErrors',
     'UpstreamFecUncorrectedCodeWords', 'DownstreamFecUncorrectedCodeWords',
     'UpstreamFecCorrectedCodeWords', 'DownstreamFecCorrectedCodeWords',
   ],
-  aliases: {
-    SerialNumber: ['serial_number', 'serial', 'fsan'],
-  },
-  // PON PM CSVs are vendor-exported; template is informational only
   sampleRows: [],
 };
 
