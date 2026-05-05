@@ -89,13 +89,33 @@ export function useSubscriberData() {
     // Mark records as loaded so recordsLoaded flips true in-session
     setRecordsEnabled(true);
 
+    // Optimistically update the meta cache so the button/banner reflect the
+    // new upload immediately, before the server round-trip completes.
+    const optimisticMeta = {
+      id: '__optimistic__',
+      file_name: fileName || 'subscriber_data.csv',
+      record_count: records.length,
+      upload_date: new Date().toISOString(),
+      status: 'active',
+      created_date: new Date().toISOString(),
+    };
+    queryClient.setQueryData(['subscriber-upload-meta'], [optimisticMeta]);
+
     // Save to DB in background
     try {
-      await base44.functions.invoke('saveSubscriberData', {
+      const res = await base44.functions.invoke('saveSubscriberData', {
         records,
         file_name: fileName || 'subscriber_data.csv',
       });
-      // Refresh queries to pick up new data
+      // Replace optimistic entry with real server data
+      if (res.data?.success) {
+        queryClient.setQueryData(['subscriber-upload-meta'], [{
+          ...optimisticMeta,
+          id: res.data.meta_id,
+          upload_date: res.data.upload_date || optimisticMeta.upload_date,
+        }]);
+      }
+      // Then do a background refetch to get the fully-consistent server state
       queryClient.invalidateQueries({ queryKey: ['subscriber-upload-meta'] });
       queryClient.invalidateQueries({ queryKey: ['subscriber-records'] });
     } catch (error) {
