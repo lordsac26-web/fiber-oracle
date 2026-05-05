@@ -17,6 +17,10 @@ export default function FileUploadZone({ onChange, isLoading }) {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Create a synthetic-event-safe copy of the file reference before going async.
+    // React's synthetic events are pooled; e.target may be nullified after await.
+    // We reconstruct a minimal fake event so the parent's onChange handler
+    // (which calls e.target.files[0]) still works correctly.
     setValidating(true);
     const validation = await validateCsvFile(file, PONPM_CSV_SPEC);
     setValidating(false);
@@ -27,7 +31,11 @@ export default function FileUploadZone({ onChange, isLoading }) {
       return;
     }
 
-    onChange(e);
+    // Build a fake event wrapping the captured file so the parent handler works.
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    const fakeEvent = { target: { files: dt.files } };
+    onChange(fakeEvent);
   };
 
   const busy = isLoading || validating;
