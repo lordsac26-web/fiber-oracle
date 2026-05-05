@@ -86,6 +86,8 @@ export function useSubscriberData() {
   const handleSubscriberDataLoaded = useCallback(async (records, fileName) => {
     // Build lookup immediately for in-session use
     subscriberLookupRef.current = buildSubscriberLookup(records);
+    // Mark records as loaded so recordsLoaded flips true in-session
+    setRecordsEnabled(true);
 
     // Save to DB in background
     try {
@@ -109,7 +111,7 @@ export function useSubscriberData() {
     subscriberLookup: subscriberLookupRef.current,
     subscriberMeta,
     isLoading,
-    recordsLoaded: recordsEnabled && subscriberRecords.length > 0,
+    recordsLoaded: recordsEnabled && (subscriberRecords.length > 0 || !!subscriberLookupRef.current),
     subscriberMatchCount,
     setSubscriberMatchCount,
     handleSubscriberDataLoaded,
