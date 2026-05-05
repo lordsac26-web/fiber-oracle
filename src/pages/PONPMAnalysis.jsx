@@ -26,15 +26,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
   Tooltip,
@@ -68,8 +59,7 @@ import {
   Calendar,
   TrendingUp,
   TrendingDown,
-  Clipboard,
-  Sparkles
+  Clipboard
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -99,6 +89,7 @@ import { useSubscriberData } from '@/components/ponpm/useSubscriberData';
 import SubscriberDataBanner from '@/components/ponpm/SubscriberDataBanner';
 import ONTTableRow from '@/components/ponpm/ONTTableRow';
 import LCPExportMenu from '@/components/lcp/LCPExportMenu';
+import JobReportDialog from '@/components/ponpm/JobReportDialog';
 const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
 const STATUS_COLORS = {
   critical: 'bg-red-500',
@@ -146,6 +137,7 @@ export default function PONPMAnalysis() {
   const [showSubscriberDialog, setShowSubscriberDialog] = useState(false);
   const [showTrends, setShowTrends] = useState(false);
   const autoLoadAttemptedRef = useRef(false);
+  const headerFileInputRef = useRef(null);
   const [viewMode, setViewMode] = useState('hierarchy');
   const [creatingJobReport, setCreatingJobReport] = useState(null);
   const [jobReportFormData, setJobReportFormData] = useState(null);
@@ -1012,16 +1004,13 @@ Be specific, technical, and actionable.`;
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem onClick={() => setShowHistoricalReports(true)}>
-                      <Database className="h-4 w-4 mr-2 text-blue-500" />
-                      Choose another report
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <label className="cursor-pointer">
-                        <Upload className="h-4 w-4 mr-2 text-cyan-500" />
-                        Upload new PON PM CSV
-                        <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
-                      </label>
-                    </DropdownMenuItem>
+                       <Database className="h-4 w-4 mr-2 text-blue-500" />
+                       Choose another report
+                     </DropdownMenuItem>
+                     <DropdownMenuItem onClick={() => headerFileInputRef.current?.click()}>
+                       <Upload className="h-4 w-4 mr-2 text-cyan-500" />
+                       Upload new PON PM CSV
+                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -1949,51 +1938,27 @@ Be specific, technical, and actionable.`;
         />
       )}
 
-      {/* Job Report Creation Dialog */}
-      <Dialog open={!!creatingJobReport} onOpenChange={(open) => {
-        if (!open) {
-          setCreatingJobReport(null);
-          setJobReportFormData(null);
-        }
-      }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-500" />
-              Create Job Report - AI Pre-filled
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              AI-generated job report for ONT maintenance.
-            </DialogDescription>
-          </DialogHeader>
-          {generatingReport ? (
-            <div className="py-12 text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-3" />
-              <p className="text-gray-500">AI is analyzing ONT data and generating report...</p>
-            </div>
-          ) : jobReportFormData ? (
-            <>
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  <Sparkles className="h-4 w-4 inline mr-1" />
-                  This report has been pre-filled with AI-generated diagnosis and recommendations based on ONT performance data. Review and adjust as needed.
-                </p>
-              </div>
-              <ReportForm
-                formData={jobReportFormData}
-                setFormData={setJobReportFormData}
-                onSubmit={handleJobReportSubmit}
-                onCancel={() => {
-                  setCreatingJobReport(null);
-                  setJobReportFormData(null);
-                }}
-                isEditing={false}
-                isSubmitting={false}
-              />
-              </>
-            ) : null}
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
+      {/* Hidden file input for header dropdown — must live outside the dropdown so it persists after dropdown unmounts */}
+      <input
+        ref={headerFileInputRef}
+        type="file"
+        accept=".csv"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (file) handleFileUpload(file);
+        }}
+      />
+
+      <JobReportDialog
+        open={!!creatingJobReport}
+        onOpenChange={(open) => { if (!open) { setCreatingJobReport(null); setJobReportFormData(null); } }}
+        generatingReport={generatingReport}
+        jobReportFormData={jobReportFormData}
+        setJobReportFormData={setJobReportFormData}
+        onSubmit={handleJobReportSubmit}
+      />
+    </div>
+  );
+}
