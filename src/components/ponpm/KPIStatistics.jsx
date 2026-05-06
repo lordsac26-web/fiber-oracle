@@ -1,114 +1,231 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Zap, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Activity, Zap, TrendingUp, TrendingDown, AlertTriangle, Radio, Wifi } from 'lucide-react';
+import {
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  ReferenceLine
+} from 'recharts';
+
+const TECH_OPTIONS = ['All', 'GPON', 'XGS-PON'];
+
+// Returns true if the ONT belongs to the given tech filter
+function matchesTech(ont, tech) {
+  if (tech === 'All') return true;
+  if (tech === 'GPON') return ont._techType?.includes('GPON') ?? false;
+  if (tech === 'XGS-PON') return ont._techType?.includes('XGS') ?? false;
+  return true;
+}
+
+function calcStats(onts) {
+  if (!onts || onts.length === 0) return null;
+
+  const ontRxValues = onts.map(o => parseFloat(o.OntRxOptPwr)).filter(v => !isNaN(v) && v !== 0);
+  const oltRxValues = onts.map(o => parseFloat(o.OLTRXOptPwr)).filter(v => !isNaN(v) && v !== 0);
+
+  const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+
+  const ontsWithErrors = onts.filter(o =>
+    (parseInt(o.UpstreamBipErrors) || 0) > 0 ||
+    (parseInt(o.DownstreamBipErrors) || 0) > 0 ||
+    (parseInt(o.UpstreamFecUncorrectedCodeWords) || 0) > 0 ||
+    (parseInt(o.DownstreamFecUncorrectedCodeWords) || 0) > 0 ||
+    (parseInt(o.UpstreamGemHecErrors) || 0) > 0
+  ).length;
+
+  const lowPower = onts.filter(o => { const rx = parseFloat(o.OntRxOptPwr); return !isNaN(rx) && rx < -25; }).length;
+  const optimalPower = onts.filter(o => { const rx = parseFloat(o.OntRxOptPwr); return !isNaN(rx) && rx >= -25 && rx <= -15; }).length;
+  const criticalPower = onts.filter(o => { const rx = parseFloat(o.OntRxOptPwr); return !isNaN(rx) && rx < -27; }).length;
+
+  return {
+    count: onts.length,
+    avgOntRx: avg(ontRxValues),
+    minOntRx: ontRxValues.length ? Math.min(...ontRxValues) : null,
+    maxOntRx: ontRxValues.length ? Math.max(...ontRxValues) : null,
+    avgOltRx: avg(oltRxValues),
+    totalUsBip: onts.reduce((s, o) => s + (parseInt(o.UpstreamBipErrors) || 0), 0),
+    totalDsBip: onts.reduce((s, o) => s + (parseInt(o.DownstreamBipErrors) || 0), 0),
+    totalUsFec: onts.reduce((s, o) => s + (parseInt(o.UpstreamFecUncorrectedCodeWords) || 0), 0),
+    totalDsFec: onts.reduce((s, o) => s + (parseInt(o.DownstreamFecUncorrectedCodeWords) || 0), 0),
+    totalUsFecCor: onts.reduce((s, o) => s + (parseInt(o.UpstreamFecCorrectedCodeWords) || 0), 0),
+    totalDsFecCor: onts.reduce((s, o) => s + (parseInt(o.DownstreamFecCorrectedCodeWords) || 0), 0),
+    totalUsHec: onts.reduce((s, o) => s + (parseInt(o.UpstreamGemHecErrors) || 0), 0),
+    ontsWithErrors,
+    errorRate: onts.length > 0 ? (ontsWithErrors / onts.length * 100) : 0,
+    lowPower,
+    optimalPower,
+    criticalPower,
+  };
+}
+
+// Custom tooltip for the error bar chart
+const ErrorBarTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 shadow-lg text-xs">
+      <p className="font-semibold mb-1">{label}</p>
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.fill }}>{p.value.toLocaleString()}</p>
+      ))}
+    </div>
+  );
+};
+
+// Gauge-style Rx power bar
+function RxPowerBar({ value, min = -35, max = -5, label }) {
+  if (value === null) return null;
+  const pct = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+  const color = value < -27 ? '#ef4444' : value < -25 ? '#f59e0b' : value > -8 ? '#f59e0b' : '#22c55e';
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-[10px] text-gray-500">
+        <span>{label}</span>
+        <span className="font-mono font-bold" style={{ color }}>{value.toFixed(2)} dBm</span>
+      </div>
+      <div className="h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden relative">
+        {/* Zones */}
+        <div className="absolute inset-0 flex">
+          <div className="h-full bg-red-200 dark:bg-red-900/40" style={{ width: `${((- 27 - min) / (max - min)) * 100}%` }} />
+          <div className="h-full bg-amber-200 dark:bg-amber-900/40" style={{ width: `${((-25 - (-27)) / (max - min)) * 100}%` }} />
+          <div className="h-full bg-green-200 dark:bg-green-900/40" style={{ width: `${((-8 - (-25)) / (max - min)) * 100}%` }} />
+          <div className="h-full bg-amber-200 dark:bg-amber-900/40 flex-1" />
+        </div>
+        {/* Value marker */}
+        <div
+          className="absolute top-0 h-full w-1.5 rounded-full shadow"
+          style={{ left: `calc(${pct}% - 3px)`, backgroundColor: color }}
+        />
+      </div>
+      <div className="flex justify-between text-[9px] text-gray-400">
+        <span>{min}</span>
+        <span className="text-red-400">-27</span>
+        <span className="text-amber-400">-25</span>
+        <span className="text-green-400">-8</span>
+        <span>{max}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function KPIStatistics({ result, filteredOnts, previousReport }) {
+  const [techFilter, setTechFilter] = useState('All');
+
+  // Counts for each tech (always from filteredOnts)
+  const techCounts = useMemo(() => {
+    if (!filteredOnts) return { GPON: 0, 'XGS-PON': 0, unknown: 0 };
+    const gpon = filteredOnts.filter(o => o._techType?.includes('GPON')).length;
+    const xgs  = filteredOnts.filter(o => o._techType?.includes('XGS')).length;
+    return { GPON: gpon, 'XGS-PON': xgs, unknown: filteredOnts.length - gpon - xgs };
+  }, [filteredOnts]);
+
+  // Stats for selected tech
   const stats = useMemo(() => {
-    if (!filteredOnts || filteredOnts.length === 0) {
-      return null;
-    }
+    if (!filteredOnts) return null;
+    const subset = filteredOnts.filter(o => matchesTech(o, techFilter));
+    return calcStats(subset);
+  }, [filteredOnts, techFilter]);
 
-    // Calculate ONT Rx Power stats
-    const ontRxValues = filteredOnts
-      .map(o => parseFloat(o.OntRxOptPwr))
-      .filter(v => !isNaN(v) && v !== 0);
-    
-    const avgOntRx = ontRxValues.length > 0 
-      ? ontRxValues.reduce((a, b) => a + b, 0) / ontRxValues.length 
-      : null;
-    const minOntRx = ontRxValues.length > 0 ? Math.min(...ontRxValues) : null;
-    const maxOntRx = ontRxValues.length > 0 ? Math.max(...ontRxValues) : null;
-
-    // Calculate OLT Rx Power stats
-    const oltRxValues = filteredOnts
-      .map(o => parseFloat(o.OLTRXOptPwr))
-      .filter(v => !isNaN(v) && v !== 0);
-    
-    const avgOltRx = oltRxValues.length > 0 
-      ? oltRxValues.reduce((a, b) => a + b, 0) / oltRxValues.length 
-      : null;
-
-    // Technology breakdown — only count ONTs with a known tech type
-    const gponOnts = filteredOnts.filter(o => o._techType?.includes('GPON'));
-    const xgsOnts  = filteredOnts.filter(o => o._techType?.includes('XGS-PON'));
-
-    // Error statistics
-    const totalUsBip = filteredOnts.reduce((sum, o) => sum + (parseInt(o.UpstreamBipErrors) || 0), 0);
-    const totalDsBip = filteredOnts.reduce((sum, o) => sum + (parseInt(o.DownstreamBipErrors) || 0), 0);
-    const totalUsFec = filteredOnts.reduce((sum, o) => sum + (parseInt(o.UpstreamFecUncorrectedCodeWords) || 0), 0);
-    const totalDsFec = filteredOnts.reduce((sum, o) => sum + (parseInt(o.DownstreamFecUncorrectedCodeWords) || 0), 0);
-    const totalUsFecCor = filteredOnts.reduce((sum, o) => sum + (parseInt(o.UpstreamFecCorrectedCodeWords) || 0), 0);
-    const totalDsFecCor = filteredOnts.reduce((sum, o) => sum + (parseInt(o.DownstreamFecCorrectedCodeWords) || 0), 0);
-    const totalUsHec = filteredOnts.reduce((sum, o) => sum + (parseInt(o.UpstreamGemHecErrors) || 0), 0);
-
-    // ONTs with errors
-    const ontsWithErrors = filteredOnts.filter(o => 
-      (parseInt(o.UpstreamBipErrors) || 0) > 0 ||
-      (parseInt(o.DownstreamBipErrors) || 0) > 0 ||
-      (parseInt(o.UpstreamFecUncorrectedCodeWords) || 0) > 0 ||
-      (parseInt(o.DownstreamFecUncorrectedCodeWords) || 0) > 0 ||
-      (parseInt(o.UpstreamGemHecErrors) || 0) > 0
-    ).length;
-
-    // Power ranges
-    const lowPowerOnts = filteredOnts.filter(o => {
-      const rx = parseFloat(o.OntRxOptPwr);
-      return !isNaN(rx) && rx < -25;
-    }).length;
-
-    const optimalPowerOnts = filteredOnts.filter(o => {
-      const rx = parseFloat(o.OntRxOptPwr);
-      return !isNaN(rx) && rx >= -25 && rx <= -15;
-    }).length;
-
-    return {
-      avgOntRx,
-      minOntRx,
-      maxOntRx,
-      avgOltRx,
-      gponCount: gponOnts.length,
-      xgsCount: xgsOnts.length,
-      totalUsBip,
-      totalDsBip,
-      totalUsFec,
-      totalDsFec,
-      totalUsFecCor,
-      totalDsFecCor,
-      totalUsHec,
-      ontsWithErrors,
-      errorRate: filteredOnts.length > 0 ? (ontsWithErrors / filteredOnts.length * 100) : 0,
-      lowPowerOnts,
-      optimalPowerOnts,
-      avgGponRx: gponOnts.length > 0 
-        ? gponOnts.map(o => parseFloat(o.OntRxOptPwr)).filter(v => !isNaN(v) && v !== 0).reduce((a, b) => a + b, 0) / gponOnts.filter(o => !isNaN(parseFloat(o.OntRxOptPwr)) && parseFloat(o.OntRxOptPwr) !== 0).length
-        : null,
-      avgXgsRx: xgsOnts.length > 0 
-        ? xgsOnts.map(o => parseFloat(o.OntRxOptPwr)).filter(v => !isNaN(v) && v !== 0).reduce((a, b) => a + b, 0) / xgsOnts.filter(o => !isNaN(parseFloat(o.OntRxOptPwr)) && parseFloat(o.OntRxOptPwr) !== 0).length
-        : null,
-      gponDelta: previousReport ? gponOnts.length - (previousReport.gponCount ?? null) : null,
-      xgsDelta: previousReport ? xgsOnts.length - (previousReport.xgsCount ?? null) : null,
-    };
-  }, [filteredOnts, previousReport]);
+  // Previous report deltas (GPON/XGS count change)
+  const gponDelta = previousReport ? techCounts.GPON - (previousReport.gponCount ?? null) : null;
+  const xgsDelta  = previousReport ? techCounts['XGS-PON'] - (previousReport.xgsCount ?? null) : null;
 
   if (!stats) return null;
 
+  // Bar chart data for errors
+  const errorBarData = [
+    { name: 'US BIP',    value: stats.totalUsBip,    fill: '#ef4444' },
+    { name: 'DS BIP',    value: stats.totalDsBip,    fill: '#f97316' },
+    { name: 'US FEC U',  value: stats.totalUsFec,    fill: '#dc2626' },
+    { name: 'DS FEC U',  value: stats.totalDsFec,    fill: '#ea580c' },
+    { name: 'US FEC C',  value: stats.totalUsFecCor, fill: '#3b82f6' },
+    { name: 'DS FEC C',  value: stats.totalDsFecCor, fill: '#6366f1' },
+    { name: 'HEC',       value: stats.totalUsHec,    fill: '#8b5cf6' },
+  ];
+
+  // Power distribution for radar
+  const radarData = [
+    { subject: 'Optimal', value: stats.optimalPower, fullMark: stats.count },
+    { subject: 'Low Pwr', value: stats.lowPower, fullMark: stats.count },
+    { subject: 'Critical', value: stats.criticalPower, fullMark: stats.count },
+    { subject: 'Errors', value: stats.ontsWithErrors, fullMark: stats.count },
+    { subject: 'Online', value: stats.count - (filteredOnts?.filter(o => matchesTech(o, techFilter) && o._analysis?.status === 'offline').length || 0), fullMark: stats.count },
+  ];
+
+  const techColor = techFilter === 'GPON' ? 'blue' : techFilter === 'XGS-PON' ? 'purple' : 'indigo';
+  const techColorClasses = {
+    blue:   { bg: 'bg-blue-600',   ring: 'ring-blue-400',   light: 'bg-blue-50 dark:bg-blue-900/20',   text: 'text-blue-700 dark:text-blue-300',   stroke: '#3b82f6' },
+    purple: { bg: 'bg-purple-600', ring: 'ring-purple-400', light: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-300', stroke: '#7c3aed' },
+    indigo: { bg: 'bg-indigo-600', ring: 'ring-indigo-400', light: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-700 dark:text-indigo-300', stroke: '#4f46e5' },
+  }[techColor];
+
   return (
     <div className="space-y-4">
-      {/* Main KPI Cards */}
+      {/* Tech Filter Toggle */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-gray-500 font-medium">Technology:</span>
+        {TECH_OPTIONS.map(opt => {
+          const count = opt === 'All' ? filteredOnts?.length : techCounts[opt];
+          const isActive = techFilter === opt;
+          return (
+            <button
+              key={opt}
+              onClick={() => setTechFilter(opt)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                isActive
+                  ? opt === 'GPON'    ? 'bg-blue-600 text-white border-blue-600 shadow'
+                  : opt === 'XGS-PON' ? 'bg-purple-600 text-white border-purple-600 shadow'
+                  : 'bg-indigo-600 text-white border-indigo-600 shadow'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-gray-400'
+              }`}
+            >
+              {opt === 'GPON' && <Radio className="h-3 w-3" />}
+              {opt === 'XGS-PON' && <Wifi className="h-3 w-3" />}
+              {opt}
+              {count > 0 && (
+                <span className={`rounded-full px-1.5 py-0 text-[10px] ${isActive ? 'bg-white/20' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>
+                  {count}
+                </span>
+              )}
+              {opt !== 'All' && previousReport && (
+                opt === 'GPON' && gponDelta !== null && gponDelta !== 0 ? (
+                  <span className={`text-[9px] ${gponDelta > 0 ? 'text-green-300' : 'text-red-300'}`}>
+                    {gponDelta > 0 ? '+' : ''}{gponDelta}
+                  </span>
+                ) : opt === 'XGS-PON' && xgsDelta !== null && xgsDelta !== 0 ? (
+                  <span className={`text-[9px] ${xgsDelta > 0 ? 'text-green-300' : 'text-red-300'}`}>
+                    {xgsDelta > 0 ? '+' : ''}{xgsDelta}
+                  </span>
+                ) : null
+              )}
+            </button>
+          );
+        })}
+        {techFilter !== 'All' && (
+          <span className="text-[10px] text-gray-400 ml-1">
+            Showing stats for {techFilter} only ({stats.count} ONTs)
+          </span>
+        )}
+      </div>
+
+      {/* KPI Cards Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border-0 shadow">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <Activity className="h-4 w-4 text-blue-500" />
-              <Badge variant="outline" className="text-[10px]">Avg</Badge>
+              <Badge variant="outline" className="text-[10px]">Avg ONT Rx</Badge>
             </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {stats.avgOntRx !== null ? `${stats.avgOntRx.toFixed(2)}` : 'N/A'}
+            <div className="text-2xl font-bold text-gray-900 dark:text-white font-mono">
+              {stats.avgOntRx !== null ? stats.avgOntRx.toFixed(2) : 'N/A'}
             </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">ONT Rx Power (dBm)</div>
-            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-              Range: {stats.minOntRx?.toFixed(1)} to {stats.maxOntRx?.toFixed(1)}
+            <div className="text-xs text-gray-500 mb-2">dBm</div>
+            {stats.avgOntRx !== null && (
+              <RxPowerBar value={stats.avgOntRx} label="Avg" />
+            )}
+            <div className="text-[10px] text-gray-500 mt-1">
+              Range: {stats.minOntRx?.toFixed(1)} → {stats.maxOntRx?.toFixed(1)} dBm
             </div>
           </CardContent>
         </Card>
@@ -117,12 +234,15 @@ export default function KPIStatistics({ result, filteredOnts, previousReport }) 
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <Zap className="h-4 w-4 text-purple-500" />
-              <Badge variant="outline" className="text-[10px]">Avg</Badge>
+              <Badge variant="outline" className="text-[10px]">Avg OLT Rx</Badge>
             </div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-              {stats.avgOltRx !== null ? `${stats.avgOltRx.toFixed(2)}` : 'N/A'}
+            <div className="text-2xl font-bold text-gray-900 dark:text-white font-mono">
+              {stats.avgOltRx !== null ? stats.avgOltRx.toFixed(2) : 'N/A'}
             </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">OLT Rx Power (dBm)</div>
+            <div className="text-xs text-gray-500 mb-2">dBm</div>
+            {stats.avgOltRx !== null && (
+              <RxPowerBar value={stats.avgOltRx} label="Avg" min={-35} max={-5} />
+            )}
           </CardContent>
         </Card>
 
@@ -130,14 +250,19 @@ export default function KPIStatistics({ result, filteredOnts, previousReport }) 
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
-              <Badge variant="outline" className="text-[10px]">Errors</Badge>
+              <Badge variant="outline" className="text-[10px]">Error Rate</Badge>
             </div>
-            <div className="text-2xl font-bold text-amber-600">
+            <div className={`text-2xl font-bold font-mono ${stats.errorRate > 10 ? 'text-red-600' : stats.errorRate > 5 ? 'text-amber-500' : 'text-green-600'}`}>
               {stats.errorRate.toFixed(1)}%
             </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">ONTs with Errors</div>
-            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-              {stats.ontsWithErrors} / {filteredOnts.length} ONTs
+            <div className="text-xs text-gray-500">ONTs with errors</div>
+            <div className="text-[10px] text-gray-400 mt-1">{stats.ontsWithErrors} / {stats.count}</div>
+            {/* Mini progress bar */}
+            <div className="mt-2 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${stats.errorRate > 10 ? 'bg-red-500' : stats.errorRate > 5 ? 'bg-amber-500' : 'bg-green-500'}`}
+                style={{ width: `${Math.min(100, stats.errorRate)}%` }}
+              />
             </div>
           </CardContent>
         </Card>
@@ -146,118 +271,99 @@ export default function KPIStatistics({ result, filteredOnts, previousReport }) 
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <TrendingUp className="h-4 w-4 text-green-500" />
-              <Badge variant="outline" className="text-[10px]">Power</Badge>
+              <Badge variant="outline" className="text-[10px]">Power Zones</Badge>
             </div>
-            <div className="text-2xl font-bold text-green-600">
-              {stats.optimalPowerOnts}
-            </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">Optimal Range</div>
-            <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-              {stats.lowPowerOnts} low power
+            <div className="space-y-1.5 mt-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-green-600">Optimal</span>
+                <span className="font-mono font-bold text-green-600">{stats.optimalPower}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-amber-600">Low (&lt;-25)</span>
+                <span className="font-mono font-bold text-amber-600">{stats.lowPower}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-red-600">Critical (&lt;-27)</span>
+                <span className="font-mono font-bold text-red-600">{stats.criticalPower}</span>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Technology Comparison */}
-      {(stats.gponCount > 0 || stats.xgsCount > 0) && (
+      {/* Charts Row */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Error Bar Chart */}
         <Card className="border-0 shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Technology Breakdown</CardTitle>
+          <CardHeader className="pb-1 pt-4 px-4">
+            <CardTitle className="text-sm">
+              Network Error Totals
+              {techFilter !== 'All' && <span className="text-xs font-normal text-gray-500 ml-2">— {techFilter}</span>}
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-blue-800 dark:text-blue-200">GPON</span>
-                  <Badge className="bg-blue-600 text-white">{stats.gponCount} ONTs</Badge>
-                  {stats.gponDelta !== null && stats.gponDelta !== 0 && (
-                    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ml-1 ${stats.gponDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {stats.gponDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                      {stats.gponDelta > 0 ? '+' : ''}{stats.gponDelta}
-                    </span>
-                  )}
+          <CardContent className="px-2 pb-4">
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={errorBarData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="name" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                <Tooltip content={<ErrorBarTooltip />} />
+                <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                  {errorBarData.map((entry, index) => (
+                    <Cell key={index} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            {/* Totals row below chart */}
+            <div className="grid grid-cols-4 gap-1 mt-2 px-2">
+              {errorBarData.map(d => (
+                <div key={d.name} className="text-center">
+                  <div className="text-[10px] font-bold" style={{ color: d.fill }}>{d.value.toLocaleString()}</div>
+                  <div className="text-[9px] text-gray-400">{d.name}</div>
                 </div>
-                {stats.avgGponRx !== null && (
-                  <div className="text-sm text-blue-700 dark:text-blue-300">
-                    Avg Rx: <span className="font-mono font-bold">{stats.avgGponRx.toFixed(2)} dBm</span>
-                  </div>
-                )}
-              </div>
-              <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-purple-800 dark:text-purple-200">XGS-PON</span>
-                  <Badge className="bg-purple-600 text-white">{stats.xgsCount} ONTs</Badge>
-                  {stats.xgsDelta !== null && stats.xgsDelta !== 0 && (
-                    <span className={`inline-flex items-center gap-0.5 text-[10px] font-medium ml-1 ${stats.xgsDelta > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {stats.xgsDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                      {stats.xgsDelta > 0 ? '+' : ''}{stats.xgsDelta}
-                    </span>
-                  )}
-                </div>
-                {stats.avgXgsRx !== null && (
-                  <div className="text-sm text-purple-700 dark:text-purple-300">
-                    Avg Rx: <span className="font-mono font-bold">{stats.avgXgsRx.toFixed(2)} dBm</span>
-                  </div>
-                )}
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Error Statistics */}
-      <Card className="border-0 shadow">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Network Error Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="text-center p-2 bg-gray-100 dark:bg-gray-800 rounded">
-              <div className="text-lg font-bold text-gray-900 dark:text-white">
-                {stats.totalUsBip.toLocaleString()}
-              </div>
-              <div className="text-[10px] text-gray-600 dark:text-gray-400">US BIP Errors</div>
+        {/* Radar / Health overview */}
+        <Card className="border-0 shadow">
+          <CardHeader className="pb-1 pt-4 px-4">
+            <CardTitle className="text-sm">
+              Network Health Profile
+              {techFilter !== 'All' && <span className="text-xs font-normal text-gray-500 ml-2">— {techFilter}</span>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center pb-4">
+            <ResponsiveContainer width="100%" height={180}>
+              <RadarChart data={radarData} margin={{ top: 0, right: 20, bottom: 0, left: 20 }}>
+                <PolarGrid stroke="#e5e7eb" />
+                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
+                <PolarRadiusAxis
+                  angle={90}
+                  domain={[0, stats.count]}
+                  tick={false}
+                  axisLine={false}
+                />
+                <Radar
+                  name="ONTs"
+                  dataKey="value"
+                  stroke={techColorClasses.stroke}
+                  fill={techColorClasses.stroke}
+                  fillOpacity={0.25}
+                />
+              </RadarChart>
+            </ResponsiveContainer>
+            {/* Legend row */}
+            <div className="flex items-center gap-4 text-[10px] text-gray-500 mt-1">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Optimal: {stats.optimalPower}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Low Pwr: {stats.lowPower}</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Errors: {stats.ontsWithErrors}</span>
             </div>
-            <div className="text-center p-2 bg-gray-100 dark:bg-gray-800 rounded">
-              <div className="text-lg font-bold text-gray-900 dark:text-white">
-                {stats.totalDsBip.toLocaleString()}
-              </div>
-              <div className="text-[10px] text-gray-600 dark:text-gray-400">DS BIP Errors</div>
-            </div>
-            <div className="text-center p-2 bg-gray-100 dark:bg-gray-800 rounded">
-              <div className="text-lg font-bold text-gray-900 dark:text-white">
-                {stats.totalUsFec.toLocaleString()}
-              </div>
-              <div className="text-[10px] text-gray-600 dark:text-gray-400">US FEC Uncorrected</div>
-            </div>
-            <div className="text-center p-2 bg-gray-100 dark:bg-gray-800 rounded">
-              <div className="text-lg font-bold text-gray-900 dark:text-white">
-                {stats.totalDsFec.toLocaleString()}
-              </div>
-              <div className="text-[10px] text-gray-600 dark:text-gray-400">DS FEC Uncorrected</div>
-            </div>
-            <div className="text-center p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
-              <div className="text-lg font-bold text-blue-700 dark:text-blue-300">
-                {stats.totalUsFecCor.toLocaleString()}
-              </div>
-              <div className="text-[10px] text-blue-600 dark:text-blue-400">US FEC Corrected</div>
-            </div>
-            <div className="text-center p-2 bg-blue-100 dark:bg-blue-900/30 rounded">
-              <div className="text-lg font-bold text-blue-700 dark:text-blue-300">
-                {stats.totalDsFecCor.toLocaleString()}
-              </div>
-              <div className="text-[10px] text-blue-600 dark:text-blue-400">DS FEC Corrected</div>
-            </div>
-            <div className="text-center p-2 bg-purple-100 dark:bg-purple-900/30 rounded">
-              <div className="text-lg font-bold text-purple-700 dark:text-purple-300">
-                {stats.totalUsHec.toLocaleString()}
-              </div>
-              <div className="text-[10px] text-purple-600 dark:text-purple-400">GEM HEC Errors</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

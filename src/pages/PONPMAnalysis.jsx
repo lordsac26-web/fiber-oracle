@@ -1383,7 +1383,7 @@ Be specific, technical, and actionable.`;
             <Card className="border-0 shadow">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Network Health</span>
+                  <span className="text-sm font-medium">Network Health — All ONTs</span>
                   <span className="text-sm text-gray-500">
                     {((result.summary.okCount / result.summary.totalOnts) * 100).toFixed(1)}% healthy
                   </span>
@@ -1405,6 +1405,13 @@ Be specific, technical, and actionable.`;
                     className="bg-purple-500 transition-all" 
                     style={{ width: `${((result.summary.offlineCount || 0) / result.summary.totalOnts) * 100}%` }}
                   />
+                </div>
+                <div className="flex items-center gap-4 mt-2 text-[10px] text-gray-500 flex-wrap">
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Healthy: {result.summary.okCount}</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Warning: {result.summary.warningCount}</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Critical: {result.summary.criticalCount}</span>
+                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />Offline: {result.summary.offlineCount || 0}</span>
+                  <span className="ml-auto font-medium text-gray-400">Total: {result.summary.totalOnts} ONTs across {result.summary.oltCount} OLTs</span>
                 </div>
                 {result.onts?.filter(o => o._trends).length > 0 && (
                   <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs">
