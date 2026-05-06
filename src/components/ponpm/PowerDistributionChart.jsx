@@ -42,9 +42,15 @@ function CustomTooltip({ active, payload, label }) {
   const d = payload[0]?.payload;
   if (!d) return null;
   const zoneStyle = ZONE_STYLE[d.zone] || ZONE_STYLE.Optimal;
+  // Build a human-readable range string from the raw min/max values
+  const rangeStr = d.min <= -49
+    ? `< ${d.max} dBm`
+    : d.max >= 0
+    ? `> ${d.min} dBm`
+    : `${d.min} to ${d.max} dBm`;
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 text-xs min-w-[130px]">
-      <p className="font-bold text-gray-800 dark:text-gray-100 mb-1">{d.range} dBm</p>
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 text-xs min-w-[150px]">
+      <p className="font-bold text-gray-800 dark:text-gray-100 mb-0.5 font-mono">{rangeStr}</p>
       <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold mb-2 ${zoneStyle.bg} ${zoneStyle.text}`}>
         {d.zone}
       </span>
