@@ -10,7 +10,7 @@ import { validateCsvFile, downloadCsvTemplate, PONPM_CSV_SPEC } from '@/lib/csvV
  * Calls onChange(file) with the File object directly (not a synthetic event).
  * The parent (PONPMAnalysis) must accept a File, not an event.
  */
-export default function FileUploadZone({ onChange, isLoading }) {
+export default function FileUploadZone({ onChange, isLoading, disabled = false, disabledMessage = null }) {
   const [validating, setValidating] = useState(false);
 
   const handleChange = async (e) => {
@@ -33,22 +33,33 @@ export default function FileUploadZone({ onChange, isLoading }) {
   };
 
   const busy = isLoading || validating;
+  const blocked = disabled && !busy;
 
   return (
     <div className="space-y-2">
-      <label className="block cursor-pointer">
-        <div className="border-2 border-dashed rounded-xl p-8 transition-colors border-gray-300 hover:border-blue-400 hover:bg-blue-50/50">
+      <label className={`block ${blocked ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+        <div className={`border-2 border-dashed rounded-xl p-8 transition-colors ${
+          blocked
+            ? 'border-amber-300 bg-amber-50/50 opacity-70'
+            : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/50'
+        }`}>
           <div className="flex flex-col items-center gap-3">
             {busy ? (
               <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
             ) : (
-              <Upload className="h-10 w-10 text-gray-400" />
+              <Upload className={`h-10 w-10 ${blocked ? 'text-amber-500' : 'text-gray-400'}`} />
             )}
             <span className="text-sm text-gray-600">
-              {busy ? 'Processing…' : 'Click to upload or drag and drop'}
+              {busy
+                ? 'Processing…'
+                : blocked
+                ? (disabledMessage || 'Upload temporarily disabled')
+                : 'Click to upload or drag and drop'}
             </span>
             <span className="text-xs text-gray-400">
-              CSV exports from your SMx PON PM system (.csv)
+              {blocked
+                ? 'Indexing in progress — uploading now would cause rate-limit errors.'
+                : 'CSV exports from your SMx PON PM system (.csv)'}
             </span>
           </div>
         </div>
@@ -57,7 +68,7 @@ export default function FileUploadZone({ onChange, isLoading }) {
           accept=".csv"
           onChange={handleChange}
           className="hidden"
-          disabled={busy}
+          disabled={busy || blocked}
         />
       </label>
       <div className="text-center">

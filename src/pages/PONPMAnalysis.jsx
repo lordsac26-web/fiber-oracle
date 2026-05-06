@@ -87,6 +87,7 @@ import CorrectedFecAnalysis from '@/components/ponpm/CorrectedFecAnalysis';
 import { buildLcpLookupMap, enrichOntsWithLcp } from '@/components/ponpm/lcpLookup';
 import SubscriberUpload, { buildSubscriberLookup, enrichOntsWithSubscriber } from '@/components/ponpm/SubscriberUpload';
 import { useSubscriberData } from '@/components/ponpm/useSubscriberData';
+import { useProcessingReports } from '@/components/ponpm/useProcessingReports';
 import SubscriberDataBanner from '@/components/ponpm/SubscriberDataBanner';
 import EeroUpload from '@/components/ponpm/EeroUpload';
 import EeroDataBadge from '@/components/ponpm/EeroDataBadge';
@@ -201,6 +202,11 @@ export default function PONPMAnalysis() {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingSavedCount, setProcessingSavedCount] = useState(0);
   const [processingStatus, setProcessingStatus] = useState(null);
+
+  // Global cross-session detector — picks up any report still being indexed
+  // even after a page refresh or navigation. Used to (a) keep the progress
+  // banner visible and (b) block new uploads while indexing is in flight.
+  const { isProcessing: isAnyReportProcessing, activeReport: globalActiveReport } = useProcessingReports();
 
   // Real-time subscription + initial poll for background indexing progress
   useEffect(() => {
@@ -457,6 +463,18 @@ export default function PONPMAnalysis() {
 
     if (!file.name.toLowerCase().endsWith('.csv')) {
       toast.error('Please upload a CSV file');
+      return;
+    }
+
+    // Guard: a previous report is still indexing in the background. Uploading
+    // now causes the backend to fight itself for rate-limited DB writes,
+    // which is exactly what produces the 429 timeouts the user reported.
+    if (isAnyReportProcessing) {
+      const name = globalActiveReport?.report_name || 'previous report';
+      toast.error(
+        `Indexing of "${name}" is still in progress — please wait for it to finish before uploading another report.`,
+        { duration: 7000 }
+      );
       return;
     }
 
@@ -1148,6 +1166,18 @@ Be specific, technical, and actionable.`;
           </Card>
         )}
 
+        {/* Show in-flight indexing banner even before a report is loaded,
+            so users hitting the page fresh see it too. */}
+        {!result && !isLoading && globalActiveReport && (
+          <ProcessingProgressBar
+            status={globalActiveReport.processing_status}
+            progress={globalActiveReport.processing_progress ?? 0}
+            savedCount={globalActiveReport.processing_saved_count ?? 0}
+            totalCount={globalActiveReport.ont_count}
+            reportName={globalActiveReport.report_name}
+          />
+        )}
+
         {/* Upload Section */}
         {!result && !isLoading && (
           <Card className="border-0 shadow-lg">
@@ -1166,7 +1196,7 @@ Be specific, technical, and actionable.`;
                 </div>
 
                 <div className="max-w-md mx-auto space-y-4">
-                  <FileUploadZone onChange={handleFileUpload} isLoading={isLoading} />
+                  <FileUploadZone onChange={handleFileUpload} isLoading={isLoading} disabled={isAnyReportProcessing} disabledMessage={isAnyReportProcessing ? `Wait for "${globalActiveReport?.report_name || 'current report'}" to finish indexing` : null} />
 
                   {savedReports.length > 0 && (
                     <>
@@ -1233,12 +1263,15 @@ Be specific, technical, and actionable.`;
             {/* Subscriber data freshness banner */}
             <SubscriberDataBanner subscriberMeta={subscriberMeta} matchCount={subscriberMatchCount} />
 
-            {/* Background processing progress bar */}
+            {/* Background processing progress bar — prefers locally tracked
+                state (right after upload) and falls back to the global
+                detector so the banner survives page refresh/navigation. */}
             <ProcessingProgressBar
-              status={processingStatus}
-              progress={processingProgress}
-              savedCount={processingSavedCount}
-              totalCount={result?.summary?.totalOnts}
+              status={processingStatus || globalActiveReport?.processing_status || null}
+              progress={processingStatus ? processingProgress : (globalActiveReport?.processing_progress ?? 0)}
+              savedCount={processingStatus ? processingSavedCount : (globalActiveReport?.processing_saved_count ?? 0)}
+              totalCount={result?.summary?.totalOnts ?? globalActiveReport?.ont_count}
+              reportName={!processingStatus ? globalActiveReport?.report_name : undefined}
             />
 
             {/* Summary Cards */}
