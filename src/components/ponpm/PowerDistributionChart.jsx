@@ -7,25 +7,25 @@ import {
 
 // Gradient stop colors for each zone — critical → optimal → high
 const ONT_RX_RANGES = [
-  { min: -50, max: -30, label: '< -30',    color: '#dc2626', zone: 'Critical' },
-  { min: -30, max: -27, label: '-30–-27',  color: '#f97316', zone: 'Low' },
-  { min: -27, max: -25, label: '-27–-25',  color: '#eab308', zone: 'Marginal' },
-  { min: -25, max: -20, label: '-25–-20',  color: '#84cc16', zone: 'Good' },
-  { min: -20, max: -15, label: '-20–-15',  color: '#22c55e', zone: 'Optimal' },
-  { min: -15, max: -10, label: '-15–-10',  color: '#10b981', zone: 'Optimal' },
-  { min: -10, max:  -8, label: '-10–-8',   color: '#eab308', zone: 'High' },
-  { min:  -8, max:   0, label: '> -8',     color: '#f97316', zone: 'High' },
+  { min: -50, max: -30, label: '<-30 dBm',    color: '#dc2626', zone: 'Critical' },
+  { min: -30, max: -27, label: '-30→-27 dBm', color: '#f97316', zone: 'Low' },
+  { min: -27, max: -25, label: '-27→-25 dBm', color: '#eab308', zone: 'Marginal' },
+  { min: -25, max: -20, label: '-25→-20 dBm', color: '#84cc16', zone: 'Good' },
+  { min: -20, max: -15, label: '-20→-15 dBm', color: '#22c55e', zone: 'Optimal' },
+  { min: -15, max: -10, label: '-15→-10 dBm', color: '#10b981', zone: 'Optimal' },
+  { min: -10, max:  -8, label: '-10→-8 dBm',  color: '#eab308', zone: 'High' },
+  { min:  -8, max:   0, label: '>-8 dBm',     color: '#f97316', zone: 'High' },
 ];
 
 const OLT_RX_RANGES = [
-  { min: -50, max: -32, label: '< -32',    color: '#dc2626', zone: 'Critical' },
-  { min: -32, max: -30, label: '-32–-30',  color: '#f97316', zone: 'Low' },
-  { min: -30, max: -28, label: '-30–-28',  color: '#eab308', zone: 'Marginal' },
-  { min: -28, max: -24, label: '-28–-24',  color: '#84cc16', zone: 'Good' },
-  { min: -24, max: -20, label: '-24–-20',  color: '#22c55e', zone: 'Optimal' },
-  { min: -20, max: -15, label: '-20–-15',  color: '#10b981', zone: 'Optimal' },
-  { min: -15, max: -10, label: '-15–-10',  color: '#14b8a6', zone: 'High' },
-  { min: -10, max:   0, label: '> -10',    color: '#06b6d4', zone: 'High' },
+  { min: -50, max: -32, label: '<-32 dBm',    color: '#dc2626', zone: 'Critical' },
+  { min: -32, max: -30, label: '-32→-30 dBm', color: '#f97316', zone: 'Low' },
+  { min: -30, max: -28, label: '-30→-28 dBm', color: '#eab308', zone: 'Marginal' },
+  { min: -28, max: -24, label: '-28→-24 dBm', color: '#84cc16', zone: 'Good' },
+  { min: -24, max: -20, label: '-24→-20 dBm', color: '#22c55e', zone: 'Optimal' },
+  { min: -20, max: -15, label: '-20→-15 dBm', color: '#10b981', zone: 'Optimal' },
+  { min: -15, max: -10, label: '-15→-10 dBm', color: '#14b8a6', zone: 'High' },
+  { min: -10, max:   0, label: '>-10 dBm',    color: '#06b6d4', zone: 'High' },
 ];
 
 const ZONE_STYLE = {
@@ -37,29 +37,25 @@ const ZONE_STYLE = {
   High:     { bg: 'bg-cyan-100 dark:bg-cyan-900/30',   text: 'text-cyan-700 dark:text-cyan-300' },
 };
 
-function CustomTooltip({ active, payload, label }) {
+function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload;
   if (!d) return null;
   const zoneStyle = ZONE_STYLE[d.zone] || ZONE_STYLE.Optimal;
-  // Build a human-readable range string from the raw min/max values
-  const rangeStr = d.min <= -49
-    ? `< ${d.max} dBm`
-    : d.max >= 0
-    ? `> ${d.min} dBm`
-    : `${d.min} to ${d.max} dBm`;
   return (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 text-xs min-w-[150px]">
-      <p className="font-bold text-gray-800 dark:text-gray-100 mb-0.5 font-mono">{rangeStr}</p>
+    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-3 text-xs min-w-[160px]">
+      <p className="font-bold text-gray-800 dark:text-gray-100 mb-1 font-mono text-sm">{d.label}</p>
       <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold mb-2 ${zoneStyle.bg} ${zoneStyle.text}`}>
         {d.zone}
       </span>
       <p className="text-gray-600 dark:text-gray-300 font-mono">
-        <span className="font-bold text-gray-900 dark:text-white">{d.count.toLocaleString()}</span> ONTs
+        <span className="font-bold text-gray-900 dark:text-white text-sm">{d.count.toLocaleString()}</span> ONTs
       </p>
-      <p className="text-gray-400 text-[10px] mt-0.5">
-        {((d.count / d.total) * 100).toFixed(1)}% of total
-      </p>
+      {d.total > 0 && (
+        <p className="text-gray-400 text-[10px] mt-0.5">
+          {((d.count / d.total) * 100).toFixed(1)}% of total
+        </p>
+      )}
     </div>
   );
 }
@@ -154,11 +150,11 @@ export default function PowerDistributionChart({ onts, powerMetric = 'ont_rx', t
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" strokeOpacity={0.6} />
             <XAxis
-              dataKey="range"
-              tick={{ fontSize: 10, fill: '#6b7280' }}
-              angle={-40}
+              dataKey="label"
+              tick={{ fontSize: 9, fill: '#6b7280' }}
+              angle={-35}
               textAnchor="end"
-              height={52}
+              height={60}
               axisLine={false}
               tickLine={false}
               dy={4}
