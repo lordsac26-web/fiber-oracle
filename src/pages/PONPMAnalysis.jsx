@@ -90,6 +90,7 @@ import SubscriberDataBanner from '@/components/ponpm/SubscriberDataBanner';
 import ONTTableRow from '@/components/ponpm/ONTTableRow';
 import LCPExportMenu from '@/components/lcp/LCPExportMenu';
 import JobReportDialog from '@/components/ponpm/JobReportDialog';
+import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
 const STATUS_COLORS = {
   critical: 'bg-red-500',
@@ -627,62 +628,35 @@ export default function PONPMAnalysis() {
 
   const exportCriticalPDF = async () => {
     if (!result?.onts) return;
-
     const criticalOnts = result.onts.filter(o => o._analysis.status === 'critical');
-    if (criticalOnts.length === 0) {
-      toast.error('No critical issues to export');
-      return;
-    }
-
+    if (criticalOnts.length === 0) { toast.error('No critical issues to export'); return; }
     toast.loading('Generating critical issues PDF...', { id: 'critical-pdf' });
-
     try {
-      const response = await base44.functions.invoke('generatePonPmPDF', {
-        reportData: { ...result, onts: criticalOnts },
-        criticalOnly: true
-      }, { responseType: 'arraybuffer' });
-
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `pon-pm-critical-issues-${new Date().toISOString().slice(0,10)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-
+      await downloadPdfFromFunction(
+        'generatePonPmPDF',
+        { reportData: { ...result, onts: criticalOnts }, criticalOnly: true },
+        `pon-pm-critical-issues-${new Date().toISOString().slice(0,10)}.pdf`
+      );
       toast.success(`Exported ${criticalOnts.length} critical issues to PDF`, { id: 'critical-pdf' });
     } catch (error) {
       console.error('Critical PDF export error:', error);
-      toast.error('Failed to generate critical issues PDF', { id: 'critical-pdf' });
+      toast.error('Failed to generate critical issues PDF: ' + error.message, { id: 'critical-pdf' });
     }
   };
 
   const exportPDF = async () => {
     if (!result?.onts) return;
-
     toast.loading('Generating PDF report...', { id: 'pdf-export' });
-
     try {
-      const response = await base44.functions.invoke('generatePonPmPDF', {
-        reportData: result
-      }, { responseType: 'arraybuffer' });
-
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `pon-pm-report-${new Date().toISOString().slice(0,10)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-
+      await downloadPdfFromFunction(
+        'generatePonPmPDF',
+        { reportData: result },
+        `pon-pm-report-${new Date().toISOString().slice(0,10)}.pdf`
+      );
       toast.success('PDF report generated', { id: 'pdf-export' });
     } catch (error) {
       console.error('PDF export error:', error);
-      toast.error('Failed to generate PDF', { id: 'pdf-export' });
+      toast.error('Failed to generate PDF: ' + error.message, { id: 'pdf-export' });
     }
   };
 
@@ -882,21 +856,12 @@ Be specific, technical, and actionable.`;
       
       const report = await base44.entities.JobReport.create(data);
       
-      // Generate and download PDF
-      const response = await base44.functions.invoke('generatePDF', { 
-        type: 'jobReport',
-        data: report
-      }, { responseType: 'arraybuffer' });
-      
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `JobReport-${report.job_number}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
+      // Generate and download PDF via direct fetch (SDK invoke doesn't support binary)
+      await downloadPdfFromFunction(
+        'generatePDF',
+        { type: 'jobReport', data: report },
+        `JobReport-${report.job_number}.pdf`
+      );
       
       toast.success('Job report created and PDF downloaded');
       setCreatingJobReport(null);

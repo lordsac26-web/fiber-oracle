@@ -18,6 +18,7 @@ import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 
 const COURSE_INFO = {
   fiber101: { title: 'Fiber 101', subtitle: 'Foundations of Fiber Optics', color: 'from-green-500 to-emerald-600' },
@@ -36,38 +37,30 @@ export default function Certifications() {
   const downloadCertificate = async (cert) => {
     const courseInfo = COURSE_INFO[cert.course_id] || { title: cert.course_title, subtitle: '' };
     setDownloadingId(cert.id);
-    
     try {
-       const response = await base44.functions.invoke('generatePDF', { 
-         type: 'certificate',
-         data: {
-           learnerName: cert.learner_name,
-           courseTitle: courseInfo.title,
-           courseSubtitle: courseInfo.subtitle,
-           score: cert.score,
-           certificateId: cert.certificate_id,
-           completionDate: cert.completion_date,
-           courseId: cert.course_id
-         }
-       }, { responseType: 'arraybuffer' });
-
-       toast.success('Certificate generated successfully');
-
-       const blob = new Blob([response.data], { type: 'application/pdf' });
-       const url = window.URL.createObjectURL(blob);
-       const a = document.createElement('a');
-       a.href = url;
-       a.download = `Certificate-${courseInfo.title}-${cert.learner_name}.pdf`;
-       document.body.appendChild(a);
-       a.click();
-       window.URL.revokeObjectURL(url);
-       a.remove();
-     } catch (error) {
-       console.error('Certificate download failed:', error);
-       toast.error('Failed to download certificate');
-     } finally {
-       setDownloadingId(null);
-     }
+      await downloadPdfFromFunction(
+        'generatePDF',
+        {
+          type: 'certificate',
+          data: {
+            learnerName: cert.learner_name,
+            courseTitle: courseInfo.title,
+            courseSubtitle: courseInfo.subtitle,
+            score: cert.score,
+            certificateId: cert.certificate_id,
+            completionDate: cert.completion_date,
+            courseId: cert.course_id,
+          },
+        },
+        `Certificate-${courseInfo.title}-${cert.learner_name}.pdf`
+      );
+      toast.success('Certificate downloaded successfully');
+    } catch (error) {
+      console.error('Certificate download failed:', error);
+      toast.error('Failed to download certificate: ' + error.message);
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
