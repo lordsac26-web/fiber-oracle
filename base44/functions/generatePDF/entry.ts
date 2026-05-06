@@ -93,6 +93,44 @@ function sectionHeader(doc, label, x, y, w, colors) {
   return y + 11;
 }
 
+// ─── Logo fetch (for customer branding) ───────────────────────────────────────
+async function fetchLogoAsBase64(logoUrl) {
+  if (!logoUrl) return null;
+  try {
+    const resp = await fetch(logoUrl, { signal: AbortSignal.timeout(4000) });
+    if (!resp.ok) return null;
+    const buf = await resp.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let binary = '';
+    bytes.forEach(b => { binary += String.fromCharCode(b); });
+    const base64 = btoa(binary);
+    const ct = resp.headers.get('content-type') || 'image/png';
+    return `data:${ct};base64,${base64}`;
+  } catch (_) { return null; }
+}
+
+// ─── Resolve customer branding from user.preferences (Settings → Branding) ────
+// Reads ONLY from user.preferences — that is where the Settings → Branding tab
+// persists companyName and logoUrl (via base44.auth.updateMe). No DB roundtrip
+// needed; everything is on the user object we already loaded.
+async function resolveBranding(user) {
+  let companyName = null;
+  let logoUrl = null;
+
+  if (user?.preferences) {
+    if (user.preferences.companyName) companyName = s(user.preferences.companyName);
+    if (user.preferences.logoUrl)     logoUrl     = user.preferences.logoUrl;
+  }
+
+  // Treat the placeholder default ("Fiber Oracle") as "no custom branding"
+  // so the report keeps the original Fiber Oracle title rather than echoing
+  // the default literally.
+  if (companyName === 'Fiber Oracle') companyName = null;
+
+  const logoDataUrl = logoUrl ? await fetchLogoAsBase64(logoUrl) : null;
+  return { companyName, logoDataUrl };
+}
+
 // ─── Entry Point ──────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   try {
@@ -101,12 +139,13 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { type, data } = await req.json();
+    const branding = await resolveBranding(user);
     let pdfBytes;
 
     switch (type) {
       case 'brochure':    pdfBytes = generateBrochurePDF(); break;
       case 'studyGuide':  pdfBytes = generateStudyGuidePDF(data); break;
-      case 'jobReport':   pdfBytes = generateJobReportPDF(data); break;
+      case 'jobReport':   pdfBytes = generateJobReportPDF(data, branding); break;
       case 'certificate': pdfBytes = generateCertificatePDF(data); break;
       default: return Response.json({ error: 'Invalid PDF type' }, { status: 400 });
     }
@@ -765,12 +804,13 @@ function generateStudyGuidePDF(data) {
 // ═══════════════════════════════════════════════════════════════════════════════
 //  JOB REPORT PDF — professional dark-header report
 // ═══════════════════════════════════════════════════════════════════════════════
-function generateJobReportPDF(data) {
+function generateJobReportPDF(data, branding = {}) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 18;
   const CW = W - 2 * M;
+  const { companyName, logoDataUrl } = branding;
 
   const C = {
     header:  [15, 23, 42],
@@ -785,22 +825,33 @@ function generateJobReportPDF(data) {
     amber:   [245,158, 11],
   };
 
-  // ── HEADER ─────────────────────────────────────────────────────────────────
+  // ── HEADER (with customer branding) ───────────────────────────────────────
   doc.setFillColor(...C.header);
   doc.rect(0, 0, W, 40, 'F');
   doc.setFillColor(...C.accent);
   doc.rect(0, 40, W, 2, 'F');
 
+  // Customer logo on the left (if provided)
+  let titleX = M;
+  if (logoDataUrl) {
+    try {
+      doc.addImage(logoDataUrl, 'PNG', M, 8, 22, 22);
+      titleX = M + 26;
+    } catch (_) {}
+  }
+
   doc.setTextColor(...C.white);
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('Job Report', M, 18);
+  // Customer company name as primary title (falls back to "Fiber Oracle")
+  doc.text(s(companyName || 'Fiber Oracle'), titleX, 17);
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(150, 170, 210);
-  doc.text('Fiber Oracle Field Documentation', M, 26);
-  doc.text(new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }), M, 33);
+  // "Job Report" subtitle + "Powered by FiberOracle.com" co-brand line
+  doc.text('Job Report  |  Powered by FiberOracle.com', titleX, 24);
+  doc.text(new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }), titleX, 31);
 
   doc.setTextColor(...C.accent);
   doc.setFontSize(11);
@@ -811,6 +862,9 @@ function generateJobReportPDF(data) {
   const FOOTER_H = H - 14;
 
   // ── HELPERS ────────────────────────────────────────────────────────────────
+  const footerLeftText = `${s(companyName || 'Fiber Oracle')}  |  FiberOracle.com`;
+  const miniHeaderTitle = `${(companyName || 'Fiber Oracle').toUpperCase()} - JOB REPORT`;
+
   const checkPage = (needed = 14) => {
     if (y > FOOTER_H - needed) {
       // footer
@@ -818,19 +872,23 @@ function generateJobReportPDF(data) {
       doc.rect(0, H - 12, W, 12, 'F');
       doc.setTextColor(80, 100, 140);
       doc.setFontSize(6.5);
-      doc.text('Fiber Oracle  |  fiberoracle.com', M, H - 4);
+      doc.text(footerLeftText, M, H - 4);
       doc.text(`Generated: ${new Date().toLocaleString()}`, W - M, H - 4, { align: 'right' });
 
       doc.addPage();
-      // mini header
+      // mini header (with logo + customer name)
       doc.setFillColor(...C.header);
       doc.rect(0, 0, W, 16, 'F');
       doc.setFillColor(...C.accent);
       doc.rect(0, 16, W, 1.5, 'F');
+      let mhX = M;
+      if (logoDataUrl) {
+        try { doc.addImage(logoDataUrl, 'PNG', M, 2, 12, 12); mhX = M + 14; } catch (_) {}
+      }
       doc.setTextColor(...C.white);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      doc.text('FIBER ORACLE JOB REPORT', M, 10);
+      doc.text(s(miniHeaderTitle), mhX, 10);
       doc.setTextColor(150, 170, 210);
       doc.setFont('helvetica', 'normal');
       doc.text(`Job #${s(data.job_number || 'N/A')}`, W - M, 10, { align: 'right' });
@@ -986,7 +1044,7 @@ function generateJobReportPDF(data) {
   doc.rect(0, H - 12, W, 12, 'F');
   doc.setTextColor(80, 100, 140);
   doc.setFontSize(6.5);
-  doc.text('Fiber Oracle  |  fiberoracle.com', M, H - 4);
+  doc.text(footerLeftText, M, H - 4);
   doc.text(`Generated: ${new Date().toLocaleString()}`, W - M, H - 4, { align: 'right' });
 
   return doc.output('arraybuffer');

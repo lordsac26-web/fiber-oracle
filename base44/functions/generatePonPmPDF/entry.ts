@@ -801,18 +801,29 @@ Deno.serve(async (req) => {
 
     const { summary, onts } = reportData;
 
-    // ── Customer branding from AppSettings ──────────────────────────────────
+    // ── Customer branding ──────────────────────────────────────────────────
+    // Source: the calling user's saved preferences. The Settings → Branding tab
+    // persists `companyName` and `logoUrl` to user.preferences via
+    // base44.auth.updateMe — no separate DB lookup needed.
     let customerLogo = null;
     let customerName = null;
-    try {
-      const settings = await base44.entities.AppSettings.list('-created_date', 1);
-      if (settings?.[0]) {
-        if (settings[0].logo_url)     customerLogo = await fetchLogoAsBase64(settings[0].logo_url);
-        if (settings[0].company_name) customerName = s(settings[0].company_name);
-      }
-    } catch (_) {}
+    let customerLogoUrl = null;
 
-    // Fallback to default Fiber Oracle logo if no customer logo set
+    if (user?.preferences) {
+      if (user.preferences.companyName) customerName    = s(user.preferences.companyName);
+      if (user.preferences.logoUrl)     customerLogoUrl = user.preferences.logoUrl;
+    }
+
+    // The Settings page seeds companyName with the placeholder "Fiber Oracle"
+    // for users who never customized it — treat that as "not set" so the
+    // report keeps its native Fiber Oracle styling instead of echoing the
+    // default literally as a customer name.
+    if (customerName === 'Fiber Oracle') customerName = null;
+
+    if (customerLogoUrl) customerLogo = await fetchLogoAsBase64(customerLogoUrl);
+
+    // Final fallback to the default Fiber Oracle logo if the user never
+    // uploaded a custom one.
     if (!customerLogo) {
       customerLogo = await fetchLogoAsBase64(
         'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png'
