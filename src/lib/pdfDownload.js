@@ -27,7 +27,9 @@ export async function downloadPdfFromFunction(functionName, payload, filename) {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     },
-    credentials: 'include',
+    // Do NOT use credentials:'include' — the platform responds with
+    // Access-Control-Allow-Origin: * which browsers reject for credentialed
+    // requests. The Bearer token above is sufficient for authentication.
     body: JSON.stringify(payload),
   });
 
