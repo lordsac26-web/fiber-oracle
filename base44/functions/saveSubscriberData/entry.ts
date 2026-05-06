@@ -1,80 +1,74 @@
+/**
+ * saveSubscriberData
+ *
+ * Lightweight metadata-management function for subscriber uploads.
+ * Records are bulk-created DIRECTLY by the frontend via the SDK (to avoid
+ * the HTTP payload size limit that was causing 500 errors on large CSVs).
+ *
+ * This function only handles:
+ *   1. Archive the current active SubscriberUploadMeta → SubscriberUploadHistory
+ *   2. Mark the old active meta as 'replaced'
+ *   3. Create the new active SubscriberUploadMeta record
+ *   4. Fire-and-forget background sync to enrich ONTPerformanceRecords
+ *
+ * Payload: { file_name, record_count, upload_date }
+ */
+
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    if (!user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { file_name, record_count, upload_date } = await req.json();
+
+    if (!record_count || record_count < 1) {
+      return Response.json({ error: 'record_count is required and must be > 0' }, { status: 400 });
     }
 
-    const { records, file_name } = await req.json();
-
-    if (!records || !Array.isArray(records) || records.length === 0) {
-      return Response.json({ error: 'No records provided' }, { status: 400 });
-    }
-
-    // 1) Delete all existing subscriber records for this user — paginate to handle >10k
-    //    (Done first so the old data set is cleared before the new one is inserted.)
-    let deleteOffset = 0;
-    const DELETE_PAGE = 500;
-    while (true) {
-      const existingBatch = await base44.entities.SubscriberRecord.filter(
-        { created_by: user.email }, null, DELETE_PAGE, deleteOffset
-      );
-      if (!existingBatch.length) break;
-      // Delete in parallel chunks of 50 for speed
-      for (let i = 0; i < existingBatch.length; i += 50) {
-        const chunk = existingBatch.slice(i, i + 50);
-        await Promise.all(chunk.map(r => base44.entities.SubscriberRecord.delete(r.id)));
-      }
-      if (existingBatch.length < DELETE_PAGE) break;
-      // Don't advance offset — we deleted records so the next page is now at 0
-    }
-
-    // 2) Bulk-create new records in chunks of 200 for better throughput
-    const CHUNK_SIZE = 200;
-    let savedCount = 0;
-    for (let i = 0; i < records.length; i += CHUNK_SIZE) {
-      const chunk = records.slice(i, i + CHUNK_SIZE);
-      await base44.entities.SubscriberRecord.bulkCreate(chunk);
-      savedCount += chunk.length;
-    }
-
-    // 3) Create the new active metadata record FIRST (before marking old ones replaced).
-    //    This ensures there's always at least one 'active' meta — even if step 4 fails.
-    const meta = await base44.entities.SubscriberUploadMeta.create({
-      file_name: file_name || 'subscriber_data.csv',
-      record_count: savedCount,
-      upload_date: new Date().toISOString(),
-      status: 'active',
-    });
-
-    // 4) Mark any prior active uploads as 'replaced' (excluding the one just created).
-    const existingMeta = await base44.entities.SubscriberUploadMeta.filter(
+    // 1) Find all currently active metas for this user
+    const activeMetas = await base44.asServiceRole.entities.SubscriberUploadMeta.filter(
       { status: 'active', created_by: user.email }
     );
-    for (const old of existingMeta) {
-      if (old.id === meta.id) continue;
-      await base44.entities.SubscriberUploadMeta.update(old.id, { status: 'replaced' });
+
+    // 2) Archive each active meta into SubscriberUploadHistory
+    for (const old of activeMetas) {
+      await base44.asServiceRole.entities.SubscriberUploadHistory.create({
+        file_name:     old.file_name    || 'unknown',
+        record_count:  old.record_count || 0,
+        upload_date:   old.upload_date  || old.created_date,
+        archived_date: new Date().toISOString(),
+        uploaded_by:   old.created_by   || user.email,
+      });
+      // Mark old meta as replaced
+      await base44.asServiceRole.entities.SubscriberUploadMeta.update(old.id, { status: 'replaced' });
     }
 
-    // 5) Kick off background sync to enrich all existing ONTPerformanceRecords.
-    //    Fire-and-forget — don't await so this response returns quickly.
-    //    The sync function handles its own logging and error recovery.
+    // 3) Create the new active meta record
+    const uploadDateStr = upload_date || new Date().toISOString();
+    const meta = await base44.asServiceRole.entities.SubscriberUploadMeta.create({
+      file_name:    file_name    || 'subscriber_data.csv',
+      record_count: record_count,
+      upload_date:  uploadDateStr,
+      status:       'active',
+    });
+
+    // 4) Kick off background sync (fire-and-forget)
     base44.functions.invoke('syncSubscriberToOntRecords', {}).catch((err) => {
       console.error('[saveSubscriberData] Background sync failed to start:', err.message);
     });
 
     return Response.json({
-      success: true,
-      saved_count: savedCount,
-      meta_id: meta.id,
-      upload_date: meta.upload_date,
-      sync_started: true,
+      success:      true,
+      meta_id:      meta.id,
+      upload_date:  meta.upload_date,
+      record_count: meta.record_count,
+      archived:     activeMetas.length,
     });
   } catch (error) {
-    console.error('Save subscriber data error:', error);
+    console.error('[saveSubscriberData] Error:', error);
     return Response.json({ error: error.message }, { status: 500 });
   }
 });

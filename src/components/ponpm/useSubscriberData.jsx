@@ -82,45 +82,73 @@ export function useSubscriberData() {
     return matched;
   }, []);
 
-  // Callback when new CSV data is uploaded — saves to DB and refreshes queries
+  // Callback when new CSV data is uploaded — saves to DB and refreshes queries.
+  //
+  // Architecture: records are bulk-created DIRECTLY via the SDK (not sent through
+  // the backend function) to avoid HTTP payload size limits that caused 500 errors
+  // on large CSVs (30k+ records). The function only handles metadata + archiving.
   const handleSubscriberDataLoaded = useCallback(async (records, fileName) => {
     // Build lookup immediately for in-session use
     subscriberLookupRef.current = buildSubscriberLookup(records);
-    // Mark records as loaded so recordsLoaded flips true in-session
     setRecordsEnabled(true);
 
-    // Optimistically update the meta cache so the button/banner reflect the
-    // new upload immediately, before the server round-trip completes.
+    const uploadDate = new Date().toISOString();
+
+    // Optimistically update the meta cache so the UI reflects the new upload immediately
     const optimisticMeta = {
       id: '__optimistic__',
       file_name: fileName || 'subscriber_data.csv',
       record_count: records.length,
-      upload_date: new Date().toISOString(),
+      upload_date: uploadDate,
       status: 'active',
-      created_date: new Date().toISOString(),
+      created_date: uploadDate,
     };
     queryClient.setQueryData(['subscriber-upload-meta'], [optimisticMeta]);
 
-    // Save to DB in background
     try {
+      // Step 1: Delete existing subscriber records in paginated batches
+      let deleteOffset = 0;
+      const DELETE_PAGE = 500;
+      while (true) {
+        const existing = await base44.entities.SubscriberRecord.list(null, DELETE_PAGE, deleteOffset);
+        if (!existing.length) break;
+        // Delete in parallel chunks of 50
+        for (let i = 0; i < existing.length; i += 50) {
+          const chunk = existing.slice(i, i + 50);
+          await Promise.all(chunk.map(r => base44.entities.SubscriberRecord.delete(r.id)));
+        }
+        if (existing.length < DELETE_PAGE) break;
+        // Don't advance offset — deleted records shift the page
+      }
+
+      // Step 2: Bulk-create new records in chunks of 500 via SDK directly
+      const CHUNK = 500;
+      for (let i = 0; i < records.length; i += CHUNK) {
+        await base44.entities.SubscriberRecord.bulkCreate(records.slice(i, i + CHUNK));
+      }
+
+      // Step 3: Call lightweight meta function (archive old + create new meta)
       const res = await base44.functions.invoke('saveSubscriberData', {
-        records,
-        file_name: fileName || 'subscriber_data.csv',
+        file_name:    fileName || 'subscriber_data.csv',
+        record_count: records.length,
+        upload_date:  uploadDate,
       });
-      // Replace optimistic entry with real server data
+
+      // Update cache with real server meta
       if (res.data?.success) {
         queryClient.setQueryData(['subscriber-upload-meta'], [{
           ...optimisticMeta,
-          id: res.data.meta_id,
-          upload_date: res.data.upload_date || optimisticMeta.upload_date,
+          id:          res.data.meta_id,
+          upload_date: res.data.upload_date || uploadDate,
         }]);
       }
-      // Then do a background refetch to get the fully-consistent server state
+
+      // Invalidate to get fully-consistent server state
       queryClient.invalidateQueries({ queryKey: ['subscriber-upload-meta'] });
       queryClient.invalidateQueries({ queryKey: ['subscriber-records'] });
     } catch (error) {
       console.error('Failed to persist subscriber data:', error);
-      // Data still works in-session even if DB save fails
+      // Lookup still works in-session even if DB save fails
     }
 
     return records;
