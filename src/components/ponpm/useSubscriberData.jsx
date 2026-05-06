@@ -43,13 +43,21 @@ export function useSubscriberData() {
   // This avoids partial silent loads after a fresh page reload.
   const [recordsEnabled, setRecordsEnabled] = useState(false);
   const { data: subscriberRecords = [], isLoading: recordsLoading } = useQuery({
-    queryKey: ['subscriber-records'],
+    // Key includes the active meta id so a fresh upload (new id) refetches
+    // automatically and we never serve stale records from a previous upload.
+    queryKey: ['subscriber-records', subscriberMeta?.id],
     queryFn: async () => {
       const all = [];
       const PAGE = 10000;
       const MAX_PAGES = 5; // 50k cap
+      // Scope the read to the currently active upload generation. Filtering
+      // server-side avoids pulling orphaned legacy rows that the background
+      // purge hasn't deleted yet.
+      const filter = subscriberMeta?.id ? { upload_id: subscriberMeta.id } : {};
       for (let i = 0; i < MAX_PAGES; i++) {
-        const page = await base44.entities.SubscriberRecord.list('-created_date', PAGE, i * PAGE);
+        const page = await base44.entities.SubscriberRecord.filter(
+          filter, '-created_date', PAGE, i * PAGE
+        );
         all.push(...page);
         if (page.length < PAGE) break; // last page
         await new Promise(r => setTimeout(r, 150)); // breathe between pages
@@ -116,32 +124,56 @@ export function useSubscriberData() {
     // (records partially deleted, meta updated to a stale state).
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    try {
-      // Step 1: Delete existing subscriber records — throttled to 5 in-flight
-      //         with a 100ms pause between batches to stay under rate limit.
-      const DELETE_PAGE = 500;
-      const DELETE_PARALLEL = 5;
-      const DELETE_DELAY_MS = 100;
-      while (true) {
-        const existing = await base44.entities.SubscriberRecord.list(null, DELETE_PAGE, 0);
-        if (!existing.length) break;
-        for (let i = 0; i < existing.length; i += DELETE_PARALLEL) {
-          const chunk = existing.slice(i, i + DELETE_PARALLEL);
-          await Promise.all(chunk.map(r => base44.entities.SubscriberRecord.delete(r.id)));
-          await sleep(DELETE_DELAY_MS);
+    // Retry helper — exponential backoff on 429 (rate limit) errors so
+    // transient throttling doesn't kill a whole upload.
+    const withRateLimitRetry = async (fn, label, maxAttempts = 5) => {
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          return await fn();
+        } catch (err) {
+          const isRateLimit = err?.status === 429
+            || /rate limit/i.test(err?.message || '')
+            || /rate limit/i.test(err?.data?.message || '');
+          if (!isRateLimit || attempt === maxAttempts) throw err;
+          const wait = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s, 8s
+          console.warn(`[${label}] rate-limited, retry ${attempt}/${maxAttempts - 1} in ${wait}ms`);
+          await sleep(wait);
         }
-        if (existing.length < DELETE_PAGE) break;
       }
+    };
 
-      // Step 2: Bulk-create new records — sequential chunks with a small breath
-      //         between calls. If ANY chunk fails we abort so we never write a
-      //         meta record claiming records that weren't actually inserted.
+    try {
+      // Step 1: RESERVE — create a NEW pending meta so we get an id to stamp
+      //         records with. This avoids the up-front bulk-delete that was
+      //         tripping the rate limit. Old records remain in place but are
+      //         invisible (lookups filter by the active meta's id).
+      const reserveRes = await withRateLimitRetry(
+        () => base44.functions.invoke('saveSubscriberData', {
+          mode:         'reserve',
+          file_name:    fileName || 'subscriber_data.csv',
+          record_count: records.length,
+          upload_date:  uploadDate,
+        }),
+        'saveSubscriberData:reserve'
+      );
+
+      if (!reserveRes.data?.success || !reserveRes.data?.meta_id) {
+        throw new Error(reserveRes.data?.error || 'Failed to reserve upload slot');
+      }
+      const newMetaId = reserveRes.data.meta_id;
+
+      // Step 2: BULK CREATE — stamp every record with the new upload_id so
+      //         we can identify and (eventually) clean up the old generation.
+      //         Sequential chunks with breathing room; retries on 429.
       const CHUNK = 500;
-      const CREATE_DELAY_MS = 150;
+      const CREATE_DELAY_MS = 400;
       let createdCount = 0;
       for (let i = 0; i < records.length; i += CHUNK) {
-        const slice = records.slice(i, i + CHUNK);
-        await base44.entities.SubscriberRecord.bulkCreate(slice);
+        const slice = records.slice(i, i + CHUNK).map((r) => ({ ...r, upload_id: newMetaId }));
+        await withRateLimitRetry(
+          () => base44.entities.SubscriberRecord.bulkCreate(slice),
+          `bulkCreate chunk ${i / CHUNK + 1}`
+        );
         createdCount += slice.length;
         if (i + CHUNK < records.length) await sleep(CREATE_DELAY_MS);
       }
@@ -150,36 +182,37 @@ export function useSubscriberData() {
         throw new Error(`Bulk create incomplete: ${createdCount}/${records.length}`);
       }
 
-      // Step 3: Only after all records are confirmed inserted do we update
-      //         the meta record (archive old + create new).
-      const res = await base44.functions.invoke('saveSubscriberData', {
-        file_name:    fileName || 'subscriber_data.csv',
-        record_count: createdCount,
-        upload_date:  uploadDate,
-      });
+      // Step 3: ACTIVATE — atomically swap the new meta to 'active' and the
+      //         previous one to 'replaced'. From here on the new generation
+      //         is visible to all readers. Old records are orphaned and
+      //         scheduled for async cleanup by purgeOrphanSubscriberRecords.
+      const activateRes = await withRateLimitRetry(
+        () => base44.functions.invoke('saveSubscriberData', {
+          mode:    'activate',
+          meta_id: newMetaId,
+        }),
+        'saveSubscriberData:activate'
+      );
 
-      if (res.data?.success) {
-        queryClient.setQueryData(['subscriber-upload-meta'], [{
-          ...optimisticMeta,
-          id:          res.data.meta_id,
-          upload_date: res.data.upload_date || uploadDate,
-          record_count: createdCount,
-        }]);
-      } else {
-        throw new Error(res.data?.error || 'saveSubscriberData failed');
+      if (!activateRes.data?.success) {
+        throw new Error(activateRes.data?.error || 'Failed to activate new upload');
       }
 
-      // Force a server round-trip (refetch, not just invalidate) so the UI
-      // reflects the canonical 'active' record after the backend has archived
-      // the old one.
+      queryClient.setQueryData(['subscriber-upload-meta'], [{
+        ...optimisticMeta,
+        id:           newMetaId,
+        upload_date:  activateRes.data.upload_date || uploadDate,
+        record_count: createdCount,
+      }]);
+
+      // Force a server round-trip so the UI reflects the canonical 'active'
+      // record after the backend swap.
       await queryClient.refetchQueries({ queryKey: ['subscriber-upload-meta'], exact: true });
       queryClient.invalidateQueries({ queryKey: ['subscriber-records'] });
     } catch (error) {
       console.error('Failed to persist subscriber data:', error);
       // Roll back optimistic cache so the UI doesn't lie about a save that failed.
       await queryClient.refetchQueries({ queryKey: ['subscriber-upload-meta'], exact: true });
-      // Re-throw so the calling dialog surfaces the real error to the user
-      // instead of showing a misleading "Loaded & saved" toast.
       throw error;
     }
 

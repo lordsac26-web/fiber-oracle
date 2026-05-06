@@ -2,6 +2,11 @@
   "name": "SubscriberRecord",
   "type": "object",
   "properties": {
+    "upload_id": {
+      "type": "string",
+      "description": "ID of the SubscriberUploadMeta record this row belongs to. Used to scope reads to the currently-active upload generation, so a fresh upload can be made visible instantly without first deleting the previous generation.",
+      "index": true
+    },
     "SubscriberName": {
       "type": "string",
       "description": "Customer/subscriber name"
@@ -59,52 +64,24 @@
   ],
   "rls": {
     "create": {
-      "$or": [
-        {
-          "created_by": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "read": {
-      "$or": [
-        {
-          "created_by": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "update": {
-      "$or": [
-        {
-          "created_by": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     },
     "delete": {
-      "$or": [
-        {
-          "created_by": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     }
   }
 }

@@ -1,17 +1,30 @@
 /**
  * saveSubscriberData
  *
- * Lightweight metadata-management function for subscriber uploads.
- * Records are bulk-created DIRECTLY by the frontend via the SDK (to avoid
- * the HTTP payload size limit that was causing 500 errors on large CSVs).
+ * Two-phase metadata management for subscriber uploads. Records are
+ * bulk-created DIRECTLY by the frontend via the SDK (to avoid the HTTP
+ * payload size limit that was causing 500 errors on large CSVs).
  *
- * This function only handles:
- *   1. Archive the current active SubscriberUploadMeta → SubscriberUploadHistory
- *   2. Mark the old active meta as 'replaced'
- *   3. Create the new active SubscriberUploadMeta record
- *   4. Fire-and-forget background sync to enrich ONTPerformanceRecords
+ * PHASE 1 (mode='reserve'): Create a NEW SubscriberUploadMeta with
+ *   status='pending'. The frontend then bulk-creates SubscriberRecord rows
+ *   stamped with that meta's id (upload_id). This makes the new generation
+ *   identifiable but invisible to readers (which filter for status='active').
  *
- * Payload: { file_name, record_count, upload_date }
+ * PHASE 2 (mode='activate'): Archive the previous active meta to history,
+ *   flip it to 'replaced', and flip the new meta from 'pending' → 'active'.
+ *   The swap is atomic from the reader's POV: at any moment exactly one
+ *   meta is active. Old SubscriberRecords (different upload_id) are
+ *   orphaned and cleaned up asynchronously by purgeOrphanSubscriberRecords.
+ *
+ * This design eliminates the up-front bulk-delete that was tripping the
+ * platform rate limit on 7k+ record uploads.
+ *
+ * Payload (reserve):  { mode: 'reserve',  file_name, record_count, upload_date }
+ * Payload (activate): { mode: 'activate', meta_id }
+ *
+ * Backwards-compat: if `mode` is omitted, the old combined behaviour runs
+ * (archive previous + create active in one call). New frontend calls supply
+ * `mode` explicitly.
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
@@ -22,22 +35,70 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { file_name, record_count, upload_date } = await req.json();
+    const body = await req.json();
+    const { mode, file_name, record_count, upload_date, meta_id } = body;
 
+    // ---- PHASE 1: reserve a new pending meta ----
+    if (mode === 'reserve') {
+      if (!record_count || record_count < 1) {
+        return Response.json({ error: 'record_count is required and must be > 0' }, { status: 400 });
+      }
+      const meta = await base44.asServiceRole.entities.SubscriberUploadMeta.create({
+        file_name:    file_name    || 'subscriber_data.csv',
+        record_count: record_count,
+        upload_date:  upload_date  || new Date().toISOString(),
+        status:       'pending', // not visible to readers yet
+      });
+      return Response.json({ success: true, meta_id: meta.id, upload_date: meta.upload_date });
+    }
+
+    // ---- PHASE 2: atomically activate the new meta and archive previous ----
+    if (mode === 'activate') {
+      if (!meta_id) {
+        return Response.json({ error: 'meta_id is required for activate' }, { status: 400 });
+      }
+
+      // Archive the currently-active meta(s) — system-wide, since subscriber
+      // data is shared reference data.
+      const activeMetas = await base44.asServiceRole.entities.SubscriberUploadMeta.filter({ status: 'active' });
+      const archivedAt = new Date().toISOString();
+      for (const old of activeMetas) {
+        await base44.asServiceRole.entities.SubscriberUploadHistory.create({
+          file_name:     old.file_name    || 'unknown',
+          record_count:  old.record_count || 0,
+          upload_date:   old.upload_date  || old.created_date,
+          archived_date: archivedAt,
+          uploaded_by:   old.created_by   || user.email,
+        });
+        await base44.asServiceRole.entities.SubscriberUploadMeta.update(old.id, { status: 'replaced' });
+      }
+
+      // Flip the pending meta to active
+      const activated = await base44.asServiceRole.entities.SubscriberUploadMeta.update(meta_id, { status: 'active' });
+
+      // Fire-and-forget background sync + orphan cleanup
+      base44.functions.invoke('syncSubscriberToOntRecords', {}).catch((err) => {
+        console.error('[saveSubscriberData] Background sync failed to start:', err.message);
+      });
+      base44.functions.invoke('purgeOrphanSubscriberRecords', {}).catch((err) => {
+        console.error('[saveSubscriberData] Orphan purge failed to start:', err.message);
+      });
+
+      return Response.json({
+        success:      true,
+        meta_id:      meta_id,
+        upload_date:  activated.upload_date,
+        record_count: activated.record_count,
+        archived:     activeMetas.length,
+      });
+    }
+
+    // ---- LEGACY: combined behaviour (kept for backwards compat) ----
     if (!record_count || record_count < 1) {
       return Response.json({ error: 'record_count is required and must be > 0' }, { status: 400 });
     }
 
-    // 1) Find ALL currently active metas (system-wide — subscriber data is shared
-    //    reference data, only one record should ever be 'active' at a time).
-    //    Previous version filtered by created_by, which left stale 'active'
-    //    rows from other admins/users in place and caused the UI to surface
-    //    the wrong "latest" meta on subsequent loads.
-    const activeMetas = await base44.asServiceRole.entities.SubscriberUploadMeta.filter(
-      { status: 'active' }
-    );
-
-    // 2) Archive each active meta into SubscriberUploadHistory and flip status
+    const activeMetas = await base44.asServiceRole.entities.SubscriberUploadMeta.filter({ status: 'active' });
     const archivedAt = new Date().toISOString();
     for (const old of activeMetas) {
       await base44.asServiceRole.entities.SubscriberUploadHistory.create({
@@ -50,7 +111,6 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.SubscriberUploadMeta.update(old.id, { status: 'replaced' });
     }
 
-    // 3) Create the new active meta record
     const uploadDateStr = upload_date || new Date().toISOString();
     const meta = await base44.asServiceRole.entities.SubscriberUploadMeta.create({
       file_name:    file_name    || 'subscriber_data.csv',
@@ -59,7 +119,6 @@ Deno.serve(async (req) => {
       status:       'active',
     });
 
-    // 4) Kick off background sync (fire-and-forget)
     base44.functions.invoke('syncSubscriberToOntRecords', {}).catch((err) => {
       console.error('[saveSubscriberData] Background sync failed to start:', err.message);
     });
