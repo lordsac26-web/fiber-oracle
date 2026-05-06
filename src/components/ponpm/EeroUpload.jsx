@@ -85,13 +85,28 @@ export function parseEeroCSV(text) {
 
 /**
  * Normalize a home_identifier / account name for lookup.
- * Uppercase + strip non-alphanumeric so "ACCT-1001", "acct1001", "Acct 1001"
- * all collide to the same key.
+ *
+ * Accounts follow a 16-digit canonical format: "8275" + 12 more digits
+ * (e.g. 8275100090049486). Some records carry a textual prefix/suffix to
+ * flag special status — e.g. "FD-8275100090049486" or "8275100090049486-X".
+ * For matching we want to ignore ALL non-numeric characters and lock onto
+ * the 16-digit account number itself, so an eero row keyed by the bare
+ * number still matches an ONT subscriber tagged with "FD-…" (and vice versa).
+ *
+ * Strategy:
+ *   1. Strip every non-digit character.
+ *   2. Search for the canonical pattern (8275 + 12 digits) and prefer it
+ *      when present — this is robust against extra digits accidentally
+ *      glued onto either side of the account number.
+ *   3. Fallback: return the full digit string so legacy / non-conforming
+ *      identifiers still produce a stable, comparable key.
  */
 export function normalizeHomeId(value) {
   if (!value) return null;
-  const n = String(value).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-  return n.length > 0 ? n : null;
+  const digits = String(value).replace(/\D+/g, '');
+  if (!digits) return null;
+  const canonical = digits.match(/8275\d{12}/);
+  return canonical ? canonical[0] : digits;
 }
 
 /**
