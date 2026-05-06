@@ -90,6 +90,7 @@ import SubscriberDataBanner from '@/components/ponpm/SubscriberDataBanner';
 import ONTTableRow from '@/components/ponpm/ONTTableRow';
 import LCPExportMenu from '@/components/lcp/LCPExportMenu';
 import JobReportDialog from '@/components/ponpm/JobReportDialog';
+import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
 const STATUS_COLORS = {
@@ -128,6 +129,10 @@ export default function PONPMAnalysis() {
   const [techFilter, setTechFilter] = useState('all');
   const [powerRangeFilter, setPowerRangeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('none');
+  // Global multi-select filters — apply across the entire dashboard (KPIs, charts, hierarchy, LCP summary)
+  const [globalSplitters, setGlobalSplitters] = useState([]);
+  const [globalOltPorts, setGlobalOltPorts] = useState([]);
+  const [globalModels, setGlobalModels] = useState([]);
   const [showKPIs, setShowKPIs] = useState(true);
   const [expandedOlts, setExpandedOlts] = useState([]);
   const [expandedPorts, setExpandedPorts] = useState([]);
@@ -453,6 +458,11 @@ export default function PONPMAnalysis() {
   }, []);
 
   const filteredOnts = useMemo(() => {
+    // Pre-build Sets for O(1) global filter checks (avoids N*M scans on large reports)
+    const splitterSet = globalSplitters.length ? new Set(globalSplitters) : null;
+    const oltPortSet  = globalOltPorts.length  ? new Set(globalOltPorts)  : null;
+    const modelSet    = globalModels.length    ? new Set(globalModels)    : null;
+
     let filtered = result?.onts?.filter(ont => {
       const term = searchTerm.toLowerCase();
       const matchesSearch = !searchTerm || 
@@ -486,7 +496,30 @@ export default function PONPMAnalysis() {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesOlt && matchesPort && matchesTech && matchesPowerRange;
+      // --- Global filters (additive — empty array = no restriction) ---
+      let matchesGlobalSplitter = true;
+      if (splitterSet) {
+        const key = ont._lcpNumber
+          ? (ont._splitterNumber ? `${ont._lcpNumber} / ${ont._splitterNumber}` : ont._lcpNumber)
+          : null;
+        matchesGlobalSplitter = key ? splitterSet.has(key) : false;
+      }
+
+      let matchesGlobalOltPort = true;
+      if (oltPortSet) {
+        matchesGlobalOltPort = ont._oltName && ont._port
+          ? oltPortSet.has(`${ont._oltName}|${ont._port}`)
+          : false;
+      }
+
+      let matchesGlobalModel = true;
+      if (modelSet) {
+        const m = ont.model || ont._subscriber?.model;
+        matchesGlobalModel = m ? modelSet.has(m) : false;
+      }
+
+      return matchesSearch && matchesStatus && matchesOlt && matchesPort && matchesTech && matchesPowerRange
+        && matchesGlobalSplitter && matchesGlobalOltPort && matchesGlobalModel;
     }) || [];
     
     // Apply sorting
@@ -509,7 +542,8 @@ export default function PONPMAnalysis() {
     }
     
     return filtered;
-  }, [result, searchTerm, statusFilter, oltFilter, portFilter, techFilter, powerRangeFilter, sortBy]);
+  }, [result, searchTerm, statusFilter, oltFilter, portFilter, techFilter, powerRangeFilter, sortBy,
+      globalSplitters, globalOltPorts, globalModels]);
 
   const saveThresholds = useCallback(() => {
     localStorage.setItem('ponPmThresholds', JSON.stringify(customThresholds));
@@ -1432,6 +1466,17 @@ Be specific, technical, and actionable.`;
               </CardContent>
             </Card>
 
+            {/* Global Filter Bar — applies to ALL charts, KPIs, hierarchy, and LCP summary */}
+            <GlobalFilterBar
+              onts={result.onts}
+              selectedSplitters={globalSplitters}
+              selectedOltPorts={globalOltPorts}
+              selectedModels={globalModels}
+              onSplittersChange={setGlobalSplitters}
+              onOltPortsChange={setGlobalOltPorts}
+              onModelsChange={setGlobalModels}
+            />
+
             {/* Advanced Filters */}
             <Card className="border-0 shadow">
               <CardContent className="p-4">
@@ -1533,6 +1578,9 @@ Be specific, technical, and actionable.`;
                         setTechFilter('all');
                         setPowerRangeFilter('all');
                         setSortBy('none');
+                        setGlobalSplitters([]);
+                        setGlobalOltPorts([]);
+                        setGlobalModels([]);
                       }}
                     >
                       Clear All
