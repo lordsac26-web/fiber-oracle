@@ -28,21 +28,25 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'record_count is required and must be > 0' }, { status: 400 });
     }
 
-    // 1) Find all currently active metas for this user
+    // 1) Find ALL currently active metas (system-wide — subscriber data is shared
+    //    reference data, only one record should ever be 'active' at a time).
+    //    Previous version filtered by created_by, which left stale 'active'
+    //    rows from other admins/users in place and caused the UI to surface
+    //    the wrong "latest" meta on subsequent loads.
     const activeMetas = await base44.asServiceRole.entities.SubscriberUploadMeta.filter(
-      { status: 'active', created_by: user.email }
+      { status: 'active' }
     );
 
-    // 2) Archive each active meta into SubscriberUploadHistory
+    // 2) Archive each active meta into SubscriberUploadHistory and flip status
+    const archivedAt = new Date().toISOString();
     for (const old of activeMetas) {
       await base44.asServiceRole.entities.SubscriberUploadHistory.create({
         file_name:     old.file_name    || 'unknown',
         record_count:  old.record_count || 0,
         upload_date:   old.upload_date  || old.created_date,
-        archived_date: new Date().toISOString(),
+        archived_date: archivedAt,
         uploaded_by:   old.created_by   || user.email,
       });
-      // Mark old meta as replaced
       await base44.asServiceRole.entities.SubscriberUploadMeta.update(old.id, { status: 'replaced' });
     }
 

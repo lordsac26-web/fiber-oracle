@@ -21,11 +21,16 @@ export function useSubscriberData() {
   const [subscriberMatchCount, setSubscriberMatchCount] = useState(0);
   const subscriberLookupRef = useRef(null);
 
-  // Load active upload metadata
+  // Load the single currently-active upload metadata.
+  // Subscriber data is system-wide shared reference data — only one record
+  // should ever have status='active'. We sort by -created_date as a safety
+  // guard in case a transient overlap exists during an upload swap.
   const { data: metaList = [], isLoading: metaLoading } = useQuery({
     queryKey: ['subscriber-upload-meta'],
     queryFn: () => base44.entities.SubscriberUploadMeta.filter({ status: 'active' }, '-created_date', 1),
-    staleTime: 2 * 60 * 1000,
+    // Short stale time so a fresh upload by ANOTHER admin/tab is picked up quickly.
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const subscriberMeta = metaList.length > 0 ? metaList[0] : null;
@@ -143,8 +148,11 @@ export function useSubscriberData() {
         }]);
       }
 
-      // Invalidate to get fully-consistent server state
-      queryClient.invalidateQueries({ queryKey: ['subscriber-upload-meta'] });
+      // Force a server round-trip (refetch, not just invalidate) so the UI
+      // reflects the canonical 'active' record after the backend has archived
+      // the old one. Using refetchQueries guarantees a network call rather
+      // than relying on the next render to trigger a refetch.
+      await queryClient.refetchQueries({ queryKey: ['subscriber-upload-meta'], exact: true });
       queryClient.invalidateQueries({ queryKey: ['subscriber-records'] });
     } catch (error) {
       console.error('Failed to persist subscriber data:', error);
