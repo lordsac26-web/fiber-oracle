@@ -4,10 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Activity, Zap, TrendingUp, TrendingDown, AlertTriangle, Radio, Wifi } from 'lucide-react';
 import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  ReferenceLine
 } from 'recharts';
+import ShelfHealthPanel from './ShelfHealthPanel';
 
 const TECH_OPTIONS = ['All', 'GPON', 'XGS-PON'];
 
@@ -371,42 +370,8 @@ export default function KPIStatistics({ result, filteredOnts, previousReport }) 
           </CardContent>
         </Card>
 
-        {/* Radar / Health overview */}
-        <Card className="border-0 shadow">
-          <CardHeader className="pb-1 pt-4 px-4">
-            <CardTitle className="text-sm">
-              Network Health Profile
-              {techFilter !== 'All' && <span className="text-xs font-normal text-gray-500 ml-2">— {techFilter}</span>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center pb-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <RadarChart data={radarData} margin={{ top: 0, right: 20, bottom: 0, left: 20 }}>
-                <PolarGrid stroke="#e5e7eb" />
-                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
-                <PolarRadiusAxis
-                  angle={90}
-                  domain={[0, stats.count]}
-                  tick={false}
-                  axisLine={false}
-                />
-                <Radar
-                  name="ONTs"
-                  dataKey="value"
-                  stroke={techColorClasses.stroke}
-                  fill={techColorClasses.stroke}
-                  fillOpacity={0.25}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-            {/* Legend row */}
-            <div className="flex items-center gap-4 text-[10px] text-gray-500 mt-1">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Optimal: {stats.optimalPower}</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Low Pwr: {stats.lowPower}</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Errors: {stats.ontsWithErrors}</span>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Per-shelf health breakdown */}
+        <ShelfHealthPanel filteredOnts={filteredOnts} techFilter={techFilter} />
       </div>
     </div>
   );
