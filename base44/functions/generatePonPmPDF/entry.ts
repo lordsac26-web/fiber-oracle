@@ -523,8 +523,13 @@ function buildCriticalOnlyReport(doc, ctx) {
   }
 }
 
-// ─── Per-ONT critical card ────────────────────────────────────────────────────
-function drawCriticalOntCard(doc, ont, y, newPageFn) {
+// ─── Per-ONT status card ──────────────────────────────────────────────────────
+// Used for both critical and warning ONTs — palette argument controls colors.
+// Default palette is critical/red. Pass a warning palette for warnings.
+function drawCriticalOntCard(doc, ont, y, newPageFn, palette = null) {
+  const pal = palette || {
+    bg: C.redBg, accent: C.red, dark: C.redDark, label: 'CRITICAL',
+  };
   const issues = [
     ...(ont._analysis?.issues   || []),
     ...(ont._analysis?.warnings || []),
@@ -537,24 +542,25 @@ function drawCriticalOntCard(doc, ont, y, newPageFn) {
   if (y > BODY_BOT - blockH) y = newPageFn();
 
   // Card
-  doc.setFillColor(...C.redBg);
+  doc.setFillColor(...pal.bg);
   doc.roundedRect(MARGIN, y, CONTENT_W, blockH, 2, 2, 'F');
-  doc.setFillColor(...C.red);
+  doc.setFillColor(...pal.accent);
   doc.roundedRect(MARGIN, y, 3, blockH, 1, 0, 'F');
 
-  // CRITICAL pill
-  doc.setFillColor(...C.red);
-  doc.roundedRect(PAGE_W - MARGIN - 22, y + 2, 20, 5, 1, 1, 'F');
+  // Status pill
+  const pillW = Math.max(20, pal.label.length * 2.5 + 6);
+  doc.setFillColor(...pal.accent);
+  doc.roundedRect(PAGE_W - MARGIN - pillW - 2, y + 2, pillW, 5, 1, 1, 'F');
   doc.setFontSize(6);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...C.white);
-  doc.text('CRITICAL', PAGE_W - MARGIN - 12, y + 5.4, { align: 'center' });
+  doc.text(pal.label, PAGE_W - MARGIN - pillW / 2 - 2, y + 5.4, { align: 'center' });
 
   // ONT identity row
   const ix = MARGIN + 6;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...C.redDark);
+  doc.setTextColor(...pal.dark);
   doc.text(`ONT ${s(ont.OntID || ont.ont_id || 'N/A')}`, ix, y + 6);
 
   doc.setFontSize(7);
@@ -620,7 +626,7 @@ function drawCriticalOntCard(doc, ont, y, newPageFn) {
     const isErr = ont._analysis?.issues?.includes(issue);
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...(isErr ? C.redDark : C.amberDark));
+    doc.setTextColor(...(isErr ? pal.dark : C.amberDark));
     doc.text(`* ${s(issue.field)}: ${s(String(issue.value))}`, ix, cardY + 3.5);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6);
@@ -641,44 +647,107 @@ function drawCriticalOntCard(doc, ont, y, newPageFn) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// FULL REPORT LAYOUT (legacy — preserved)
+// FULL REPORT LAYOUT — uses the same branded style as the critical-only report.
 // ──────────────────────────────────────────────────────────────────────────────
-function drawRunningHeader(doc, reportName, generatedDate, logoDataUrl) {
+
+// Branded header for the full report (slightly different label than critical).
+function drawFullReportHeader(doc, customerLogo, customerName, generatedDate) {
+  // Background band
   doc.setFillColor(...C.navy);
   doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
   doc.setFillColor(...C.accent);
   doc.rect(0, HEADER_H, PAGE_W, 1.2, 'F');
-  if (logoDataUrl) {
-    try { doc.addImage(logoDataUrl, 'PNG', MARGIN, 4, 14, 14); } catch (_) {}
-    doc.setTextColor(...C.white);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('FIBER ORACLE', MARGIN + 16, 12);
-  } else {
-    doc.setTextColor(...C.white);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('FIBER ORACLE', MARGIN, 12);
+
+  // Customer logo plate
+  let cursorX = MARGIN;
+  if (customerLogo) {
+    drawLogoOnPlate(doc, customerLogo, cursorX, 4, 18, 14);
+    cursorX += 22;
   }
-  doc.setFontSize(7);
+
+  // Customer name + co-brand
+  doc.setTextColor(...C.white);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  if (customerName) {
+    doc.text(s(customerName), cursorX, 11);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...C.subText);
+    doc.text('Powered by FiberOracle.com', cursorX, 17);
+  } else {
+    doc.text('FIBER ORACLE', cursorX, 11);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...C.subText);
+    doc.text('fiberoracle.com', cursorX, 17);
+  }
+
+  // Right-side report tag + date
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...C.accent);
+  doc.text('PON PM ANALYSIS REPORT', PAGE_W - MARGIN, 10, { align: 'right' });
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
   doc.setTextColor(...C.subText);
-  doc.text(s(reportName), PAGE_W / 2, 12, { align: 'center', maxWidth: 100 });
-  doc.text(s(generatedDate), PAGE_W - MARGIN, 12, { align: 'right' });
+  doc.text(s(generatedDate), PAGE_W - MARGIN, 16, { align: 'right' });
 }
 
-function drawRunningFooter(doc, pageNum, totalPages, companyName) {
-  const fy = PAGE_H - FOOTER_H;
-  doc.setFillColor(...C.navy);
-  doc.rect(0, fy, PAGE_W, FOOTER_H, 'F');
-  doc.setFillColor(...C.accent);
-  doc.rect(0, fy, PAGE_W, 0.6, 'F');
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...C.subText);
-  doc.text(s(companyName || 'Fiber Oracle  |  fiberoracle.com'), MARGIN, fy + 7);
-  doc.text(`Page ${pageNum} of ${totalPages}`, PAGE_W / 2, fy + 7, { align: 'center' });
-  doc.text('CONFIDENTIAL', PAGE_W - MARGIN, fy + 7, { align: 'right' });
+// Horizontal bar chart for "Top N OLT Ports by FEC Corrected Errors".
+// Renders the bars + labels; returns the y just below the chart.
+function drawHorizontalBarChart(doc, x, y, w, rows, opts = {}) {
+  const {
+    barH        = 6,
+    gap         = 2.5,
+    barColor    = C.accent,
+    labelMaxW   = 70,    // mm reserved for left-side labels
+    valueWidth  = 22,    // mm reserved for right-side value text
+  } = opts;
+
+  if (rows.length === 0) return y;
+
+  const max     = Math.max(...rows.map(r => r.value), 1);
+  const trackX  = x + labelMaxW + 2;
+  const trackW  = w - labelMaxW - valueWidth - 4;
+
+  rows.forEach((row, i) => {
+    const yi = y + i * (barH + gap);
+
+    // Label (left)
+    doc.setFontSize(6.8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.dark);
+    doc.text(s(row.label), x, yi + barH * 0.7, { maxWidth: labelMaxW });
+
+    // Sub-label (e.g., port path) — small line below the label, if present
+    if (row.sublabel) {
+      doc.setFontSize(5.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.muted);
+      // Render after main label: same line, faded, separated by " - "
+      const mainW = doc.getTextWidth(s(row.label));
+      doc.text(`  ${s(row.sublabel)}`, x + Math.min(mainW, labelMaxW - 20), yi + barH * 0.7);
+    }
+
+    // Track background
+    doc.setFillColor(...C.lightBg);
+    doc.roundedRect(trackX, yi, trackW, barH, 1, 1, 'F');
+
+    // Filled bar
+    const fillW = Math.max(1, (row.value / max) * trackW);
+    doc.setFillColor(...(row.color || barColor));
+    doc.roundedRect(trackX, yi, fillW, barH, 1, 1, 'F');
+
+    // Value (right)
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.dark);
+    const formatted = row.value.toLocaleString('en-US');
+    doc.text(formatted, x + w, yi + barH * 0.7, { align: 'right' });
+  });
+
+  return y + rows.length * (barH + gap);
 }
 
 function buildFullReport(doc, ctx) {
@@ -688,160 +757,314 @@ function buildFullReport(doc, ctx) {
   } = ctx;
   const onts = reportData.onts;
 
-  // Cover
-  doc.setFillColor(...C.navy);
-  doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
-  doc.setFillColor(...C.accent);
-  doc.rect(0, 0, 6, PAGE_H, 'F');
+  // Use full-report counts from `summary` so totals reflect the entire dataset
+  // (caller may have filtered ONTs but kept the original summary).
+  const totalOnts   = summary.totalOnts    ?? onts.length;
+  const criticalCnt = summary.criticalCount ?? criticalOnts.length;
+  const warningCnt  = summary.warningCount  ?? warningOnts.length;
+  const okCnt       = summary.okCount       ?? okOnts.length;
+  const offlineCnt  = summary.offlineCount  ?? offlineOnts.length;
 
-  const logoX = MARGIN + 6, logoY = 24;
-  if (customerLogo) {
-    try { doc.addImage(customerLogo, 'PNG', logoX, logoY, 22, 22); } catch (_) {}
-  }
-  doc.setTextColor(...C.white);
-  doc.setFontSize(20);
+  // ── Page 1 ────────────────────────────────────────────────────────────────
+  drawFullReportHeader(doc, customerLogo, customerName, generatedDate);
+  let y = BODY_TOP;
+
+  // Title block
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text(s(customerName || 'FIBER ORACLE'), logoX + (customerLogo ? 26 : 0), logoY + 12);
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...C.subText);
-  doc.text('Powered by FiberOracle.com', logoX + (customerLogo ? 26 : 0), logoY + 19);
-
-  const reportTitle = s(summary.reportName || 'PON PM Analysis Report');
-  doc.setFontSize(22);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...C.white);
-  const titleLines = doc.splitTextToSize(reportTitle, CONTENT_W - 8);
-  doc.text(titleLines, MARGIN + 6, logoY + 50);
-
-  const titleBottom = logoY + 50 + titleLines.length * 9;
+  doc.setTextColor(...C.dark);
+  doc.text('Full Issue Report', MARGIN, y + 4);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...C.subText);
-  doc.text(`Generated: ${generatedDateTime}`, MARGIN + 6, titleBottom + 6);
+  doc.setTextColor(...C.muted);
+  doc.text(s(summary.reportName || 'PON PM Analysis'), MARGIN, y + 10, { maxWidth: CONTENT_W });
+  doc.setFontSize(7.5);
+  doc.text(`Generated: ${generatedDateTime}`, MARGIN, y + 15);
+  y += 20;
 
-  // KPI cards on cover
-  const kpiTop = 130;
-  const kpiItems = [
-    { label: 'Total ONTs',  val: summary.totalOnts || 0,    color: C.accent },
-    { label: 'Critical',    val: criticalOnts.length,        color: C.red   },
-    { label: 'Warnings',    val: warningOnts.length,         color: C.amber },
-    { label: 'Healthy',     val: okOnts.length,              color: C.green },
-    { label: 'Offline',     val: offlineOnts.length,         color: C.muted },
+  // ── KPI strip ─────────────────────────────────────────────────────────────
+  y = drawSectionTitle(doc, 'Network Status Overview', y, C.navy);
+
+  const kpis = [
+    { label: 'Total ONTs', val: totalOnts,   color: C.dark,   accent: C.accent },
+    { label: 'Critical',   val: criticalCnt, color: C.red,    accent: C.red    },
+    { label: 'Warning',    val: warningCnt,  color: C.amber,  accent: C.amber  },
+    { label: 'Healthy',    val: okCnt,       color: C.green,  accent: C.green  },
+    { label: 'Offline',    val: offlineCnt,  color: C.slate,  accent: C.slate  },
   ];
   const kw = (CONTENT_W - 4 * 3) / 5;
-  kpiItems.forEach((k, i) => {
-    drawKpiTile(doc, MARGIN + i * (kw + 3), kpiTop, kw, 26, k.val, k.label, k.color, k.color);
+  const kpiPanelTop = y;
+  const kpiInset = 3;
+  kpis.forEach((k, i) => {
+    drawKpiTile(doc, MARGIN + kpiInset + i * (kw - 1.2 + 3), y + kpiInset, kw - 1.2, 22,
+                k.val, k.label, k.color, k.accent);
   });
+  y = drawSectionPanel(doc, kpiPanelTop, 22 + kpiInset * 2, 6);
 
-  // Detail pages
-  const renderOntCard = (ont, statusColor, statusBg, statusDark, statusLabel) => {
-    let y = doc.internal.pages[doc.internal.getCurrentPageInfo().pageNumber] ? null : null;
-    // simple: track y via a closure stored on doc
-    if (typeof doc._fullY === 'undefined') doc._fullY = BODY_TOP;
-    y = doc._fullY;
+  // ── OLTs in System (per-chassis issue mix pie) ────────────────────────────
+  // Group ALL non-healthy ONTs by chassis (critical + warning + offline) so
+  // the pie reflects total problem distribution across the network.
+  const issueOnts = [...criticalOnts, ...warningOnts, ...offlineOnts];
+  const chassisCounts = {};
+  issueOnts.forEach(ont => {
+    const chassis = s(ont._oltName || ont.olt_name || 'Unknown');
+    chassisCounts[chassis] = (chassisCounts[chassis] || 0) + 1;
+  });
+  const chassisEntries = Object.entries(chassisCounts).sort((a, b) => b[1] - a[1]);
+  const totalIssues = issueOnts.length;
 
-    const issues = [...(ont._analysis?.issues || []), ...(ont._analysis?.warnings || [])];
-    const hasSubscriber = !!(ont.subscriber_account_name || ont._subscriber?.name);
-    const subH = hasSubscriber ? 6 : 0;
-    const issueH = Math.min(issues.length, 5) * 6.5;
-    const blockH = 8 + 7 + 7 + subH + 13 + issueH + 4;
+  y = drawSectionTitle(
+    doc,
+    `OLTs in System  -  Issues by Chassis  (${chassisEntries.length})`,
+    y, C.indigo
+  );
+  const chassisPanelTop = y;
 
-    if (y > BODY_BOT - blockH) { doc.addPage(); y = BODY_TOP; }
+  if (chassisEntries.length > 0 && totalIssues > 0) {
+    const segments = chassisEntries.map(([name, count], i) => ({
+      value: count,
+      color: CHASSIS_COLORS[i % CHASSIS_COLORS.length],
+      label: name,
+    }));
 
-    doc.setFillColor(...statusBg);
-    doc.roundedRect(MARGIN, y, CONTENT_W, blockH, 2, 2, 'F');
-    doc.setFillColor(...statusColor);
-    doc.roundedRect(MARGIN, y, 3, blockH, 1, 0, 'F');
+    const pieR  = 26;
+    const pieCX = MARGIN + pieR + 6;
+    const pieCY = y + pieR + 4;
+    drawPieChart(doc, pieCX, pieCY, pieR, segments);
 
-    const ix = MARGIN + 6;
-    doc.setFontSize(9);
+    // Center label
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...statusDark);
-    doc.text(`ONT ${s(ont.OntID || ont.ont_id || 'N/A')}`, ix, y + 6);
-    doc.setFontSize(6.5);
+    doc.setTextColor(...C.indigo);
+    doc.text(String(totalIssues), pieCX, pieCY - 0.5, { align: 'center' });
+    doc.setFontSize(5.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...C.muted);
-    doc.text(`Serial: ${s(ont.SerialNumber || ont.serial_number || 'N/A')}`, ix + 26, y + 6);
-    doc.setFontSize(6);
-    doc.setFont('helvetica', 'bold');
-    doc.setFillColor(...statusColor);
-    doc.roundedRect(PAGE_W - MARGIN - 20, y + 2, 18, 5, 1, 1, 'F');
-    doc.setTextColor(...C.white);
-    doc.text(statusLabel, PAGE_W - MARGIN - 11, y + 5.4, { align: 'center' });
+    doc.text('ISSUES', pieCX, pieCY + 4, { align: 'center' });
 
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...C.slate);
-    doc.text(`${s(ont._oltName || 'N/A')} / Port ${s(ont._port || 'N/A')}`, ix, y + 12);
-
-    let cardY = y + 16;
-    if (hasSubscriber) {
-      doc.setFontSize(6.5);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(...C.indigo);
-      doc.text(s(ont.subscriber_account_name || ont._subscriber?.name || ''), ix, cardY + 3, { maxWidth: CONTENT_W - 12 });
-      cardY += 6;
-    }
-
-    const pItems = [
-      { label: 'ONT Rx', val: ont.OntRxOptPwr, threshold: -27, low: true },
-      { label: 'OLT Rx', val: ont.OLTRXOptPwr, threshold: -28, low: true },
-      { label: 'ONT Tx', val: ont.OntTxPwr },
-    ];
-    const pw = (CONTENT_W - 14) / pItems.length;
-    pItems.forEach((p, pi) => {
-      const px = ix + pi * pw;
-      const v = parseFloat(p.val);
-      const bad = !isNaN(v) && p.threshold != null && (p.low ? v < p.threshold : v > p.threshold);
-      doc.setFillColor(bad ? 254 : 255, bad ? 226 : 255, bad ? 226 : 255);
-      doc.setDrawColor(...(bad ? C.red : C.border));
-      doc.setLineWidth(0.3);
-      doc.roundedRect(px - 1, cardY, pw - 2, 11, 1, 1, 'FD');
-      doc.setFontSize(9);
+    // Legend on right
+    const legendX = pieCX + pieR + 12;
+    const legendW = PAGE_W - MARGIN - legendX;
+    let legendY = y + 2;
+    const itemH = 6;
+    const maxItems = Math.floor((pieR * 2 + 4) / itemH);
+    segments.slice(0, maxItems).forEach((seg) => {
+      doc.setFillColor(...seg.color);
+      doc.roundedRect(legendX, legendY, 4, 4, 0.5, 0.5, 'F');
+      doc.setFontSize(7.5);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...(bad ? C.red : C.dark));
-      doc.text(isNaN(v) ? 'N/A' : v.toFixed(2), px + (pw - 4) / 2, cardY + 6, { align: 'center' });
-      doc.setFontSize(5);
+      doc.setTextColor(...C.dark);
+      doc.text(s(seg.label), legendX + 6, legendY + 3.3, { maxWidth: legendW - 30 });
+      const pct = ((seg.value / totalIssues) * 100).toFixed(1);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...C.muted);
-      doc.text(`dBm  ${p.label}`, px + (pw - 4) / 2, cardY + 9.5, { align: 'center' });
+      doc.text(`${seg.value}  (${pct}%)`, PAGE_W - MARGIN, legendY + 3.3, { align: 'right' });
+      legendY += itemH;
     });
-    cardY += 13;
 
-    issues.slice(0, 5).forEach(issue => {
-      if (cardY + 6 > y + blockH - 1) return;
+    y += pieR * 2 + 8;
+
+    // Overflow row if more chassis than fit in legend
+    if (chassisEntries.length > maxItems) {
+      const overflow = chassisEntries.slice(maxItems);
       doc.setFontSize(6.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...statusDark);
-      doc.text(`* ${s(issue.field)}: ${s(String(issue.value))}`, ix, cardY + 3.5);
-      cardY += 6.5;
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.muted);
+      doc.text(
+        `+ ${overflow.length} more: ${overflow.map(([n, c]) => `${n} (${c})`).join(', ')}`,
+        MARGIN + 4, y, { maxWidth: CONTENT_W - 8 }
+      );
+      y += 6;
+    }
+  } else {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(...C.muted);
+    doc.text('No issues found - network is healthy.', MARGIN + 4, y + 6);
+    y += 12;
+  }
+  y = drawSectionPanel(doc, chassisPanelTop, y - chassisPanelTop, 6);
+
+  // ── Top 10 OLT Ports by FEC Corrected Errors ─────────────────────────────
+  // Aggregate Downstream + Upstream FEC corrected codewords per port across
+  // all ONTs on that port, then sort and take top 10.
+  const portFec = {}; // "OLT|PORT" → { olt, port, total, ds, us, ontCount }
+  onts.forEach(ont => {
+    const olt  = s(ont._oltName || ont.olt_name || 'Unknown');
+    const port = s(ont._port    || ont.shelf_slot_port || 'Unknown');
+    const ds   = parseFloat(ont.DSFECCorrectedCodeWords ?? ont.ds_fec_corrected ?? 0) || 0;
+    const us   = parseFloat(ont.USFECCorrectedCodeWords ?? ont.us_fec_corrected ?? 0) || 0;
+    if (ds === 0 && us === 0) return;
+    const key = `${olt}|${port}`;
+    if (!portFec[key]) portFec[key] = { olt, port, total: 0, ds: 0, us: 0, ontCount: 0 };
+    portFec[key].total   += ds + us;
+    portFec[key].ds      += ds;
+    portFec[key].us      += us;
+    portFec[key].ontCount++;
+  });
+  const topFec = Object.values(portFec).sort((a, b) => b.total - a.total).slice(0, 10);
+
+  if (topFec.length > 0) {
+    if (y > BODY_BOT - 80) { doc.addPage(); drawFullReportHeader(doc, customerLogo, customerName, generatedDate); y = BODY_TOP; }
+    y = drawSectionTitle(doc, 'Top 10 OLT Ports by FEC Corrected Errors', y, C.purple);
+    const fecPanelTop = y;
+    const fecPanelInset = 4;
+
+    // Subtitle
+    doc.setFontSize(6.8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(...C.muted);
+    doc.text(
+      'Sum of Downstream + Upstream corrected codewords across all ONTs on each port.',
+      MARGIN + fecPanelInset, y + fecPanelInset + 2
+    );
+
+    // Bars
+    const barRows = topFec.map(r => ({
+      label:    `${r.olt}  ${r.port}`,
+      sublabel: `(${r.ontCount} ONT${r.ontCount === 1 ? '' : 's'})`,
+      value:    r.total,
+      color:    C.purple,
+    }));
+    const chartTopY = y + fecPanelInset + 6;
+    const chartEndY = drawHorizontalBarChart(
+      doc,
+      MARGIN + fecPanelInset, chartTopY,
+      CONTENT_W - fecPanelInset * 2,
+      barRows,
+      { barH: 5.5, gap: 2.2, barColor: C.purple, labelMaxW: 75, valueWidth: 24 }
+    );
+
+    y = drawSectionPanel(doc, fecPanelTop, chartEndY - fecPanelTop + 2, 6);
+  }
+
+  // ── Critical ONT detail cards ─────────────────────────────────────────────
+  if (criticalOnts.length > 0) {
+    if (y > BODY_BOT - 40) {
+      doc.addPage();
+      drawFullReportHeader(doc, customerLogo, customerName, generatedDate);
+      y = BODY_TOP;
+    }
+    y = drawSectionTitle(doc, `Critical ONT Details  (${criticalOnts.length})`, y, C.red);
+
+    const sorted = [...criticalOnts].sort((a, b) => {
+      const oa = s(a._oltName || a.olt_name || ''), ob = s(b._oltName || b.olt_name || '');
+      if (oa !== ob) return oa.localeCompare(ob, undefined, { numeric: true });
+      const pa = s(a._port || a.shelf_slot_port || ''), pb = s(b._port || b.shelf_slot_port || '');
+      return pa.localeCompare(pb, undefined, { numeric: true });
     });
 
-    doc._fullY = y + blockH + 3;
-  };
+    const MAX = 200;
+    sorted.slice(0, MAX).forEach(ont => {
+      y = drawCriticalOntCard(doc, ont, y, () => {
+        doc.addPage();
+        drawFullReportHeader(doc, customerLogo, customerName, generatedDate);
+        return BODY_TOP;
+      });
+    });
 
-  if (criticalOnts.length > 0) {
-    doc.addPage();
-    doc._fullY = drawSectionTitle(doc, `Critical Issues (${criticalOnts.length})`, BODY_TOP, C.red);
-    criticalOnts.slice(0, 100).forEach(ont => renderOntCard(ont, C.red, C.redBg, C.redDark, 'CRIT'));
+    if (sorted.length > MAX) {
+      if (y > BODY_BOT - 8) { doc.addPage(); drawFullReportHeader(doc, customerLogo, customerName, generatedDate); y = BODY_TOP; }
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.muted);
+      doc.text(`... ${sorted.length - MAX} additional critical ONTs not shown. Use CSV export for the full list.`,
+        MARGIN, y + 4, { maxWidth: CONTENT_W });
+      y += 8;
+    }
   }
+
+  // ── Warning ONT detail cards ──────────────────────────────────────────────
   if (warningOnts.length > 0) {
-    doc.addPage();
-    doc._fullY = drawSectionTitle(doc, `Warnings (${warningOnts.length})`, BODY_TOP, [180, 100, 0]);
-    warningOnts.slice(0, 100).forEach(ont => renderOntCard(ont, C.amber, C.amberBg, C.amberDark, 'WARN'));
+    if (y > BODY_BOT - 40) {
+      doc.addPage();
+      drawFullReportHeader(doc, customerLogo, customerName, generatedDate);
+      y = BODY_TOP;
+    }
+    y = drawSectionTitle(doc, `Warning ONT Details  (${warningOnts.length})`, y, C.amber);
+
+    const sorted = [...warningOnts].sort((a, b) => {
+      const oa = s(a._oltName || a.olt_name || ''), ob = s(b._oltName || b.olt_name || '');
+      if (oa !== ob) return oa.localeCompare(ob, undefined, { numeric: true });
+      const pa = s(a._port || a.shelf_slot_port || ''), pb = s(b._port || b.shelf_slot_port || '');
+      return pa.localeCompare(pb, undefined, { numeric: true });
+    });
+
+    const warnPalette = { bg: C.amberBg, accent: C.amber, dark: C.amberDark, label: 'WARNING' };
+    const MAX = 200;
+    sorted.slice(0, MAX).forEach(ont => {
+      y = drawCriticalOntCard(doc, ont, y, () => {
+        doc.addPage();
+        drawFullReportHeader(doc, customerLogo, customerName, generatedDate);
+        return BODY_TOP;
+      }, warnPalette);
+    });
+
+    if (sorted.length > MAX) {
+      if (y > BODY_BOT - 8) { doc.addPage(); drawFullReportHeader(doc, customerLogo, customerName, generatedDate); y = BODY_TOP; }
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.muted);
+      doc.text(`... ${sorted.length - MAX} additional warning ONTs not shown. Use CSV export for the full list.`,
+        MARGIN, y + 4, { maxWidth: CONTENT_W });
+      y += 8;
+    }
   }
+
+  // ── Offline ONT compact list ──────────────────────────────────────────────
   if (offlineOnts.length > 0) {
-    doc.addPage();
-    let y = drawSectionTitle(doc, `Offline (${offlineOnts.length})`, BODY_TOP, C.slate);
-    offlineOnts.slice(0, 80).forEach(ont => {
-      if (y > BODY_BOT - 6) { doc.addPage(); y = BODY_TOP; }
+    if (y > BODY_BOT - 30) {
+      doc.addPage();
+      drawFullReportHeader(doc, customerLogo, customerName, generatedDate);
+      y = BODY_TOP;
+    }
+    y = drawSectionTitle(doc, `Offline ONTs  (${offlineOnts.length})`, y, C.slate);
+    const offPanelTop = y;
+
+    // Compact two-column table header
+    doc.setFillColor(...C.navyMid);
+    doc.roundedRect(MARGIN + 1.5, y + 1.5, CONTENT_W - 3, 6.5, 1, 1, 'F');
+    y += 1.5;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.white);
+    doc.text('ONT',         MARGIN + 5,   y + 4.5);
+    doc.text('OLT / Port',  MARGIN + 30,  y + 4.5);
+    doc.text('Serial',      MARGIN + 95,  y + 4.5);
+    doc.text('Model',       MARGIN + 145, y + 4.5);
+    y += 8;
+
+    const MAX = 300;
+    offlineOnts.slice(0, MAX).forEach((ont, idx) => {
+      if (y > BODY_BOT - 6) {
+        doc.addPage();
+        drawFullReportHeader(doc, customerLogo, customerName, generatedDate);
+        y = BODY_TOP;
+      }
+      if (idx % 2 === 0) {
+        doc.setFillColor(...C.lightBg);
+        doc.rect(MARGIN + 1.5, y - 0.5, CONTENT_W - 3, 6, 'F');
+      }
       doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...C.dark);
-      doc.text(`* ONT ${s(ont.OntID || 'N/A')}  |  ${s(ont._oltName || '')} / ${s(ont._port || '')}  |  Serial: ${s(ont.SerialNumber || '')}`, MARGIN, y, { maxWidth: CONTENT_W });
-      y += 5.5;
+      doc.text(s(ont.OntID || ont.ont_id || 'N/A'), MARGIN + 5, y + 4);
+      doc.text(`${s(ont._oltName || ont.olt_name || '')} / ${s(ont._port || ont.shelf_slot_port || '')}`,
+        MARGIN + 30, y + 4, { maxWidth: 63 });
+      doc.text(s(ont.SerialNumber || ont.serial_number || ''), MARGIN + 95, y + 4, { maxWidth: 48 });
+      doc.text(s(ont.model || ont.subscriber_model || ''), MARGIN + 145, y + 4, { maxWidth: 35 });
+      y += 6;
     });
+
+    if (offlineOnts.length > MAX) {
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.muted);
+      doc.text(`... ${offlineOnts.length - MAX} more offline ONTs not shown.`, MARGIN + 5, y + 4);
+      y += 6;
+    }
+
+    y = drawSectionPanel(doc, offPanelTop, y - offPanelTop + 1.5, 6);
   }
 }
 
@@ -930,15 +1153,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Full report (legacy layout) ─────────────────────────────────────────
+    // ── Full report (branded layout, matches critical-only style) ──────────
     buildFullReport(doc, ctx);
 
+    // Stamp branded footer on every page (header is drawn inline by builder)
     const totalPages = doc.internal.pages.length - 1;
-    const shortReportName = s(summary.reportName || 'PON PM Report');
-    for (let p = 2; p <= totalPages; p++) {
+    for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
-      drawRunningHeader(doc, shortReportName, generatedDate, customerLogo);
-      drawRunningFooter(doc, p - 1, totalPages - 1, customerName || 'Fiber Oracle  |  fiberoracle.com');
+      drawBrandedFooter(doc, p, totalPages, customerName);
     }
 
     return new Response(new Uint8Array(doc.output('arraybuffer')), {
