@@ -272,11 +272,14 @@ export default function SubscriberUpload({ onDataLoaded, subscriberCount, subscr
     setSaving(true);
     try {
       await onDataLoaded(preview.records, preview.fileName);
-      toast.success(`Loaded & saved ${preview.records.length} subscriber records`);
+      toast.success(`Loaded & saved ${preview.records.length.toLocaleString()} records from ${preview.fileName}`);
       setPreview(null);
       setOpen(false);
     } catch (error) {
-      toast.error('Failed to save subscriber data');
+      // Surface the actual error (rate limit, network, etc.) so the user knows
+      // why the save failed instead of seeing a generic message.
+      const msg = error?.message || 'Unknown error';
+      toast.error(`Failed to save subscriber data: ${msg}`, { duration: 8000 });
     } finally {
       setSaving(false);
     }

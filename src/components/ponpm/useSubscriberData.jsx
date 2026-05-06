@@ -110,53 +110,77 @@ export function useSubscriberData() {
     };
     queryClient.setQueryData(['subscriber-upload-meta'], [optimisticMeta]);
 
+    // Throttling helper — keeps API requests under the platform rate limit.
+    // The SDK's per-request limit was being tripped by 50-wide Promise.all bursts
+    // on large datasets (7k+ records) which left the DB in a half-broken state
+    // (records partially deleted, meta updated to a stale state).
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
     try {
-      // Step 1: Delete existing subscriber records in paginated batches
-      let deleteOffset = 0;
+      // Step 1: Delete existing subscriber records — throttled to 5 in-flight
+      //         with a 100ms pause between batches to stay under rate limit.
       const DELETE_PAGE = 500;
+      const DELETE_PARALLEL = 5;
+      const DELETE_DELAY_MS = 100;
       while (true) {
-        const existing = await base44.entities.SubscriberRecord.list(null, DELETE_PAGE, deleteOffset);
+        const existing = await base44.entities.SubscriberRecord.list(null, DELETE_PAGE, 0);
         if (!existing.length) break;
-        // Delete in parallel chunks of 50
-        for (let i = 0; i < existing.length; i += 50) {
-          const chunk = existing.slice(i, i + 50);
+        for (let i = 0; i < existing.length; i += DELETE_PARALLEL) {
+          const chunk = existing.slice(i, i + DELETE_PARALLEL);
           await Promise.all(chunk.map(r => base44.entities.SubscriberRecord.delete(r.id)));
+          await sleep(DELETE_DELAY_MS);
         }
         if (existing.length < DELETE_PAGE) break;
-        // Don't advance offset — deleted records shift the page
       }
 
-      // Step 2: Bulk-create new records in chunks of 500 via SDK directly
+      // Step 2: Bulk-create new records — sequential chunks with a small breath
+      //         between calls. If ANY chunk fails we abort so we never write a
+      //         meta record claiming records that weren't actually inserted.
       const CHUNK = 500;
+      const CREATE_DELAY_MS = 150;
+      let createdCount = 0;
       for (let i = 0; i < records.length; i += CHUNK) {
-        await base44.entities.SubscriberRecord.bulkCreate(records.slice(i, i + CHUNK));
+        const slice = records.slice(i, i + CHUNK);
+        await base44.entities.SubscriberRecord.bulkCreate(slice);
+        createdCount += slice.length;
+        if (i + CHUNK < records.length) await sleep(CREATE_DELAY_MS);
       }
 
-      // Step 3: Call lightweight meta function (archive old + create new meta)
+      if (createdCount !== records.length) {
+        throw new Error(`Bulk create incomplete: ${createdCount}/${records.length}`);
+      }
+
+      // Step 3: Only after all records are confirmed inserted do we update
+      //         the meta record (archive old + create new).
       const res = await base44.functions.invoke('saveSubscriberData', {
         file_name:    fileName || 'subscriber_data.csv',
-        record_count: records.length,
+        record_count: createdCount,
         upload_date:  uploadDate,
       });
 
-      // Update cache with real server meta
       if (res.data?.success) {
         queryClient.setQueryData(['subscriber-upload-meta'], [{
           ...optimisticMeta,
           id:          res.data.meta_id,
           upload_date: res.data.upload_date || uploadDate,
+          record_count: createdCount,
         }]);
+      } else {
+        throw new Error(res.data?.error || 'saveSubscriberData failed');
       }
 
       // Force a server round-trip (refetch, not just invalidate) so the UI
       // reflects the canonical 'active' record after the backend has archived
-      // the old one. Using refetchQueries guarantees a network call rather
-      // than relying on the next render to trigger a refetch.
+      // the old one.
       await queryClient.refetchQueries({ queryKey: ['subscriber-upload-meta'], exact: true });
       queryClient.invalidateQueries({ queryKey: ['subscriber-records'] });
     } catch (error) {
       console.error('Failed to persist subscriber data:', error);
-      // Lookup still works in-session even if DB save fails
+      // Roll back optimistic cache so the UI doesn't lie about a save that failed.
+      await queryClient.refetchQueries({ queryKey: ['subscriber-upload-meta'], exact: true });
+      // Re-throw so the calling dialog surfaces the real error to the user
+      // instead of showing a misleading "Loaded & saved" toast.
+      throw error;
     }
 
     return records;
