@@ -831,13 +831,28 @@ function generateJobReportPDF(data, branding = {}) {
   doc.setFillColor(...C.accent);
   doc.rect(0, 40, W, 2, 'F');
 
-  // Customer logo on the left (if provided)
+  // Customer logo rendered on a white "logo plate" with letterboxing so the
+  // artwork stays legible against the dark header (regardless of whether the
+  // source has a transparent or dark background) and preserves aspect ratio
+  // instead of being squashed into a 22×22 box.
   let titleX = M;
   if (logoDataUrl) {
+    const plateX = M, plateY = 8, plateW = 30, plateH = 24;
+    doc.setFillColor(...C.white);
+    doc.roundedRect(plateX, plateY, plateW, plateH, 2, 2, 'F');
     try {
-      doc.addImage(logoDataUrl, 'PNG', M, 8, 22, 22);
-      titleX = M + 26;
-    } catch (_) {}
+      const props = doc.getImageProperties(logoDataUrl);
+      const padX = 2, padY = 2;
+      const maxW = plateW - padX * 2;
+      const maxH = plateH - padY * 2;
+      const ratio = props.width / props.height;
+      let drawW = maxW, drawH = drawW / ratio;
+      if (drawH > maxH) { drawH = maxH; drawW = drawH * ratio; }
+      const drawX = plateX + (plateW - drawW) / 2;
+      const drawY = plateY + (plateH - drawH) / 2;
+      doc.addImage(logoDataUrl, props.fileType || 'PNG', drawX, drawY, drawW, drawH);
+    } catch (_) { /* swallow — plate already drawn so layout is intact */ }
+    titleX = M + plateW + 4;
   }
 
   doc.setTextColor(...C.white);
@@ -881,9 +896,24 @@ function generateJobReportPDF(data, branding = {}) {
       doc.rect(0, 0, W, 16, 'F');
       doc.setFillColor(...C.accent);
       doc.rect(0, 16, W, 1.5, 'F');
+      // Mini-header logo also on a white plate with letterboxing
       let mhX = M;
       if (logoDataUrl) {
-        try { doc.addImage(logoDataUrl, 'PNG', M, 2, 12, 12); mhX = M + 14; } catch (_) {}
+        const mhPlateX = M, mhPlateY = 2, mhPlateW = 16, mhPlateH = 12;
+        doc.setFillColor(...C.white);
+        doc.roundedRect(mhPlateX, mhPlateY, mhPlateW, mhPlateH, 1, 1, 'F');
+        try {
+          const props = doc.getImageProperties(logoDataUrl);
+          const ratio = props.width / props.height;
+          const maxW = mhPlateW - 1.5, maxH = mhPlateH - 1.5;
+          let dW = maxW, dH = dW / ratio;
+          if (dH > maxH) { dH = maxH; dW = dH * ratio; }
+          doc.addImage(logoDataUrl, props.fileType || 'PNG',
+            mhPlateX + (mhPlateW - dW) / 2,
+            mhPlateY + (mhPlateH - dH) / 2,
+            dW, dH);
+        } catch (_) {}
+        mhX = M + mhPlateW + 3;
       }
       doc.setTextColor(...C.white);
       doc.setFontSize(8);
@@ -909,9 +939,22 @@ function generateJobReportPDF(data, branding = {}) {
     y += Math.max(6, vLines.length * 5.5);
   };
 
+  // Section title — adds clear breathing room above (6mm) and a thin divider
+  // line just under the previous section's content so adjacent sections never
+  // appear to merge. The title bar itself is followed by a 3mm gap before
+  // body content begins.
+  let _hasPrevSection = false;
   const sectionTitle = (label, accentColor = null) => {
-    checkPage(14);
-    y += 4;
+    checkPage(16);
+    if (_hasPrevSection) {
+      // Subtle separator rule under the prior section
+      doc.setDrawColor(226, 232, 240); // C.light-ish border
+      doc.setLineWidth(0.25);
+      doc.line(M, y + 2, M + CW, y + 2);
+      y += 6;
+    } else {
+      y += 4;
+    }
     const ac = accentColor || C.accent;
     doc.setFillColor(...ac);
     doc.roundedRect(M, y, CW, 7.5, 1, 1, 'F');
@@ -919,7 +962,8 @@ function generateJobReportPDF(data, branding = {}) {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text(s(label).toUpperCase(), M + 4, y + 5.3);
-    y += 11;
+    y += 10.5;
+    _hasPrevSection = true;
   };
 
   // ── SUBSCRIBER INFO ────────────────────────────────────────────────────────

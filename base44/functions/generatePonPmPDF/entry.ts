@@ -105,6 +105,36 @@ const FOOTER_H  = 12;
 const BODY_TOP  = HEADER_H + 6;
 const BODY_BOT  = PAGE_H - FOOTER_H - 4;
 
+// ─── Logo plate ────────────────────────────────────────────────────────────────
+// Renders the customer logo on a white rounded "plate" so the artwork remains
+// legible against the dark header band regardless of the logo's own background
+// (transparent / dark / colored). The logo is letterboxed inside the plate
+// instead of being stretched, preserving the customer's aspect ratio.
+//
+// jsPDF's addImage supports passing the image then querying back the natural
+// pixel dimensions via getImageProperties — we use it to compute the fitted
+// draw rectangle.
+function drawLogoOnPlate(doc, logoDataUrl, x, y, plateW, plateH) {
+  // White rounded plate
+  doc.setFillColor(...C.white);
+  doc.roundedRect(x, y, plateW, plateH, 1.5, 1.5, 'F');
+
+  if (!logoDataUrl) return;
+  try {
+    const props = doc.getImageProperties(logoDataUrl);
+    const padX = 1.2, padY = 1.2;
+    const maxW = plateW - padX * 2;
+    const maxH = plateH - padY * 2;
+    const ratio = props.width / props.height;
+    let drawW = maxW;
+    let drawH = drawW / ratio;
+    if (drawH > maxH) { drawH = maxH; drawW = drawH * ratio; }
+    const drawX = x + (plateW - drawW) / 2;
+    const drawY = y + (plateH - drawH) / 2;
+    doc.addImage(logoDataUrl, props.fileType || 'PNG', drawX, drawY, drawW, drawH);
+  } catch (_) { /* swallow — plate already drawn */ }
+}
+
 // ─── Branded running header (used on every page in critical-only mode) ────────
 function drawBrandedHeader(doc, customerLogo, customerName, generatedDate) {
   // Background band
@@ -113,13 +143,13 @@ function drawBrandedHeader(doc, customerLogo, customerName, generatedDate) {
   doc.setFillColor(...C.accent);
   doc.rect(0, HEADER_H, PAGE_W, 1.2, 'F');
 
-  // Customer logo (left side, large)
+  // Customer logo on a white plate — sized larger for legibility, letterboxed
+  // to preserve aspect ratio. Plate is 18mm wide × 14mm tall (fits within
+  // 22mm header height with 4mm top/bottom breathing room).
   let cursorX = MARGIN;
   if (customerLogo) {
-    try {
-      doc.addImage(customerLogo, 'PNG', cursorX, 4, 14, 14);
-      cursorX += 18;
-    } catch (_) {}
+    drawLogoOnPlate(doc, customerLogo, cursorX, 4, 18, 14);
+    cursorX += 22; // 18mm plate + 4mm gap
   }
 
   // Customer name + Fiber Oracle co-branding
@@ -167,14 +197,32 @@ function drawBrandedFooter(doc, pageNum, totalPages, customerName) {
 }
 
 // ─── Section title bar ─────────────────────────────────────────────────────────
+// Adds a 4mm top gap before the title so consecutive sections never touch.
+// Returns the y at which body content should start (under the title bar with
+// a small breathing line).
 function drawSectionTitle(doc, label, y, colorRGB) {
+  const topGap = 4;
+  const yt = y + topGap;
   doc.setFillColor(...colorRGB);
-  doc.roundedRect(MARGIN, y, CONTENT_W, 7.5, 1.5, 1.5, 'F');
+  doc.roundedRect(MARGIN, yt, CONTENT_W, 7.5, 1.5, 1.5, 'F');
   doc.setTextColor(...C.white);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text(s(label).toUpperCase(), MARGIN + 4, y + 5.2);
-  return y + 11;
+  doc.text(s(label).toUpperCase(), MARGIN + 4, yt + 5.2);
+  return yt + 10;
+}
+
+// ─── Section panel ────────────────────────────────────────────────────────────
+// Draws a subtle bordered container behind a section's body content. Use
+// AFTER laying out the body (when the final content height is known) by
+// calling with the section's start-y and the actual content height — a thin
+// border separates it visually from the next section. Returns the y just
+// below the panel's bottom edge with built-in spacing.
+function drawSectionPanel(doc, yTop, contentH, padBottom = 6) {
+  doc.setDrawColor(...C.border);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(MARGIN, yTop, CONTENT_W, contentH, 1.5, 1.5, 'S');
+  return yTop + contentH + padBottom;
 }
 
 // ─── Pie chart (filled wedges) ─────────────────────────────────────────────────
@@ -276,10 +324,13 @@ function buildCriticalOnlyReport(doc, ctx) {
     { label: 'Offline',    val: offlineCnt,   color: C.slate,  accent: C.slate  },
   ];
   const kw = (CONTENT_W - 4 * 3) / 5;
+  // Inset the tiles inside the panel for clear margin from the bordered edge
+  const kpiPanelTop = y;
+  const kpiInset = 3;
   kpis.forEach((k, i) => {
-    drawKpiTile(doc, MARGIN + i * (kw + 3), y, kw, 24, k.val, k.label, k.color, k.accent);
+    drawKpiTile(doc, MARGIN + kpiInset + i * (kw - 1.2 + 3), y + kpiInset, kw - 1.2, 22, k.val, k.label, k.color, k.accent);
   });
-  y += 28;
+  y = drawSectionPanel(doc, kpiPanelTop, 22 + kpiInset * 2, 6);
 
   // ── OLTs in System (per-chassis critical pie) ───────────────────────────
   // Group critical ONTs by OLT/chassis (e.g. "xgs-shelf1") and count.
@@ -291,6 +342,7 @@ function buildCriticalOnlyReport(doc, ctx) {
   const chassisEntries = Object.entries(chassisCounts).sort((a, b) => b[1] - a[1]);
 
   y = drawSectionTitle(doc, `OLTs in System  -  Critical Issues by Chassis  (${chassisEntries.length})`, y, C.indigo);
+  const chassisPanelTop = y;
 
   if (chassisEntries.length > 0) {
     const segments = chassisEntries.map(([name, count], i) => ({
@@ -300,8 +352,8 @@ function buildCriticalOnlyReport(doc, ctx) {
     }));
 
     const pieR  = 26;
-    const pieCX = MARGIN + pieR + 4;
-    const pieCY = y + pieR + 2;
+    const pieCX = MARGIN + pieR + 6;   // +2mm extra inset from panel edge
+    const pieCY = y + pieR + 4;        // +2mm extra inset from panel top
     drawPieChart(doc, pieCX, pieCY, pieR, segments);
 
     // Center label
@@ -347,7 +399,7 @@ function buildCriticalOnlyReport(doc, ctx) {
       doc.setTextColor(...C.muted);
       doc.text(
         `+ ${overflow.length} more: ${overflow.map(([n, c]) => `${n} (${c})`).join(', ')}`,
-        MARGIN, y, { maxWidth: CONTENT_W }
+        MARGIN + 4, y, { maxWidth: CONTENT_W - 8 }
       );
       y += 6;
     }
@@ -355,9 +407,11 @@ function buildCriticalOnlyReport(doc, ctx) {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(...C.muted);
-    doc.text('No critical issues found.', MARGIN, y + 4);
-    y += 10;
+    doc.text('No critical issues found.', MARGIN + 4, y + 6);
+    y += 12;
   }
+  // Close the chassis section panel
+  y = drawSectionPanel(doc, chassisPanelTop, y - chassisPanelTop, 6);
 
   // ── Port-level breakdown (only ports with critical issues) ──────────────
   const portMap = {}; // "OLT|PORT" → { olt, port, critCount, ontIds: [] }
@@ -375,14 +429,16 @@ function buildCriticalOnlyReport(doc, ctx) {
   if (portRows.length > 0) {
     if (y > BODY_BOT - 30) { doc.addPage(); drawBrandedHeader(doc, customerLogo, customerName, generatedDate); y = BODY_TOP; }
     y = drawSectionTitle(doc, `Ports with Critical Issues  (${portRows.length})`, y, C.red);
+    const portsPanelTop = y;
 
-    // Header row
+    // Header row — inset 1.5mm so table sits cleanly inside the panel border
     doc.setFillColor(...C.navyMid);
-    doc.roundedRect(MARGIN, y, CONTENT_W, 6.5, 1, 1, 'F');
+    doc.roundedRect(MARGIN + 1.5, y + 1.5, CONTENT_W - 3, 6.5, 1, 1, 'F');
+    y += 1.5; // shift table content down to match the inset
     doc.setFontSize(7);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...C.white);
-    const colOlt   = MARGIN + 3;
+    const colOlt   = MARGIN + 5;     // extra 2mm inset from panel border
     const colPort  = MARGIN + 60;
     const colCrit  = MARGIN + 120;
     const colRx    = MARGIN + 150;
@@ -400,7 +456,8 @@ function buildCriticalOnlyReport(doc, ctx) {
       }
       if (idx % 2 === 0) {
         doc.setFillColor(...C.lightBg);
-        doc.rect(MARGIN, y - 0.5, CONTENT_W, 6, 'F');
+        // Inset 1.5mm so zebra stripes don't overlap the panel border
+        doc.rect(MARGIN + 1.5, y - 0.5, CONTENT_W - 3, 6, 'F');
       }
       doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
@@ -416,7 +473,8 @@ function buildCriticalOnlyReport(doc, ctx) {
       doc.text(avgRx, colRx, y + 4);
       y += 6;
     });
-    y += 4;
+    // Close the ports section panel with a clean bottom pad
+    y = drawSectionPanel(doc, portsPanelTop, y - portsPanelTop + 1.5, 6);
   }
 
   // ── Per-ONT detailed cards ──────────────────────────────────────────────
