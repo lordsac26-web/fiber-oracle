@@ -43,50 +43,58 @@ Deno.serve(async (req) => {
     const serials = serial_numbers.slice(0, 200);
     const perOnt = Math.min(Math.max(1, limit_per_ont), 20);
 
-    // We'll accumulate results per serial number.
-    // To keep this efficient we query in serial batches of 50 at a time
-    // since the entity API doesn't support IN queries directly —
-    // but we CAN fetch ALL records for a report_id or by serial.
-    // Since individual ONT history queries would be N calls, we instead
-    // fetch ONTPerformanceRecord ordered by report_date desc with a high limit
-    // and filter client-side to collect up to perOnt points per serial.
-
-    // Determine max fetch size: serials.length * perOnt, bounded to 2000 to stay fast
-    const fetchLimit = Math.min(serials.length * perOnt * 2, 2000);
-
-    // Build a Set for O(1) membership checks
-    const serialSet = new Set(serials.map(s => s.toUpperCase()));
-
-    // Fetch recent records ordered newest-first
-    // We use asServiceRole to bypass RLS restrictions on cross-user queries
-    const records = await base44.asServiceRole.entities.ONTPerformanceRecord.list('-report_date', fetchLimit);
-
-    // Group into buckets: serial → [records sorted newest first]
-    const buckets = {};
-    for (const rec of records) {
-      const sn = (rec.serial_number || '').toUpperCase();
-      if (!serialSet.has(sn)) continue;
-      if (!buckets[sn]) buckets[sn] = [];
-      if (buckets[sn].length < perOnt) {
-        buckets[sn].push(rec);
-      }
-    }
-
-    // Build the response — reverse each bucket so it's oldest-first (correct for sparklines)
+    // Per-serial history fetch.
+    //
+    // PRIOR IMPLEMENTATION (broken): a single `list('-report_date', 2000)` call
+    //   was used and then filtered client-side. With N reports × M ONTs per
+    //   report, the 2000 newest records are dominated by the most recent
+    //   report(s), so most serials end up with only 1 data point — and the
+    //   sparkline component requires ≥2 points to render anything. This is
+    //   why the Rx/FEC Trend columns appeared empty.
+    //
+    // CURRENT IMPLEMENTATION: query per serial via the indexed `serial_number`
+    //   field. Each call returns the last `perOnt` rows for that ONT
+    //   regardless of how busy other ONTs/reports are. We run requests in
+    //   small concurrency-bounded batches to stay well under platform rate
+    //   limits while keeping latency acceptable for typical batches (≤200).
+    const CONCURRENCY = 8;
     const history = {};
-    for (const [sn, recs] of Object.entries(buckets)) {
-      const sorted = [...recs].reverse(); // oldest first
-      history[sn] = {
-        rx:  sorted.map(r => (r.ont_rx_power != null ? Number(r.ont_rx_power) : null)).filter(v => v !== null),
-        fec: sorted.map(r => (r.us_fec_uncorrected != null ? Number(r.us_fec_uncorrected) : null)).filter(v => v !== null),
-      };
+    let coveredSerials = 0;
+    let fetchedRecords = 0;
+
+    const fetchOne = async (serial) => {
+      const sn = String(serial || '').toUpperCase();
+      if (!sn) return;
+      try {
+        // Order newest-first, then reverse to oldest-first for chart rendering.
+        const recs = await base44.asServiceRole.entities.ONTPerformanceRecord
+          .filter({ serial_number: sn }, '-report_date', perOnt);
+        if (!recs || recs.length === 0) return;
+        fetchedRecords += recs.length;
+        const ordered = [...recs].reverse(); // oldest → newest
+        history[sn] = {
+          rx:  ordered.map(r => (r.ont_rx_power != null ? Number(r.ont_rx_power) : null)).filter(v => v !== null && !Number.isNaN(v)),
+          fec: ordered.map(r => (r.us_fec_uncorrected != null ? Number(r.us_fec_uncorrected) : null)).filter(v => v !== null && !Number.isNaN(v)),
+        };
+        if (history[sn].rx.length > 0 || history[sn].fec.length > 0) coveredSerials++;
+      } catch (err) {
+        // Don't let one failed lookup kill the whole batch.
+        console.warn(`getBatchOntHistory: lookup failed for ${sn}:`, err?.message || err);
+      }
+    };
+
+    // Run in fixed-size waves to bound concurrency.
+    for (let i = 0; i < serials.length; i += CONCURRENCY) {
+      const slice = serials.slice(i, i + CONCURRENCY);
+      await Promise.all(slice.map(fetchOne));
     }
 
     return Response.json({
       success: true,
       history,
-      fetched_records: records.length,
-      covered_serials: Object.keys(history).length,
+      fetched_records: fetchedRecords,
+      covered_serials: coveredSerials,
+      total_serials: serials.length,
     });
 
   } catch (error) {
