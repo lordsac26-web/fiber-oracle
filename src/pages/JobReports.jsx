@@ -25,6 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import ReportForm from '@/components/jobreports/ReportForm';
+import PDFPreviewModal from '@/components/PDFPreviewModal';
 import { 
   ArrowLeft, 
   Plus, 
@@ -175,33 +176,8 @@ export default function JobReports() {
     toast.success('Reports exported to CSV');
   };
 
-  // Export single report to PDF
-  const [exportingPDF, setExportingPDF] = useState(null);
-  
-  const exportToPDF = async (report) => {
-    setExportingPDF(report.id);
-    try {
-      const response = await base44.functions.invoke('generatePDF', { 
-        type: 'jobReport',
-        data: report
-      }, { responseType: 'arraybuffer' });
-      
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `JobReport-${report.job_number || 'report'}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
-    } catch (error) {
-      console.error('PDF generation failed:', error);
-      toast.error('Failed to generate PDF');
-    } finally {
-      setExportingPDF(null);
-    }
-  };
+  // PDF preview state
+  const [pdfPreview, setPdfPreview] = useState(null); // { report } | null
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -429,9 +405,9 @@ export default function JobReports() {
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => exportToPDF(report)}>
+                          <DropdownMenuItem onClick={() => setPdfPreview({ report })}>
                             <FileDown className="h-4 w-4 mr-2" />
-                            Export PDF
+                            Preview / Export PDF
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="text-red-600"
@@ -508,6 +484,16 @@ export default function JobReports() {
         </DialogContent>
       </Dialog>
 
+      {/* PDF Preview Modal */}
+      <PDFPreviewModal
+        open={!!pdfPreview}
+        onOpenChange={(open) => !open && setPdfPreview(null)}
+        title={pdfPreview ? `Job Report — ${pdfPreview.report.job_number}` : 'PDF Preview'}
+        functionName="generatePDF"
+        payload={pdfPreview ? { type: 'jobReport', data: pdfPreview.report } : {}}
+        filename={pdfPreview ? `JobReport-${pdfPreview.report.job_number}.pdf` : 'report.pdf'}
+      />
+
       {/* View Details Dialog */}
       <Dialog open={!!viewingReport} onOpenChange={(open) => !open && setViewingReport(null)}>
         <DialogContent className="max-w-lg">
@@ -566,9 +552,9 @@ export default function JobReports() {
                 <Button variant="outline" onClick={() => setViewingReport(null)}>
                   Close
                 </Button>
-                <Button variant="outline" onClick={() => exportToPDF(viewingReport)}>
+                <Button variant="outline" onClick={() => { setViewingReport(null); setPdfPreview({ report: viewingReport }); }}>
                   <FileDown className="h-4 w-4 mr-2" />
-                  Export PDF
+                  Preview PDF
                 </Button>
                 <Button onClick={() => {
                   setViewingReport(null);

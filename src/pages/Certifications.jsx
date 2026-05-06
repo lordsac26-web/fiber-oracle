@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Trophy,
   FileText,
-  Loader2,
   WifiOff
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -18,7 +17,7 @@ import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { downloadPdfFromFunction } from '@/lib/pdfDownload';
+import PDFPreviewModal from '@/components/PDFPreviewModal';
 
 const COURSE_INFO = {
   fiber101: { title: 'Fiber 101', subtitle: 'Foundations of Fiber Optics', color: 'from-green-500 to-emerald-600' },
@@ -27,40 +26,16 @@ const COURSE_INFO = {
 };
 
 export default function Certifications() {
-  const [downloadingId, setDownloadingId] = useState(null);
-  
+  const [pdfPreview, setPdfPreview] = useState(null); // { cert, courseInfo } | null
+
   const { data: certifications = [], isLoading } = useQuery({
     queryKey: ['certifications'],
     queryFn: () => base44.entities.Certification.list('-created_date'),
   });
 
-  const downloadCertificate = async (cert) => {
-    const courseInfo = COURSE_INFO[cert.course_id] || { title: cert.course_title, subtitle: '' };
-    setDownloadingId(cert.id);
-    try {
-      await downloadPdfFromFunction(
-        'generatePDF',
-        {
-          type: 'certificate',
-          data: {
-            learnerName: cert.learner_name,
-            courseTitle: courseInfo.title,
-            courseSubtitle: courseInfo.subtitle,
-            score: cert.score,
-            certificateId: cert.certificate_id,
-            completionDate: cert.completion_date,
-            courseId: cert.course_id,
-          },
-        },
-        `Certificate-${courseInfo.title}-${cert.learner_name}.pdf`
-      );
-      toast.success('Certificate downloaded successfully');
-    } catch (error) {
-      console.error('Certificate download failed:', error);
-      toast.error('Failed to download certificate: ' + error.message);
-    } finally {
-      setDownloadingId(null);
-    }
+  const openCertPreview = (cert) => {
+    const courseInfo = COURSE_INFO[cert.course_id] || { title: cert.course_title || 'Course', subtitle: '' };
+    setPdfPreview({ cert, courseInfo });
   };
 
   return (
@@ -167,16 +142,11 @@ export default function Certifications() {
                     </div>
                     
                     <Button 
-                      onClick={() => downloadCertificate(cert)}
-                      disabled={downloadingId === cert.id}
+                      onClick={() => openCertPreview(cert)}
                       className="w-full bg-gradient-to-r from-indigo-500 to-purple-600"
                     >
-                      {downloadingId === cert.id ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4 mr-2" />
-                      )}
-                      {downloadingId === cert.id ? 'Generating...' : 'Download Certificate'}
+                      <Download className="h-4 w-4 mr-2" />
+                      Preview &amp; Download Certificate
                     </Button>
                   </CardContent>
                 </Card>
@@ -185,6 +155,27 @@ export default function Certifications() {
           </div>
         )}
       </main>
+
+      {/* PDF Preview Modal */}
+      <PDFPreviewModal
+        open={!!pdfPreview}
+        onOpenChange={(open) => !open && setPdfPreview(null)}
+        title={pdfPreview ? `Certificate — ${pdfPreview.courseInfo.title}` : 'PDF Preview'}
+        functionName="generatePDF"
+        payload={pdfPreview ? {
+          type: 'certificate',
+          data: {
+            learnerName: pdfPreview.cert.learner_name,
+            courseTitle: pdfPreview.courseInfo.title,
+            courseSubtitle: pdfPreview.courseInfo.subtitle,
+            score: pdfPreview.cert.score,
+            certificateId: pdfPreview.cert.certificate_id,
+            completionDate: pdfPreview.cert.completion_date,
+            courseId: pdfPreview.cert.course_id,
+          },
+        } : {}}
+        filename={pdfPreview ? `Certificate-${pdfPreview.courseInfo.title}-${pdfPreview.cert.learner_name}.pdf` : 'certificate.pdf'}
+      />
     </div>
   );
 }
