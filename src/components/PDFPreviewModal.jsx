@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2, AlertCircle, X } from 'lucide-react';
@@ -65,7 +66,9 @@ export default function PDFPreviewModal({
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        credentials: 'include',
+        // Do NOT use credentials:'include' — the platform responds with
+        // Access-Control-Allow-Origin: * which browsers reject for credentialed
+        // requests. The Bearer token above is sufficient for authentication.
         body: JSON.stringify(payload),
       });
 
@@ -113,6 +116,7 @@ export default function PDFPreviewModal({
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-base font-semibold">{title}</DialogTitle>
+            <DialogDescription className="sr-only">PDF document preview with download option</DialogDescription>
             <div className="flex items-center gap-2">
               {blobUrl && (
                 <Button size="sm" onClick={handleDownload}>
