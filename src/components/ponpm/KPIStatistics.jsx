@@ -133,15 +133,19 @@ export default function KPIStatistics({ result, filteredOnts, previousReport }) 
 
   if (!stats) return null;
 
-  // Bar chart data for errors
-  const errorBarData = [
-    { name: 'US BIP',    value: stats.totalUsBip,    fill: '#ef4444' },
-    { name: 'DS BIP',    value: stats.totalDsBip,    fill: '#f97316' },
-    { name: 'US FEC U',  value: stats.totalUsFec,    fill: '#dc2626' },
-    { name: 'DS FEC U',  value: stats.totalDsFec,    fill: '#ea580c' },
-    { name: 'US FEC C',  value: stats.totalUsFecCor, fill: '#3b82f6' },
-    { name: 'DS FEC C',  value: stats.totalDsFecCor, fill: '#6366f1' },
-    { name: 'HEC',       value: stats.totalUsHec,    fill: '#8b5cf6' },
+  // Chart 1: Critical error counters (small values — share a common scale)
+  const criticalErrorData = [
+    { name: 'US BIP',   value: stats.totalUsBip,  fill: '#ef4444' },
+    { name: 'DS BIP',   value: stats.totalDsBip,  fill: '#f97316' },
+    { name: 'US FEC U', value: stats.totalUsFec,  fill: '#dc2626' },
+    { name: 'DS FEC U', value: stats.totalDsFec,  fill: '#ea580c' },
+    { name: 'HEC',      value: stats.totalUsHec,  fill: '#8b5cf6' },
+  ];
+
+  // Chart 2: FEC Corrected (often orders of magnitude larger — needs its own scale)
+  const fecCorrectedData = [
+    { name: 'US FEC C', value: stats.totalUsFecCor, fill: '#3b82f6' },
+    { name: 'DS FEC C', value: stats.totalDsFecCor, fill: '#6366f1' },
   ];
 
   // Power distribution for radar
@@ -291,35 +295,75 @@ export default function KPIStatistics({ result, filteredOnts, previousReport }) 
         </Card>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid md:grid-cols-2 gap-4">
-        {/* Error Bar Chart */}
+      {/* Charts Row — 3 columns: critical errors | FEC corrected | radar */}
+      <div className="grid md:grid-cols-3 gap-4">
+        {/* Chart 1: Critical Errors (BIP, FEC Uncorrected, HEC) */}
         <Card className="border-0 shadow">
           <CardHeader className="pb-1 pt-4 px-4">
             <CardTitle className="text-sm">
-              Network Error Totals
+              Critical Errors
               {techFilter !== 'All' && <span className="text-xs font-normal text-gray-500 ml-2">— {techFilter}</span>}
             </CardTitle>
+            <p className="text-[10px] text-gray-400">BIP · FEC Uncorrected · HEC</p>
           </CardHeader>
           <CardContent className="px-2 pb-4">
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={errorBarData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={criticalErrorData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 <XAxis dataKey="name" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v} />
+                <YAxis tick={{ fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(1)}k` : v} />
                 <Tooltip content={<ErrorBarTooltip />} />
                 <Bar dataKey="value" radius={[3, 3, 0, 0]}>
-                  {errorBarData.map((entry, index) => (
+                  {criticalErrorData.map((entry, index) => (
                     <Cell key={index} fill={entry.fill} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-            {/* Totals row below chart */}
-            <div className="grid grid-cols-4 gap-1 mt-2 px-2">
-              {errorBarData.map(d => (
+            <div className="grid grid-cols-3 gap-1 mt-2 px-1">
+              {criticalErrorData.map(d => (
                 <div key={d.name} className="text-center">
                   <div className="text-[10px] font-bold" style={{ color: d.fill }}>{d.value.toLocaleString()}</div>
+                  <div className="text-[9px] text-gray-400">{d.name}</div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Chart 2: FEC Corrected (separate scale — often much larger) */}
+        <Card className="border-0 shadow">
+          <CardHeader className="pb-1 pt-4 px-4">
+            <CardTitle className="text-sm">
+              FEC Corrected
+              {techFilter !== 'All' && <span className="text-xs font-normal text-gray-500 ml-2">— {techFilter}</span>}
+            </CardTitle>
+            <p className="text-[10px] text-gray-400">Corrected codewords — own scale</p>
+          </CardHeader>
+          <CardContent className="px-2 pb-4">
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={fecCorrectedData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="name" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 9 }} axisLine={false} tickLine={false} tickFormatter={v => {
+                  if (v >= 1_000_000) return `${(v/1_000_000).toFixed(1)}M`;
+                  if (v >= 1000) return `${(v/1000).toFixed(0)}k`;
+                  return v;
+                }} />
+                <Tooltip content={<ErrorBarTooltip />} />
+                <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                  {fecCorrectedData.map((entry, index) => (
+                    <Cell key={index} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="grid grid-cols-2 gap-1 mt-2 px-1">
+              {fecCorrectedData.map(d => (
+                <div key={d.name} className="text-center">
+                  <div className="text-[10px] font-bold" style={{ color: d.fill }}>
+                    {d.value >= 1_000_000 ? `${(d.value/1_000_000).toFixed(2)}M` : d.value.toLocaleString()}
+                  </div>
                   <div className="text-[9px] text-gray-400">{d.name}</div>
                 </div>
               ))}
