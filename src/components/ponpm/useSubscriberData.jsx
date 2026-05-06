@@ -48,8 +48,12 @@ export function useSubscriberData() {
     queryKey: ['subscriber-records', subscriberMeta?.id],
     queryFn: async () => {
       const all = [];
-      const PAGE = 10000;
-      const MAX_PAGES = 5; // 50k cap
+      // Platform caps list/filter responses at 5000 rows regardless of the
+      // requested page size. Requesting 10000 and treating a short page as
+      // "done" silently truncated 8044-record datasets to 5000 rows. Pin
+      // PAGE to the platform cap and loop until a true short page returns.
+      const PAGE = 5000;
+      const MAX_PAGES = 20; // 100k safety cap
       // Scope the read to the currently active upload generation. Filtering
       // server-side avoids pulling orphaned legacy rows that the background
       // purge hasn't deleted yet.
@@ -60,7 +64,7 @@ export function useSubscriberData() {
         );
         all.push(...page);
         if (page.length < PAGE) break; // last page
-        await new Promise(r => setTimeout(r, 150)); // breathe between pages
+        await new Promise(r => setTimeout(r, 200)); // breathe between pages
       }
       return all;
     },
