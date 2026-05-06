@@ -218,6 +218,32 @@ export const OPTIC_INVENTORY_CSV_SPEC = {
   ],
 };
 
+export const EERO_CSV_SPEC = {
+  label: 'eero Data',
+  // home_identifier is the only truly required column — that's what links to
+  // the subscriber AccountName. All others are optional but documented in the
+  // template so users get a clean export from their eero report tool.
+  requiredColumns: ['home_identifier'],
+  optionalColumns: [
+    'eero_id', 'network_id', 'serial', 'network_created', 'last_alive',
+    'organization', 'isp', 'model', 'gateway',
+  ],
+  aliases: {
+    home_identifier: ['homeidentifier', 'home_id', 'homeid', 'account', 'accountname'],
+    eero_id:         ['eeroid'],
+    network_id:      ['networkid'],
+    network_created: ['networkcreated', 'created'],
+    last_alive:      ['lastalive', 'lastseen'],
+  },
+  sampleRows: [
+    [
+      'ACCT-1001', 'eero_abc123', 'net_xyz789', 'EERO-SN-12345',
+      '2024-01-15T10:00:00Z', '2026-05-01T14:23:00Z',
+      'Acme Networks', 'Acme ISP', 'eero Pro 6E', '192.168.4.1',
+    ],
+  ],
+};
+
 export const LCP_CSV_SPEC = {
   label: 'LCP Entries',
   requiredColumns: ['LCP', 'Splitter'],

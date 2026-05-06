@@ -1,0 +1,79 @@
+{
+  "name": "EeroRecord",
+  "type": "object",
+  "properties": {
+    "upload_id": {
+      "type": "string",
+      "description": "ID of the EeroUploadMeta record this row belongs to. Used to scope reads to the currently-active upload generation.",
+      "index": true
+    },
+    "eero_id": {
+      "type": "string",
+      "description": "Unique eero device identifier",
+      "index": true
+    },
+    "network_id": {
+      "type": "string",
+      "description": "eero network identifier"
+    },
+    "serial": {
+      "type": "string",
+      "description": "eero device serial number",
+      "index": true
+    },
+    "home_identifier": {
+      "type": "string",
+      "description": "Home identifier \u2014 matches subscriber AccountName for ONT enrichment.",
+      "index": true
+    },
+    "network_created": {
+      "type": "string",
+      "description": "Date the eero network was created (kept as string \u2014 vendor-supplied format)"
+    },
+    "last_alive": {
+      "type": "string",
+      "description": "Last time the eero was seen alive (kept as string \u2014 vendor-supplied format)"
+    },
+    "organization": {
+      "type": "string",
+      "description": "Organization owning the eero"
+    },
+    "isp": {
+      "type": "string",
+      "description": "ISP associated with the eero"
+    },
+    "model": {
+      "type": "string",
+      "description": "eero hardware model"
+    },
+    "gateway": {
+      "type": "string",
+      "description": "Gateway address / identifier"
+    }
+  },
+  "required": [
+    "home_identifier"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
