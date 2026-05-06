@@ -36,6 +36,7 @@ import {
   Router,
   Wifi,
   Users,
+  Router as RouterIcon,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -442,6 +443,33 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                       <div className="flex justify-between"><span className="text-gray-500">Ranged:</span><span className="font-medium">{ont._subscriber.ontRanged}</span></div>
                     )}
                   </div>
+
+                  {/* eero info nested inside subscriber pane — only when matched */}
+                  {ont._eero && (
+                    <div className="mt-3 pt-3 border-t border-indigo-200">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <RouterIcon className="h-3.5 w-3.5 text-emerald-600" />
+                        <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">Has eero</span>
+                        <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-emerald-300">
+                          matched
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+                        {ont._eero.serial && (
+                          <div className="flex justify-between"><span className="text-gray-500">Serial:</span><span className="font-mono font-medium">{ont._eero.serial}</span></div>
+                        )}
+                        {ont._eero.model && (
+                          <div className="flex justify-between"><span className="text-gray-500">Model:</span><span className="font-medium">{ont._eero.model}</span></div>
+                        )}
+                        {ont._eero.network_created && (
+                          <div className="flex justify-between"><span className="text-gray-500">Created:</span><span className="font-mono">{ont._eero.network_created}</span></div>
+                        )}
+                        {ont._eero.last_alive && (
+                          <div className="flex justify-between"><span className="text-gray-500">Last alive:</span><span className="font-mono">{ont._eero.last_alive}</span></div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

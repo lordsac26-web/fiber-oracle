@@ -3,13 +3,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Activity, Clipboard } from 'lucide-react';
+import { Activity, Clipboard, Wifi } from 'lucide-react';
 import { formatUptime } from '@/components/ponpm/formatUptime';
 import ONTSparkline from '@/components/ponpm/ONTSparkline';
 
 const STATUS_COLORS = { critical: 'bg-red-500', warning: 'bg-amber-500', ok: 'bg-green-500', offline: 'bg-purple-500' };
 
-export default function ONTTableRow({ ont, hasSubscriberData, hasSparklines, onSelectDetail, onCreateJobReport }) {
+export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, hasSparklines, onSelectDetail, onCreateJobReport }) {
   const cellCls = "px-1.5 py-1 text-[10px]";
   const monoCls = `${cellCls} font-mono`;
   const rightMono = `${monoCls} text-right`;
@@ -52,6 +52,30 @@ export default function ONTTableRow({ ont, hasSubscriberData, hasSparklines, onS
       </TableCell>
       <TableCell className={`${monoCls} max-w-[80px] truncate`}>{ont.SerialNumber || '-'}</TableCell>
       <TableCell className={`${cellCls} max-w-[60px] truncate`}>{ont._subscriber?.model || ont.model || '-'}</TableCell>
+      {/* eero indicator — shown when an eero report has been loaded */}
+      {hasEeroData && (
+        <TableCell className={`${cellCls} text-center`}>
+          {ont._eero ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Badge className="text-[9px] px-1 py-0 leading-tight bg-emerald-100 text-emerald-700 border-emerald-300 inline-flex items-center gap-0.5">
+                    <Wifi className="h-2.5 w-2.5" />
+                    eero
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs text-left text-xs">
+                  {ont._eero.model && <div><strong>Model:</strong> {ont._eero.model}</div>}
+                  {ont._eero.serial && <div><strong>Serial:</strong> {ont._eero.serial}</div>}
+                  {ont._eero.last_alive && <div><strong>Last alive:</strong> {ont._eero.last_alive}</div>}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <span className="text-gray-300">-</span>
+          )}
+        </TableCell>
+      )}
       {/* ONT Rx */}
       <TableCell className={rightMono}>
         <span className={parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' : parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : ''}>{ont.OntRxOptPwr || '-'}</span>

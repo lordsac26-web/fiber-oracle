@@ -59,7 +59,8 @@ import {
   Calendar,
   TrendingUp,
   TrendingDown,
-  Clipboard
+  Clipboard,
+  Wifi
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -87,6 +88,16 @@ import { buildLcpLookupMap, enrichOntsWithLcp } from '@/components/ponpm/lcpLook
 import SubscriberUpload, { buildSubscriberLookup, enrichOntsWithSubscriber } from '@/components/ponpm/SubscriberUpload';
 import { useSubscriberData } from '@/components/ponpm/useSubscriberData';
 import SubscriberDataBanner from '@/components/ponpm/SubscriberDataBanner';
+import EeroUpload from '@/components/ponpm/EeroUpload';
+import EeroDataBadge from '@/components/ponpm/EeroDataBadge';
+import { useEeroData } from '@/components/ponpm/useEeroData';
+import { useEeroOntEnrichmentHandler } from '@/components/ponpm/useEeroOntEnrichment';
+import { exportEeroOntsCSV } from '@/components/ponpm/eeroExports';
+import {
+  exportOfflineCSV as exportOfflineCSVUtil,
+  exportFilteredOntsCSV,
+  exportPortInventoryCSV,
+} from '@/components/ponpm/ontCsvExports';
 import ONTTableRow from '@/components/ponpm/ONTTableRow';
 import LCPExportMenu from '@/components/lcp/LCPExportMenu';
 import JobReportDialog from '@/components/ponpm/JobReportDialog';
@@ -141,6 +152,7 @@ export default function PONPMAnalysis() {
   const [hideOntStatus, setHideOntStatus] = useState({ ok: false, warning: false, critical: false, offline: false });
   const [showHistoricalReports, setShowHistoricalReports] = useState(false);
   const [showSubscriberDialog, setShowSubscriberDialog] = useState(false);
+  const [showEeroDialog, setShowEeroDialog] = useState(false);
   const [showTrends, setShowTrends] = useState(false);
   const autoLoadAttemptedRef = useRef(false);
   const headerFileInputRef = useRef(null);
@@ -164,6 +176,21 @@ export default function PONPMAnalysis() {
     isLoading: subscriberLoading,
     loadNow: loadSubscriberRecordsNow,
   } = useSubscriberData();
+
+  // Eero data — same architecture as subscriber data, matched via
+  // subscriber AccountName ↔ eero home_identifier (so subscriber data must
+  // be enriched first for eero matching to work).
+  const {
+    eeroMeta,
+    eeroMatchCount,
+    eeroRecords,
+    recordsLoaded: eeroRecordsLoaded,
+    setEeroMatchCount,
+    handleEeroDataLoaded: persistEeroData,
+    enrichOnts: enrichOntsWithEeroFromDB,
+    isLoading: eeroLoading,
+    loadNow: loadEeroRecordsNow,
+  } = useEeroData();
   const [customThresholds, setCustomThresholds] = useState(() => {
     const saved = localStorage.getItem('ponPmThresholds');
     return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
@@ -241,6 +268,23 @@ export default function PONPMAnalysis() {
       setResult(prev => ({ ...prev })); // trigger re-render
     }
   }, [result, persistSubscriberData]);
+
+  // Eero enrichment — runs AFTER subscriber enrichment because eero matches
+  // via ont._subscriber.account ↔ home_identifier.
+  const handleEeroDataLoaded = useEeroOntEnrichmentHandler({
+    result,
+    setResult,
+    persistEeroData,
+    setEeroMatchCount,
+  });
+
+  // Auto-enrich ONTs with eero when eero records are loaded.
+  useEffect(() => {
+    if (!result?.onts || eeroLoading) return;
+    if (!eeroRecords || eeroRecords.length === 0) return;
+    const matched = enrichOntsWithEeroFromDB(result.onts);
+    if (matched > 0) setResult(prev => ({ ...prev }));
+  }, [result?.onts?.length, eeroLoading, eeroRecords?.length, subscriberMatchCount, enrichOntsWithEeroFromDB]);
 
   // Auto-enrich ONTs when result loads OR when subscriber records become available.
   // Depend on subscriberRecords.length so that if records arrive AFTER the report
@@ -567,98 +611,10 @@ export default function PONPMAnalysis() {
     }));
   }, []);
 
-  const exportOfflineCSV = () => {
-    if (!result?.onts) return;
-    const offlineOnts = result.onts
-      .filter(ont => ont._analysis.status === 'offline')
-      .sort((a, b) => {
-        // Sort by OLT name first, then by shelf/slot/port numerically
-        const oltCmp = (a._oltName || '').localeCompare(b._oltName || '', undefined, { numeric: true });
-        if (oltCmp !== 0) return oltCmp;
-        return (a['Shelf/Slot/Port'] || '').localeCompare(b['Shelf/Slot/Port'] || '', undefined, { numeric: true });
-      });
+  // CSV export helpers extracted to components/ponpm/ontCsvExports.js
+  const exportOfflineCSV = () => exportOfflineCSVUtil(result?.onts);
 
-    if (offlineOnts.length === 0) {
-      toast.error('No offline ONTs found in this report');
-      return;
-    }
-
-    const headers = ['OLT', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'Model', 'LCP', 'Splitter', 'Location', 'Address'];
-    const rows = offlineOnts.map(ont => [
-      ont._oltName || '',
-      ont['Shelf/Slot/Port'] || '',
-      ont.OntID || '',
-      ont.SerialNumber || '',
-      ont.model || '',
-      ont._lcpNumber || '',
-      ont._splitterNumber || '',
-      ont._lcpLocation || '',
-      ont._lcpAddress || '',
-    ]);
-
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `offline-onts-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${offlineOnts.length} offline ONTs`);
-  };
-
-  const exportCSV = (filterType = 'all') => {
-    if (!result?.onts) return;
-
-    let ontsToExport = result.onts;
-    if (filterType === 'critical') {
-      ontsToExport = result.onts.filter(ont => ont._analysis.status === 'critical');
-    } else if (filterType === 'warning') {
-      ontsToExport = result.onts.filter(ont => ont._analysis.status === 'warning');
-    } else if (filterType === 'issues') {
-      ontsToExport = result.onts.filter(ont => ont._analysis.status !== 'ok');
-    }
-
-    const headers = [
-      'Status', 'OLT', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'Model',
-      'OntRxOptPwr', 'OntTxPwr', 'OLTRXOptPwr',
-      'UpstreamBipErrors', 'DownstreamBipErrors',
-      'UpstreamFecUncorrected', 'DownstreamFecUncorrected',
-      'Issues', 'Issue Details'
-    ];
-
-    const rows = ontsToExport.map(ont => {
-      const allIssues = [...ont._analysis.issues, ...ont._analysis.warnings];
-      return [
-        ont._analysis.status.toUpperCase(),
-        ont._oltName,
-        ont['Shelf/Slot/Port'],
-        ont.OntID,
-        ont.SerialNumber,
-        ont.model,
-        ont.OntRxOptPwr,
-        ont.OntTxPwr,
-        ont.OLTRXOptPwr,
-        ont.UpstreamBipErrors,
-        ont.DownstreamBipErrors,
-        ont.UpstreamFecUncorrectedCodeWords,
-        ont.DownstreamFecUncorrectedCodeWords,
-        allIssues.map(i => i.field).join(', '),
-        allIssues.map(i => `${i.field}: ${i.value} (${i.message})`).join('; ')
-      ];
-    });
-
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell || ''}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const suffix = filterType === 'all' ? '' : `-${filterType}`;
-    a.download = `pon-pm-analysis${suffix}-${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${ontsToExport.length} ${filterType === 'all' ? '' : filterType + ' '}ONTs`);
-  };
+  const exportCSV = (filterType = 'all') => exportFilteredOntsCSV(result?.onts, filterType);
 
   const exportCriticalPDF = async () => {
     if (!result?.onts) return;
@@ -906,64 +862,27 @@ Be specific, technical, and actionable.`;
     }
   };
 
-  const exportPortInventory = () => {
+  const exportPortInventory = () => exportPortInventoryCSV(result?.onts);
+
+  // Eero saturation PDF — uses the full result so all ONTs are aggregated.
+  const exportEeroSaturationPDF = async () => {
     if (!result?.onts) return;
-
-    // Aggregate ONTs by port
-    const portMap = new Map();
-    result.onts.forEach(ont => {
-      const key = `${ont._oltName || 'Unknown'}|${ont._port || 'Unknown'}`;
-      if (!portMap.has(key)) {
-        portMap.set(key, {
-          olt: ont._oltName || 'Unknown',
-          port: ont._port || 'Unknown',
-          onts: [],
-          lcps: new Set(),
-          models: new Set(),
-          opticTypes: new Set(),
-        });
-      }
-      const portData = portMap.get(key);
-      portData.onts.push(ont);
-      if (ont._lcpNumber) portData.lcps.add(`${ont._lcpNumber}${ont._splitterNumber ? '/' + ont._splitterNumber : ''}`);
-      if (ont.model) portData.models.add(ont.model);
-      if (ont._opticModel) portData.opticTypes.add(ont._opticModel);
-    });
-
-    const headers = ['OLT', 'Port', 'Total ONTs', 'LCP/Splitters', 'ONT Models', 'Optic Types', 'Status Breakdown'];
-    const rows = [...portMap.values()]
-      .sort((a, b) => {
-        const oltCmp = a.olt.localeCompare(b.olt, undefined, { numeric: true });
-        return oltCmp !== 0 ? oltCmp : a.port.localeCompare(b.port, undefined, { numeric: true });
-      })
-      .map(p => {
-        const statusBreakdown = {
-          ok: p.onts.filter(o => o._analysis.status === 'ok').length,
-          warning: p.onts.filter(o => o._analysis.status === 'warning').length,
-          critical: p.onts.filter(o => o._analysis.status === 'critical').length,
-          offline: p.onts.filter(o => o._analysis.status === 'offline').length,
-        };
-        const breakdown = `OK: ${statusBreakdown.ok} | Warning: ${statusBreakdown.warning} | Critical: ${statusBreakdown.critical} | Offline: ${statusBreakdown.offline}`;
-        return [
-          p.olt,
-          p.port,
-          p.onts.length,
-          [...p.lcps].join('; ') || 'N/A',
-          [...p.models].join('; ') || 'N/A',
-          [...p.opticTypes].join('; ') || 'N/A',
-          breakdown,
-        ];
-      });
-
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell || ''}"` ).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `port-inventory-${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`Exported ${portMap.size} ports with ONT inventory`);
+    if (!eeroRecordsLoaded) {
+      toast.error('Load eero data first');
+      return;
+    }
+    toast.loading('Generating eero saturation PDF...', { id: 'eero-pdf' });
+    try {
+      await downloadPdfFromFunction(
+        'generateEeroSaturationPDF',
+        { reportData: { onts: result.onts }, reportName: result.summary?.reportName },
+        `eero-saturation-${new Date().toISOString().slice(0, 10)}.pdf`
+      );
+      toast.success('eero saturation PDF generated', { id: 'eero-pdf' });
+    } catch (error) {
+      console.error('eero PDF export error:', error);
+      toast.error('Failed to generate eero PDF: ' + error.message, { id: 'eero-pdf' });
+    }
   };
 
   return (
@@ -1077,6 +996,24 @@ Be specific, technical, and actionable.`;
                   onOpenChange={setShowSubscriberDialog}
                   hideTrigger
                 />
+
+                {/* eero data badge — same UX as subscriber dropdown */}
+                <EeroDataBadge
+                  eeroMeta={eeroMeta}
+                  eeroRecordsLoaded={eeroRecordsLoaded}
+                  eeroMatchCount={eeroMatchCount}
+                  eeroLoading={eeroLoading}
+                  onUploadClick={() => setShowEeroDialog(true)}
+                  onLoadExistingClick={loadEeroRecordsNow}
+                />
+                <EeroUpload
+                  onDataLoaded={handleEeroDataLoaded}
+                  eeroMatchCount={eeroMatchCount}
+                  eeroMeta={eeroMeta}
+                  open={showEeroDialog}
+                  onOpenChange={setShowEeroDialog}
+                  hideTrigger
+                />
                 <ThresholdSettingsDialog
                   open={showThresholdSettings}
                   onOpenChange={setShowThresholdSettings}
@@ -1144,6 +1081,19 @@ Be specific, technical, and actionable.`;
                       <FileSpreadsheet className="h-4 w-4 mr-2 text-indigo-500" />
                       LCP/Splitter Port Utilization (CSV)
                     </DropdownMenuItem>
+                    {eeroRecordsLoaded && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => exportEeroOntsCSV(result?.onts)}>
+                          <Wifi className="h-4 w-4 mr-2 text-emerald-500" />
+                          ONTs with eero (CSV)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={exportEeroSaturationPDF}>
+                          <FileText className="h-4 w-4 mr-2 text-emerald-600" />
+                          eero Saturation Overview (PDF)
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -1869,6 +1819,7 @@ Be specific, technical, and actionable.`;
                                               <TableHead className="px-1.5 py-1 text-[10px] w-8">St</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px]">ID</TableHead>
                                               {subscriberMatchCount > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Subscriber</TableHead>}
+                                              {eeroRecordsLoaded && <TableHead className="px-1.5 py-1 text-[10px] text-center">eero</TableHead>}
                                               <TableHead className="px-1.5 py-1 text-[10px]">LCP/Spl</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px]">Serial</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px]">Model</TableHead>
@@ -1891,7 +1842,7 @@ Be specific, technical, and actionable.`;
                                           </TableHeader>
                                           <TableBody>
                                             {portOnts.filter(ont => !hideOntStatus[ont._analysis.status]).map((ont, idx) => (
-                                             <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} hasSparklines={Object.keys(sparklineHistory).length > 0} onSelectDetail={setSelectedOntDetail} onCreateJobReport={createJobReportForONT} />
+                                             <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} hasEeroData={eeroRecordsLoaded} hasSparklines={Object.keys(sparklineHistory).length > 0} onSelectDetail={setSelectedOntDetail} onCreateJobReport={createJobReportForONT} />
                                             ))}
                                           </TableBody>
                                                 </Table>
