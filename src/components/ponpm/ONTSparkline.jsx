@@ -19,23 +19,26 @@ export default function ONTSparkline({ data, type = 'rx', width = 72, height = 2
   const delta = (last ?? 0) - (first ?? 0);
 
   // Color logic:
-  // rx: degrading (more negative = worse) → delta < -1 = red, delta > 1 = green, else gray
-  // fec: increasing errors = worse → delta > 0 = red, delta < 0 = green, else gray
+  // rx: degrading (more negative = worse) → delta < -1 = red, delta > 1 = green, else neutral
+  // fec: increasing errors = worse → delta > 0 = red, delta < 0 = green, else neutral
+  // Neutral uses slate-500 (#64748b) so the line stays readable in both
+  // light and dark modes — slate-400 was washing out on dark backgrounds.
   const strokeColor = useMemo(() => {
     if (type === 'rx') {
       if (delta < -1) return '#ef4444';
       if (delta > 1)  return '#22c55e';
-      return '#94a3b8';
+      return '#64748b';
     } else {
       if (delta > 0)  return '#ef4444';
       if (delta < 0)  return '#22c55e';
-      return '#94a3b8';
+      return '#64748b';
     }
   }, [type, delta]);
 
-  // Need at least 2 points to draw a meaningful line
+  // Need at least 2 points to draw a meaningful line.
+  // Use a mid-tone gray that's legible on both light and dark backgrounds.
   if (!data || data.length < 2) {
-    return <span className="text-gray-300 text-[9px]">—</span>;
+    return <span className="text-gray-400 dark:text-gray-500 text-[9px]">—</span>;
   }
 
   const CustomTooltip = ({ active, payload }) => {

@@ -296,11 +296,14 @@ export default function PONPMAnalysis() {
     if (matched > 0) setResult(prev => ({ ...prev }));
   }, [result?.onts?.length, subscriberLoading, subscriberRecords?.length, enrichOntsFromDB]);
 
-  // Fetch sparkline history whenever a new result is loaded
-  // We use a ref to avoid re-fetching for the same result source
+  // Fetch sparkline history whenever a new result is loaded.
+  //
+  // Large reports (7k+ ONTs) can't be sent in a single backend call without
+  // tripping the platform's per-request rate limit on the server side, so
+  // we chunk serials and call sequentially, merging history as it returns.
+  // A ref guards against duplicate fetches for the same loaded report.
   useEffect(() => {
     if (!result?.onts || result.onts.length === 0) return;
-    // Use a stable key to deduplicate fetches (report_id or first serial as proxy)
     const sourceKey = result.source || (result.onts[0]?.SerialNumber ?? '');
     if (sparklinesFetchedForRef.current === sourceKey) return;
     sparklinesFetchedForRef.current = sourceKey;
@@ -308,21 +311,44 @@ export default function PONPMAnalysis() {
     const serials = [...new Set(result.onts.map(o => o.SerialNumber).filter(Boolean))];
     if (serials.length === 0) return;
 
-    base44.functions.invoke('getBatchOntHistory', { serial_numbers: serials, limit_per_ont: 10 })
-      .then(res => {
-        if (res.data?.success && res.data?.history) {
-          setSparklineHistory(res.data.history);
-          // Attach _sparklines to each ont in-place, then force re-render
-          result.onts.forEach(ont => {
-            const sn = (ont.SerialNumber || '').toUpperCase();
-            if (res.data.history[sn]) {
-              ont._sparklines = res.data.history[sn];
-            }
+    let cancelled = false;
+    const CHUNK = 100;                  // matches backend's safe per-call window
+    const INTER_CHUNK_MS = 150;         // breathing room between chunks
+
+    const fetchAll = async () => {
+      const merged = {};
+      for (let i = 0; i < serials.length; i += CHUNK) {
+        if (cancelled) return;
+        const slice = serials.slice(i, i + CHUNK);
+        try {
+          const res = await base44.functions.invoke('getBatchOntHistory', {
+            serial_numbers: slice,
+            limit_per_ont: 10,
           });
-          setResult(prev => ({ ...prev }));
+          if (res.data?.success && res.data?.history) {
+            Object.assign(merged, res.data.history);
+            // Apply incrementally so the UI populates progressively rather
+            // than waiting for the whole report to finish.
+            if (!cancelled) {
+              setSparklineHistory({ ...merged });
+              result.onts.forEach(ont => {
+                const sn = (ont.SerialNumber || '').toUpperCase();
+                if (merged[sn] && !ont._sparklines) ont._sparklines = merged[sn];
+              });
+              setResult(prev => ({ ...prev }));
+            }
+          }
+        } catch (err) {
+          console.warn('Sparkline chunk failed:', err);
         }
-      })
-      .catch(err => console.warn('Sparkline fetch failed:', err));
+        if (i + CHUNK < serials.length) {
+          await new Promise(r => setTimeout(r, INTER_CHUNK_MS));
+        }
+      }
+    };
+
+    fetchAll();
+    return () => { cancelled = true; };
   }, [result?.onts?.length, result?.source]);
 
   // Reset sparklines fetch tracker when result is cleared
