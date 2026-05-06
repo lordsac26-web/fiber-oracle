@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       default: return Response.json({ error: 'Invalid PDF type' }, { status: 400 });
     }
 
-    return new Response(pdfBytes, {
+    return new Response(new Uint8Array(pdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

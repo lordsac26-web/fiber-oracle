@@ -692,7 +692,7 @@ Deno.serve(async (req) => {
       drawRunningFooter(doc, p - 1, totalPages - 1, companyName);
     }
 
-    return new Response(doc.output('arraybuffer'), {
+    return new Response(new Uint8Array(doc.output('arraybuffer')), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
