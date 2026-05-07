@@ -1075,7 +1075,10 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { reportData, criticalOnly = false } = await req.json();
+    const { reportData, criticalOnly = false, timezone } = await req.json();
+    // Deno Deploy is UTC by default. Frontend injects the user's IANA tz so
+    // dates render in their local time. Falls back to ET if missing.
+    const tz = timezone || 'America/New_York';
     if (!reportData?.summary || !reportData?.onts) {
       return Response.json({ error: 'Invalid report data' }, { status: 400 });
     }
