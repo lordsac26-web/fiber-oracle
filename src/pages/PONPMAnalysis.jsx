@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -26,7 +25,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
 import {
   Tooltip,
   TooltipContent,
@@ -38,10 +36,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { 
-  ArrowLeft, 
-  Upload, 
-  AlertTriangle, 
+import {
+  ArrowLeft,
+  Upload,
+  AlertTriangle,
   AlertCircle,
   CheckCircle2,
   Info,
@@ -72,7 +70,6 @@ import HistoricalTrends from '@/components/ponpm/HistoricalTrends';
 import OLTPortSummary from '@/components/ponpm/OLTPortSummary';
 import LCPSummarySection from '@/components/ponpm/LCPSummarySection';
 import HistoricalDataManager from '@/components/ponpm/HistoricalDataManager';
-import ReportForm from '@/components/jobreports/ReportForm';
 import ONTDetailView from '@/components/ponpm/ONTDetailView';
 import KPIStatistics from '@/components/ponpm/KPIStatistics';
 import PowerDistributionChart from '@/components/ponpm/PowerDistributionChart';
@@ -80,7 +77,6 @@ import FileUploadZone from '@/components/ponpm/FileUploadZone';
 import PortHeaderLabel from '@/components/ponpm/PortHeaderLabel';
 import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
 import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
-// formatUptime moved to ONTTableRow component
 import { exportLcpPortUtilization } from '@/components/ponpm/exportLcpUtilization';
 import { exportIssueReport as exportIssueReportUtil } from '@/components/ponpm/exportIssueReport';
 import CorrectedFecAnalysis from '@/components/ponpm/CorrectedFecAnalysis';
@@ -104,17 +100,23 @@ import LCPExportMenu from '@/components/lcp/LCPExportMenu';
 import JobReportDialog from '@/components/ponpm/JobReportDialog';
 import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
-const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
-const STATUS_COLORS = {
-  critical: 'bg-red-500',
-  warning: 'bg-amber-500',
-  ok: 'bg-green-500',
-  offline: 'bg-purple-500',
-  info: 'bg-blue-500',
+ 
+// ─── Queries ────────────────────────────────────────────────────────────────
+const useLcpQuery = () => useQuery({
+  queryKey: ['lcp-entries'],
+  queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
+  staleTime: 5 * 60 * 1000,
+});
+ 
+// ─── Constants ───────────────────────────────────────────────────────────────
+// FIX #11: STATUS_COLORS removed from here — it only lives in ONTTableRow now.
+const STATUS_BADGES = {
+  critical: 'bg-red-100 text-red-800 border-red-300',
+  warning: 'bg-amber-100 text-amber-800 border-amber-300',
+  ok: 'bg-green-100 text-green-800 border-green-300',
+  offline: 'bg-purple-100 text-purple-800 border-purple-300',
 };
-
-const STATUS_BADGES = { critical: 'bg-red-100 text-red-800 border-red-300', warning: 'bg-amber-100 text-amber-800 border-amber-300', ok: 'bg-green-100 text-green-800 border-green-300', offline: 'bg-purple-100 text-purple-800 border-purple-300' };
-
+ 
 const DEFAULT_THRESHOLDS = {
   OntRxOptPwr: { low: -27, marginal: -25, high: -8 },
   OLTRXOptPwr: { low: -30, marginal: -28, high: -8 },
@@ -128,7 +130,12 @@ const DEFAULT_THRESHOLDS = {
   UpstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
   DownstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
 };
-
+ 
+// ─── Sparkline chunk config ──────────────────────────────────────────────────
+const SPARKLINE_CHUNK = 100;   // matches backend's safe per-call window
+const SPARKLINE_INTER_MS = 150; // breathing room between chunks
+const SPARKLINE_RENDER_EVERY = 5; // only re-render every N chunks (FIX #1A)
+ 
 export default function PONPMAnalysis() {
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
@@ -138,10 +145,9 @@ export default function PONPMAnalysis() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [oltFilter, setOltFilter] = useState('all');
   const [portFilter, setPortFilter] = useState('all');
-  const [techFilter, setTechFilter] = useState('all');
   const [powerRangeFilter, setPowerRangeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('none');
-  // Global multi-select filters — apply across the entire dashboard (KPIs, charts, hierarchy, LCP summary)
+  // Global multi-select filters
   const [globalSplitters, setGlobalSplitters] = useState([]);
   const [globalOltPorts, setGlobalOltPorts] = useState([]);
   const [globalModels, setGlobalModels] = useState([]);
@@ -164,8 +170,8 @@ export default function PONPMAnalysis() {
   const [selectedOntDetail, setSelectedOntDetail] = useState(null);
   // Sparkline history: { [serial_number]: { rx: number[], fec: number[] } }
   const [sparklineHistory, setSparklineHistory] = useState({});
-  const sparklinesFetchedForRef = useRef(null); // tracks which result source we've fetched for
-
+  const sparklinesFetchedForRef = useRef(null);
+ 
   const {
     subscriberMeta,
     subscriberMatchCount,
@@ -177,10 +183,7 @@ export default function PONPMAnalysis() {
     isLoading: subscriberLoading,
     loadNow: loadSubscriberRecordsNow,
   } = useSubscriberData();
-
-  // Eero data — same architecture as subscriber data, matched via
-  // subscriber AccountName ↔ eero home_identifier (so subscriber data must
-  // be enriched first for eero matching to work).
+ 
   const {
     eeroMeta,
     eeroMatchCount,
@@ -192,23 +195,35 @@ export default function PONPMAnalysis() {
     isLoading: eeroLoading,
     loadNow: loadEeroRecordsNow,
   } = useEeroData();
+ 
   const [customThresholds, setCustomThresholds] = useState(() => {
-    const saved = localStorage.getItem('ponPmThresholds');
-    return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
+    try {
+      const saved = localStorage.getItem('ponPmThresholds');
+      return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
+    } catch {
+      return { ...DEFAULT_THRESHOLDS };
+    }
   });
-
-  // Track the report currently being processed in the background
+ 
   const [processingReportId, setProcessingReportId] = useState(null);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [processingSavedCount, setProcessingSavedCount] = useState(0);
   const [processingStatus, setProcessingStatus] = useState(null);
-
-  // Global cross-session detector — picks up any report still being indexed
-  // even after a page refresh or navigation. Used to (a) keep the progress
-  // banner visible and (b) block new uploads while indexing is in flight.
+ 
   const { isProcessing: isAnyReportProcessing, activeReport: globalActiveReport } = useProcessingReports();
-
-  // Real-time subscription + initial poll for background indexing progress
+ 
+  // ─── Enrichment guard refs (FIX #2) ─────────────────────────────────────────
+  const subEnrichedRef = useRef(false);
+  const eeroEnrichedRef = useRef(false);
+  const enrichedRef = useRef(false);
+  // Reset all enrichment guards when a new result source is loaded
+  useEffect(() => {
+    subEnrichedRef.current = false;
+    eeroEnrichedRef.current = false;
+    enrichedRef.current = false;
+  }, [result?.source]);
+ 
+  // ─── Real-time processing subscription ───────────────────────────────────────
   useEffect(() => {
     if (!processingReportId) return;
     let cancelled = false;
@@ -225,9 +240,10 @@ export default function PONPMAnalysis() {
         setProcessingProgress(0);
         toast.error('Background ONT indexing failed');
         setTimeout(() => setProcessingReportId(null), 4000);
-      } else { setProcessingProgress(p ?? 0); }
+      } else {
+        setProcessingProgress(p ?? 0);
+      }
     };
-    // Poll once immediately in case automation already finished before subscribe
     base44.entities.PONPMReport.filter({ id: processingReportId }, null, 1)
       .then(r => r?.[0] && applyStatus(r[0].processing_status, r[0].processing_progress, r[0].processing_saved_count))
       .catch(() => {});
@@ -238,8 +254,12 @@ export default function PONPMAnalysis() {
     });
     return () => { cancelled = true; unsubscribe(); };
   }, [processingReportId, queryClient]);
-
-  const { data: savedReports = [], isLoading: loadingReports } = useQuery({ queryKey: ['ponPmReports'], queryFn: () => base44.entities.PONPMReport.list('-upload_date') });
+ 
+  // ─── Queries ─────────────────────────────────────────────────────────────────
+  const { data: savedReports = [], isLoading: loadingReports } = useQuery({
+    queryKey: ['ponPmReports'],
+    queryFn: () => base44.entities.PONPMReport.list('-upload_date'),
+  });
   const { data: lcpEntriesForEnrich = [] } = useLcpQuery();
   const { data: lcpOntCounts = {} } = useQuery({
     queryKey: ['lcpOntCounts'],
@@ -249,83 +269,85 @@ export default function PONPMAnalysis() {
     },
     staleTime: 5 * 60 * 1000,
   });
+ 
+  // ─── LCP enrichment ───────────────────────────────────────────────────────────
   const lcpMapRef = useRef(new Map());
-  useEffect(() => { lcpMapRef.current = buildLcpLookupMap(lcpEntriesForEnrich); }, [lcpEntriesForEnrich]);
-  const enrichedRef = useRef(false);
+  useEffect(() => {
+    lcpMapRef.current = buildLcpLookupMap(lcpEntriesForEnrich);
+  }, [lcpEntriesForEnrich]);
+ 
   useEffect(() => {
     if (!result?.onts || lcpMapRef.current.size === 0) return;
     enrichOntsWithLcp(lcpMapRef.current, result.onts);
-    // Always trigger a re-render to pick up optic type updates (even on saved reports
-    // where _lcpNumber is already set but _opticModel may not be populated)
     if (!enrichedRef.current) {
       enrichedRef.current = true;
       setResult(prev => ({ ...prev }));
     }
   }, [result?.onts?.length, lcpEntriesForEnrich]);
-  useEffect(() => { enrichedRef.current = false; }, [result?.source]);
-
-  // Subscriber data enrichment — uses persistent hook
+ 
+  // ─── Subscriber enrichment (FIX #2 — guard prevents re-runs) ─────────────────
+  useEffect(() => {
+    if (!result?.onts || subscriberLoading) return;
+    if (!subscriberRecords || subscriberRecords.length === 0) return;
+    if (subEnrichedRef.current) return;
+    subEnrichedRef.current = true;
+    const matched = enrichOntsFromDB(result.onts);
+    if (matched > 0) setResult(prev => ({ ...prev }));
+  }, [result?.onts?.length, subscriberLoading, subscriberRecords?.length, enrichOntsFromDB]);
+ 
+  // ─── Eero enrichment (FIX #2 — guard prevents re-runs on subscriberMatchCount changes) ──
+  useEffect(() => {
+    if (!result?.onts || eeroLoading) return;
+    if (!eeroRecords || eeroRecords.length === 0) return;
+    if (eeroEnrichedRef.current) return;
+    // Only run after subscriber enrichment has had a chance to apply
+    if (subscriberRecords?.length > 0 && !subEnrichedRef.current) return;
+    eeroEnrichedRef.current = true;
+    const matched = enrichOntsWithEeroFromDB(result.onts);
+    if (matched > 0) setResult(prev => ({ ...prev }));
+  }, [result?.onts?.length, eeroLoading, eeroRecords?.length, enrichOntsWithEeroFromDB, subscriberRecords?.length]);
+ 
+  // ─── Subscriber data loaded by user upload ────────────────────────────────────
   const handleSubscriberDataLoaded = useCallback(async (records, fileName) => {
     await persistSubscriberData(records, fileName);
-    if (result?.onts) {
+    // Use a ref snapshot to avoid stale closure (FIX #7)
+    setResult(prev => {
+      if (!prev?.onts) return prev;
       const lookup = buildSubscriberLookup(records);
-      const matched = enrichOntsWithSubscriber(lookup, result.onts);
+      const matched = enrichOntsWithSubscriber(lookup, prev.onts);
       setSubscriberMatchCount(matched);
-      setResult(prev => ({ ...prev })); // trigger re-render
-    }
-  }, [result, persistSubscriberData]);
-
-  // Eero enrichment — runs AFTER subscriber enrichment because eero matches
-  // via ont._subscriber.account ↔ home_identifier.
+      subEnrichedRef.current = true;
+      return { ...prev };
+    });
+  }, [persistSubscriberData, setSubscriberMatchCount]);
+ 
   const handleEeroDataLoaded = useEeroOntEnrichmentHandler({
     result,
     setResult,
     persistEeroData,
     setEeroMatchCount,
   });
-
-  // Auto-enrich ONTs with eero when eero records are loaded.
-  useEffect(() => {
-    if (!result?.onts || eeroLoading) return;
-    if (!eeroRecords || eeroRecords.length === 0) return;
-    const matched = enrichOntsWithEeroFromDB(result.onts);
-    if (matched > 0) setResult(prev => ({ ...prev }));
-  }, [result?.onts?.length, eeroLoading, eeroRecords?.length, subscriberMatchCount, enrichOntsWithEeroFromDB]);
-
-  // Auto-enrich ONTs when result loads OR when subscriber records become available.
-  // Depend on subscriberRecords.length so that if records arrive AFTER the report
-  // (common on auto-load, since both queries run in parallel), we still enrich.
-  useEffect(() => {
-    if (!result?.onts || subscriberLoading) return;
-    if (!subscriberRecords || subscriberRecords.length === 0) return;
-    const matched = enrichOntsFromDB(result.onts);
-    if (matched > 0) setResult(prev => ({ ...prev }));
-  }, [result?.onts?.length, subscriberLoading, subscriberRecords?.length, enrichOntsFromDB]);
-
-  // Fetch sparkline history whenever a new result is loaded.
-  //
-  // Large reports (7k+ ONTs) can't be sent in a single backend call without
-  // tripping the platform's per-request rate limit on the server side, so
-  // we chunk serials and call sequentially, merging history as it returns.
-  // A ref guards against duplicate fetches for the same loaded report.
+ 
+  // ─── Sparkline fetching (FIX #1A, #1B) ───────────────────────────────────────
+  // Batch re-renders: only call setResult every SPARKLINE_RENDER_EVERY chunks,
+  // not on every single chunk. Apply sparklines immutably via setResult updater
+  // rather than mutating result.onts directly.
   useEffect(() => {
     if (!result?.onts || result.onts.length === 0) return;
     const sourceKey = result.source || (result.onts[0]?.SerialNumber ?? '');
     if (sparklinesFetchedForRef.current === sourceKey) return;
     sparklinesFetchedForRef.current = sourceKey;
-
+ 
     const serials = [...new Set(result.onts.map(o => o.SerialNumber).filter(Boolean))];
     if (serials.length === 0) return;
-
+ 
     let cancelled = false;
-    const CHUNK = 100;                  // matches backend's safe per-call window
-    const INTER_CHUNK_MS = 150;         // breathing room between chunks
-
+ 
     const fetchAll = async () => {
       const merged = {};
-      for (let i = 0; i < serials.length; i += CHUNK) {
+      for (let i = 0; i < serials.length; i += SPARKLINE_CHUNK) {
         if (cancelled) return;
-        const slice = serials.slice(i, i + CHUNK);
+        const slice = serials.slice(i, i + SPARKLINE_CHUNK);
         try {
           const res = await base44.functions.invoke('getBatchOntHistory', {
             serial_numbers: slice,
@@ -333,30 +355,39 @@ export default function PONPMAnalysis() {
           });
           if (res.data?.success && res.data?.history) {
             Object.assign(merged, res.data.history);
-            // Apply incrementally so the UI populates progressively rather
-            // than waiting for the whole report to finish.
-            if (!cancelled) {
-              setSparklineHistory({ ...merged });
-              result.onts.forEach(ont => {
-                const sn = (ont.SerialNumber || '').toUpperCase();
-                if (merged[sn] && !ont._sparklines) ont._sparklines = merged[sn];
+            // FIX #1A: Only re-render every N chunks, not every single one
+            const chunkIndex = Math.floor(i / SPARKLINE_CHUNK);
+            const isLast = i + SPARKLINE_CHUNK >= serials.length;
+            if (!cancelled && (isLast || chunkIndex % SPARKLINE_RENDER_EVERY === 0)) {
+              const snapshot = { ...merged };
+              setSparklineHistory(snapshot);
+              // FIX #1B: Apply immutably via updater instead of direct mutation
+              setResult(prev => {
+                if (!prev?.onts) return prev;
+                const updatedOnts = prev.onts.map(ont => {
+                  const sn = (ont.SerialNumber || '').toUpperCase();
+                  if (snapshot[sn] && !ont._sparklines) {
+                    return { ...ont, _sparklines: snapshot[sn] };
+                  }
+                  return ont;
+                });
+                return { ...prev, onts: updatedOnts };
               });
-              setResult(prev => ({ ...prev }));
             }
           }
         } catch (err) {
           console.warn('Sparkline chunk failed:', err);
         }
-        if (i + CHUNK < serials.length) {
-          await new Promise(r => setTimeout(r, INTER_CHUNK_MS));
+        if (i + SPARKLINE_CHUNK < serials.length) {
+          await new Promise(r => setTimeout(r, SPARKLINE_INTER_MS));
         }
       }
     };
-
+ 
     fetchAll();
     return () => { cancelled = true; };
   }, [result?.onts?.length, result?.source]);
-
+ 
   // Reset sparklines fetch tracker when result is cleared
   useEffect(() => {
     if (!result) {
@@ -364,11 +395,10 @@ export default function PONPMAnalysis() {
       setSparklineHistory({});
     }
   }, [result]);
-
-  // Save report metadata, then kick off async background processing for ONT records
+ 
+  // ─── Save report mutation ─────────────────────────────────────────────────────
   const saveReportMutation = useMutation({
     mutationFn: async (reportData) => {
-      // Create the report summary record immediately (fast)
       const report = await base44.entities.PONPMReport.create({
         report_name: reportData.report_name,
         upload_date: reportData.upload_date,
@@ -386,17 +416,11 @@ export default function PONPMAnalysis() {
         processing_progress: 0,
         processing_saved_count: 0,
       });
-
-      // Background processing is handled automatically by the entity automation
-      // "Process PON PM Records on Report Create" which triggers processPonPmRecords
-      // when a PONPMReport is created. No need to call it directly here.
-
       return report;
     },
     onSuccess: (report) => {
       queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
       toast.success('Report saved — ONT records are being indexed in the background');
-      // Begin real-time progress tracking via subscription
       setProcessingReportId(report.id);
       setProcessingProgress(0);
       setProcessingSavedCount(0);
@@ -407,8 +431,8 @@ export default function PONPMAnalysis() {
       toast.error('Failed to save report to history');
     },
   });
-
-  // Reusable: load a saved report into the view (used by manual selection and auto-load)
+ 
+  // ─── Load saved report ────────────────────────────────────────────────────────
   const loadSavedReport = useCallback(async (report) => {
     if (!report?.id) return;
     setIsLoading(true);
@@ -443,32 +467,24 @@ export default function PONPMAnalysis() {
       setIsLoading(false);
     }
   }, []);
-
-  // Auto-load the most recent saved report on first visit so users land on a populated dashboard.
-  // LCP enrichment + subscriber enrichment are applied automatically by existing effects below.
+ 
+  // Auto-load the most recent saved report on first visit
   useEffect(() => {
     if (autoLoadAttemptedRef.current) return;
     if (loadingReports) return;
     if (result || isLoading) return;
     autoLoadAttemptedRef.current = true;
-    if (savedReports.length > 0) {
-      loadSavedReport(savedReports[0]);
-    }
+    if (savedReports.length > 0) loadSavedReport(savedReports[0]);
   }, [loadingReports, savedReports, result, isLoading, loadSavedReport]);
-
-  // Accepts either a File object (from FileUploadZone) or a change event (from header dropdown input)
+ 
+  // ─── File upload ──────────────────────────────────────────────────────────────
   const handleFileUpload = async (fileOrEvent) => {
     const file = fileOrEvent instanceof File ? fileOrEvent : fileOrEvent?.target?.files?.[0];
     if (!file) return;
-
     if (!file.name.toLowerCase().endsWith('.csv')) {
       toast.error('Please upload a CSV file');
       return;
     }
-
-    // Guard: a previous report is still indexing in the background. Uploading
-    // now causes the backend to fight itself for rate-limited DB writes,
-    // which is exactly what produces the 429 timeouts the user reported.
     if (isAnyReportProcessing) {
       const name = globalActiveReport?.report_name || 'previous report';
       toast.error(
@@ -477,34 +493,20 @@ export default function PONPMAnalysis() {
       );
       return;
     }
-
-    // Capture the file's last-modified timestamp from the OS (not the upload time)
     const fileReportDate = new Date(file.lastModified).toISOString();
-
     setIsLoading(true);
     toast.loading('Parsing PON PM data...', { id: 'pon-parse' });
-
     try {
-      // Upload file first
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
-
-      // Parse the file — pass custom thresholds so the backend uses current alert config
       const response = await base44.functions.invoke('parsePonPm', { file_url, thresholds: customThresholds });
-
       if (response.data?.success) {
-        // Eagerly enrich with subscriber data already in DB before setting result
         if (response.data.onts) enrichOntsFromDB(response.data.onts);
-        // Attach file date to result so the header badge can display it
         setResult({ ...response.data, reportDate: fileReportDate, source: fileReportDate });
         setExpandedOlts([]);
         setExpandedPorts([]);
-        setSelectedReportId(null); // Clear selection for new upload
+        setSelectedReportId(null);
         toast.success(`Parsed ${response.data.summary.totalOnts.toLocaleString()} ONTs successfully`, { id: 'pon-parse' });
-
-        // Auto-save the report to database with all ONT records
         const reportName = file.name.replace('.csv', '') + ' - ' + format(new Date(), 'MM/dd/yy HH:mm');
-
-        // Calculate Rx power stats
         const rxValues = response.data.onts
           .map(o => parseFloat(o.OntRxOptPwr))
           .filter(v => !isNaN(v));
@@ -512,7 +514,7 @@ export default function PONPMAnalysis() {
         const minRx = rxValues.length > 0 ? Math.min(...rxValues) : null;
         const maxRx = rxValues.length > 0 ? Math.max(...rxValues) : null;
         saveReportMutation.mutate({
-          report_name: reportName, upload_date: fileReportDate, file_url: file_url,
+          report_name: reportName, upload_date: fileReportDate, file_url,
           ont_count: response.data.summary.totalOnts, critical_count: response.data.summary.criticalCount,
           warning_count: response.data.summary.warningCount, ok_count: response.data.summary.okCount,
           olt_count: response.data.summary.oltCount, olts: Object.keys(response.data.olts || {}),
@@ -528,32 +530,29 @@ export default function PONPMAnalysis() {
       setIsLoading(false);
     }
   };
-
+ 
+  // ─── Collapsible toggles ──────────────────────────────────────────────────────
   const toggleOlt = useCallback((oltName) => {
-    setExpandedOlts(prev => 
-      prev.includes(oltName) 
-        ? prev.filter(o => o !== oltName)
-        : [...prev, oltName]
+    setExpandedOlts(prev =>
+      prev.includes(oltName) ? prev.filter(o => o !== oltName) : [...prev, oltName]
     );
   }, []);
-
+ 
   const togglePort = useCallback((portKey) => {
-    setExpandedPorts(prev => 
-      prev.includes(portKey) 
-        ? prev.filter(p => p !== portKey)
-        : [...prev, portKey]
+    setExpandedPorts(prev =>
+      prev.includes(portKey) ? prev.filter(p => p !== portKey) : [...prev, portKey]
     );
   }, []);
-
+ 
+  // ─── filteredOnts (FIX #3: techFilter removed, FIX #5: pre-grouped map) ────────
   const filteredOnts = useMemo(() => {
-    // Pre-build Sets for O(1) global filter checks (avoids N*M scans on large reports)
     const splitterSet = globalSplitters.length ? new Set(globalSplitters) : null;
     const oltPortSet  = globalOltPorts.length  ? new Set(globalOltPorts)  : null;
     const modelSet    = globalModels.length    ? new Set(globalModels)    : null;
-
+ 
     let filtered = result?.onts?.filter(ont => {
       const term = searchTerm.toLowerCase();
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         ont.SerialNumber?.toLowerCase().includes(term) ||
         ont.OntID?.toString().includes(searchTerm) ||
         ont['Shelf/Slot/Port']?.toLowerCase().includes(term) ||
@@ -561,30 +560,26 @@ export default function PONPMAnalysis() {
         ont._subscriber?.name?.toLowerCase().includes(term) ||
         ont._subscriber?.account?.toLowerCase().includes(term) ||
         ont._subscriber?.address?.toLowerCase().includes(term);
-      
+ 
       const matchesStatus = statusFilter === 'all' || ont._analysis.status === statusFilter;
       const matchesOlt = oltFilter === 'all' || ont._oltName === oltFilter;
       const matchesPort = portFilter === 'all' || ont._port === portFilter;
-      
-      // Tech filter now disabled — optic type comes from LCP enrichment only
-      const matchesTech = true;
-      
+ 
       let matchesPowerRange = true;
       if (powerRangeFilter !== 'all') {
         const rx = parseFloat(ont.OntRxOptPwr);
         if (!isNaN(rx)) {
           switch (powerRangeFilter) {
             case 'critical': matchesPowerRange = rx < -27; break;
-            case 'warning': matchesPowerRange = rx >= -27 && rx < -25; break;
-            case 'optimal': matchesPowerRange = rx >= -25 && rx <= -15; break;
-            case 'high': matchesPowerRange = rx > -15; break;
+            case 'warning':  matchesPowerRange = rx >= -27 && rx < -25; break;
+            case 'optimal':  matchesPowerRange = rx >= -25 && rx <= -15; break;
+            case 'high':     matchesPowerRange = rx > -15; break;
           }
         } else {
           matchesPowerRange = false;
         }
       }
-
-      // --- Global filters (additive — empty array = no restriction) ---
+ 
       let matchesGlobalSplitter = true;
       if (splitterSet) {
         const key = ont._lcpNumber
@@ -592,74 +587,73 @@ export default function PONPMAnalysis() {
           : null;
         matchesGlobalSplitter = key ? splitterSet.has(key) : false;
       }
-
+ 
       let matchesGlobalOltPort = true;
       if (oltPortSet) {
         matchesGlobalOltPort = ont._oltName && ont._port
           ? oltPortSet.has(`${ont._oltName}|${ont._port}`)
           : false;
       }
-
+ 
       let matchesGlobalModel = true;
       if (modelSet) {
         const m = ont.model || ont._subscriber?.model;
         matchesGlobalModel = m ? modelSet.has(m) : false;
       }
-
-      return matchesSearch && matchesStatus && matchesOlt && matchesPort && matchesTech && matchesPowerRange
-        && matchesGlobalSplitter && matchesGlobalOltPort && matchesGlobalModel;
+ 
+      return matchesSearch && matchesStatus && matchesOlt && matchesPort
+        && matchesPowerRange && matchesGlobalSplitter && matchesGlobalOltPort && matchesGlobalModel;
     }) || [];
-    
-    // Apply sorting
+ 
     if (sortBy !== 'none' && filtered.length > 0) {
       filtered = [...filtered].sort((a, b) => {
         switch (sortBy) {
-          case 'rx-asc':
-            return (parseFloat(a.OntRxOptPwr) || -999) - (parseFloat(b.OntRxOptPwr) || -999);
-          case 'rx-desc':
-            return (parseFloat(b.OntRxOptPwr) || -999) - (parseFloat(a.OntRxOptPwr) || -999);
+          case 'rx-asc':    return (parseFloat(a.OntRxOptPwr) || -999) - (parseFloat(b.OntRxOptPwr) || -999);
+          case 'rx-desc':   return (parseFloat(b.OntRxOptPwr) || -999) - (parseFloat(a.OntRxOptPwr) || -999);
           case 'errors-desc':
-            return (parseInt(b.UpstreamBipErrors) + parseInt(b.DownstreamBipErrors) || 0) - 
+            return (parseInt(b.UpstreamBipErrors) + parseInt(b.DownstreamBipErrors) || 0) -
                    (parseInt(a.UpstreamBipErrors) + parseInt(a.DownstreamBipErrors) || 0);
-          case 'serial':
-            return (a.SerialNumber || '').localeCompare(b.SerialNumber || '');
-          default:
-            return 0;
+          case 'serial':    return (a.SerialNumber || '').localeCompare(b.SerialNumber || '');
+          default:          return 0;
         }
       });
     }
-    
     return filtered;
-  }, [result, searchTerm, statusFilter, oltFilter, portFilter, techFilter, powerRangeFilter, sortBy,
+  }, [result, searchTerm, statusFilter, oltFilter, portFilter, powerRangeFilter, sortBy,
       globalSplitters, globalOltPorts, globalModels]);
-
+ 
+  // FIX #5: Pre-group filteredOnts by OLT|port once, avoiding O(N×M) in the hierarchy render
+  const ontsByOltPort = useMemo(() => {
+    const map = {};
+    for (const ont of filteredOnts) {
+      const key = `${ont._oltName}|${ont._port}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(ont);
+    }
+    return map;
+  }, [filteredOnts]);
+ 
+  // ─── Threshold helpers ────────────────────────────────────────────────────────
   const saveThresholds = useCallback(() => {
     localStorage.setItem('ponPmThresholds', JSON.stringify(customThresholds));
     toast.success('Thresholds saved');
     setShowThresholdSettings(false);
   }, [customThresholds]);
-
+ 
   const resetThresholds = useCallback(() => {
     setCustomThresholds({ ...DEFAULT_THRESHOLDS });
     localStorage.removeItem('ponPmThresholds');
     toast.success('Thresholds reset to defaults');
   }, []);
-
+ 
   const updateThreshold = useCallback((field, key, value) => {
     setCustomThresholds(prev => ({
       ...prev,
-      [field]: {
-        ...prev[field],
-        [key]: parseFloat(value) || 0
-      }
+      [field]: { ...prev[field], [key]: parseFloat(value) || 0 }
     }));
   }, []);
-
-  // CSV export helpers extracted to components/ponpm/ontCsvExports.js
-  const exportOfflineCSV = () => exportOfflineCSVUtil(result?.onts);
-
-  const exportCSV = (filterType = 'all') => exportFilteredOntsCSV(result?.onts, filterType);
-
+ 
+  // ─── Export helpers (FIX #12: thin wrappers removed, call utils directly in JSX) ─
   const exportCriticalPDF = async () => {
     if (!result?.onts) return;
     const criticalOnts = result.onts.filter(o => o._analysis.status === 'critical');
@@ -669,7 +663,7 @@ export default function PONPMAnalysis() {
       await downloadPdfFromFunction(
         'generatePonPmPDF',
         { reportData: { ...result, onts: criticalOnts }, criticalOnly: true },
-        `pon-pm-critical-issues-${new Date().toISOString().slice(0,10)}.pdf`
+        `pon-pm-critical-issues-${new Date().toISOString().slice(0, 10)}.pdf`
       );
       toast.success(`Exported ${criticalOnts.length} critical issues to PDF`, { id: 'critical-pdf' });
     } catch (error) {
@@ -677,7 +671,7 @@ export default function PONPMAnalysis() {
       toast.error('Failed to generate critical issues PDF: ' + error.message, { id: 'critical-pdf' });
     }
   };
-
+ 
   const exportPDF = async () => {
     if (!result?.onts) return;
     toast.loading('Generating PDF report...', { id: 'pdf-export' });
@@ -685,7 +679,7 @@ export default function PONPMAnalysis() {
       await downloadPdfFromFunction(
         'generatePonPmPDF',
         { reportData: result },
-        `pon-pm-report-${new Date().toISOString().slice(0,10)}.pdf`
+        `pon-pm-report-${new Date().toISOString().slice(0, 10)}.pdf`
       );
       toast.success('PDF report generated', { id: 'pdf-export' });
     } catch (error) {
@@ -693,35 +687,45 @@ export default function PONPMAnalysis() {
       toast.error('Failed to generate PDF: ' + error.message, { id: 'pdf-export' });
     }
   };
-
+ 
+  const exportEeroSaturationPDF = async () => {
+    if (!result?.onts) return;
+    if (!eeroRecordsLoaded) { toast.error('Load eero data first'); return; }
+    toast.loading('Generating eero saturation PDF...', { id: 'eero-pdf' });
+    try {
+      await downloadPdfFromFunction(
+        'generateEeroSaturationPDF',
+        { reportData: { onts: result.onts }, reportName: result.summary?.reportName },
+        `eero-saturation-${new Date().toISOString().slice(0, 10)}.pdf`
+      );
+      toast.success('eero saturation PDF generated', { id: 'eero-pdf' });
+    } catch (error) {
+      console.error('eero PDF export error:', error);
+      toast.error('Failed to generate eero PDF: ' + error.message, { id: 'eero-pdf' });
+    }
+  };
+ 
+  // ─── Job report ───────────────────────────────────────────────────────────────
   const createJobReportForONT = async (ont) => {
     setCreatingJobReport(ont);
     setGeneratingReport(true);
-    
     try {
-      // Build comprehensive issue summary
       const issues = [];
       if (ont._analysis?.issues) {
-        ont._analysis.issues.forEach(issue => {
-          issues.push(`${issue.field}: ${issue.message} (${issue.value})`);
-        });
+        ont._analysis.issues.forEach(issue => issues.push(`${issue.field}: ${issue.message} (${issue.value})`));
       }
       if (ont._analysis?.warnings) {
-        ont._analysis.warnings.forEach(warning => {
-          issues.push(`${warning.field}: ${warning.message} (${warning.value})`);
-        });
+        ont._analysis.warnings.forEach(warning => issues.push(`${warning.field}: ${warning.message} (${warning.value})`));
       }
-      
-      // Build trend summary
       const trends = [];
       const trendDetails = [];
       if (ont._trends) {
-        if (ont._trends.ont_rx_change !== null && ont._trends.ont_rx_change !== undefined) {
+        if (ont._trends.ont_rx_change != null) {
           const change = ont._trends.ont_rx_change;
           trends.push(`ONT Rx changed by ${change > 0 ? '+' : ''}${change.toFixed(1)} dB since ${format(new Date(ont._trends.previous_date), 'MMM d')}`);
           trendDetails.push(`ONT Rx Power: ${change.toFixed(1)} dB change over ${ont._trends.days_since_last} days ${change < -1 ? '(DEGRADING)' : change > 1 ? '(IMPROVING)' : '(STABLE)'}`);
         }
-        if (ont._trends.olt_rx_change !== null && ont._trends.olt_rx_change !== undefined) {
+        if (ont._trends.olt_rx_change != null) {
           const change = ont._trends.olt_rx_change;
           trendDetails.push(`OLT Rx Power: ${change > 0 ? '+' : ''}${change.toFixed(1)} dB change ${change < -1 ? '(DEGRADING)' : change > 1 ? '(IMPROVING)' : '(STABLE)'}`);
         }
@@ -742,8 +746,6 @@ export default function PONPMAnalysis() {
           trendDetails.push(`DS FEC Uncorrected: ${ont._trends.ds_fec_change > 0 ? '+' : ''}${ont._trends.ds_fec_change} ${ont._trends.ds_fec_change > 10 ? '(SIGNIFICANT INCREASE)' : ''}`);
         }
       }
-      
-      // Build subscriber info block for AI prompt
       const sub = ont._subscriber;
       const subscriberBlock = sub ? `
 Subscriber Information:
@@ -754,10 +756,9 @@ Subscriber Information:
 - Zip: ${sub.zip || 'N/A'}
 - ONT Ranged: ${sub.ontRanged || 'N/A'}
 - Software Version: ${sub.softwareVersion || 'N/A'}` : '\nSubscriber Information: Not available';
-
-      // Use AI to generate smart diagnosis and recommendations
+ 
       const aiPrompt = `You are a fiber optic technician creating a job report for an ONT with the following data:
-
+ 
 Serial Number (FSAN): ${ont.SerialNumber}
 ONT ID: ${ont.OntID || 'Unknown'}
 Model: ${ont.model || 'Unknown'}
@@ -766,31 +767,31 @@ Port: ${ont._port}
 Location: ${ont._lcpLocation || ont._lcpNumber ? `LCP ${ont._lcpNumber}${ont._splitterNumber ? ' / Splitter ' + ont._splitterNumber : ''}` : 'Unknown'}
 Address: ${ont._lcpAddress || 'Unknown'}
 ${subscriberBlock}
-
+ 
 Current Power Levels:
 - ONT Rx: ${ont.OntRxOptPwr} dBm
 - OLT Rx: ${ont.OLTRXOptPwr} dBm
 - ONT Tx: ${ont.OntTxPwr || 'N/A'} dBm
-
+ 
 Issues Detected:
 ${issues.length > 0 ? issues.join('\n') : 'No critical issues detected'}
-
+ 
 ${trends.length > 0 ? `Performance Trends:\n${trends.join('\n')}` : ''}
-
+ 
 Error Counts:
 - Upstream BIP Errors: ${ont.UpstreamBipErrors || 0}
 - Downstream BIP Errors: ${ont.DownstreamBipErrors || 0}
 - Upstream FEC Uncorrected: ${ont.UpstreamFecUncorrectedCodeWords || 0}
 - Downstream FEC Uncorrected: ${ont.DownstreamFecUncorrectedCodeWords || 0}
-
+ 
 Based on this data, generate:
 1. A professional diagnosis of the issues
 2. Recommended actions to resolve them
 3. Equipment that should be used
 4. Expected outcomes
-
+ 
 Be specific, technical, and actionable.`;
-
+ 
       const aiResponse = await base44.integrations.Core.InvokeLLM({
         prompt: aiPrompt,
         response_json_schema: {
@@ -804,12 +805,11 @@ Be specific, technical, and actionable.`;
           }
         }
       });
-      
-      // Pre-fill form data with historical trends
-      const trendSummary = trendDetails.length > 0 
+ 
+      const trendSummary = trendDetails.length > 0
         ? `\n\nHISTORICAL PERFORMANCE TRENDS (Last ${ont._trends?.days_since_last || 0} days):\n${trendDetails.map(t => `- ${t}`).join('\n')}`
         : '';
-      
+ 
       const formData = {
         job_number: `WO-PON-${ont.SerialNumber?.substring(0, 8)}-${Date.now().toString().slice(-4)}`,
         technician_name: '',
@@ -822,34 +822,22 @@ Be specific, technical, and actionable.`;
         diagnosis_used: true,
         diagnosis_result: aiResponse.diagnosis,
         fiber_info: {
-          fsan: ont.SerialNumber,
-          ont_id: ont.OntID,
-          model: ont.model,
-          olt: ont._oltName,
-          port: ont._port,
-          lcp: ont._lcpNumber,
-          splitter: ont._splitterNumber
+          fsan: ont.SerialNumber, ont_id: ont.OntID, model: ont.model,
+          olt: ont._oltName, port: ont._port, lcp: ont._lcpNumber, splitter: ont._splitterNumber
         },
         subscriber_info: sub ? {
-          name: sub.name || null,
-          account: sub.account || null,
-          address: sub.address || null,
-          city: sub.city || null,
-          zip: sub.zip || null,
-          ont_ranged: sub.ontRanged || null,
-          software_version: sub.softwareVersion || null,
+          name: sub.name || null, account: sub.account || null,
+          address: sub.address || null, city: sub.city || null, zip: sub.zip || null,
+          ont_ranged: sub.ontRanged || null, software_version: sub.softwareVersion || null,
         } : null,
         photo_urls: [],
         historical_trends: trendDetails.length > 0 ? trendDetails : null
       };
-      
       setJobReportFormData(formData);
       toast.success('Job report pre-filled with AI analysis');
     } catch (error) {
       console.error('Failed to generate job report:', error);
       toast.error('Failed to generate AI analysis');
-      
-      // Fallback to basic data
       const basicFormData = {
         job_number: `WO-PON-${ont.SerialNumber?.substring(0, 8)}-${Date.now().toString().slice(-4)}`,
         technician_name: '',
@@ -860,14 +848,7 @@ Be specific, technical, and actionable.`;
         notes: `ONT Analysis Job\n\nFSAN: ${ont.SerialNumber}\nONT ID: ${ont.OntID || 'Unknown'}\nModel: ${ont.model || 'Unknown'}\nOLT: ${ont._oltName} / ${ont._port}\nLCP: ${ont._lcpNumber || 'Unknown'}\n\nCurrent ONT Rx: ${ont.OntRxOptPwr} dBm\n\nIssues detected:\n${ont._analysis?.issues?.map(i => `- ${i.message}`).join('\n') || 'None'}`,
         equipment_used: [],
         diagnosis_used: false,
-        fiber_info: {
-          fsan: ont.SerialNumber,
-          ont_id: ont.OntID,
-          model: ont.model,
-          olt: ont._oltName,
-          port: ont._port,
-          lcp: ont._lcpNumber
-        },
+        fiber_info: { fsan: ont.SerialNumber, ont_id: ont.OntID, model: ont.model, olt: ont._oltName, port: ont._port, lcp: ont._lcpNumber },
         photo_urls: []
       };
       setJobReportFormData(basicFormData);
@@ -875,7 +856,7 @@ Be specific, technical, and actionable.`;
       setGeneratingReport(false);
     }
   };
-  
+ 
   const handleJobReportSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -883,20 +864,16 @@ Be specific, technical, and actionable.`;
         ...jobReportFormData,
         start_power_level: jobReportFormData.start_power_level ? parseFloat(jobReportFormData.start_power_level) : null,
         end_power_level: jobReportFormData.end_power_level ? parseFloat(jobReportFormData.end_power_level) : null,
-        power_improvement: jobReportFormData.start_power_level && jobReportFormData.end_power_level 
+        power_improvement: jobReportFormData.start_power_level && jobReportFormData.end_power_level
           ? (parseFloat(jobReportFormData.end_power_level) - parseFloat(jobReportFormData.start_power_level)).toFixed(2)
           : null
       };
-      
       const report = await base44.entities.JobReport.create(data);
-      
-      // Generate and download PDF via direct fetch (SDK invoke doesn't support binary)
       await downloadPdfFromFunction(
         'generatePDF',
         { type: 'jobReport', data: report },
         `JobReport-${report.job_number}.pdf`
       );
-      
       toast.success('Job report created and PDF downloaded');
       setCreatingJobReport(null);
       setJobReportFormData(null);
@@ -905,30 +882,37 @@ Be specific, technical, and actionable.`;
       toast.error('Failed to create job report');
     }
   };
-
-  const exportPortInventory = () => exportPortInventoryCSV(result?.onts);
-
-  // Eero saturation PDF — uses the full result so all ONTs are aggregated.
-  const exportEeroSaturationPDF = async () => {
-    if (!result?.onts) return;
-    if (!eeroRecordsLoaded) {
-      toast.error('Load eero data first');
-      return;
-    }
-    toast.loading('Generating eero saturation PDF...', { id: 'eero-pdf' });
-    try {
-      await downloadPdfFromFunction(
-        'generateEeroSaturationPDF',
-        { reportData: { onts: result.onts }, reportName: result.summary?.reportName },
-        `eero-saturation-${new Date().toISOString().slice(0, 10)}.pdf`
-      );
-      toast.success('eero saturation PDF generated', { id: 'eero-pdf' });
-    } catch (error) {
-      console.error('eero PDF export error:', error);
-      toast.error('Failed to generate eero PDF: ' + error.message, { id: 'eero-pdf' });
-    }
-  };
-
+ 
+  // FIX #9: Derived report date label — computed once, not via inline IIFE per render
+  const reportDateLabel = useMemo(() => {
+    if (!result) return null;
+    const d = result.reportDate || result.upload_date || savedReports.find(r => r.id === selectedReportId)?.upload_date;
+    return d ? `Report: ${format(new Date(d), 'MMM d, yyyy h:mm a')}` : 'Saved report';
+  }, [result?.reportDate, result?.upload_date, selectedReportId, savedReports]);
+ 
+  // FIX #4: Issue detail onts computed once per render, used for both the list and the empty check
+  const issueDetailOnts = useMemo(() => {
+    if (!issueDetailView || !result?.onts) return [];
+    return result.onts.filter(ont => {
+      const matchesType = issueDetailView.type === 'critical'
+        ? ont._analysis.issues.length > 0
+        : ont._analysis.warnings.length > 0;
+      return matchesType
+        && (!issueDetailView.oltName || ont._oltName === issueDetailView.oltName)
+        && (!issueDetailView.portKey  || ont._port    === issueDetailView.portKey);
+    });
+  }, [issueDetailView, result?.onts]);
+ 
+  // Trend count derived values used in the health overview — computed once
+  const trendStats = useMemo(() => {
+    if (!result?.onts) return { withTrends: 0, degrading: 0 };
+    return {
+      withTrends: result.onts.filter(o => o._trends).length,
+      degrading:  result.onts.filter(o => o._trends?.ont_rx_change < -1).length,
+    };
+  }, [result?.onts]);
+ 
+  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-gray-200/50 dark:border-gray-700/50">
@@ -947,7 +931,7 @@ Be specific, technical, and actionable.`;
             </div>
             {result && (
               <div className="flex items-center gap-2 flex-wrap">
-                {/* Report date — click to choose another report or upload new */}
+                {/* Report date dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -957,27 +941,23 @@ Be specific, technical, and actionable.`;
                       aria-label="Switch or upload PON PM report"
                     >
                       <Calendar className="h-3 w-3" />
-                      {(() => {
-                        const d = result.reportDate || result.upload_date || savedReports.find(r => r.id === selectedReportId)?.upload_date;
-                        return d ? `Report: ${format(new Date(d), 'MMM d, yyyy h:mm a')}` : 'Saved report';
-                      })()}
+                      {reportDateLabel}
                       <ChevronDown className="h-3 w-3 ml-0.5 opacity-70" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem onClick={() => setShowHistoricalReports(true)}>
-                       <Database className="h-4 w-4 mr-2 text-blue-500" />
-                       Choose another report
-                     </DropdownMenuItem>
-                     <DropdownMenuItem onClick={() => headerFileInputRef.current?.click()}>
-                       <Upload className="h-4 w-4 mr-2 text-cyan-500" />
-                       Upload new PON PM CSV
-                     </DropdownMenuItem>
+                      <Database className="h-4 w-4 mr-2 text-blue-500" />
+                      Choose another report
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => headerFileInputRef.current?.click()}>
+                      <Upload className="h-4 w-4 mr-2 text-cyan-500" />
+                      Upload new PON PM CSV
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                {/* Subscriber data — dropdown with two clear actions:
-                    upload new CSV, or reload latest from DB into memory. */}
+ 
+                {/* Subscriber data dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -1013,7 +993,7 @@ Be specific, technical, and actionable.`;
                         try {
                           await loadSubscriberRecordsNow();
                           toast.success('Subscriber data reloaded', { id: 'sub-reload' });
-                        } catch (e) {
+                        } catch {
                           toast.error('Failed to reload subscriber data', { id: 'sub-reload' });
                         }
                       }}
@@ -1030,8 +1010,7 @@ Be specific, technical, and actionable.`;
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-
-                {/* Hidden controlled subscriber upload dialog (opened by badge above) */}
+ 
                 <SubscriberUpload
                   onDataLoaded={handleSubscriberDataLoaded}
                   subscriberCount={subscriberMatchCount}
@@ -1040,8 +1019,7 @@ Be specific, technical, and actionable.`;
                   onOpenChange={setShowSubscriberDialog}
                   hideTrigger
                 />
-
-                {/* eero data badge — same UX as subscriber dropdown */}
+ 
                 <EeroDataBadge
                   eeroMeta={eeroMeta}
                   eeroRecordsLoaded={eeroRecordsLoaded}
@@ -1066,13 +1044,14 @@ Be specific, technical, and actionable.`;
                   onSave={saveThresholds}
                   onReset={resetThresholds}
                 />
-
+ 
                 <LCPExportMenu
                   lcpEntries={lcpEntriesForEnrich}
                   latestOntCountsByKey={lcpOntCounts}
                   subscriberRecords={subscriberRecords}
                 />
-
+ 
+                {/* Export dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -1082,7 +1061,7 @@ Be specific, technical, and actionable.`;
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => exportPDF()}>
+                    <DropdownMenuItem onClick={exportPDF}>
                       <FileText className="h-4 w-4 mr-2 text-red-500" />
                       Full Issue Report (PDF)
                     </DropdownMenuItem>
@@ -1095,29 +1074,29 @@ Be specific, technical, and actionable.`;
                       Issue Report (CSV)
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => exportCSV('all')}>
+                    <DropdownMenuItem onClick={() => exportFilteredOntsCSV(result?.onts, 'all')}>
                       <FileSpreadsheet className="h-4 w-4 mr-2" />
                       All Results (CSV)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => exportCSV('issues')}>
+                    <DropdownMenuItem onClick={() => exportFilteredOntsCSV(result?.onts, 'issues')}>
                       <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
                       All Issues (CSV)
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => exportCSV('critical')}>
+                    <DropdownMenuItem onClick={() => exportFilteredOntsCSV(result?.onts, 'critical')}>
                       <AlertCircle className="h-4 w-4 mr-2 text-red-500" />
                       Critical Only (CSV)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => exportCSV('warning')}>
+                    <DropdownMenuItem onClick={() => exportFilteredOntsCSV(result?.onts, 'warning')}>
                       <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
                       Warnings Only (CSV)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={exportOfflineCSV}>
+                    <DropdownMenuItem onClick={() => exportOfflineCSVUtil(result?.onts)}>
                       <Router className="h-4 w-4 mr-2 text-purple-500" />
                       Offline ONTs (CSV)
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={exportPortInventory}>
+                    <DropdownMenuItem onClick={() => exportPortInventoryCSV(result?.onts)}>
                       <FileSpreadsheet className="h-4 w-4 mr-2 text-blue-500" />
                       Port Inventory Report (CSV)
                     </DropdownMenuItem>
@@ -1145,7 +1124,7 @@ Be specific, technical, and actionable.`;
           </div>
         </div>
       </header>
-
+ 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* Loading State */}
         {isLoading && !result && (
@@ -1154,20 +1133,14 @@ Be specific, technical, and actionable.`;
               <div className="text-center space-y-4">
                 <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto" />
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Loading Latest Report...
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Restoring last PON PM analysis with current LCP &amp; subscriber data
-                  </p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Loading Latest Report...</h3>
+                  <p className="text-sm text-gray-500 mt-1">Restoring last PON PM analysis with current LCP &amp; subscriber data</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
-
-        {/* Show in-flight indexing banner even before a report is loaded,
-            so users hitting the page fresh see it too. */}
+ 
         {!result && !isLoading && globalActiveReport && (
           <ProcessingProgressBar
             status={globalActiveReport.processing_status}
@@ -1177,7 +1150,7 @@ Be specific, technical, and actionable.`;
             reportName={globalActiveReport.report_name}
           />
         )}
-
+ 
         {/* Upload Section */}
         {!result && !isLoading && (
           <Card className="border-0 shadow-lg">
@@ -1187,17 +1160,11 @@ Be specific, technical, and actionable.`;
                   <FileSpreadsheet className="h-10 w-10 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    PON PM Analysis
-                  </h2>
-                  <p className="text-gray-500 mt-2 max-w-lg mx-auto">
-                    Upload a new CSV export or work with previously saved reports
-                  </p>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">PON PM Analysis</h2>
+                  <p className="text-gray-500 mt-2 max-w-lg mx-auto">Upload a new CSV export or work with previously saved reports</p>
                 </div>
-
                 <div className="max-w-md mx-auto space-y-4">
                   <FileUploadZone onChange={handleFileUpload} isLoading={isLoading} disabled={isAnyReportProcessing} disabledMessage={isAnyReportProcessing ? `Wait for "${globalActiveReport?.report_name || 'current report'}" to finish indexing` : null} />
-
                   {savedReports.length > 0 && (
                     <>
                       <div className="relative">
@@ -1208,31 +1175,24 @@ Be specific, technical, and actionable.`;
                           <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">Or</span>
                         </div>
                       </div>
-
-                      <Button 
-                        variant="outline" 
-                        className="w-full"
-                        onClick={() => setShowHistoricalReports(true)}
-                      >
+                      <Button variant="outline" className="w-full" onClick={() => setShowHistoricalReports(true)}>
                         <Database className="h-4 w-4 mr-2" />
                         Load Saved Report ({savedReports.length})
                       </Button>
                     </>
                   )}
                 </div>
-
                 <div className="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto mt-8">
                   <Card className="border bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200">
                     <CardContent className="p-4">
                       <h3 className="font-semibold flex items-center gap-2 mb-2 text-cyan-800 dark:text-cyan-200">
-                        <Activity className="h-4 w-4" />
-                        What It Analyzes
+                        <Activity className="h-4 w-4" />What It Analyzes
                       </h3>
                       <ul className="text-sm text-cyan-700 dark:text-cyan-300 space-y-1">
-                        <li>• ONT & OLT optical power levels</li>
+                        <li>• ONT &amp; OLT optical power levels</li>
                         <li>• Upstream/downstream BIP errors</li>
-                        <li>• FEC corrected & uncorrected</li>
-                        <li>• Missed bursts & GEM HEC errors</li>
+                        <li>• FEC corrected &amp; uncorrected</li>
+                        <li>• Missed bursts &amp; GEM HEC errors</li>
                         <li>• BER rates (Us/Ds)</li>
                       </ul>
                     </CardContent>
@@ -1240,8 +1200,7 @@ Be specific, technical, and actionable.`;
                   <Card className="border bg-purple-50 dark:bg-purple-900/20 border-purple-200">
                     <CardContent className="p-4">
                       <h3 className="font-semibold flex items-center gap-2 mb-2 text-purple-800 dark:text-purple-200">
-                        <Zap className="h-4 w-4" />
-                        Peer Comparison
+                        <Zap className="h-4 w-4" />Peer Comparison
                       </h3>
                       <ul className="text-sm text-purple-700 dark:text-purple-300 space-y-1">
                         <li>• Groups ONTs by Shelf/Slot/Port</li>
@@ -1256,16 +1215,12 @@ Be specific, technical, and actionable.`;
             </CardContent>
           </Card>
         )}
-
+ 
         {/* Results Section */}
         {result && (
           <>
-            {/* Subscriber data freshness banner */}
             <SubscriberDataBanner subscriberMeta={subscriberMeta} matchCount={subscriberMatchCount} />
-
-            {/* Background processing progress bar — prefers locally tracked
-                state (right after upload) and falls back to the global
-                detector so the banner survives page refresh/navigation. */}
+ 
             <ProcessingProgressBar
               status={processingStatus || globalActiveReport?.processing_status || null}
               progress={processingStatus ? processingProgress : (globalActiveReport?.processing_progress ?? 0)}
@@ -1273,78 +1228,66 @@ Be specific, technical, and actionable.`;
               totalCount={result?.summary?.totalOnts ?? globalActiveReport?.ont_count}
               reportName={!processingStatus ? globalActiveReport?.report_name : undefined}
             />
-
+ 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
               <Card className="border-0 shadow">
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {result.summary.totalOnts}
-                  </div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{result.summary.totalOnts}</div>
                   <div className="text-xs text-gray-500">Total ONTs</div>
-                  {result.onts?.filter(o => o._trends).length > 0 && (
+                  {trendStats.withTrends > 0 && (
                     <Badge variant="outline" className="text-[10px] mt-1 bg-blue-50 text-blue-700 border-blue-300">
                       <TrendingUp className="h-2 w-2 mr-1" />
-                      {result.onts.filter(o => o._trends).length} with trends
+                      {trendStats.withTrends} with trends
                     </Badge>
                   )}
                 </CardContent>
               </Card>
-              <Card 
+              <Card
                 className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-red-300 ${issueDetailView?.type === 'critical' && !issueDetailView?.oltName ? 'ring-2 ring-red-500' : ''}`}
                 onClick={() => setIssueDetailView(issueDetailView?.type === 'critical' && !issueDetailView?.oltName ? null : { type: 'critical' })}
               >
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-red-600">
-                    {result.summary.criticalCount}
-                  </div>
+                  <div className="text-2xl font-bold text-red-600">{result.summary.criticalCount}</div>
                   <div className="text-xs text-gray-500">Critical</div>
                 </CardContent>
               </Card>
-              <Card 
+              <Card
                 className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-amber-300 ${issueDetailView?.type === 'warning' && !issueDetailView?.oltName ? 'ring-2 ring-amber-500' : ''}`}
                 onClick={() => setIssueDetailView(issueDetailView?.type === 'warning' && !issueDetailView?.oltName ? null : { type: 'warning' })}
               >
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-amber-600">
-                    {result.summary.warningCount}
-                  </div>
+                  <div className="text-2xl font-bold text-amber-600">{result.summary.warningCount}</div>
                   <div className="text-xs text-gray-500">Warnings</div>
                 </CardContent>
               </Card>
-              <Card 
+              <Card
                 className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-purple-300 ${statusFilter === 'offline' ? 'ring-2 ring-purple-500' : ''}`}
                 onClick={() => { setStatusFilter(statusFilter === 'offline' ? 'all' : 'offline'); setIssueDetailView(null); }}
               >
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {result.summary.offlineCount || 0}
-                  </div>
+                  <div className="text-2xl font-bold text-purple-600">{result.summary.offlineCount || 0}</div>
                   <div className="text-xs text-gray-500">Offline</div>
                 </CardContent>
               </Card>
-              <Card 
+              <Card
                 className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-green-300 ${statusFilter === 'ok' ? 'ring-2 ring-green-500' : ''}`}
                 onClick={() => { setStatusFilter(statusFilter === 'ok' ? 'all' : 'ok'); setIssueDetailView(null); }}
               >
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {result.summary.okCount}
-                  </div>
+                  <div className="text-2xl font-bold text-green-600">{result.summary.okCount}</div>
                   <div className="text-xs text-gray-500">Healthy</div>
                 </CardContent>
               </Card>
               <Card className="border-0 shadow">
                 <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {result.summary.oltCount}
-                  </div>
+                  <div className="text-2xl font-bold text-blue-600">{result.summary.oltCount}</div>
                   <div className="text-xs text-gray-500">OLTs</div>
                 </CardContent>
               </Card>
             </div>
-
-            {/* Issue Detail Panel */}
+ 
+            {/* Issue Detail Panel (FIX #4: uses pre-computed issueDetailOnts) */}
             {issueDetailView && (
               <Card className={`border-2 ${issueDetailView.type === 'critical' ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/20'}`}>
                 <CardHeader className="pb-2">
@@ -1355,64 +1298,43 @@ Be specific, technical, and actionable.`;
                       {issueDetailView.oltName && <span className="text-sm font-normal">— {issueDetailView.oltName}</span>}
                       {issueDetailView.portKey && <span className="text-sm font-normal">/ {issueDetailView.portKey}</span>}
                     </CardTitle>
-                    <Button variant="ghost" size="sm" onClick={() => setIssueDetailView(null)}>
-                      ✕
-                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setIssueDetailView(null)}>✕</Button>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 max-h-80 overflow-y-auto">
-                    {result.onts
-                      .filter(ont => {
-                        const matchesType = issueDetailView.type === 'critical' 
-                          ? ont._analysis.issues.length > 0 
-                          : ont._analysis.warnings.length > 0;
-                        const matchesOlt = !issueDetailView.oltName || ont._oltName === issueDetailView.oltName;
-                        const matchesPort = !issueDetailView.portKey || ont._port === issueDetailView.portKey;
-                        return matchesType && matchesOlt && matchesPort;
-                      })
-                      .map((ont, idx) => {
-                        const issues = issueDetailView.type === 'critical' ? ont._analysis.issues : ont._analysis.warnings;
-                        return (
-                          <div key={idx} className="p-3 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="font-semibold text-sm">
-                                <span className="text-gray-500">{ont._oltName} / {ont._port} /</span> ONT {ont.OntID}
-                              </div>
-                              <span className="font-mono text-xs text-gray-500">{ont.SerialNumber}</span>
+                    {issueDetailOnts.map((ont, idx) => {
+                      const issues = issueDetailView.type === 'critical' ? ont._analysis.issues : ont._analysis.warnings;
+                      return (
+                        <div key={ont.SerialNumber || idx} className="p-3 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="font-semibold text-sm">
+                              <span className="text-gray-500">{ont._oltName} / {ont._port} /</span> ONT {ont.OntID}
                             </div>
-                            <div className="space-y-1">
-                              {issues.map((issue, i) => (
-                                <div key={i} className={`text-sm p-2 rounded ${issueDetailView.type === 'critical' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="font-medium">{issue.field}</span>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono text-xs bg-white/70 px-1.5 py-0.5 rounded font-bold">
-                                        {issue.value}
-                                      </span>
-                                      {issue.threshold && (
-                                        <span className="font-mono text-xs text-gray-600 bg-white/50 px-1.5 py-0.5 rounded">
-                                          Threshold: {issue.threshold}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="text-xs opacity-80">{issue.message}</div>
-                                </div>
-                              ))}
-                            </div>
+                            <span className="font-mono text-xs text-gray-500">{ont.SerialNumber}</span>
                           </div>
-                        );
-                      })
-                    }
-                    {result.onts.filter(ont => {
-                      const matchesType = issueDetailView.type === 'critical' 
-                        ? ont._analysis.issues.length > 0 
-                        : ont._analysis.warnings.length > 0;
-                      const matchesOlt = !issueDetailView.oltName || ont._oltName === issueDetailView.oltName;
-                      const matchesPort = !issueDetailView.portKey || ont._port === issueDetailView.portKey;
-                      return matchesType && matchesOlt && matchesPort;
-                    }).length === 0 && (
+                          <div className="space-y-1">
+                            {issues.map((issue, i) => (
+                              <div key={i} className={`text-sm p-2 rounded ${issueDetailView.type === 'critical' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="font-medium">{issue.field}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-xs bg-white/70 px-1.5 py-0.5 rounded font-bold">{issue.value}</span>
+                                    {issue.threshold && (
+                                      <span className="font-mono text-xs text-gray-600 bg-white/50 px-1.5 py-0.5 rounded">
+                                        Threshold: {issue.threshold}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-xs opacity-80">{issue.message}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {issueDetailOnts.length === 0 && (
                       <div className="text-center py-4 text-gray-500">
                         No {issueDetailView.type === 'critical' ? 'critical issues' : 'warnings'} found
                       </div>
@@ -1421,7 +1343,7 @@ Be specific, technical, and actionable.`;
                 </CardContent>
               </Card>
             )}
-
+ 
             {/* Health Overview */}
             <Card className="border-0 shadow">
               <CardContent className="p-4">
@@ -1432,22 +1354,10 @@ Be specific, technical, and actionable.`;
                   </span>
                 </div>
                 <div className="flex h-3 rounded-full overflow-hidden bg-gray-200">
-                  <div 
-                    className="bg-green-500 transition-all" 
-                    style={{ width: `${(result.summary.okCount / result.summary.totalOnts) * 100}%` }}
-                  />
-                  <div 
-                    className="bg-amber-500 transition-all" 
-                    style={{ width: `${(result.summary.warningCount / result.summary.totalOnts) * 100}%` }}
-                  />
-                  <div 
-                    className="bg-red-500 transition-all" 
-                    style={{ width: `${(result.summary.criticalCount / result.summary.totalOnts) * 100}%` }}
-                  />
-                  <div 
-                    className="bg-purple-500 transition-all" 
-                    style={{ width: `${((result.summary.offlineCount || 0) / result.summary.totalOnts) * 100}%` }}
-                  />
+                  <div className="bg-green-500 transition-all" style={{ width: `${(result.summary.okCount / result.summary.totalOnts) * 100}%` }} />
+                  <div className="bg-amber-500 transition-all" style={{ width: `${(result.summary.warningCount / result.summary.totalOnts) * 100}%` }} />
+                  <div className="bg-red-500 transition-all" style={{ width: `${(result.summary.criticalCount / result.summary.totalOnts) * 100}%` }} />
+                  <div className="bg-purple-500 transition-all" style={{ width: `${((result.summary.offlineCount || 0) / result.summary.totalOnts) * 100}%` }} />
                 </div>
                 <div className="flex items-center gap-4 mt-2 text-[10px] text-gray-500 flex-wrap">
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Healthy: {result.summary.okCount}</span>
@@ -1456,17 +1366,17 @@ Be specific, technical, and actionable.`;
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />Offline: {result.summary.offlineCount || 0}</span>
                   <span className="ml-auto font-medium text-gray-400">Total: {result.summary.totalOnts} ONTs across {result.summary.oltCount} OLTs</span>
                 </div>
-                {result.onts?.filter(o => o._trends).length > 0 && (
+                {trendStats.withTrends > 0 && (
                   <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs">
                     <span className="text-gray-500">Trend Data Available:</span>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-300">
-                        {result.onts.filter(o => o._trends).length} ONTs tracked
+                        {trendStats.withTrends} ONTs tracked
                       </Badge>
-                      {result.onts.filter(o => o._trends?.ont_rx_change < -1).length > 0 && (
+                      {trendStats.degrading > 0 && (
                         <Badge className="text-[10px] bg-red-100 text-red-700 border-red-300">
                           <TrendingDown className="h-2 w-2 mr-1" />
-                          {result.onts.filter(o => o._trends?.ont_rx_change < -1).length} degrading
+                          {trendStats.degrading} degrading
                         </Badge>
                       )}
                     </div>
@@ -1474,8 +1384,8 @@ Be specific, technical, and actionable.`;
                 )}
               </CardContent>
             </Card>
-
-            {/* Global Filter Bar — applies to ALL charts, KPIs, hierarchy, and LCP summary */}
+ 
+            {/* Global Filter Bar */}
             <GlobalFilterBar
               onts={result.onts}
               selectedSplitters={globalSplitters}
@@ -1485,8 +1395,8 @@ Be specific, technical, and actionable.`;
               onOltPortsChange={setGlobalOltPorts}
               onModelsChange={setGlobalModels}
             />
-
-            {/* Advanced Filters */}
+ 
+            {/* Advanced Filters (FIX #3: techFilter / Technology dropdown removed) */}
             <Card className="border-0 shadow">
               <CardContent className="p-4">
                 <div className="space-y-3">
@@ -1501,9 +1411,7 @@ Be specific, technical, and actionable.`;
                       />
                     </div>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full md:w-32">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
+                      <SelectTrigger className="w-full md:w-32"><SelectValue placeholder="Status" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="critical">Critical</SelectItem>
@@ -1513,9 +1421,7 @@ Be specific, technical, and actionable.`;
                       </SelectContent>
                     </Select>
                     <Select value={oltFilter} onValueChange={(v) => { setOltFilter(v); setPortFilter('all'); }}>
-                      <SelectTrigger className="w-full md:w-32">
-                        <SelectValue placeholder="OLT" />
-                      </SelectTrigger>
+                      <SelectTrigger className="w-full md:w-32"><SelectValue placeholder="OLT" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All OLTs</SelectItem>
                         {Object.keys(result.olts).sort().map(olt => (
@@ -1524,39 +1430,23 @@ Be specific, technical, and actionable.`;
                       </SelectContent>
                     </Select>
                     <Select value={portFilter} onValueChange={setPortFilter}>
-                      <SelectTrigger className="w-full md:w-32">
-                        <SelectValue placeholder="Port" />
-                      </SelectTrigger>
+                      <SelectTrigger className="w-full md:w-32"><SelectValue placeholder="Port" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Ports</SelectItem>
-                        {oltFilter !== 'all' && result.olts[oltFilter] && 
-                          Object.keys(result.olts[oltFilter].ports).sort().map(port => (
-                            <SelectItem key={port} value={port}>{port}</SelectItem>
-                          ))
-                        }
-                        {oltFilter === 'all' && 
-                          [...new Set(result.onts.map(o => o._port))].sort().map(port => (
-                            <SelectItem key={port} value={port}>{port}</SelectItem>
-                          ))
+                        {oltFilter !== 'all' && result.olts[oltFilter]
+                          ? Object.keys(result.olts[oltFilter].ports).sort().map(port => (
+                              <SelectItem key={port} value={port}>{port}</SelectItem>
+                            ))
+                          : [...new Set(result.onts.map(o => o._port))].sort().map(port => (
+                              <SelectItem key={port} value={port}>{port}</SelectItem>
+                            ))
                         }
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex flex-col md:flex-row gap-3">
-                    <Select value={techFilter} onValueChange={setTechFilter}>
-                      <SelectTrigger className="w-full md:w-40">
-                        <SelectValue placeholder="Technology" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Technologies</SelectItem>
-                        <SelectItem value="gpon">GPON</SelectItem>
-                        <SelectItem value="xgs">XGS-PON</SelectItem>
-                      </SelectContent>
-                    </Select>
                     <Select value={powerRangeFilter} onValueChange={setPowerRangeFilter}>
-                      <SelectTrigger className="w-full md:w-40">
-                        <SelectValue placeholder="Power Range" />
-                      </SelectTrigger>
+                      <SelectTrigger className="w-full md:w-40"><SelectValue placeholder="Power Range" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Power Levels</SelectItem>
                         <SelectItem value="critical">Critical (&lt; -27 dBm)</SelectItem>
@@ -1566,9 +1456,7 @@ Be specific, technical, and actionable.`;
                       </SelectContent>
                     </Select>
                     <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="w-full md:w-40">
-                        <SelectValue placeholder="Sort By" />
-                      </SelectTrigger>
+                      <SelectTrigger className="w-full md:w-40"><SelectValue placeholder="Sort By" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">No Sorting</SelectItem>
                         <SelectItem value="rx-asc">Rx Power (Low to High)</SelectItem>
@@ -1577,14 +1465,13 @@ Be specific, technical, and actionable.`;
                         <SelectItem value="serial">Serial Number</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => { 
-                        setSearchTerm(''); 
-                        setStatusFilter('all'); 
-                        setOltFilter('all'); 
-                        setPortFilter('all'); 
-                        setTechFilter('all');
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setStatusFilter('all');
+                        setOltFilter('all');
+                        setPortFilter('all');
                         setPowerRangeFilter('all');
                         setSortBy('none');
                         setGlobalSplitters([]);
@@ -1598,16 +1485,22 @@ Be specific, technical, and actionable.`;
                 </div>
               </CardContent>
             </Card>
-
+ 
             {/* KPI Statistics */}
-            {showKPIs && <KPIStatistics result={result} filteredOnts={filteredOnts} previousReport={(() => {
-              if (!savedReports || savedReports.length < 2) return null;
-              const ci = selectedReportId ? savedReports.findIndex(r => r.id === selectedReportId) : 0;
-              const prev = savedReports[ci >= 0 ? ci + 1 : 1];
-              if (!prev || (prev.gpon_count == null && prev.xgs_count == null)) return null;
-              return { gponCount: prev.gpon_count ?? 0, xgsCount: prev.xgs_count ?? 0 };
-            })()} />}
-
+            {showKPIs && (
+              <KPIStatistics
+                result={result}
+                filteredOnts={filteredOnts}
+                previousReport={(() => {
+                  if (!savedReports || savedReports.length < 2) return null;
+                  const ci = selectedReportId ? savedReports.findIndex(r => r.id === selectedReportId) : 0;
+                  const prev = savedReports[ci >= 0 ? ci + 1 : 1];
+                  if (!prev || (prev.gpon_count == null && prev.xgs_count == null)) return null;
+                  return { gponCount: prev.gpon_count ?? 0, xgsCount: prev.xgs_count ?? 0 };
+                })()}
+              />
+            )}
+ 
             {/* Power Distribution Charts */}
             {filteredOnts.length > 0 && (
               <div className="grid md:grid-cols-2 gap-4">
@@ -1615,8 +1508,8 @@ Be specific, technical, and actionable.`;
                 <PowerDistributionChart onts={filteredOnts} powerMetric="olt_rx" title="OLT Rx Power Distribution" />
               </div>
             )}
-
-            {/* LCP Summary — shown once above OLT/Port section */}
+ 
+            {/* LCP Summary */}
             {filteredOnts.length > 0 && (
               <LCPSummarySection
                 result={{ ...result, onts: filteredOnts }}
@@ -1629,7 +1522,7 @@ Be specific, technical, and actionable.`;
                 }}
               />
             )}
-
+ 
             {/* View Mode Toggle and OLT / Port Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1638,16 +1531,9 @@ Be specific, technical, and actionable.`;
                   OLT &amp; PON Port Overview
                 </h2>
                 <div className="flex items-center gap-2">
-                  {/* View Mode Toggle */}
                   <div className="flex border rounded-lg overflow-hidden">
-                    <Button 
-                      variant={viewMode === 'summary' ? 'default' : 'ghost'} 
-                      size="sm"
-                      className="rounded-none"
-                      onClick={() => setViewMode('summary')}
-                    >
-                      <Activity className="h-4 w-4 mr-1" />
-                      Summary
+                    <Button variant={viewMode === 'summary' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setViewMode('summary')}>
+                      <Activity className="h-4 w-4 mr-1" />Summary
                     </Button>
                     <Button variant={viewMode === 'hierarchy' ? 'default' : 'ghost'} size="sm" className="rounded-none" onClick={() => setViewMode('hierarchy')}>
                       <Router className="h-4 w-4 mr-1" />Hierarchy
@@ -1658,41 +1544,28 @@ Be specific, technical, and actionable.`;
                   </div>
                   {viewMode === 'hierarchy' && (
                     <>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setExpandedOlts(Object.keys(result.olts));
-                          const allPorts = [];
-                          Object.entries(result.olts).forEach(([oltName, olt]) => {
-                            Object.keys(olt.ports).forEach(port => allPorts.push(`${oltName}|${port}`));
-                          });
-                          setExpandedPorts(allPorts);
-                        }}
-                      >
-                        <ChevronDown className="h-4 w-4 mr-1" />
-                        Expand All
+                      <Button variant="outline" size="sm" onClick={() => {
+                        setExpandedOlts(Object.keys(result.olts));
+                        const allPorts = [];
+                        Object.entries(result.olts).forEach(([oltName, olt]) => {
+                          Object.keys(olt.ports).forEach(port => allPorts.push(`${oltName}|${port}`));
+                        });
+                        setExpandedPorts(allPorts);
+                      }}>
+                        <ChevronDown className="h-4 w-4 mr-1" />Expand All
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setExpandedOlts([]);
-                          setExpandedPorts([]);
-                        }}
-                      >
-                        <ChevronRight className="h-4 w-4 mr-1" />
-                        Collapse All
+                      <Button variant="outline" size="sm" onClick={() => { setExpandedOlts([]); setExpandedPorts([]); }}>
+                        <ChevronRight className="h-4 w-4 mr-1" />Collapse All
                       </Button>
                     </>
                   )}
                 </div>
               </div>
-
+ 
               {viewMode === 'fec' && <CorrectedFecAnalysis onts={result?.onts} onSelectOnt={setSelectedOntDetail} />}
               {viewMode === 'summary' && (
-                <OLTPortSummary 
-                  result={result} 
+                <OLTPortSummary
+                  result={result}
                   onDrillDown={(oltName, portKey) => {
                     setViewMode('hierarchy');
                     setOltFilter(oltName);
@@ -1702,240 +1575,211 @@ Be specific, technical, and actionable.`;
                   }}
                 />
               )}
-              
-              {/* Hierarchy View */}
-              {viewMode === 'hierarchy' && Object.entries(result.olts).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([oltName, oltStats]) => {
-                const oltOnts = filteredOnts.filter(o => o._oltName === oltName);
-                if (oltOnts.length === 0) return null; // Hide OLT if no matching ONTs
-                const oltCritical = oltOnts.filter(o => o._analysis.status === 'critical').length;
-                const oltWarning = oltOnts.filter(o => o._analysis.status === 'warning').length;
-                const isOltExpanded = expandedOlts.includes(oltName);
-
-                return (
-                  <Collapsible key={oltName} open={isOltExpanded} onOpenChange={() => toggleOlt(oltName)}>
-                    <Card className={`border-0 shadow-lg ${oltCritical > 0 ? 'ring-2 ring-red-300' : oltWarning > 0 ? 'ring-2 ring-amber-300' : ''}`}>
-                      <CollapsibleTrigger className="w-full">
-                        <CardContent className="p-4 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-gray-800 dark:to-gray-700">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {isOltExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                              <Router className="h-5 w-5 text-blue-600" />
-                              <div className="text-left">
-                                <div className="font-bold text-lg">{oltName}</div>
-                                <div className="text-xs text-gray-500">{oltStats.portCount} ports • {oltStats.totalOnts} ONTs</div>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-4">
-                              <div className="hidden md:block text-center">
-                                <div className="text-gray-500 text-xs">Avg ONT Rx</div>
-                                <div className="font-mono font-medium">
-                                  {oltStats.avgOntRxOptPwr?.toFixed(1) || 'N/A'} dBm
+ 
+              {/* Hierarchy View (FIX #5: uses pre-grouped ontsByOltPort map) */}
+              {viewMode === 'hierarchy' && Object.entries(result.olts)
+                .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+                .map(([oltName, oltStats]) => {
+                  // Collect all port arrays for this OLT from the pre-grouped map
+                  const oltOnts = Object.entries(ontsByOltPort)
+                    .filter(([key]) => key.startsWith(`${oltName}|`))
+                    .flatMap(([, onts]) => onts);
+                  if (oltOnts.length === 0) return null;
+ 
+                  const oltCritical = oltOnts.filter(o => o._analysis.status === 'critical').length;
+                  const oltWarning  = oltOnts.filter(o => o._analysis.status === 'warning').length;
+                  const isOltExpanded = expandedOlts.includes(oltName);
+ 
+                  return (
+                    <Collapsible key={oltName} open={isOltExpanded} onOpenChange={() => toggleOlt(oltName)}>
+                      <Card className={`border-0 shadow-lg ${oltCritical > 0 ? 'ring-2 ring-red-300' : oltWarning > 0 ? 'ring-2 ring-amber-300' : ''}`}>
+                        <CollapsibleTrigger className="w-full">
+                          <CardContent className="p-4 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-gray-800 dark:to-gray-700">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {isOltExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                                <Router className="h-5 w-5 text-blue-600" />
+                                <div className="text-left">
+                                  <div className="font-bold text-lg">{oltName}</div>
+                                  <div className="text-xs text-gray-500">{oltStats.portCount} ports • {oltStats.totalOnts} ONTs</div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                {oltCritical > 0 && (
-                                  <Badge 
-                                    className="bg-red-100 text-red-800 border-red-300 cursor-pointer hover:bg-red-200"
-                                    onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'critical', oltName }); }}
-                                  >
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    {oltCritical}
-                                  </Badge>
-                                )}
-                                {oltWarning > 0 && (
-                                  <Badge 
-                                    className="bg-amber-100 text-amber-800 border-amber-300 cursor-pointer hover:bg-amber-200"
-                                    onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'warning', oltName }); }}
-                                  >
-                                    <AlertTriangle className="h-3 w-3 mr-1" />
-                                    {oltWarning}
-                                  </Badge>
-                                )}
-                                {oltCritical === 0 && oltWarning === 0 && (
-                                  <Badge className="bg-green-100 text-green-800 border-green-300">
-                                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                                    OK
-                                  </Badge>
-                                )}
+                              <div className="flex items-center gap-4">
+                                <div className="hidden md:block text-center">
+                                  <div className="text-gray-500 text-xs">Avg ONT Rx</div>
+                                  <div className="font-mono font-medium">{oltStats.avgOntRxOptPwr?.toFixed(1) || 'N/A'} dBm</div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {oltCritical > 0 && (
+                                    <Badge className="bg-red-100 text-red-800 border-red-300 cursor-pointer hover:bg-red-200"
+                                      onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'critical', oltName }); }}>
+                                      <AlertCircle className="h-3 w-3 mr-1" />{oltCritical}
+                                    </Badge>
+                                  )}
+                                  {oltWarning > 0 && (
+                                    <Badge className="bg-amber-100 text-amber-800 border-amber-300 cursor-pointer hover:bg-amber-200"
+                                      onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'warning', oltName }); }}>
+                                      <AlertTriangle className="h-3 w-3 mr-1" />{oltWarning}
+                                    </Badge>
+                                  )}
+                                  {oltCritical === 0 && oltWarning === 0 && (
+                                    <Badge className="bg-green-100 text-green-800 border-green-300">
+                                      <CheckCircle2 className="h-3 w-3 mr-1" />OK
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </CollapsibleTrigger>
-                      
-                      <CollapsibleContent>
-                        <div className="p-3 space-y-2 bg-gray-50 dark:bg-gray-800/50">
-                          {Object.entries(oltStats.ports).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([portKey, portStats]) => {
-                            const portOnts = oltOnts.filter(o => o._port === portKey);
-                            if (portOnts.length === 0) return null; // Hide port if no matching ONTs
-                            const portCritical = portOnts.filter(o => o._analysis.status === 'critical').length;
-                            const portWarning = portOnts.filter(o => o._analysis.status === 'warning').length;
-                            const portId = `${oltName}|${portKey}`;
-                            const isPortExpanded = expandedPorts.includes(portId);
-
-                            return (
-                              <Collapsible key={portKey} open={isPortExpanded} onOpenChange={() => togglePort(portId)}>
-                              <Card className={`border shadow-sm ${portCritical > 0 ? 'border-red-300' : portWarning > 0 ? 'border-amber-300' : 'border-gray-200'}`}>
-                                <CollapsibleTrigger className="w-full">
-                                  <CardContent className="p-3">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-3">
-                                        {isPortExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                        <PortHeaderLabel portKey={portKey} portStats={portStats} portOnts={portOnts} />
-                                      </div>
-                                        
-                                        <div className="flex items-center gap-4">
-                                          <div className="hidden md:flex items-center gap-4 text-sm">
-                                            <div className="text-center">
-                                              <div className="text-gray-500 text-[10px]">Avg ONT Rx</div>
-                                              <div className="font-mono text-xs font-medium">
-                                                {portStats.avgOntRxOptPwr?.toFixed(1) || 'N/A'} dBm
-                                              </div>
+                          </CardContent>
+                        </CollapsibleTrigger>
+ 
+                        <CollapsibleContent>
+                          <div className="p-3 space-y-2 bg-gray-50 dark:bg-gray-800/50">
+                            {Object.entries(oltStats.ports)
+                              .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+                              .map(([portKey, portStats]) => {
+                                // FIX #5: O(1) lookup instead of O(N) filter
+                                const portOnts = (ontsByOltPort[`${oltName}|${portKey}`] || [])
+                                  .filter(o => !hideOntStatus[o._analysis.status]);
+                                if (portOnts.length === 0) return null;
+ 
+                                const portCritical = portOnts.filter(o => o._analysis.status === 'critical').length;
+                                const portWarning  = portOnts.filter(o => o._analysis.status === 'warning').length;
+                                const portId = `${oltName}|${portKey}`;
+                                const isPortExpanded = expandedPorts.includes(portId);
+ 
+                                return (
+                                  <Collapsible key={portKey} open={isPortExpanded} onOpenChange={() => togglePort(portId)}>
+                                    <Card className={`border shadow-sm ${portCritical > 0 ? 'border-red-300' : portWarning > 0 ? 'border-amber-300' : 'border-gray-200'}`}>
+                                      <CollapsibleTrigger className="w-full">
+                                        <CardContent className="p-3">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                              {isPortExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                              <PortHeaderLabel portKey={portKey} portStats={portStats} portOnts={portOnts} />
                                             </div>
-                                            <div className="text-center">
-                                              <div className="text-gray-500 text-[10px]">Range</div>
-                                              <div className="font-mono text-[10px] font-medium">
-                                                {portStats.minOntRxOptPwr?.toFixed(1) || 'N/A'} to {portStats.maxOntRxOptPwr?.toFixed(1) || 'N/A'}
+                                            <div className="flex items-center gap-4">
+                                              <div className="hidden md:flex items-center gap-4 text-sm">
+                                                <div className="text-center">
+                                                  <div className="text-gray-500 text-[10px]">Avg ONT Rx</div>
+                                                  <div className="font-mono text-xs font-medium">{portStats.avgOntRxOptPwr?.toFixed(1) || 'N/A'} dBm</div>
+                                                </div>
+                                                <div className="text-center">
+                                                  <div className="text-gray-500 text-[10px]">Range</div>
+                                                  <div className="font-mono text-[10px] font-medium">
+                                                    {portStats.minOntRxOptPwr?.toFixed(1) || 'N/A'} to {portStats.maxOntRxOptPwr?.toFixed(1) || 'N/A'}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center gap-1">
+                                                {portCritical > 0 && (
+                                                  <Badge className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5 cursor-pointer hover:bg-red-200"
+                                                    onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'critical', oltName, portKey }); }}>
+                                                    {portCritical}
+                                                  </Badge>
+                                                )}
+                                                {portWarning > 0 && (
+                                                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5 cursor-pointer hover:bg-amber-200"
+                                                    onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'warning', oltName, portKey }); }}>
+                                                    {portWarning}
+                                                  </Badge>
+                                                )}
+                                                {portCritical === 0 && portWarning === 0 && (
+                                                  <Badge className="bg-green-100 text-green-800 border-green-300 text-xs px-1.5">OK</Badge>
+                                                )}
                                               </div>
                                             </div>
                                           </div>
-
-                                          <div className="flex items-center gap-1">
-                                            {portCritical > 0 && (
-                                              <Badge 
-                                                className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5 cursor-pointer hover:bg-red-200"
-                                                onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'critical', oltName, portKey }); }}
-                                              >
-                                                {portCritical}
-                                              </Badge>
-                                            )}
-                                            {portWarning > 0 && (
-                                              <Badge 
-                                                className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5 cursor-pointer hover:bg-amber-200"
-                                                onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'warning', oltName, portKey }); }}
-                                              >
-                                                {portWarning}
-                                              </Badge>
-                                            )}
-                                            {portCritical === 0 && portWarning === 0 && (
-                                              <Badge className="bg-green-100 text-green-800 border-green-300 text-xs px-1.5">
-                                                OK
-                                              </Badge>
-                                            )}
+                                        </CardContent>
+                                      </CollapsibleTrigger>
+ 
+                                      <CollapsibleContent>
+                                        <div className="border-t">
+                                          {/* ONT Status Filter */}
+                                          <div className="p-2 bg-gray-100 dark:bg-gray-800 border-b flex items-center gap-3 flex-wrap">
+                                            <span className="text-xs text-gray-500 font-medium">Show:</span>
+                                            {(['critical', 'warning', 'offline', 'ok']).map(status => (
+                                              <label key={status} className="flex items-center gap-1.5 cursor-pointer">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={!hideOntStatus[status]}
+                                                  onChange={() => setHideOntStatus(prev => ({ ...prev, [status]: !prev[status] }))}
+                                                  className="rounded border-gray-300"
+                                                />
+                                                <Badge className={`${STATUS_BADGES[status]} text-xs`}>
+                                                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                                                </Badge>
+                                              </label>
+                                            ))}
+                                          </div>
+                                          <div className="overflow-x-auto">
+                                            <Table>
+                                              <TableHeader>
+                                                <TableRow>
+                                                  <TableHead className="px-1.5 py-1 text-[10px] w-8">St</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px]">ID</TableHead>
+                                                  {subscriberMatchCount > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Subscriber</TableHead>}
+                                                  {eeroRecordsLoaded && <TableHead className="px-1.5 py-1 text-[10px] text-center">eero</TableHead>}
+                                                  <TableHead className="px-1.5 py-1 text-[10px]">LCP/Spl</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px]">Serial</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px]">Model</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px] text-right">ONT Rx</TableHead>
+                                                  {Object.keys(sparklineHistory).length > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Rx Trend</TableHead>}
+                                                  <TableHead className="px-1.5 py-1 text-[10px] text-right">OLT Rx</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px] text-right">US BIP</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px] text-right">DS BIP</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC U</TableHead>
+                                                  {Object.keys(sparklineHistory).length > 0 && <TableHead className="px-1.5 py-1 text-[10px]">FEC Trend</TableHead>}
+                                                  <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC U</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC C</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC C</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px] text-right">HEC</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px] text-right">MBurst</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px]">Up</TableHead>
+                                                  <TableHead className="px-1.5 py-1 text-[10px]">Issues</TableHead>
+                                                  <TableHead className="px-1 py-1 w-16"></TableHead>
+                                                </TableRow>
+                                              </TableHeader>
+                                              <TableBody>
+                                                {/* FIX #8: key uses SerialNumber+OntID, not array index */}
+                                                {portOnts.map((ont) => (
+                                                  <ONTTableRow
+                                                    key={`${ont.SerialNumber}-${ont.OntID}`}
+                                                    ont={ont}
+                                                    hasSubscriberData={subscriberMatchCount > 0}
+                                                    hasEeroData={eeroRecordsLoaded}
+                                                    hasSparklines={Object.keys(sparklineHistory).length > 0}
+                                                    onSelectDetail={setSelectedOntDetail}
+                                                    onCreateJobReport={createJobReportForONT}
+                                                  />
+                                                ))}
+                                              </TableBody>
+                                            </Table>
                                           </div>
                                         </div>
-                                      </div>
-                                    </CardContent>
-                                  </CollapsibleTrigger>
-                                  
-                                  <CollapsibleContent>
-                                    <div className="border-t">
-                                      {/* ONT Status Filter */}
-                                      <div className="p-2 bg-gray-100 dark:bg-gray-800 border-b flex items-center gap-3 flex-wrap">
-                                        <span className="text-xs text-gray-500 font-medium">Show:</span>
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={!hideOntStatus.critical}
-                                            onChange={() => setHideOntStatus(prev => ({ ...prev, critical: !prev.critical }))}
-                                            className="rounded border-gray-300"
-                                          />
-                                          <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">Critical</Badge>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={!hideOntStatus.warning}
-                                            onChange={() => setHideOntStatus(prev => ({ ...prev, warning: !prev.warning }))}
-                                            className="rounded border-gray-300"
-                                          />
-                                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">Warning</Badge>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={!hideOntStatus.offline}
-                                            onChange={() => setHideOntStatus(prev => ({ ...prev, offline: !prev.offline }))}
-                                            className="rounded border-gray-300"
-                                          />
-                                          <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">Offline</Badge>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={!hideOntStatus.ok}
-                                            onChange={() => setHideOntStatus(prev => ({ ...prev, ok: !prev.ok }))}
-                                            className="rounded border-gray-300"
-                                          />
-                                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">OK</Badge>
-                                        </label>
-                                      </div>
-                                      <div className="overflow-x-auto">
-                                        <Table>
-                                          <TableHeader>
-                                            <TableRow>
-                                              <TableHead className="px-1.5 py-1 text-[10px] w-8">St</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px]">ID</TableHead>
-                                              {subscriberMatchCount > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Subscriber</TableHead>}
-                                              {eeroRecordsLoaded && <TableHead className="px-1.5 py-1 text-[10px] text-center">eero</TableHead>}
-                                              <TableHead className="px-1.5 py-1 text-[10px]">LCP/Spl</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px]">Serial</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px]">Model</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">ONT Rx</TableHead>
-                                              {Object.keys(sparklineHistory).length > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Rx Trend</TableHead>}
-                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">OLT Rx</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">US BIP</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">DS BIP</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC U</TableHead>
-                                               {Object.keys(sparklineHistory).length > 0 && <TableHead className="px-1.5 py-1 text-[10px]">FEC Trend</TableHead>}
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC U</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC C</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC C</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">HEC</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">MBurst</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px]">Up</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px]">Issues</TableHead>
-                                              <TableHead className="px-1 py-1 w-16"></TableHead>
-                                            </TableRow>
-                                          </TableHeader>
-                                          <TableBody>
-                                            {portOnts.filter(ont => !hideOntStatus[ont._analysis.status]).map((ont, idx) => (
-                                             <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} hasEeroData={eeroRecordsLoaded} hasSparklines={Object.keys(sparklineHistory).length > 0} onSelectDetail={setSelectedOntDetail} onCreateJobReport={createJobReportForONT} />
-                                            ))}
-                                          </TableBody>
-                                                </Table>
-                                                </div>
-                                                </div>
-                                                </CollapsibleContent>
-                                                </Card>
-                                                </Collapsible>
-                                                );
-                                                })}
-                                                </div>
-                                                </CollapsibleContent>
-                                                </Card>
-                                                </Collapsible>
-                                                );
-                                                })}
-                                                </div>
-
+                                      </CollapsibleContent>
+                                    </Card>
+                                  </Collapsible>
+                                );
+                              })}
+                          </div>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
+                  );
+                })}
+            </div>
+ 
             {/* New Analysis Button */}
             <div className="text-center pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setResult(null);
-                  setSelectedReportId(null);
-                }}
-              >
+              <Button variant="outline" onClick={() => { setResult(null); setSelectedReportId(null); }}>
                 <Upload className="h-4 w-4 mr-2" />
                 Upload New File
               </Button>
             </div>
           </>
         )}
-
+ 
         {/* Historical Data Manager */}
         {showHistoricalReports && (
           <HistoricalDataManager
@@ -1949,26 +1793,23 @@ Be specific, technical, and actionable.`;
             onClose={() => setShowHistoricalReports(false)}
           />
         )}
-
+ 
         {/* Historical Trends Component */}
         {showTrends && savedReports.length >= 1 && (
-          <HistoricalTrends 
-            reports={savedReports} 
-            onClose={() => setShowTrends(false)} 
-          />
+          <HistoricalTrends reports={savedReports} onClose={() => setShowTrends(false)} />
         )}
       </main>
-      
+ 
       {/* ONT Detail View */}
       {selectedOntDetail && (
-        <ONTDetailView 
-          ont={selectedOntDetail} 
+        <ONTDetailView
+          ont={selectedOntDetail}
           onClose={() => setSelectedOntDetail(null)}
           allOnts={result?.onts}
         />
       )}
-
-      {/* Hidden file input for header dropdown — must live outside the dropdown so it persists after dropdown unmounts */}
+ 
+      {/* Hidden file input for header dropdown */}
       <input
         ref={headerFileInputRef}
         type="file"
@@ -1980,7 +1821,7 @@ Be specific, technical, and actionable.`;
           if (file) handleFileUpload(file);
         }}
       />
-
+ 
       <JobReportDialog
         open={!!creatingJobReport}
         onOpenChange={(open) => { if (!open) { setCreatingJobReport(null); setJobReportFormData(null); } }}
@@ -1992,3 +1833,4 @@ Be specific, technical, and actionable.`;
     </div>
   );
 }
+ 
