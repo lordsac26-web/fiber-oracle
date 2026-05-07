@@ -1,0 +1,116 @@
+{
+  "name": "AdminRequest",
+  "type": "object",
+  "properties": {
+    "request_type": {
+      "type": "string",
+      "enum": [
+        "contact",
+        "document_submission",
+        "general"
+      ],
+      "description": "Type of admin request"
+    },
+    "subject": {
+      "type": "string",
+      "description": "Request subject/title"
+    },
+    "message": {
+      "type": "string",
+      "description": "Request message/details"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "resolved",
+        "closed"
+      ],
+      "default": "pending",
+      "description": "Request status"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium",
+      "description": "Request priority"
+    },
+    "requested_by": {
+      "type": "string",
+      "description": "Email of requesting user",
+      "index": true
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "Email of admin handling request"
+    },
+    "resolved_by": {
+      "type": "string",
+      "description": "Email of admin who resolved"
+    },
+    "resolved_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Date resolved"
+    },
+    "admin_notes": {
+      "type": "string",
+      "description": "Internal admin notes"
+    },
+    "related_document_id": {
+      "type": "string",
+      "description": "Related document submission ID if applicable"
+    }
+  },
+  "required": [
+    "request_type",
+    "subject",
+    "requested_by"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "requested_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "requested_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
