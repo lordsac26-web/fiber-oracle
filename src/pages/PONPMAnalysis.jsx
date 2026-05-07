@@ -1724,12 +1724,10 @@ Be specific, technical, and actionable.`;
                                                   <TableHead className="px-1.5 py-1 text-[10px]">Serial</TableHead>
                                                   <TableHead className="px-1.5 py-1 text-[10px]">Model</TableHead>
                                                   <TableHead className="px-1.5 py-1 text-[10px] text-right">ONT Rx</TableHead>
-                                                  {Object.keys(sparklineHistory).length > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Rx Trend</TableHead>}
                                                   <TableHead className="px-1.5 py-1 text-[10px] text-right">OLT Rx</TableHead>
                                                   <TableHead className="px-1.5 py-1 text-[10px] text-right">US BIP</TableHead>
                                                   <TableHead className="px-1.5 py-1 text-[10px] text-right">DS BIP</TableHead>
                                                   <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC U</TableHead>
-                                                  {Object.keys(sparklineHistory).length > 0 && <TableHead className="px-1.5 py-1 text-[10px]">FEC Trend</TableHead>}
                                                   <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC U</TableHead>
                                                   <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC C</TableHead>
                                                   <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC C</TableHead>
