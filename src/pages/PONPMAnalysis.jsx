@@ -1350,8 +1350,8 @@ export default function PONPMAnalysis() {
         />
       )}
 
-      {/* LCP Export Menu (if needed globally) */}
-      <LCPExportMenu />
+//      {/* LCP Export Menu (if needed globally) */}
+//      <LCPExportMenu />
     </div>
   );
 }
