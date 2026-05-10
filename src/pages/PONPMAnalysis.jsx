@@ -69,8 +69,6 @@ import FileUploadZone from '@/components/ponpm/FileUploadZone';
 import PortHeaderLabel from '@/components/ponpm/PortHeaderLabel';
 import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
 import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
-import { exportLcpPortUtilization } from '@/components/ponpm/exportLcpUtilization';
-import { exportIssueReport as exportIssueReportUtil } from '@/components/ponpm/exportIssueReport';
 import CorrectedFecAnalysis from '@/components/ponpm/CorrectedFecAnalysis';
 import { buildLcpLookupMap, enrichOntsWithLcp } from '@/components/ponpm/lcpLookup';
 import SubscriberUpload, { buildSubscriberLookup, enrichOntsWithSubscriber } from '@/components/ponpm/SubscriberUpload';
@@ -81,14 +79,8 @@ import EeroUpload from '@/components/ponpm/EeroUpload';
 import EeroDataBadge from '@/components/ponpm/EeroDataBadge';
 import { useEeroData } from '@/components/ponpm/useEeroData';
 import { useEeroOntEnrichmentHandler } from '@/components/ponpm/useEeroOntEnrichment';
-import { exportEeroOntsCSV } from '@/components/ponpm/eeroExports';
-import {
-  exportOfflineCSV as exportOfflineCSVUtil,
-  exportFilteredOntsCSV,
-  exportPortInventoryCSV,
-} from '@/components/ponpm/ontCsvExports';
 import ONTTableRow from '@/components/ponpm/ONTTableRow';
-import LCPExportMenu from '@/components/lcp/LCPExportMenu';
+import UnifiedExportMenu from '@/components/ponpm/UnifiedExportMenu';
 import JobReportDialog from '@/components/ponpm/JobReportDialog';
 import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
@@ -580,43 +572,7 @@ export default function PONPMAnalysis() {
   }, []);
 
   // CSV export helpers extracted to components/ponpm/ontCsvExports.js
-  const exportOfflineCSV = () => exportOfflineCSVUtil(result?.onts);
-
-  const exportCSV = (filterType = 'all') => exportFilteredOntsCSV(result?.onts, filterType);
-
-  const exportCriticalPDF = async () => {
-    if (!result?.onts) return;
-    const criticalOnts = result.onts.filter(o => o._analysis.status === 'critical');
-    if (criticalOnts.length === 0) { toast.error('No critical issues to export'); return; }
-    toast.loading('Generating critical issues PDF...', { id: 'critical-pdf' });
-    try {
-      await downloadPdfFromFunction(
-        'generatePonPmPDF',
-        { reportData: { ...result, onts: criticalOnts }, criticalOnly: true },
-        `pon-pm-critical-issues-${new Date().toISOString().slice(0,10)}.pdf`
-      );
-      toast.success(`Exported ${criticalOnts.length} critical issues to PDF`, { id: 'critical-pdf' });
-    } catch (error) {
-      console.error('Critical PDF export error:', error);
-      toast.error('Failed to generate critical issues PDF: ' + error.message, { id: 'critical-pdf' });
-    }
-  };
-
-  const exportPDF = async () => {
-    if (!result?.onts) return;
-    toast.loading('Generating PDF report...', { id: 'pdf-export' });
-    try {
-      await downloadPdfFromFunction(
-        'generatePonPmPDF',
-        { reportData: result },
-        `pon-pm-report-${new Date().toISOString().slice(0,10)}.pdf`
-      );
-      toast.success('PDF report generated', { id: 'pdf-export' });
-    } catch (error) {
-      console.error('PDF export error:', error);
-      toast.error('Failed to generate PDF: ' + error.message, { id: 'pdf-export' });
-    }
-  };
+  // Export functions consolidated into UnifiedExportMenu component
 
   const createJobReportForONT = async (ont) => {
     setCreatingJobReport(ont);
@@ -830,32 +786,9 @@ Be specific, technical, and actionable.`;
     }
   };
 
-  const exportPortInventory = () => exportPortInventoryCSV(result?.onts);
-
   // Memoize the _trends count so the render doesn't iterate the ONT array 3+ times
   const ontsWithTrendsCount = useMemo(() => result?.onts?.filter(o => o._trends).length ?? 0, [result?.onts]);
   const ontsDegradingCount  = useMemo(() => result?.onts?.filter(o => o._trends?.ont_rx_change < -1).length ?? 0, [result?.onts]);
-
-  // Eero saturation PDF — uses the full result so all ONTs are aggregated.
-  const exportEeroSaturationPDF = async () => {
-    if (!result?.onts) return;
-    if (!eeroRecordsLoaded) {
-      toast.error('Load eero data first');
-      return;
-    }
-    toast.loading('Generating eero saturation PDF...', { id: 'eero-pdf' });
-    try {
-      await downloadPdfFromFunction(
-        'generateEeroSaturationPDF',
-        { reportData: { onts: result.onts }, reportName: result.summary?.reportName },
-        `eero-saturation-${new Date().toISOString().slice(0, 10)}.pdf`
-      );
-      toast.success('eero saturation PDF generated', { id: 'eero-pdf' });
-    } catch (error) {
-      console.error('eero PDF export error:', error);
-      toast.error('Failed to generate eero PDF: ' + error.message, { id: 'eero-pdf' });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -995,79 +928,13 @@ Be specific, technical, and actionable.`;
                   onReset={resetThresholds}
                 />
 
-                <LCPExportMenu
+                <UnifiedExportMenu
+                  result={result}
                   lcpEntries={lcpEntriesForEnrich}
-                  latestOntCountsByKey={lcpOntCounts}
+                  lcpOntCounts={lcpOntCounts}
                   subscriberRecords={subscriberRecords}
+                  eeroRecordsLoaded={eeroRecordsLoaded}
                 />
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export
-                      <ChevronDown className="h-4 w-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={() => exportPDF()}>
-                      <FileText className="h-4 w-4 mr-2 text-red-500" />
-                      Full Issue Report (PDF)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={exportCriticalPDF}>
-                      <FileText className="h-4 w-4 mr-2 text-red-600" />
-                      Critical Issues Only (PDF)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => exportIssueReportUtil(result?.onts)}>
-                      <FileText className="h-4 w-4 mr-2" />
-                      Issue Report (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => exportCSV('all')}>
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      All Results (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => exportCSV('issues')}>
-                      <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
-                      All Issues (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => exportCSV('critical')}>
-                      <AlertCircle className="h-4 w-4 mr-2 text-red-500" />
-                      Critical Only (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => exportCSV('warning')}>
-                      <AlertTriangle className="h-4 w-4 mr-2 text-amber-500" />
-                      Warnings Only (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={exportOfflineCSV}>
-                      <Router className="h-4 w-4 mr-2 text-purple-500" />
-                      Offline ONTs (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={exportPortInventory}>
-                      <FileSpreadsheet className="h-4 w-4 mr-2 text-blue-500" />
-                      Port Inventory Report (CSV)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => exportLcpPortUtilization(result?.onts)}>
-                      <FileSpreadsheet className="h-4 w-4 mr-2 text-indigo-500" />
-                      LCP/Splitter Port Utilization (CSV)
-                    </DropdownMenuItem>
-                    {eeroRecordsLoaded && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => exportEeroOntsCSV(result?.onts)}>
-                          <Wifi className="h-4 w-4 mr-2 text-emerald-500" />
-                          ONTs with eero (CSV)
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={exportEeroSaturationPDF}>
-                          <FileText className="h-4 w-4 mr-2 text-emerald-600" />
-                          eero Saturation Overview (PDF)
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
             )}
           </div>
