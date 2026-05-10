@@ -36,7 +36,7 @@ function downloadCSV(csv, filename) {
  *  1) Single LCP/CLCP report (user picks which one) with subscriber list per splitter
  *  2) Comprehensive system report — all LCPs with subscriber counts & utilization
  */
-export default function LCPExportMenu({ lcpEntries, latestOntCountsByKey, subscriberRecords }) {
+export default function LCPExportMenu({ lcpEntries = [], latestOntCountsByKey = {}, subscriberRecords }) {
   const [showSingleDialog, setShowSingleDialog] = useState(false);
   const [selectedLcp, setSelectedLcp] = useState('');
 
