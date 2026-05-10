@@ -291,24 +291,14 @@ export default function UnifiedExportMenu({
     }
   };
 
-  /** Comprehensive System Report PDF (for management / investors) */
+  /** Comprehensive System Report PDF (Executive Report from DB data) */
   const exportSystemReport = async () => {
     if (!onts) return;
     toast.loading('Generating Comprehensive System Report...', { id: 'system-report' });
     try {
       await downloadPdfFromFunction(
-        'generateSystemReport',
-        {
-          onts,
-          reportName: result?.summary?.reportName || 'PON PM Analysis',
-          reportDate: result?.reportDate,
-          lcpEntries: lcpEntries.map(e => ({
-            lcp_number: e.lcp_number, splitter_number: e.splitter_number,
-            olt_name: e.olt_name, olt_shelf: e.olt_shelf, olt_slot: e.olt_slot, olt_port: e.olt_port,
-            optic_type: e.optic_type, optic_model: e.optic_model,
-          })),
-          eeroRecords: [],
-        },
+        'generateExecutiveReport',
+        {},
         `system-report-${new Date().toISOString().slice(0, 10)}.pdf`
       );
       toast.success('System Report generated', { id: 'system-report' });
