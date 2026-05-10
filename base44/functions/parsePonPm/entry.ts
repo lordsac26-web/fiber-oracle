@@ -34,7 +34,7 @@ function detectTechTypeFromModel(model) {
   
   // GPON models
   const gponModels = [
-    '711GE', '717GE', '725G', '725GE', '725GX', '725'
+    '711GE', '717GE', '725G', '812G-1', '844G-1', '844GE-1', '725GE', '725GX', '725'
   ];
   
   // Check for XGS-PON
