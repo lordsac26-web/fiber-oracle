@@ -133,10 +133,14 @@ function kpiTile(doc, x, y, w, h, value, label, valueColor, accentColor, delta) 
   doc.setFillColor(...accentColor);
   doc.roundedRect(x, y, w, 2, 1, 1, 'F');
 
-  doc.setFontSize(delta !== undefined ? 16 : 20);
+  // Scale font down for wide values (e.g. "7,140") so they don't overflow the tile
+  const valStr = s(String(value));
+  const baseFontSize = delta !== undefined ? 16 : 20;
+  const fontSize = valStr.length > 5 ? Math.min(baseFontSize, 15) : baseFontSize;
+  doc.setFontSize(fontSize);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...valueColor);
-  doc.text(s(String(value)), x + w / 2, y + h * (delta !== undefined ? 0.50 : 0.62), { align: 'center' });
+  doc.text(valStr, x + w / 2, y + h * (delta !== undefined ? 0.50 : 0.62), { align: 'center' });
 
   if (delta !== undefined && delta !== null) {
     const sign = delta > 0 ? '+' : '';
@@ -208,16 +212,30 @@ Deno.serve(async (req) => {
     const prevStart    = new Date(now.getTime() - (weeks_back + 1) * msPerWeek).toISOString();
     const prevEnd      = currentStart;
 
+    // ── Paginated fetch helper ─────────────────────────────────────────────
+    // The platform caps filter() at 5000 per call. We must loop until a
+    // short page is returned to get the full dataset (7k+ ONTs and growing).
+    const PAGE = 5000;
+    async function fetchAllFiltered(filterObj, sort) {
+      let all = [];
+      let offset = 0;
+      while (true) {
+        const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+          filterObj, sort, PAGE, offset
+        );
+        if (!batch || batch.length === 0) break;
+        all = all.concat(batch);
+        if (batch.length < PAGE) break;
+        offset += batch.length;
+        await new Promise(r => setTimeout(r, 300));
+      }
+      return all;
+    }
+
     // ── Fetch ONT records (latest report) from DB ────────────────────────────
-    // We load up to 10k records from the most recent reports by using the
-    // report_date index. Admins can see all records (RLS allows).
     const [currentRecs, prevRecs] = await Promise.all([
-      base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-        { report_date: { $gte: currentStart } }, '-report_date', 5000
-      ),
-      base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-        { report_date: { $gte: prevStart, $lt: prevEnd } }, '-report_date', 5000
-      ),
+      fetchAllFiltered({ report_date: { $gte: currentStart } }, '-report_date'),
+      fetchAllFiltered({ report_date: { $gte: prevStart, $lt: prevEnd } }, '-report_date'),
     ]);
 
     // ── If no current records, fall back to the single latest report ─────────
@@ -225,9 +243,7 @@ Deno.serve(async (req) => {
     if (records.length === 0) {
       const latestReports = await base44.asServiceRole.entities.PONPMReport.list('-upload_date', 1);
       if (latestReports.length > 0) {
-        records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-          { report_id: latestReports[0].id }, '-report_date', 5000
-        );
+        records = await fetchAllFiltered({ report_id: latestReports[0].id }, '-report_date');
       }
     }
 
@@ -244,10 +260,22 @@ Deno.serve(async (req) => {
     const healthPct     = totalCurrent > 0 ? ((okCurrent / totalCurrent) * 100).toFixed(1) : '0.0';
 
     // ── Aggregate by city ───────────────────────────────────────────────────
+    // subscriber_address is stored as "street, city, zip" (3 segments).
+    // If only 2 segments, second could be city or zip — check for 5-digit zip.
+    // If only 1 segment (old records with street-only), classify as Unknown.
     const cityMap = new Map(); // city → { total, critical, warning, ok, offline }
     for (const r of records) {
-      const city = r.subscriber_address?.split(',')[1]?.trim() ||
-                   r.subscriber_address?.match(/[A-Za-z\s]+/)?.[0]?.trim() || 'Unknown';
+      let city = 'Unknown';
+      const addr = r.subscriber_address || '';
+      const parts = addr.split(',').map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 3) {
+        // "street, city, zip" — city is parts[1]
+        city = parts[1] || 'Unknown';
+      } else if (parts.length === 2) {
+        // Could be "street, city" or "street, zip" — if second part is a zip, skip it
+        city = /^\d{5}(-\d{4})?$/.test(parts[1]) ? 'Unknown' : (parts[1] || 'Unknown');
+      }
+      // else: single segment (street only) or empty → Unknown
       if (!cityMap.has(city)) cityMap.set(city, { total: 0, critical: 0, warning: 0, ok: 0, offline: 0 });
       const c = cityMap.get(city);
       c.total++;
