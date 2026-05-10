@@ -340,9 +340,13 @@ Deno.serve(async (req) => {
       }
     }
 
+    // CRITICAL: sort by `id` (or `created_date`) for stable pagination.
+    // Records in a single report all share the same `report_date`, so sorting
+    // by `-report_date` produces a non-deterministic order across paginated
+    // pages, which can drop or duplicate records silently.
     const [currentRecsRaw, prevRecsRaw] = await Promise.all([
-      currentReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: currentReport.id }, '-report_date') : Promise.resolve([]),
-      prevReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: prevReport.id }, '-report_date') : Promise.resolve([])
+      currentReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: currentReport.id }, 'id') : Promise.resolve([]),
+      prevReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: prevReport.id }, 'id') : Promise.resolve([])
     ]);
 
     // Use all records — the DB rows ARE the ground truth. Offline/eero counts
@@ -356,7 +360,7 @@ Deno.serve(async (req) => {
     const activeEeroUploads = await base44.asServiceRole.entities.EeroUploadMeta.filter({ status: 'active' }, '-upload_date', 1);
     let eeroHomes = new Set();
     if (activeEeroUploads.length > 0) {
-      const eeros = await fetchAllFiltered('EeroRecord', { upload_id: activeEeroUploads[0].id }, '-created_date');
+      const eeros = await fetchAllFiltered('EeroRecord', { upload_id: activeEeroUploads[0].id }, 'id');
       for (const e of eeros) { if (e.home_identifier) eeroHomes.add(e.home_identifier); }
     }
 
@@ -375,7 +379,9 @@ Deno.serve(async (req) => {
     // fields, which is exactly what the UI does via _subscriber.zip.
     const subByAccount = new Map();
     try {
-      const subs = await fetchAllFiltered('SubscriberRecord', {}, '-created_date');
+      // Use `id` sort for stable pagination — `-created_date` can collide for
+      // bulk-inserted rows and drop records across page boundaries.
+      const subs = await fetchAllFiltered('SubscriberRecord', {}, 'id');
       for (const sub of subs) {
         if (!sub.AccountName) continue;
         // Use canonical 16-digit form so partial / prefixed accounts still match
