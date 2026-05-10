@@ -108,7 +108,7 @@ export default function Education() {
         {/* Hero Section */}
         <div className="text-center space-y-4">
           <img 
-            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/1652e0384_oracle.jpg" 
+            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png" 
             alt="Fiber Oracle" 
             className="w-24 h-24 rounded-2xl object-cover shadow-xl mx-auto"
           />
