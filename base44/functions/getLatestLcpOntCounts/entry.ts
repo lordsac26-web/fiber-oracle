@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 Deno.serve(async (req) => {
   try {
@@ -15,7 +15,6 @@ Deno.serve(async (req) => {
     let reportsToProcess = [];
 
     if (Array.isArray(requestedReportIds) && requestedReportIds.length > 0) {
-      // Fetch specific reports by ID
       const allReports = await base44.entities.PONPMReport.filter(
         { processing_status: 'completed' },
         'upload_date',
@@ -23,15 +22,15 @@ Deno.serve(async (req) => {
       );
       reportsToProcess = allReports.filter(r => requestedReportIds.includes(r.id));
     } else {
-      // Legacy behavior: just return the latest report
+      // Default: latest report
       const reports = await base44.entities.PONPMReport.list('-upload_date', 1);
       const latestReport = reports[0] || null;
 
       if (!latestReport) {
-        return Response.json({ success: true, report: null, counts: {} });
+        return Response.json({ success: true, report: null, counts: {}, lcpSummary: {} });
       }
 
-      const counts = await aggregateCountsForReport(base44, latestReport.id);
+      const { counts, lcpSummary } = await aggregateCountsForReport(base44, latestReport.id);
 
       return Response.json({
         success: true,
@@ -41,21 +40,22 @@ Deno.serve(async (req) => {
           upload_date: latestReport.upload_date,
         },
         counts,
+        lcpSummary,
       });
     }
 
-    // Multi-report mode: aggregate counts per report
+    // Multi-report mode
     const results = [];
     for (let i = 0; i < reportsToProcess.length; i++) {
       const report = reportsToProcess[i];
-      const counts = await aggregateCountsForReport(base44, report.id);
+      const { counts, lcpSummary } = await aggregateCountsForReport(base44, report.id);
       results.push({
         reportId: report.id,
         reportName: report.report_name,
         date: report.upload_date,
         counts,
+        lcpSummary,
       });
-      // Small delay between reports to avoid rate limiting
       if (i < reportsToProcess.length - 1) {
         await new Promise(resolve => setTimeout(resolve, 200));
       }
@@ -69,7 +69,10 @@ Deno.serve(async (req) => {
 });
 
 async function aggregateCountsForReport(base44, reportId) {
+  // counts: legacy per-splitter count { "lcpNum|splitterNum": number }
+  // lcpSummary: per-LCP aggregated { "lcpNum": { total, ok, warning, critical, offline } }
   const counts = {};
+  const lcpSummary = {};
   const pageSize = 2000;
   let skip = 0;
 
@@ -84,18 +87,30 @@ async function aggregateCountsForReport(base44, reportId) {
     if (!page.length) break;
 
     for (const record of page) {
-      const lcpNumber = (record.lcp_number || '').trim().toUpperCase();
-      const splitterNumber = (record.splitter_number || '').trim().toUpperCase();
+      const lcpNumber = (record.lcp_number || '').trim();
+      const splitterNumber = (record.splitter_number || '').trim();
       if (!lcpNumber) continue;
-      const key = `${lcpNumber}|${splitterNumber}`;
+
+      // Legacy splitter-level count
+      const key = `${lcpNumber.toUpperCase()}|${splitterNumber.toUpperCase()}`;
       counts[key] = (counts[key] || 0) + 1;
+
+      // Per-LCP status summary (case-preserved lcp_number for frontend matching)
+      if (!lcpSummary[lcpNumber]) {
+        lcpSummary[lcpNumber] = { total: 0, ok: 0, warning: 0, critical: 0, offline: 0 };
+      }
+      lcpSummary[lcpNumber].total += 1;
+      const status = (record.status || 'ok').toLowerCase();
+      if (status === 'critical') lcpSummary[lcpNumber].critical += 1;
+      else if (status === 'warning') lcpSummary[lcpNumber].warning += 1;
+      else if (status === 'offline') lcpSummary[lcpNumber].offline += 1;
+      else lcpSummary[lcpNumber].ok += 1;
     }
 
     if (page.length < pageSize) break;
     skip += pageSize;
-    // Small delay between pages to be rate-limit friendly
     await new Promise(resolve => setTimeout(resolve, 100));
   }
 
-  return counts;
+  return { counts, lcpSummary };
 }
