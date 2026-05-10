@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, CheckCircle2, MapPin, Server, WifiOff, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, MapPin, Server, WifiOff, X, Navigation } from 'lucide-react';
 import LCPIssueList from '@/components/lcp/LCPIssueList';
 
 const OPTIC_TYPE_COLORS = {
@@ -74,7 +74,7 @@ function SplitterRow({ entry }) {
 
 }
 
-export default function LCPMapDetails({ group, onClose }) {
+export default function LCPMapDetails({ group, onClose, onShowOntMap }) {
   const sortedEntries = [...group.entries].sort((a, b) => {
     const splitterA = parseInt(a.splitter_number, 10);
     const splitterB = parseInt(b.splitter_number, 10);
@@ -201,11 +201,17 @@ export default function LCPMapDetails({ group, onClose }) {
           </div>
         }
 
+        {onShowOntMap && group.ontRecords?.length > 0 && (
+          <Button className="w-full" onClick={() => onShowOntMap(group)}>
+            <Navigation className="h-4 w-4 mr-2" />
+            Show ONTs on Map ({group.ontRecords.length})
+          </Button>
+        )}
+
         <Button
           variant="outline"
           className="w-full"
           onClick={() => window.open(`https://www.google.com/maps?q=${group.gps_lat},${group.gps_lng}`, '_blank')}>
-          
           <MapPin className="h-4 w-4 mr-2" />
           Open in Google Maps
         </Button>

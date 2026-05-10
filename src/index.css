@@ -169,3 +169,11 @@ button:focus-visible {
 .safe-area-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
+
+/* Leaflet custom pin overrides */
+.custom-health-pin,
+.custom-ont-pin,
+.custom-lcp-pin {
+  background: transparent !important;
+  border: none !important;
+}

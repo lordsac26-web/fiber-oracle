@@ -31,12 +31,48 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
+import LCPHealthMap from '@/components/map/LCPHealthMap';
+import ONTDrilldownMap from '@/components/map/ONTDrilldownMap';
 
 const SPLITTER_CAPACITY = 32;
+
+/** Wrapper that fetches ONT records from DB for a given LCP, then renders the drilldown map */
+function ONTDrilldownMapWrapper({ lcpGroup, onBack }) {
+  const reportId = lcpGroup.onts?.[0]?.report_id || lcpGroup.onts?.[0]?._reportId;
+
+  const { data: ontRecords = [], isLoading } = useQuery({
+    queryKey: ['ont-drilldown', lcpGroup.lcpNumber, reportId],
+    enabled: !!lcpGroup.lcpNumber,
+    queryFn: async () => {
+      if (!reportId) return [];
+      const records = await base44.entities.ONTPerformanceRecord.filter(
+        { report_id: reportId, lcp_number: lcpGroup.lcpNumber },
+        '-updated_date', 500
+      );
+      return records;
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-gray-500 gap-2">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Loading ONT records for {lcpGroup.lcpNumber}...
+      </div>
+    );
+  }
+
+  return (
+    <ONTDrilldownMap
+      lcpGroup={lcpGroup}
+      ontRecords={ontRecords}
+      height="500px"
+      onBack={onBack}
+    />
+  );
+}
 
 // Distinct color palette for splitter color-coding (up to 12 splitters)
 const SPLITTER_COLORS = [
@@ -59,6 +95,8 @@ export default function LCPSummarySection({ result, onPortClick }) {
   const [selectedLCP, setSelectedLCP] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [statusFilters, setStatusFilters] = useState(['all']);
+  const [showMap, setShowMap] = useState(false);
+  const [drilldownLcp, setDrilldownLcp] = useState(null);
 
   // Fetch LCP entries from database
   const { data: lcpEntries = [], isLoading } = useQuery({
@@ -261,10 +299,16 @@ export default function LCPSummarySection({ result, onPortClick }) {
               <Badge variant="outline">{filteredLCPs.length} shown</Badge>
               <Badge variant="outline">{lcpData.length} total</Badge>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setIsExpanded((value) => !value)}>
-              {isExpanded ? <ChevronDown className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
-              {isExpanded ? 'Hide Tiles' : 'Show Tiles'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant={showMap ? 'default' : 'outline'} size="sm" onClick={() => setShowMap(v => !v)}>
+                <Navigation className="h-4 w-4 mr-1" />
+                {showMap ? 'Hide Map' : 'Health Map'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setIsExpanded((value) => !value)}>
+                {isExpanded ? <ChevronDown className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
+                {isExpanded ? 'Hide Tiles' : 'Show Tiles'}
+              </Button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -291,7 +335,24 @@ export default function LCPSummarySection({ result, onPortClick }) {
             </div>
           </div>
 
-          {isExpanded && (
+          {/* Health Map */}
+          {showMap && !drilldownLcp && (
+            <LCPHealthMap
+              lcpGroups={filteredLCPs}
+              height="420px"
+              onLcpClick={(group) => setDrilldownLcp(group)}
+            />
+          )}
+
+          {/* ONT Drilldown Map */}
+          {drilldownLcp && (
+            <ONTDrilldownMapWrapper
+              lcpGroup={drilldownLcp}
+              onBack={() => setDrilldownLcp(null)}
+            />
+          )}
+
+          {isExpanded && !drilldownLcp && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filteredLCPs.map((lcp, idx) => (
@@ -682,30 +743,17 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 </CardContent>
               </Card>
 
-              {/* Map — moved to bottom */}
+              {/* Map with health pin + drill-down to ONTs */}
               {selectedLCP.hasGPS && (
-                <Card className="border overflow-hidden">
-                  <div style={{ height: '300px', width: '100%' }}>
-                    <MapContainer
-                      center={[selectedLCP.gps_lat, selectedLCP.gps_lng]}
-                      zoom={15}
-                      style={{ height: '100%', width: '100%' }}
-                    >
-                      <TileLayer
-                        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                      />
-                      <Marker position={[selectedLCP.gps_lat, selectedLCP.gps_lng]}>
-                        <Popup>
-                          <div className="text-sm">
-                            <div className="font-bold">{selectedLCP.lcpNumber}</div>
-                            <div className="text-xs text-gray-600">{selectedLCP.location}</div>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    </MapContainer>
-                  </div>
-                </Card>
+                <LCPHealthMap
+                  lcpGroups={[selectedLCP]}
+                  height="300px"
+                  onLcpClick={(g) => {
+                    setSelectedLCP(null);
+                    setDrilldownLcp(g);
+                    setShowMap(true);
+                  }}
+                />
               )}
             </div>
           )}

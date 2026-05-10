@@ -115,6 +115,19 @@
     "subscriber_model": {
       "type": "string",
       "description": "ONT model from subscriber data \u2014 may differ from reported model; denormalized for enrichment"
+    },
+    "gps_lat": {
+      "type": "number",
+      "description": "GPS latitude \u2014 geocoded from subscriber address or manually placed by user"
+    },
+    "gps_lng": {
+      "type": "number",
+      "description": "GPS longitude \u2014 geocoded from subscriber address or manually placed by user"
+    },
+    "gps_manual": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if the user manually repositioned this ONT pin on the map"
     }
   },
   "required": [
@@ -130,7 +143,7 @@
     "read": {
       "$or": [
         {
-          "data.report_creator_email": "{{user.email}}"
+          "created_by": "{{user.email}}"
         },
         {
           "user_condition": {

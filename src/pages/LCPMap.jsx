@@ -12,6 +12,7 @@ import LCPMapDetails from '@/components/lcp/LCPMapDetails';
 import LCPMapFilters from '@/components/lcp/LCPMapFilters';
 import LCPMapPopup from '@/components/lcp/LCPMapPopup';
 import { downloadLcpAuditCsv, downloadLcpAuditPdf } from '@/utils/lcpMapAuditExport';
+import ONTDrilldownMap from '@/components/map/ONTDrilldownMap';
 
 // Fix default marker icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -213,6 +214,7 @@ export default function LCPMap() {
   const [selectedOlt, setSelectedOlt] = useState('all');
   const [performanceFilter, setPerformanceFilter] = useState('all');
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [ontDrilldownGroup, setOntDrilldownGroup] = useState(null);
 
   const { data: lcpEntries = [], isLoading: isLoadingLcpEntries } = useQuery({
     queryKey: ['lcpEntries'],
@@ -325,6 +327,16 @@ export default function LCPMap() {
     };
   }, [latestReport]);
 
+  // ONT records for drilldown
+  const { data: drilldownOntRecords = [], isLoading: isLoadingDrilldown } = useQuery({
+    queryKey: ['ont-map-drilldown', ontDrilldownGroup?.lcp_number, latestReport?.id],
+    enabled: !!ontDrilldownGroup && !!latestReport?.id,
+    queryFn: () => base44.entities.ONTPerformanceRecord.filter(
+      { report_id: latestReport.id, lcp_number: ontDrilldownGroup.lcp_number },
+      '-updated_date', 500
+    ),
+  });
+
   const positions = useMemo(() => groups.map((group) => [group.gps_lat, group.gps_lng]), [groups]);
   const fallbackCenter = entriesWithCoords.length > 0 ? [entriesWithCoords[0].gps_lat, entriesWithCoords[0].gps_lng] : [39.8283, -98.5795];
   const defaultCenter = positions.length > 0 ? positions[0] : fallbackCenter;
@@ -398,6 +410,32 @@ export default function LCPMap() {
       </header>
 
       <main className="flex h-[calc(100vh-73px)]">
+        {/* ONT Drilldown overlay */}
+        {ontDrilldownGroup && (
+          <div className="absolute inset-0 z-[600] bg-white dark:bg-gray-900 overflow-auto p-4">
+            {isLoadingDrilldown ? (
+              <div className="flex items-center justify-center h-full gap-2 text-gray-500">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                Loading ONTs for {ontDrilldownGroup.lcp_number}...
+              </div>
+            ) : (
+              <ONTDrilldownMap
+                lcpGroup={{
+                  lcpNumber: ontDrilldownGroup.lcp_number,
+                  gps_lat: ontDrilldownGroup.gps_lat,
+                  gps_lng: ontDrilldownGroup.gps_lng,
+                  location: ontDrilldownGroup.location,
+                  ok: ontDrilldownGroup.issueSummary?.ok || 0,
+                  ontCount: ontDrilldownGroup.issueSummary?.total || 0,
+                }}
+                ontRecords={drilldownOntRecords}
+                height="calc(100vh - 140px)"
+                onBack={() => setOntDrilldownGroup(null)}
+              />
+            )}
+          </div>
+        )}
+
         <div className="relative flex-1">
           <LCPMapFilters
             searchTerm={searchTerm}
@@ -490,7 +528,14 @@ export default function LCPMap() {
         </div>
 
         {selectedGroup && (
-          <LCPMapDetails group={selectedGroup} onClose={() => setSelectedGroup(null)} />
+          <LCPMapDetails
+            group={selectedGroup}
+            onClose={() => setSelectedGroup(null)}
+            onShowOntMap={(group) => {
+              setSelectedGroup(null);
+              setOntDrilldownGroup(group);
+            }}
+          />
         )}
       </main>
     </div>
