@@ -1,15 +1,11 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, Activity, Cable, TrendingUp, FileText,
-  Database, Radio, AlertCircle, AlertTriangle, CheckCircle2,
-  Loader2
+  Database, Radio, CheckCircle2
 } from 'lucide-react';
 
 const TABS = [
@@ -18,54 +14,8 @@ const TABS = [
   { id: 'utilization', label: 'Splitter Utilization', icon: TrendingUp, description: 'Capacity & remaining ports' },
 ];
 
-function NocStatusBar({ latestReport }) {
-  const totalOnts = latestReport?.ont_count || 0;
-  const criticalCount = latestReport?.critical_count || 0;
-  const warningCount = latestReport?.warning_count || 0;
-  const okCount = latestReport?.ok_count || 0;
-  const oltCount = latestReport?.olt_count || 0;
-  const healthPct = totalOnts > 0 ? ((okCount / totalOnts) * 100).toFixed(1) : 0;
-
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-      <StatusCard label="Total ONTs" value={totalOnts.toLocaleString()} color="text-blue-600 dark:text-blue-400" />
-      <StatusCard label="OLTs" value={oltCount} color="text-indigo-600 dark:text-indigo-400" />
-      <StatusCard label="Critical" value={criticalCount} color="text-red-600 dark:text-red-400" icon={AlertCircle} />
-      <StatusCard label="Warnings" value={warningCount} color="text-amber-600 dark:text-amber-400" icon={AlertTriangle} />
-      <StatusCard label="Healthy" value={okCount.toLocaleString()} color="text-green-600 dark:text-green-400" icon={CheckCircle2} />
-      <StatusCard label="Health" value={`${healthPct}%`} color="text-emerald-600 dark:text-emerald-400" />
-    </div>
-  );
-}
-
-function StatusCard({ label, value, color, icon: Icon }) {
-  return (
-    <Card className="border-0 shadow">
-      <CardContent className="p-3 text-center">
-        <div className={`text-xl font-bold ${color} flex items-center justify-center gap-1`}>
-          {Icon && <Icon className="h-4 w-4" />}
-          {value}
-        </div>
-        <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{label}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function CalixSmxAnalysis() {
   const [activeTab, setActiveTab] = useState('ponpm');
-
-  const { data: savedReports = [], isLoading: loadingReports } = useQuery({
-    queryKey: ['ponPmReports'],
-    queryFn: () => base44.entities.PONPMReport.list('-upload_date', 5),
-  });
-
-  const { data: lcpEntries = [] } = useQuery({
-    queryKey: ['lcpEntries'],
-    queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
-  });
-
-  const latestReport = savedReports[0] || null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -89,41 +39,12 @@ export default function CalixSmxAnalysis() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {latestReport && (
-                <Badge variant="outline" className="text-xs">
-                  <Database className="h-3 w-3 mr-1" />
-                  {latestReport.report_name?.substring(0, 30)}
-                </Badge>
-              )}
-              <Badge variant="outline" className="text-xs">
-                {lcpEntries.length} LCPs
-              </Badge>
-              <Badge variant="outline" className="text-xs">
-                {savedReports.length} Reports
-              </Badge>
-            </div>
+
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* NOC Status Bar */}
-        {loadingReports ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-5 w-5 text-blue-500 animate-spin mr-2" />
-            <span className="text-sm text-gray-500">Loading network status...</span>
-          </div>
-        ) : latestReport ? (
-          <NocStatusBar latestReport={latestReport} />
-        ) : (
-          <Card className="border-0 shadow-lg">
-            <CardContent className="p-4 text-center text-gray-500 text-sm">
-              No PON PM reports yet. Upload your first report in the PON PM Analysis tab.
-            </CardContent>
-          </Card>
-        )}
-
         {/* Tab Navigation */}
         <div className="flex gap-2 overflow-x-auto pb-1">
           {TABS.map((tab) => {
@@ -162,11 +83,7 @@ export default function CalixSmxAnalysis() {
                 ]}
                 pageName="PONPMAnalysis"
                 buttonLabel="Open PON PM Analysis"
-                stats={latestReport ? [
-                  { label: 'Latest Report', value: latestReport.report_name?.substring(0, 25) || 'N/A' },
-                  { label: 'ONTs Analyzed', value: latestReport.ont_count?.toLocaleString() || '0' },
-                  { label: 'Issues Found', value: ((latestReport.critical_count || 0) + (latestReport.warning_count || 0)).toLocaleString() },
-                ] : null}
+                stats={null}
               />
             )}
             {activeTab === 'lcp' && (
@@ -183,11 +100,7 @@ export default function CalixSmxAnalysis() {
                 ]}
                 pageName="LCPInfo"
                 buttonLabel="Open LCP Database"
-                stats={lcpEntries.length > 0 ? [
-                  { label: 'Total Entries', value: lcpEntries.length.toLocaleString() },
-                  { label: 'With GPS', value: lcpEntries.filter(e => e.gps_lat && e.gps_lng).length.toLocaleString() },
-                  { label: 'Unique LCPs', value: new Set(lcpEntries.map(e => e.lcp_number)).size.toLocaleString() },
-                ] : null}
+                stats={null}
               />
             )}
             {activeTab === 'utilization' && (
@@ -204,11 +117,7 @@ export default function CalixSmxAnalysis() {
                 ]}
                 pageName="CapacityPlanning"
                 buttonLabel="Open Splitter Utilization"
-                stats={latestReport ? [
-                  { label: 'Data Source', value: latestReport.report_name?.substring(0, 25) || 'N/A' },
-                  { label: 'OLTs Covered', value: latestReport.olt_count || '0' },
-                  { label: 'LCPs Tracked', value: lcpEntries.length > 0 ? new Set(lcpEntries.map(e => e.lcp_number)).size : '0' },
-                ] : null}
+                stats={null}
               />
             )}
           </CardContent>
