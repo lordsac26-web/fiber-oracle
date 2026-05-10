@@ -12,7 +12,7 @@ import {
   Loader2, MapPin, Navigation, Server, WifiOff, X
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 /**
@@ -140,6 +140,7 @@ export default function LCPSidebar({ lcpGroup, lcpOntCounts, onClose, onMapOnts,
 
 /** Individual splitter accordion — lazy-loads ONTs on expand */
 function SplitterAccordion({ entry, lcpNumber, isExpanded, onToggle, onMapOnts, onUnmapOnt, mappedOntIds, geocodingSplitter, setGeocodingSplitter }) {
+  const queryClient = useQueryClient();
   // Lazy-load ONTs for this specific splitter when expanded
   const { data: ontRecords = [], isLoading: loadingOnts } = useQuery({
     queryKey: ['splitter-onts', lcpNumber, entry.splitter_number],
@@ -184,11 +185,32 @@ function SplitterAccordion({ entry, lcpNumber, isExpanded, onToggle, onMapOnts, 
     }
     setGeocodingSplitter(entry.splitter_number);
     try {
-      const ids = needsGeocode.map(o => o.id).filter(Boolean);
-      const res = await base44.functions.invoke('geocodeAddresses', { ontRecordIds: ids });
-      toast.success(`Geocoded ${res.data.geocoded || 0} addresses`);
+      const items = needsGeocode
+        .filter(o => o.id)
+        .map(o => ({ id: o.id, address: o.subscriber_address.trim() }));
+      toast.loading(`Geocoding ${items.length} addresses…`, { id: 'geocode-splitter' });
+      const res = await base44.functions.invoke('geocodeAddresses', { items });
+      const { geocoded: count = 0, updated = [], failed = 0, errors = [] } = res.data || {};
+
+      // Refresh the splitter ONT list so new coords appear
+      await queryClient.invalidateQueries({ queryKey: ['splitter-onts', lcpNumber, entry.splitter_number] });
+
+      // Auto-map the newly geocoded ONTs so they show on the map immediately
+      if (updated.length > 0) {
+        const coordMap = new Map(updated.map(u => [u.id, u]));
+        const updatedOnts = uniqueOnts
+          .filter(o => coordMap.has(o.id))
+          .map(o => ({ ...o, gps_lat: coordMap.get(o.id).gps_lat, gps_lng: coordMap.get(o.id).gps_lng }));
+        if (updatedOnts.length > 0) onMapOnts(updatedOnts);
+      }
+
+      if (count > 0) {
+        toast.success(`Geocoded ${count} addresses` + (failed > 0 ? `, ${failed} failed` : ''), { id: 'geocode-splitter' });
+      } else {
+        toast.warning(`No addresses could be geocoded` + (errors.length > 0 ? `: ${errors[0]}` : ''), { id: 'geocode-splitter' });
+      }
     } catch (err) {
-      toast.error('Geocoding failed: ' + err.message);
+      toast.error('Geocoding failed: ' + err.message, { id: 'geocode-splitter' });
     } finally {
       setGeocodingSplitter(null);
     }
