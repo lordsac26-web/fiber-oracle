@@ -27,11 +27,11 @@ function detectTechTypeFromModel(model) {
   const modelUpper = model.toUpperCase().trim();
   
   // XGS-PON models — authoritative list
+  // Any model containing "DZS" is XGS-PON (all DZS ONTs are XGS)
+  if (modelUpper.includes('DZS')) return 'XGS-PON';
   const xgsModels = [
     'GP1101X', 'GP4201X', 'GP4201XH',
-    'DZS522XG', 'DZS 522XG',
-    'DZS5222XG', 'DZS 5222XG', '5222XG',
-    'DZS5228XG', 'DZS 5228XG', '5228XG'
+    '5222XG', '5228XG'
   ];
   
   // GPON models — authoritative list

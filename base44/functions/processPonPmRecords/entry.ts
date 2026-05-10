@@ -56,11 +56,20 @@ function normalizeSerial(serial) {
 
 function detectTechType(model) {
   if (!model) return null;
-  const m = model.toUpperCase().trim();
-  const xgsModels = ['GP1101X', 'GP4201X', 'GP4201XH', 'DZS522', '522X', 'DZS522X', 'DZS522XX', 'DZS522XG'];
-  const gponModels = ['711GE', '717GE', '725G', '725GE', '725GX', '725'];
-  for (const x of xgsModels) if (m.includes(x.replace(/\s/g, ''))) return 'XGS-PON';
-  for (const g of gponModels) if (m.includes(g.replace(/\s/g, ''))) return 'GPON';
+  const m = model.toUpperCase().trim().replace(/\s/g, '');
+  // Authoritative lists — must stay in sync with parsePonPm.js & loadSavedReport.js
+  // Any model containing "DZS" is XGS-PON (all DZS ONTs are XGS)
+  if (m.includes('DZS')) return 'XGS-PON';
+  const xgsModels = [
+    'GP1101X', 'GP4201X', 'GP4201XH',
+    '5222XG', '5228XG'
+  ];
+  const gponModels = [
+    '711GE', '717GE', '725G', '725GE', '725',
+    '812G-1', '844G-1', '844GE-1', '803G'
+  ];
+  for (const x of xgsModels) if (m.includes(x)) return 'XGS-PON';
+  for (const g of gponModels) if (m.includes(g)) return 'GPON';
   return null;
 }
 
