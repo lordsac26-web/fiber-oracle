@@ -13,9 +13,9 @@ import {
 } from "@/components/ui/collapsible";
 import {
   Search, ChevronDown, ChevronRight, MapPin, ArrowUpDown,
-  ChevronUp, AlertCircle, AlertTriangle, CheckCircle2, XCircle, TrendingUp,
+  ChevronUp, AlertCircle, AlertTriangle, CheckCircle2, XCircle,
 } from 'lucide-react';
-import LcpTrendChart from './LcpTrendChart';
+
 
 const SPLITTER_CAP = 32;
 
@@ -40,7 +40,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
   const [sortField, setSortField] = useState('status');
   const [sortDir, setSortDir] = useState('asc');
   const [hideEmpty, setHideEmpty] = useState(false);
-  const [trendLcp, setTrendLcp] = useState(null);
+
 
   // Build per-splitter rows, then group by LCP
   const { lcpGroups, splitterRows, stats } = useMemo(() => {
@@ -314,15 +314,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
                         {group.fullCount === 0 && group.criticalCount === 0 && group.warningCount === 0 && (
                           <Badge className="bg-green-100 text-green-800 text-xs">All OK</Badge>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                          onClick={(e) => { e.stopPropagation(); setTrendLcp(group); }}
-                        >
-                          <TrendingUp className="h-3.5 w-3.5 mr-1" />
-                          Trends
-                        </Button>
+
                         <div className="w-20">
                           <Progress value={pct} className="h-2" />
                         </div>
@@ -414,13 +406,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
         )}
       </div>
 
-      {/* LCP Trend Chart Dialog */}
-      <LcpTrendChart
-        open={!!trendLcp}
-        onOpenChange={(open) => { if (!open) setTrendLcp(null); }}
-        lcpName={trendLcp?.lcp}
-        splitters={trendLcp?.splitters || []}
-      />
+
     </div>
   );
 }
