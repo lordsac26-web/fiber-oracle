@@ -162,9 +162,7 @@ export default function PONPMAnalysis() {
   const [jobReportFormData, setJobReportFormData] = useState(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [selectedOntDetail, setSelectedOntDetail] = useState(null);
-  // Sparkline history: { [serial_number]: { rx: number[], fec: number[] } }
-  const [sparklineHistory, setSparklineHistory] = useState({});
-  const sparklinesFetchedForRef = useRef(null); // tracks which result source we've fetched for
+
 
   const {
     subscriberMeta,
@@ -302,68 +300,7 @@ export default function PONPMAnalysis() {
     if (matched > 0) setResult(prev => ({ ...prev }));
   }, [result?.onts?.length, subscriberLoading, subscriberRecords?.length, enrichOntsFromDB]);
 
-  // Fetch sparkline history whenever a new result is loaded.
-  //
-  // Large reports (7k+ ONTs) can't be sent in a single backend call without
-  // tripping the platform's per-request rate limit on the server side, so
-  // we chunk serials and call sequentially, merging history as it returns.
-  // A ref guards against duplicate fetches for the same loaded report.
-  useEffect(() => {
-    if (!result?.onts || result.onts.length === 0) return;
-    const sourceKey = result.source || (result.onts[0]?.SerialNumber ?? '');
-    if (sparklinesFetchedForRef.current === sourceKey) return;
-    sparklinesFetchedForRef.current = sourceKey;
 
-    const serials = [...new Set(result.onts.map(o => o.SerialNumber).filter(Boolean))];
-    if (serials.length === 0) return;
-
-    let cancelled = false;
-    const CHUNK = 100;                  // matches backend's safe per-call window
-    const INTER_CHUNK_MS = 150;         // breathing room between chunks
-
-    const fetchAll = async () => {
-      const merged = {};
-      for (let i = 0; i < serials.length; i += CHUNK) {
-        if (cancelled) return;
-        const slice = serials.slice(i, i + CHUNK);
-        try {
-          const res = await base44.functions.invoke('getBatchOntHistory', {
-            serial_numbers: slice,
-            limit_per_ont: 10,
-          });
-          if (res.data?.success && res.data?.history) {
-            Object.assign(merged, res.data.history);
-            // Apply incrementally so the UI populates progressively rather
-            // than waiting for the whole report to finish.
-            if (!cancelled) {
-              setSparklineHistory({ ...merged });
-              result.onts.forEach(ont => {
-                const sn = (ont.SerialNumber || '').toUpperCase();
-                if (merged[sn] && !ont._sparklines) ont._sparklines = merged[sn];
-              });
-              setResult(prev => ({ ...prev }));
-            }
-          }
-        } catch (err) {
-          console.warn('Sparkline chunk failed:', err);
-        }
-        if (i + CHUNK < serials.length) {
-          await new Promise(r => setTimeout(r, INTER_CHUNK_MS));
-        }
-      }
-    };
-
-    fetchAll();
-    return () => { cancelled = true; };
-  }, [result?.onts?.length, result?.source]);
-
-  // Reset sparklines fetch tracker when result is cleared
-  useEffect(() => {
-    if (!result) {
-      sparklinesFetchedForRef.current = null;
-      setSparklineHistory({});
-    }
-  }, [result]);
 
   // Save report metadata, then kick off async background processing for ONT records
   const saveReportMutation = useMutation({
@@ -1883,12 +1820,10 @@ Be specific, technical, and actionable.`;
                                               <TableHead className="px-1.5 py-1 text-[10px]">Serial</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px]">Model</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">ONT Rx</TableHead>
-                                              {Object.keys(sparklineHistory).length > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Rx Trend</TableHead>}
                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">OLT Rx</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">US BIP</TableHead>
                                                <TableHead className="px-1.5 py-1 text-[10px] text-right">DS BIP</TableHead>
                                                <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC U</TableHead>
-                                               {Object.keys(sparklineHistory).length > 0 && <TableHead className="px-1.5 py-1 text-[10px]">FEC Trend</TableHead>}
                                                <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC U</TableHead>
                                                <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC C</TableHead>
                                                <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC C</TableHead>
@@ -1901,7 +1836,7 @@ Be specific, technical, and actionable.`;
                                           </TableHeader>
                                           <TableBody>
                                             {portOnts.filter(ont => !hideOntStatus[ont._analysis.status]).map((ont, idx) => (
-                                             <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} hasEeroData={eeroRecordsLoaded} hasSparklines={Object.keys(sparklineHistory).length > 0} onSelectDetail={setSelectedOntDetail} onCreateJobReport={createJobReportForONT} />
+                                             <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} hasEeroData={eeroRecordsLoaded} onSelectDetail={setSelectedOntDetail} onCreateJobReport={createJobReportForONT} />
                                             ))}
                                           </TableBody>
                                                 </Table>
