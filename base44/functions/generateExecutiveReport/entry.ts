@@ -213,48 +213,84 @@ Deno.serve(async (req) => {
     const prevEnd      = currentStart;
 
     // ── Paginated fetch helper ─────────────────────────────────────────────
-    // The platform caps filter() at 5000 per call. We must loop until a
-    // short page is returned to get the full dataset (7k+ ONTs and growing).
     const PAGE = 5000;
-    async function fetchAllFiltered(filterObj, sort) {
+    async function fetchAllFiltered(entityName, filterObj, sort) {
       let all = [];
       let offset = 0;
       while (true) {
-        const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+        const batch = await base44.asServiceRole.entities[entityName].filter(
           filterObj, sort, PAGE, offset
         );
         if (!batch || batch.length === 0) break;
         all = all.concat(batch);
         if (batch.length < PAGE) break;
         offset += batch.length;
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 150));
       }
       return all;
     }
 
-    // ── Fetch ONT records (latest report) from DB ────────────────────────────
-    const [currentRecs, prevRecs] = await Promise.all([
-      fetchAllFiltered({ report_date: { $gte: currentStart } }, '-report_date'),
-      fetchAllFiltered({ report_date: { $gte: prevStart, $lt: prevEnd } }, '-report_date'),
-    ]);
+    // ── Fetch Reports ────────────────────────────────────────────────────────
+    const reports = await base44.asServiceRole.entities.PONPMReport.list('-upload_date', 50);
+    const currentReport = reports[0];
+    let prevReport = null;
 
-    // ── If no current records, fall back to the single latest report ─────────
-    let records = currentRecs;
-    if (records.length === 0) {
-      const latestReports = await base44.asServiceRole.entities.PONPMReport.list('-upload_date', 1);
-      if (latestReports.length > 0) {
-        records = await fetchAllFiltered({ report_id: latestReports[0].id }, '-report_date');
+    if (currentReport) {
+      const currentMs = new Date(currentReport.upload_date).getTime();
+      const targetMs = currentMs - weeks_back * msPerWeek;
+      let minDiff = Infinity;
+      for (let i = 1; i < reports.length; i++) {
+        const diff = Math.abs(new Date(reports[i].upload_date).getTime() - targetMs);
+        if (diff < 4 * 24 * 60 * 60 * 1000) { // +/- 4 days tolerance
+          if (diff < minDiff) {
+            minDiff = diff;
+            prevReport = reports[i];
+          }
+        }
       }
     }
 
+    const [currentRecs, prevRecs] = await Promise.all([
+      currentReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: currentReport.id }, '-report_date') : Promise.resolve([]),
+      prevReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: prevReport.id }, '-report_date') : Promise.resolve([])
+    ]);
+
+    // ── Fetch active Eeros ───────────────────────────────────────────────────
+    const activeEeroUploads = await base44.asServiceRole.entities.EeroUploadMeta.filter({ status: 'active' }, '-upload_date', 1);
+    let eeroHomes = new Set();
+    if (activeEeroUploads.length > 0) {
+      const eeros = await fetchAllFiltered('EeroRecord', { upload_id: activeEeroUploads[0].id }, '-created_date');
+      for (const e of eeros) { if (e.home_identifier) eeroHomes.add(e.home_identifier); }
+    }
+
+    // ── Aggregate Current Report ──────────────────────────────────────────────
+    let records = currentRecs;
     const totalCurrent  = records.length;
     const critCurrent   = records.filter(r => r.status === 'critical').length;
     const warnCurrent   = records.filter(r => r.status === 'warning').length;
     const okCurrent     = records.filter(r => r.status === 'ok').length;
     const offCurrent    = records.filter(r => r.status === 'offline').length;
+    
+    let gponCurrent = 0, xgsCurrent = 0, eeroCountCurrent = 0;
+    for (const r of records) {
+      const isXgs = r.model?.toUpperCase().includes('XGS') || r.optic_model?.toUpperCase().includes('XGS') || r.shelf_slot_port?.toUpperCase().includes('XGS');
+      if (isXgs) xgsCurrent++; else gponCurrent++;
+      if (r.subscriber_account_name && eeroHomes.has(r.subscriber_account_name)) eeroCountCurrent++;
+    }
 
+    // ── Aggregate Prev Report ─────────────────────────────────────────────────
     const totalPrev     = prevRecs.length;
     const critPrev      = prevRecs.filter(r => r.status === 'critical').length;
+    const warnPrev      = prevRecs.filter(r => r.status === 'warning').length;
+    const okPrev        = prevRecs.filter(r => r.status === 'ok').length;
+    const offPrev       = prevRecs.filter(r => r.status === 'offline').length;
+    
+    let gponPrev = 0, xgsPrev = 0, eeroCountPrev = 0;
+    for (const r of prevRecs) {
+      const isXgs = r.model?.toUpperCase().includes('XGS') || r.optic_model?.toUpperCase().includes('XGS') || r.shelf_slot_port?.toUpperCase().includes('XGS');
+      if (isXgs) xgsPrev++; else gponPrev++;
+      if (r.subscriber_account_name && eeroHomes.has(r.subscriber_account_name)) eeroCountPrev++;
+    }
 
     const critDelta     = totalPrev > 0 ? critCurrent - critPrev : null;
     const healthPct     = totalCurrent > 0 ? ((okCurrent / totalCurrent) * 100).toFixed(1) : '0.0';
@@ -305,11 +341,10 @@ Deno.serve(async (req) => {
     const oltMap = new Map();
     for (const r of records) {
       const olt = r.olt_name || 'Unknown';
-      if (!oltMap.has(olt)) oltMap.set(olt, { total: 0, critical: 0, warning: 0, ok: 0, offline: 0, rxSum: 0, rxCount: 0 });
+      if (!oltMap.has(olt)) oltMap.set(olt, { total: 0, critical: 0, warning: 0, ok: 0, offline: 0 });
       const o = oltMap.get(olt);
       o.total++;
       if (r.status) o[r.status] = (o[r.status] || 0) + 1;
-      if (r.ont_rx_power != null && !isNaN(r.ont_rx_power)) { o.rxSum += r.ont_rx_power; o.rxCount++; }
     }
     const oltRows = [...oltMap.entries()]
       .map(([olt, v]) => ({
@@ -320,11 +355,14 @@ Deno.serve(async (req) => {
       .sort((a, b) => b.critical - a.critical);
 
     // ── Customer branding ───────────────────────────────────────────────────
-    let customerName = null, customerLogo = null;
-    if (user?.preferences?.companyName && user.preferences.companyName !== 'Fiber Oracle') {
-      customerName = s(user.preferences.companyName);
+    const settingsArr = await base44.asServiceRole.entities.AppSettings.list('-created_date', 1);
+    const appSettings = settingsArr[0] || {};
+    let customerName = 'Fiber Oracle';
+    let customerLogo = null;
+    if (appSettings.company_name && appSettings.company_name !== 'Fiber Oracle') {
+      customerName = s(appSettings.company_name);
     }
-    const rawLogo = user?.preferences?.logoUrl
+    const rawLogo = appSettings.logo_url 
       || 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png';
     customerLogo = await fetchLogo(rawLogo);
 
@@ -344,91 +382,67 @@ Deno.serve(async (req) => {
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...C.dark);
-    doc.text('Executive Network Performance Report', M, y + 4);
+    doc.text('Executive Network Performance Sheet', M, y + 4);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...C.muted);
-    doc.text(`Generated: ${reportDateTime}`, M, y + 10);
-    doc.text(
-      totalPrev > 0
-        ? `Current period vs prior week  |  ${totalCurrent.toLocaleString()} ONTs in scope`
-        : `Latest available data  |  ${totalCurrent.toLocaleString()} ONTs in scope`,
-      M, y + 15, { maxWidth: CW }
-    );
+    doc.text('Comprehensive analysis of optical network health, performance metrics, and subscriber saturation.', M, y + 10, { maxWidth: CW });
+    doc.text(`Generated: ${reportDateTime}`, M, y + 15);
     y += 22;
 
-    // KPI strip (5 tiles)
+    // KPI strip (2 rows)
     y = sectionTitle(doc, 'Network Health Overview', y, C.navy);
-    const kpiPanelTop = y;
     const kpiInset = 3;
-    const kw = (CW - 4 * 3) / 5;
-    const kpis = [
+    const kw5 = (CW - 4 * 3) / 5;
+    
+    // Row 1 (5 tiles)
+    const kpis1 = [
       { value: totalCurrent.toLocaleString(), label: 'Total ONTs', vc: C.dark, ac: C.accent, delta: null },
-      { value: critCurrent,   label: 'Critical',    vc: C.red,   ac: C.red,   delta: critDelta },
-      { value: warnCurrent,   label: 'Warning',     vc: C.amber, ac: C.amber, delta: null },
-      { value: okCurrent.toLocaleString(), label: 'Healthy', vc: C.green, ac: C.green, delta: null },
+      { value: critCurrent.toLocaleString(),  label: 'Critical',    vc: C.red,   ac: C.red,   delta: critDelta },
+      { value: warnCurrent.toLocaleString(),  label: 'Warning',     vc: C.amber, ac: C.amber, delta: null },
+      { value: okCurrent.toLocaleString(),    label: 'Healthy', vc: C.green, ac: C.green, delta: null },
       { value: `${healthPct}%`, label: 'Health %',  vc: C.green, ac: C.indigo, delta: null },
     ];
-    kpis.forEach((k, i) => {
-      kpiTile(doc, M + kpiInset + i * (kw - 1.2 + 3), y + kpiInset, kw - 1.2, 26,
+    kpis1.forEach((k, i) => {
+      kpiTile(doc, M + kpiInset + i * (kw5 - 1.2 + 3), y + kpiInset, kw5 - 1.2, 26,
               k.value, k.label, k.vc, k.ac, k.delta);
     });
-    y += 26 + kpiInset * 2 + 6;
+    
+    // Row 2 (3 tiles)
+    y += 26 + kpiInset * 2;
+    const kw3 = (CW - 2 * 3) / 3;
+    const kpis2 = [
+      { value: eeroCountCurrent.toLocaleString(), label: 'ONTs with Eero', vc: C.dark, ac: C.accent, delta: null },
+      { value: gponCurrent.toLocaleString(),  label: 'GPON ONTs',    vc: C.dark, ac: C.slate, delta: null },
+      { value: xgsCurrent.toLocaleString(),   label: 'XGS-PON ONTs', vc: C.dark, ac: C.slate, delta: null },
+    ];
+    kpis2.forEach((k, i) => {
+      kpiTile(doc, M + kpiInset + i * (kw3 - 1.2 + 3), y, kw3 - 1.2, 26,
+              k.value, k.label, k.vc, k.ac, k.delta);
+    });
+    
+    y += 26 + kpiInset + 6;
 
-    // ── Issues by City ─────────────────────────────────────────────────────
-    if (cityRows.length > 0) {
-      y = maybeNewPage(doc, y, 60, customerLogo, customerName, reportDate);
-      y = sectionTitle(doc, `Issues by City  (top ${cityRows.length})`, y, C.red);
-
-      const cols = [
-        { label: 'City',     x: M + 5     },
-        { label: 'Total',    x: M + 75    },
-        { label: 'Critical', x: M + 95    },
-        { label: 'Crit %',   x: M + 120   },
-        { label: 'Warning',  x: M + 145   },
-        { label: 'Healthy',  x: M + 165   },
-      ];
-      y = tableHeader(doc, y, cols);
-
-      for (let i = 0; i < cityRows.length; i++) {
-        y = maybeNewPage(doc, y, 8, customerLogo, customerName, reportDate);
-        const r = cityRows[i];
-        const critCol = r.critical > 0 ? C.red : C.dark;
-        y = tableRow(doc, y, [
-          { value: r.city,              x: M + 5,   maxW: 68 },
-          { value: String(r.total),     x: M + 75  },
-          { value: String(r.critical),  x: M + 95,  color: critCol },
-          { value: `${r.critPct}%`,     x: M + 120, color: critCol },
-          { value: String(r.warning),   x: M + 145, color: r.warning > 0 ? C.amber : C.dark },
-          { value: String(r.ok),        x: M + 165, color: C.green },
-        ], i % 2 === 0);
-      }
-      y += 4;
-    }
-
-    // ── Issues by Zip ──────────────────────────────────────────────────────
+    // ── Saturation Report Section ──────────────────────────────────────────
     if (zipRows.length > 0) {
-      y = maybeNewPage(doc, y, 50, customerLogo, customerName, reportDate);
-      y = sectionTitle(doc, `Issues by Zip Code  (top ${zipRows.length})`, y, C.amber);
+      y = maybeNewPage(doc, y, 60, customerLogo, customerName, reportDate);
+      y = sectionTitle(doc, `Saturation Report  (top ${zipRows.length} zip codes)`, y, C.accent);
 
       const cols = [
         { label: 'Zip Code',  x: M + 5  },
-        { label: 'Total',     x: M + 50 },
-        { label: 'Critical',  x: M + 75 },
-        { label: 'Crit %',    x: M + 100 },
-        { label: 'Warning',   x: M + 130 },
+        { label: 'Total ONTs', x: M + 80 },
+        { label: '% of Network', x: M + 140 },
       ];
       y = tableHeader(doc, y, cols);
 
       for (let i = 0; i < zipRows.length; i++) {
         y = maybeNewPage(doc, y, 8, customerLogo, customerName, reportDate);
         const r = zipRows[i];
+        const pct = totalCurrent > 0 ? ((r.total / totalCurrent) * 100).toFixed(1) : '0.0';
         y = tableRow(doc, y, [
           { value: r.zip,               x: M + 5  },
-          { value: String(r.total),     x: M + 50 },
-          { value: String(r.critical),  x: M + 75,  color: r.critical > 0 ? C.red : C.dark },
-          { value: `${r.critPct}%`,     x: M + 100, color: r.critical > 0 ? C.red : C.dark },
-          { value: String(r.warning),   x: M + 130, color: r.warning > 0 ? C.amber : C.dark },
+          { value: String(r.total),     x: M + 80 },
+          { value: `${pct}%`,           x: M + 140 },
         ], i % 2 === 0);
       }
       y += 4;
@@ -444,8 +458,8 @@ Deno.serve(async (req) => {
         { label: 'ONTs',          x: M + 60 },
         { label: 'Critical',      x: M + 82 },
         { label: 'Warning',       x: M + 106 },
-        { label: 'Health %',      x: M + 130 },
-        { label: 'Avg ONT Rx',    x: M + 158 },
+        { label: 'Offline',       x: M + 130 },
+        { label: 'Health %',      x: M + 158 },
       ];
       y = tableHeader(doc, y, cols);
 
@@ -459,8 +473,8 @@ Deno.serve(async (req) => {
           { value: String(r.total),              x: M + 60  },
           { value: String(r.critical),           x: M + 82,  color: r.critical > 0 ? C.red : C.dark },
           { value: String(r.warning),            x: M + 106, color: r.warning > 0 ? C.amber : C.dark },
-          { value: `${r.healthPct}%`,            x: M + 130, color: hColor },
-          { value: r.avgRx !== 'N/A' ? `${r.avgRx} dBm` : 'N/A', x: M + 158 },
+          { value: String(r.offline),            x: M + 130, color: r.offline > 0 ? C.slate : C.dark },
+          { value: `${r.healthPct}%`,            x: M + 158, color: hColor },
         ], i % 2 === 0);
       }
       y += 4;
@@ -468,15 +482,18 @@ Deno.serve(async (req) => {
 
     // ── Week-over-week summary section ─────────────────────────────────────
     if (totalPrev > 0) {
-      y = maybeNewPage(doc, y, 50, customerLogo, customerName, reportDate);
+      y = maybeNewPage(doc, y, 70, customerLogo, customerName, reportDate);
       y = sectionTitle(doc, 'Week-over-Week Summary', y, C.purple);
 
       const wowData = [
         { metric: 'Total ONTs in scope', current: totalCurrent, prev: totalPrev },
         { metric: 'Critical issues',     current: critCurrent,  prev: critPrev  },
-        { metric: 'Warning issues',       current: warnCurrent,  prev: prevRecs.filter(r => r.status === 'warning').length },
-        { metric: 'Healthy ONTs',        current: okCurrent,    prev: prevRecs.filter(r => r.status === 'ok').length },
-        { metric: 'Offline ONTs',        current: offCurrent,   prev: prevRecs.filter(r => r.status === 'offline').length },
+        { metric: 'Warning issues',      current: warnCurrent,  prev: warnPrev  },
+        { metric: 'Healthy ONTs',        current: okCurrent,    prev: okPrev    },
+        { metric: 'Offline ONTs',        current: offCurrent,   prev: offPrev   },
+        { metric: 'GPON ONTs',           current: gponCurrent,  prev: gponPrev  },
+        { metric: 'XGS-PON ONTs',        current: xgsCurrent,   prev: xgsPrev   },
+        { metric: 'ONTs with Eero',      current: eeroCountCurrent, prev: eeroCountPrev },
       ];
 
       const cols = [
@@ -491,8 +508,7 @@ Deno.serve(async (req) => {
         const r = wowData[i];
         const delta = r.current - r.prev;
         const sign = delta > 0 ? '+' : '';
-        // For critical/warning/offline: increase is bad (red); for healthy: increase is good (green)
-        const isGoodMetric = r.metric.includes('Healthy');
+        const isGoodMetric = r.metric.includes('Healthy') || r.metric.includes('Total') || r.metric.includes('Eero') || r.metric.includes('PON');
         const deltaColor = delta === 0 ? C.muted
           : isGoodMetric
             ? (delta > 0 ? C.green : C.red)
