@@ -46,7 +46,7 @@ function normalizeHomeId(value) {
   return canonical ? canonical[0] : digits;
 }
 
-// ─── Technology detection (mirrors processPonPmRecords.detectTechType)
+// ─── Technology detection (mirrors parsePonPm.detectTechTypeFromModel + DZS FSAN fallback)
 // Whitelist-based — never blanket-classifies unrecognized models. Records with
 // no recognized model are returned as null and counted as "Unknown" in the exec
 // report rather than being silently bucketed into GPON.
@@ -58,8 +58,36 @@ function detectTechType(model) {
   const gponModels = ['711GE', '717GE', '725G', '725GE', '725', '812G-1', '844G-1', '844GE-1', '803G'];
   for (const x of xgsModels) if (m.includes(x)) return 'XGS-PON';
   for (const g of gponModels) if (m.includes(g)) return 'GPON';
-  // FSAN serial fallback for DZS XGS units written by processPonPmRecords as "DZS 522x XG"
   return null;
+}
+
+// Combo port detection — mirrors parsePonPm.detectComboPort + loadSavedReport
+// recordToOnt. Combo ports follow the pattern <something>(\d+)-(\d+) — the
+// FIRST number's parity decides the tech (odd → XGS-PON, even → GPON). This
+// is the same rule the UI applies when assigning _techType, and is the
+// primary reason the UI's XGS-PON count exceeds what model-only detection
+// produces (many ONTs on combo ports have unknown models but valid port
+// patterns like "0/1/xp3-4").
+function detectComboTech(shelfSlotPort) {
+  if (!shelfSlotPort) return null;
+  const m = String(shelfSlotPort).match(/(?:xp)?(\d+)-(\d+)$/i);
+  if (!m) return null;
+  const portNum = parseInt(m[1], 10);
+  if (isNaN(portNum)) return null;
+  return portNum % 2 === 1 ? 'XGS-PON' : 'GPON';
+}
+
+// Tech detection on a record — same precedence as loadSavedReport.recordToOnt:
+//   1. model whitelist
+//   2. combo port pattern
+// This is what the UI's KPIStatistics counts via `_techType?.includes('GPON')`
+// and `_techType?.includes('XGS')`.
+function classifyTech(record) {
+  return (
+    detectTechType(record.model) ||
+    detectTechType(record.subscriber_model) ||
+    detectComboTech(record.shelf_slot_port)
+  );
 }
 
 // Parse a "street, city, zip" address into components. The zip is taken from
@@ -312,10 +340,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    const [currentRecs, prevRecs] = await Promise.all([
+    const [currentRecsRaw, prevRecsRaw] = await Promise.all([
       currentReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: currentReport.id }, '-report_date') : Promise.resolve([]),
       prevReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: prevReport.id }, '-report_date') : Promise.resolve([])
     ]);
+
+    // Use all records — the DB rows ARE the ground truth. Offline/eero counts
+    // and the zip-saturation join always iterate the full set; we do not
+    // filter rows out because every saved record represents a real ONT.
+    const currentRecs = currentRecsRaw;
+    const prevRecs    = prevRecsRaw;
+    console.log(`[generateExecutiveReport] Records — current=${currentRecs.length}, prev=${prevRecs.length}`);
 
     // ── Fetch active Eeros ───────────────────────────────────────────────────
     const activeEeroUploads = await base44.asServiceRole.entities.EeroUploadMeta.filter({ status: 'active' }, '-upload_date', 1);
@@ -326,77 +361,109 @@ Deno.serve(async (req) => {
     }
 
     // ── Build a normalized eero home_id Set for fast lookup ─────────────────
-    // Mirrors the UI's buildEeroLookup → normalizeHomeId pipeline so match
-    // counts here equal what the user sees on the PON PM Analysis page.
     const eeroHomeKeys = new Set();
     for (const home of eeroHomes) {
       const k = normalizeHomeId(home);
       if (k) eeroHomeKeys.add(k);
     }
 
-    // ── Aggregate Current Report ──────────────────────────────────────────────
-    // Prefer the authoritative summary counts written by processPonPmRecords
-    // onto PONPMReport — they are exactly what the PON PM Analysis page shows.
-    // Fall back to a record-level tally only if the report row is missing them
-    // (older reports created before the counts column was populated).
+    // ── Build SubscriberRecord lookup for authoritative zip/city ─────────────
+    // ONTPerformanceRecord.subscriber_address often contains ONLY the street
+    // (no city/zip) because old reports were processed before the concat fix,
+    // or because subscriber data was uploaded after the report. We join
+    // SubscriberRecord directly by account name to get the structured Zip/City
+    // fields, which is exactly what the UI does via _subscriber.zip.
+    const subByAccount = new Map();
+    try {
+      const subs = await fetchAllFiltered('SubscriberRecord', {}, '-created_date');
+      for (const sub of subs) {
+        if (!sub.AccountName) continue;
+        // Use canonical 16-digit form so partial / prefixed accounts still match
+        const key = normalizeHomeId(sub.AccountName) || sub.AccountName.trim();
+        if (key && !subByAccount.has(key)) {
+          subByAccount.set(key, {
+            city: (sub.City || '').trim() || 'Unknown',
+            zip:  (sub.Zip || '').trim().match(/^\d{5}/)?.[0] || 'Unknown',
+          });
+        }
+      }
+      console.log(`[generateExecutiveReport] SubscriberRecord lookup: ${subByAccount.size} accounts`);
+    } catch (err) {
+      console.log(`[generateExecutiveReport] SubscriberRecord lookup failed (non-fatal): ${err.message}`);
+    }
+
+    // ── Aggregate Current Report — always tally from records ────────────────
+    // Parity rule: the UI's KPIStatistics computes GPON/XGS-PON counts live
+    // from each ONT's _techType (model OR combo port pattern), and offline
+    // status from r.status. The PONPMReport aggregate columns were written
+    // by parsePonPm BEFORE combo port classification was wired in, so they
+    // undercount XGS-PON. Tallying from records with the same `classifyTech`
+    // logic the UI uses (model + subscriber_model + combo port) guarantees
+    // identical numbers.
     const records = currentRecs;
-    const recCritical = records.filter(r => r.status === 'critical').length;
-    const recWarning  = records.filter(r => r.status === 'warning').length;
-    const recOk       = records.filter(r => r.status === 'ok').length;
-    const recOffline  = records.filter(r => r.status === 'offline').length;
-
-    const totalCurrent = currentReport?.ont_count      ?? records.length;
-    const critCurrent  = currentReport?.critical_count ?? recCritical;
-    const warnCurrent  = currentReport?.warning_count  ?? recWarning;
-    const okCurrent    = currentReport?.ok_count       ?? recOk;
-    const offCurrent   = recOffline; // not stored on PONPMReport — always tally
-
-    // GPON / XGS-PON via the SAME whitelist used at ingest time. Records with
-    // no recognized model are NOT counted as either tech (kept as Unknown).
+    let critCurrent = 0, warnCurrent = 0, okCurrent = 0, offCurrent = 0;
     let gponCurrent = 0, xgsCurrent = 0, eeroCountCurrent = 0;
     for (const r of records) {
-      const tech = detectTechType(r.model) || detectTechType(r.subscriber_model);
-      if (tech === 'XGS-PON') xgsCurrent++;
-      else if (tech === 'GPON') gponCurrent++;
-      // else: unknown → not counted in either bucket
+      if (r.status === 'critical')      critCurrent++;
+      else if (r.status === 'warning')  warnCurrent++;
+      else if (r.status === 'offline')  offCurrent++;
+      else                              okCurrent++;
+
+      const tech = classifyTech(r);
+      if (tech === 'XGS-PON')      xgsCurrent++;
+      else if (tech === 'GPON')    gponCurrent++;
 
       const acctKey = normalizeHomeId(r.subscriber_account_name);
       if (acctKey && eeroHomeKeys.has(acctKey)) eeroCountCurrent++;
     }
+    const totalCurrent = records.length;
 
-    // ── Aggregate Prev Report ─────────────────────────────────────────────────
-    const prevRecCritical = prevRecs.filter(r => r.status === 'critical').length;
-    const prevRecWarning  = prevRecs.filter(r => r.status === 'warning').length;
-    const prevRecOk       = prevRecs.filter(r => r.status === 'ok').length;
-    const prevRecOffline  = prevRecs.filter(r => r.status === 'offline').length;
-
-    const totalPrev = prevReport?.ont_count      ?? prevRecs.length;
-    const critPrev  = prevReport?.critical_count ?? prevRecCritical;
-    const warnPrev  = prevReport?.warning_count  ?? prevRecWarning;
-    const okPrev    = prevReport?.ok_count       ?? prevRecOk;
-    const offPrev   = prevRecOffline;
-
+    // ── Aggregate Prev Report ────────────────────────────────────────────────
+    let critPrev = 0, warnPrev = 0, okPrev = 0, offPrev = 0;
     let gponPrev = 0, xgsPrev = 0, eeroCountPrev = 0;
     for (const r of prevRecs) {
-      const tech = detectTechType(r.model) || detectTechType(r.subscriber_model);
-      if (tech === 'XGS-PON') xgsPrev++;
-      else if (tech === 'GPON') gponPrev++;
+      if (r.status === 'critical')      critPrev++;
+      else if (r.status === 'warning')  warnPrev++;
+      else if (r.status === 'offline')  offPrev++;
+      else                              okPrev++;
+
+      const tech = classifyTech(r);
+      if (tech === 'XGS-PON')      xgsPrev++;
+      else if (tech === 'GPON')    gponPrev++;
 
       const acctKey = normalizeHomeId(r.subscriber_account_name);
       if (acctKey && eeroHomeKeys.has(acctKey)) eeroCountPrev++;
     }
+    const totalPrev = prevRecs.length;
 
     const critDelta = totalPrev > 0 ? critCurrent - critPrev : null;
     const healthPct = totalCurrent > 0 ? ((okCurrent / totalCurrent) * 100).toFixed(1) : '0.0';
 
-    // ── Aggregate by city + zip in a single pass via parseAddress ───────────
-    // parseAddress takes the LAST comma-segment for the zip (avoids matching
-    // house numbers) and the second segment for the city.
+    console.log(`[generateExecutiveReport] Current totals — total=${totalCurrent}, crit=${critCurrent}, warn=${warnCurrent}, ok=${okCurrent}, off=${offCurrent}, gpon=${gponCurrent}, xgs=${xgsCurrent}, eero=${eeroCountCurrent}`);
+
+    // ── Aggregate by city + zip ─────────────────────────────────────────────
+    // Source priority for each record:
+    //   1. SubscriberRecord join by account name (structured City/Zip fields)
+    //   2. parseAddress() fallback on subscriber_address (legacy)
     const cityMap = new Map();
     const zipMap  = new Map();
     let unknownZipCount = 0;
     for (const r of records) {
-      const { city, zip } = parseAddress(r.subscriber_address);
+      let city = 'Unknown';
+      let zip  = 'Unknown';
+
+      // Try authoritative subscriber join first
+      const acctKey = normalizeHomeId(r.subscriber_account_name);
+      const subInfo = acctKey ? subByAccount.get(acctKey) : null;
+      if (subInfo) {
+        city = subInfo.city;
+        zip  = subInfo.zip;
+      } else {
+        // Fallback: parse whatever is in subscriber_address
+        const parsed = parseAddress(r.subscriber_address);
+        city = parsed.city;
+        zip  = parsed.zip;
+      }
 
       if (!cityMap.has(city)) cityMap.set(city, { total: 0, critical: 0, warning: 0, ok: 0, offline: 0 });
       const c = cityMap.get(city);
