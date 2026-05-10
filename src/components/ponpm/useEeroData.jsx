@@ -22,8 +22,16 @@ export function useEeroData() {
 
   const eeroMeta = metaList.length > 0 ? metaList[0] : null;
 
-  // Records are NOT auto-loaded — explicit trigger via loadNow().
+  // Auto-enable record loading when eero data has been uploaded at least once.
+  // Staggered after subscriber data (2.5s) to avoid rate-limit contention.
   const [recordsEnabled, setRecordsEnabled] = useState(false);
+
+  useEffect(() => {
+    if (eeroMeta && !recordsEnabled) {
+      const timer = setTimeout(() => setRecordsEnabled(true), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [eeroMeta, recordsEnabled]);
   const { data: eeroRecords = [], isLoading: recordsLoading } = useQuery({
     queryKey: ['eero-records', eeroMeta?.id],
     queryFn: async () => {
@@ -42,6 +50,7 @@ export function useEeroData() {
       return all;
     },
     staleTime: 5 * 60 * 1000,
+    gcTime: Infinity, // Keep cached data for the entire session — critical for 8-user concurrent access
     enabled: !!eeroMeta && recordsEnabled,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),

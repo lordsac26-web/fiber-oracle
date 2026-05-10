@@ -35,13 +35,21 @@ export function useSubscriberData() {
 
   const subscriberMeta = metaList.length > 0 ? metaList[0] : null;
 
-  // Load subscriber records from DB — DISABLED by default. The fetch is
-  // expensive (up to 50k records, sequentially paginated) and trips the
-  // platform's read rate limit if it runs alongside other queries on page
-  // load. The user must explicitly trigger it (via the "Reload subscriber
-  // data" menu item or by uploading a new CSV), which calls loadNow().
-  // This avoids partial silent loads after a fresh page reload.
+  // Auto-enable record loading when subscriber data has been uploaded at least
+  // once. For an 8-person concurrent team, every user should see enriched ONT
+  // data immediately without a manual "Reload" click. The initial load is
+  // staggered (200ms between pages) to stay within rate limits. If no meta
+  // exists yet, records stay disabled until the first upload.
   const [recordsEnabled, setRecordsEnabled] = useState(false);
+
+  // Auto-enable once we know subscriber data exists — delayed slightly to let
+  // the report auto-load query finish first and avoid rate-limit contention.
+  useEffect(() => {
+    if (subscriberMeta && !recordsEnabled) {
+      const timer = setTimeout(() => setRecordsEnabled(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [subscriberMeta, recordsEnabled]);
   const { data: subscriberRecords = [], isLoading: recordsLoading } = useQuery({
     // Key includes the active meta id so a fresh upload (new id) refetches
     // automatically and we never serve stale records from a previous upload.
@@ -69,6 +77,7 @@ export function useSubscriberData() {
       return all;
     },
     staleTime: 5 * 60 * 1000,
+    gcTime: Infinity, // Keep cached data for the entire session — critical for 8-user concurrent access
     enabled: !!subscriberMeta && recordsEnabled,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),

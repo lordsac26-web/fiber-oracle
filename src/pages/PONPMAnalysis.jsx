@@ -59,7 +59,6 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import HistoricalTrends from '@/components/ponpm/HistoricalTrends';
 import OLTPortSummary from '@/components/ponpm/OLTPortSummary';
 import LCPSummarySection from '@/components/ponpm/LCPSummarySection';
 import HistoricalDataManager from '@/components/ponpm/HistoricalDataManager';
@@ -93,7 +92,12 @@ import LCPExportMenu from '@/components/lcp/LCPExportMenu';
 import JobReportDialog from '@/components/ponpm/JobReportDialog';
 import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
-const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
+const useLcpQuery = () => useQuery({
+  queryKey: ['lcp-entries'],
+  queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
+  staleTime: 5 * 60 * 1000,
+  gcTime: Infinity, // LCP data is static reference data — keep cached for entire session
+});
 
 const DEFAULT_THRESHOLDS = {
   OntRxOptPwr: { low: -27, marginal: -25, high: -8 },
@@ -216,7 +220,12 @@ export default function PONPMAnalysis() {
     return () => { cancelled = true; unsubscribe(); };
   }, [processingReportId, queryClient]);
 
-  const { data: savedReports = [], isLoading: loadingReports } = useQuery({ queryKey: ['ponPmReports'], queryFn: () => base44.entities.PONPMReport.list('-upload_date') });
+  const { data: savedReports = [], isLoading: loadingReports } = useQuery({
+    queryKey: ['ponPmReports'],
+    queryFn: () => base44.entities.PONPMReport.list('-upload_date'),
+    staleTime: 2 * 60 * 1000,
+    gcTime: Infinity, // Persist report list across navigation for 8-user concurrent access
+  });
   const { data: lcpEntriesForEnrich = [] } = useLcpQuery();
   const { data: lcpOntCounts = {} } = useQuery({
     queryKey: ['lcpOntCounts'],
@@ -225,6 +234,7 @@ export default function PONPMAnalysis() {
       return res.data?.counts || {};
     },
     staleTime: 5 * 60 * 1000,
+    gcTime: Infinity, // Keep LCP ONT counts cached across navigation
     enabled: !!result,
   });
   const lcpMapRef = useRef(new Map());

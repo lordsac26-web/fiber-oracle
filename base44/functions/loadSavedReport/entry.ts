@@ -8,7 +8,7 @@
  * The returned shape mirrors parsePonPm's response so the frontend can use it
  * without any changes to how it renders the data.
  */
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // Map optic model number → human-readable type label (same mapping as PortHeaderLabel)
 function resolveOpticType(opticModel) {

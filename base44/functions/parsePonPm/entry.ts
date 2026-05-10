@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import { parse } from 'npm:csv-parse@5.5.2/sync';
 
 // Default thresholds — can be overridden per-request via body.thresholds
@@ -16,8 +16,9 @@ const DEFAULT_THRESHOLDS = {
   DownstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
 };
 
-// Will be set per-request after merging with caller-supplied overrides
-let THRESHOLDS = { ...DEFAULT_THRESHOLDS };
+// IMPORTANT: THRESHOLDS is now built per-request inside Deno.serve to prevent
+// race conditions when concurrent requests supply different custom thresholds.
+// Previously this was module-level mutable state shared across all requests.
 
 // Detect technology type based on ONT model
 function detectTechTypeFromModel(model) {
@@ -130,7 +131,7 @@ function normalizeSerialNumber(serial) {
   return normalized.length > 0 ? normalized : null;
 }
 
-function analyzeOnt(ont, segmentStats) {
+function analyzeOnt(ont, segmentStats, THRESHOLDS) {
   const issues = [];
   const warnings = [];
   let isOffline = false;
@@ -323,10 +324,10 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { file_url, skip_trends, thresholds: customThresholds } = body;
 
-    // Merge caller-supplied thresholds (from Global Alert config) with defaults.
-    // Only numeric values are accepted to prevent injection of bad data.
+    // Build per-request thresholds — local variable, NOT module-level, to prevent
+    // race conditions when concurrent requests supply different custom thresholds.
+    let THRESHOLDS = { ...DEFAULT_THRESHOLDS };
     if (customThresholds && typeof customThresholds === 'object') {
-      THRESHOLDS = { ...DEFAULT_THRESHOLDS };
       for (const [field, values] of Object.entries(customThresholds)) {
         if (DEFAULT_THRESHOLDS[field] && typeof values === 'object') {
           THRESHOLDS[field] = { ...DEFAULT_THRESHOLDS[field] };
@@ -337,8 +338,6 @@ Deno.serve(async (req) => {
           }
         }
       }
-    } else {
-      THRESHOLDS = { ...DEFAULT_THRESHOLDS };
     }
 
     if (!file_url) {
@@ -531,7 +530,7 @@ Deno.serve(async (req) => {
       const oltName = ont.OLTName || 'Unknown OLT';
       const portKey = ont['Shelf/Slot/Port'] || 'Unknown';
       const portStats = segmentStats[oltName]?.ports[portKey];
-      const analysis = analyzeOnt(ont, portStats);
+      const analysis = analyzeOnt(ont, portStats, THRESHOLDS);
 
       // Calculate trends if historical data exists
       let trends = null;

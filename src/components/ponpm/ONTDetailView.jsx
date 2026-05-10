@@ -36,7 +36,6 @@ import {
   Router,
   Wifi,
   Users,
-  Router as RouterIcon,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -448,7 +447,7 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                   {ont._eero && (
                     <div className="mt-3 pt-3 border-t border-indigo-200">
                       <div className="flex items-center gap-1.5 mb-2">
-                        <RouterIcon className="h-3.5 w-3.5 text-emerald-600" />
+                        <Router className="h-3.5 w-3.5 text-emerald-600" />
                         <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-200">Has eero</span>
                         <Badge className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-emerald-300">
                           matched
