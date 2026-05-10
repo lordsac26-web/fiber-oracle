@@ -23,8 +23,16 @@ function resolveOpticType(opticModel) {
 function detectTechType(model) {
   if (!model) return null;
   const m = model.toUpperCase().trim().replace(/\s/g, '');
-  const xgsModels = ['GP1101X', 'GP4201X', 'GP4201XH', 'DZS522', '522X', 'DZS522X', 'DZS522XX', 'DZS522XG'];
-  const gponModels = ['711GE', '717GE', '725G', '725GE', '725GX', '725'];
+  // Authoritative lists — must stay in sync with parsePonPm.js
+  const xgsModels = [
+    'GP1101X', 'GP4201X', 'GP4201XH',
+    'DZS522XG', 'DZS5222XG', '5222XG',
+    'DZS5228XG', '5228XG'
+  ];
+  const gponModels = [
+    '711GE', '717GE', '725G', '725GE', '725',
+    '812G-1', '844G-1', '844GE-1', '803G'
+  ];
   for (const x of xgsModels) if (m.includes(x)) return 'XGS-PON';
   for (const g of gponModels) if (m.includes(g)) return 'GPON';
   return null;
