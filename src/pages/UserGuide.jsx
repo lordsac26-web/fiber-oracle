@@ -25,14 +25,12 @@ export default function UserGuide() {
   const generatePDF = async (type) => {
     setIsGenerating(type);
     try {
-      const response = await base44.functions.invoke('generateDocumentationPDFs', {
-        type
-      });
-
-      if (response.data.success) {
-        toast.success(`${response.data.title} generated and saved to Offline Documents`);
-      }
+      const { downloadPdfFromFunction } = await import('@/lib/pdfDownload');
+      const fileName = `fiber-oracle-${type}-${new Date().toISOString().slice(0,10)}.pdf`;
+      await downloadPdfFromFunction('generatePDF', { type }, fileName);
+      toast.success('PDF downloaded successfully');
     } catch (error) {
+      console.error('PDF generation error:', error);
       toast.error('Failed to generate PDF');
     }
     setIsGenerating(null);
@@ -41,7 +39,7 @@ export default function UserGuide() {
   const pdfOptions = [
     {
       id: 'user_manual',
-      label: 'User Manual v2.1',
+      label: 'User Manual v2.1.0',
       description: 'Complete guide covering all features, workflows, and best practices',
       icon: BookOpen
     },
@@ -53,7 +51,7 @@ export default function UserGuide() {
     },
     {
       id: 'changelog',
-      label: 'v2.1 Changelog',
+      label: 'v2.1.0 Changelog',
       description: 'New features, improvements, and fixes in latest release',
       icon: BookOpen
     },

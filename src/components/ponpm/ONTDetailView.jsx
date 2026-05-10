@@ -108,10 +108,12 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
   const loadJobReports = async () => {
     setIsLoadingJobs(true);
     try {
-      const reports = await base44.entities.JobReport.list('-created_date');
-      const relatedReports = reports.filter(report => 
-        report.fiber_info?.fsan === ont.SerialNumber ||
-        report.notes?.includes(ont.SerialNumber)
+      // Filter server-side by FSAN to avoid fetching ALL job reports across the system.
+      // This scales properly as the team creates more reports over time.
+      const relatedReports = await base44.entities.JobReport.filter(
+        { 'fiber_info.fsan': ont.SerialNumber },
+        '-created_date',
+        50
       );
       setJobReports(relatedReports);
     } catch (error) {
