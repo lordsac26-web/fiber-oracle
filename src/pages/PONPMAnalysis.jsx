@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -26,13 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
 import {
   Collapsible,
   CollapsibleContent,
@@ -44,7 +37,6 @@ import {
   AlertTriangle, 
   AlertCircle,
   CheckCircle2,
-  Info,
   ChevronDown,
   ChevronRight,
   Activity,
@@ -59,7 +51,6 @@ import {
   Calendar,
   TrendingUp,
   TrendingDown,
-  Clipboard,
   Wifi
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -72,7 +63,6 @@ import HistoricalTrends from '@/components/ponpm/HistoricalTrends';
 import OLTPortSummary from '@/components/ponpm/OLTPortSummary';
 import LCPSummarySection from '@/components/ponpm/LCPSummarySection';
 import HistoricalDataManager from '@/components/ponpm/HistoricalDataManager';
-import ReportForm from '@/components/jobreports/ReportForm';
 import ONTDetailView from '@/components/ponpm/ONTDetailView';
 import KPIStatistics from '@/components/ponpm/KPIStatistics';
 import PowerDistributionChart from '@/components/ponpm/PowerDistributionChart';
@@ -80,7 +70,6 @@ import FileUploadZone from '@/components/ponpm/FileUploadZone';
 import PortHeaderLabel from '@/components/ponpm/PortHeaderLabel';
 import ProcessingProgressBar from '@/components/ponpm/ProcessingProgressBar';
 import ThresholdSettingsDialog from '@/components/ponpm/ThresholdSettingsDialog';
-// formatUptime moved to ONTTableRow component
 import { exportLcpPortUtilization } from '@/components/ponpm/exportLcpUtilization';
 import { exportIssueReport as exportIssueReportUtil } from '@/components/ponpm/exportIssueReport';
 import CorrectedFecAnalysis from '@/components/ponpm/CorrectedFecAnalysis';
@@ -105,15 +94,6 @@ import JobReportDialog from '@/components/ponpm/JobReportDialog';
 import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 const useLcpQuery = () => useQuery({ queryKey: ['lcp-entries'], queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000), staleTime: 5 * 60 * 1000 });
-const STATUS_COLORS = {
-  critical: 'bg-red-500',
-  warning: 'bg-amber-500',
-  ok: 'bg-green-500',
-  offline: 'bg-purple-500',
-  info: 'bg-blue-500',
-};
-
-const STATUS_BADGES = { critical: 'bg-red-100 text-red-800 border-red-300', warning: 'bg-amber-100 text-amber-800 border-amber-300', ok: 'bg-green-100 text-green-800 border-green-300', offline: 'bg-purple-100 text-purple-800 border-purple-300' };
 
 const DEFAULT_THRESHOLDS = {
   OntRxOptPwr: { low: -27, marginal: -25, high: -8 },
@@ -138,14 +118,13 @@ export default function PONPMAnalysis() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [oltFilter, setOltFilter] = useState('all');
   const [portFilter, setPortFilter] = useState('all');
-  const [techFilter, setTechFilter] = useState('all');
   const [powerRangeFilter, setPowerRangeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('none');
   // Global multi-select filters — apply across the entire dashboard (KPIs, charts, hierarchy, LCP summary)
   const [globalSplitters, setGlobalSplitters] = useState([]);
   const [globalOltPorts, setGlobalOltPorts] = useState([]);
   const [globalModels, setGlobalModels] = useState([]);
-  const [showKPIs, setShowKPIs] = useState(true);
+
   const [expandedOlts, setExpandedOlts] = useState([]);
   const [expandedPorts, setExpandedPorts] = useState([]);
   const [issueDetailView, setIssueDetailView] = useState(null);
@@ -154,7 +133,7 @@ export default function PONPMAnalysis() {
   const [showHistoricalReports, setShowHistoricalReports] = useState(false);
   const [showSubscriberDialog, setShowSubscriberDialog] = useState(false);
   const [showEeroDialog, setShowEeroDialog] = useState(false);
-  const [showTrends, setShowTrends] = useState(false);
+
   const autoLoadAttemptedRef = useRef(false);
   const headerFileInputRef = useRef(null);
   const [viewMode, setViewMode] = useState('hierarchy');
@@ -246,6 +225,7 @@ export default function PONPMAnalysis() {
       return res.data?.counts || {};
     },
     staleTime: 5 * 60 * 1000,
+    enabled: !!result,
   });
   const lcpMapRef = useRef(new Map());
   useEffect(() => { lcpMapRef.current = buildLcpLookupMap(lcpEntriesForEnrich); }, [lcpEntriesForEnrich]);
@@ -503,9 +483,6 @@ export default function PONPMAnalysis() {
       const matchesOlt = oltFilter === 'all' || ont._oltName === oltFilter;
       const matchesPort = portFilter === 'all' || ont._port === portFilter;
       
-      // Tech filter now disabled — optic type comes from LCP enrichment only
-      const matchesTech = true;
-      
       let matchesPowerRange = true;
       if (powerRangeFilter !== 'all') {
         const rx = parseFloat(ont.OntRxOptPwr);
@@ -543,7 +520,7 @@ export default function PONPMAnalysis() {
         matchesGlobalModel = m ? modelSet.has(m) : false;
       }
 
-      return matchesSearch && matchesStatus && matchesOlt && matchesPort && matchesTech && matchesPowerRange
+      return matchesSearch && matchesStatus && matchesOlt && matchesPort && matchesPowerRange
         && matchesGlobalSplitter && matchesGlobalOltPort && matchesGlobalModel;
     }) || [];
     
@@ -567,7 +544,7 @@ export default function PONPMAnalysis() {
     }
     
     return filtered;
-  }, [result, searchTerm, statusFilter, oltFilter, portFilter, techFilter, powerRangeFilter, sortBy,
+  }, [result?.onts, searchTerm, statusFilter, oltFilter, portFilter, powerRangeFilter, sortBy,
       globalSplitters, globalOltPorts, globalModels]);
 
   const saveThresholds = useCallback(() => {
@@ -844,6 +821,10 @@ Be specific, technical, and actionable.`;
   };
 
   const exportPortInventory = () => exportPortInventoryCSV(result?.onts);
+
+  // Memoize the _trends count so the render doesn't iterate the ONT array 3+ times
+  const ontsWithTrendsCount = useMemo(() => result?.onts?.filter(o => o._trends).length ?? 0, [result?.onts]);
+  const ontsDegradingCount  = useMemo(() => result?.onts?.filter(o => o._trends?.ont_rx_change < -1).length ?? 0, [result?.onts]);
 
   // Eero saturation PDF — uses the full result so all ONTs are aggregated.
   const exportEeroSaturationPDF = async () => {
@@ -1219,10 +1200,10 @@ Be specific, technical, and actionable.`;
                     {result.summary.totalOnts}
                   </div>
                   <div className="text-xs text-gray-500">Total ONTs</div>
-                  {result.onts?.filter(o => o._trends).length > 0 && (
+                  {ontsWithTrendsCount > 0 && (
                     <Badge variant="outline" className="text-[10px] mt-1 bg-blue-50 text-blue-700 border-blue-300">
                       <TrendingUp className="h-2 w-2 mr-1" />
-                      {result.onts.filter(o => o._trends).length} with trends
+                      {ontsWithTrendsCount} with trends
                     </Badge>
                   )}
                 </CardContent>
@@ -1343,12 +1324,12 @@ Be specific, technical, and actionable.`;
                       })
                     }
                     {result.onts.filter(ont => {
-                      const matchesType = issueDetailView.type === 'critical' 
-                        ? ont._analysis.issues.length > 0 
+                      const matchesType = issueDetailView.type === 'critical'
+                        ? ont._analysis.issues.length > 0
                         : ont._analysis.warnings.length > 0;
-                      const matchesOlt = !issueDetailView.oltName || ont._oltName === issueDetailView.oltName;
-                      const matchesPort = !issueDetailView.portKey || ont._port === issueDetailView.portKey;
-                      return matchesType && matchesOlt && matchesPort;
+                      return matchesType
+                        && (!issueDetailView.oltName || ont._oltName === issueDetailView.oltName)
+                        && (!issueDetailView.portKey || ont._port === issueDetailView.portKey);
                     }).length === 0 && (
                       <div className="text-center py-4 text-gray-500">
                         No {issueDetailView.type === 'critical' ? 'critical issues' : 'warnings'} found
@@ -1393,17 +1374,17 @@ Be specific, technical, and actionable.`;
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />Offline: {result.summary.offlineCount || 0}</span>
                   <span className="ml-auto font-medium text-gray-400">Total: {result.summary.totalOnts} ONTs across {result.summary.oltCount} OLTs</span>
                 </div>
-                {result.onts?.filter(o => o._trends).length > 0 && (
+                {ontsWithTrendsCount > 0 && (
                   <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs">
                     <span className="text-gray-500">Trend Data Available:</span>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-300">
-                        {result.onts.filter(o => o._trends).length} ONTs tracked
+                        {ontsWithTrendsCount} ONTs tracked
                       </Badge>
-                      {result.onts.filter(o => o._trends?.ont_rx_change < -1).length > 0 && (
+                      {ontsDegradingCount > 0 && (
                         <Badge className="text-[10px] bg-red-100 text-red-700 border-red-300">
                           <TrendingDown className="h-2 w-2 mr-1" />
-                          {result.onts.filter(o => o._trends?.ont_rx_change < -1).length} degrading
+                          {ontsDegradingCount} degrading
                         </Badge>
                       )}
                     </div>
@@ -1480,16 +1461,6 @@ Be specific, technical, and actionable.`;
                     </Select>
                   </div>
                   <div className="flex flex-col md:flex-row gap-3">
-                    <Select value={techFilter} onValueChange={setTechFilter}>
-                      <SelectTrigger className="w-full md:w-40">
-                        <SelectValue placeholder="Technology" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Technologies</SelectItem>
-                        <SelectItem value="gpon">GPON</SelectItem>
-                        <SelectItem value="xgs">XGS-PON</SelectItem>
-                      </SelectContent>
-                    </Select>
                     <Select value={powerRangeFilter} onValueChange={setPowerRangeFilter}>
                       <SelectTrigger className="w-full md:w-40">
                         <SelectValue placeholder="Power Range" />
@@ -1521,7 +1492,6 @@ Be specific, technical, and actionable.`;
                         setStatusFilter('all'); 
                         setOltFilter('all'); 
                         setPortFilter('all'); 
-                        setTechFilter('all');
                         setPowerRangeFilter('all');
                         setSortBy('none');
                         setGlobalSplitters([]);
@@ -1537,13 +1507,13 @@ Be specific, technical, and actionable.`;
             </Card>
 
             {/* KPI Statistics */}
-            {showKPIs && <KPIStatistics result={result} filteredOnts={filteredOnts} previousReport={(() => {
+            <KPIStatistics result={result} filteredOnts={filteredOnts} previousReport={(() => {
               if (!savedReports || savedReports.length < 2) return null;
               const ci = selectedReportId ? savedReports.findIndex(r => r.id === selectedReportId) : 0;
               const prev = savedReports[ci >= 0 ? ci + 1 : 1];
               if (!prev || (prev.gpon_count == null && prev.xgs_count == null)) return null;
               return { gponCount: prev.gpon_count ?? 0, xgsCount: prev.xgs_count ?? 0 };
-            })()} />}
+            })()} />
 
             {/* Power Distribution Charts */}
             {filteredOnts.length > 0 && (
@@ -1885,13 +1855,6 @@ Be specific, technical, and actionable.`;
           />
         )}
 
-        {/* Historical Trends Component */}
-        {showTrends && savedReports.length >= 1 && (
-          <HistoricalTrends 
-            reports={savedReports} 
-            onClose={() => setShowTrends(false)} 
-          />
-        )}
       </main>
       
       {/* ONT Detail View */}
