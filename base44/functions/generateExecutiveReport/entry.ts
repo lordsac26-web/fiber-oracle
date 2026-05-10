@@ -4,10 +4,23 @@
  * Admin-only. Aggregates ONTPerformanceRecord data across two time windows
  * (current week vs previous week) and produces a branded PDF with:
  *   1. Executive KPI strip (total ONTs, critical %, week-over-week delta)
- *   2. Issues by City — table sorted by critical count desc
- *   3. Issues by Zip Code — top 15 zips
- *   4. OLT Shelf comparison — avg Rx, critical count, health % per OLT
- *   5. Week-over-week trend section
+ *   2. Saturation Report — top zip codes
+ *   3. OLT Shelf comparison — avg Rx, critical count, health % per OLT
+ *   4. Week-over-week trend section (with report dates)
+ *
+ * IMPORTANT — parity with PON PM Analysis page:
+ *   - status counts are pulled from PONPMReport.{critical,warning,ok,ont}_count
+ *     when available (authoritative — written by processPonPmRecords) and only
+ *     fall back to record-level tally if the report row is missing them.
+ *   - eero matching uses normalizeHomeId() — same canonical 16-digit account
+ *     lookup the UI uses (EeroUpload.js). Without this, prefixed/suffixed
+ *     account numbers (e.g. "FD-8275…") miss every match.
+ *   - GPON / XGS-PON technology detection uses the same model whitelist as
+ *     processPonPmRecords.detectTechType() — never blanket-classifies unknown
+ *     models as GPON.
+ *   - Zip codes are extracted from the LAST comma-segment of subscriber_address
+ *     (which is always "street, city, zip" when populated by the subscriber
+ *     join), not from any 5-digit run anywhere in the string.
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
@@ -20,6 +33,55 @@ function s(v) {
     .replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2013\u2014]/g, '-').replace(/\u2026/g, '...')
     .replace(/\u00A0/g, ' ').replace(/[^\x00-\xFF]/g, '');
+}
+
+// ─── Account normalization (mirrors components/ponpm/EeroUpload.normalizeHomeId)
+// CRITICAL: must stay byte-for-byte identical to the UI logic so eero match counts
+// in the exec report align with what the PON PM Analysis page displays.
+function normalizeHomeId(value) {
+  if (!value) return null;
+  const digits = String(value).replace(/\D+/g, '');
+  if (!digits) return null;
+  const canonical = digits.match(/8275\d{12}/);
+  return canonical ? canonical[0] : digits;
+}
+
+// ─── Technology detection (mirrors processPonPmRecords.detectTechType)
+// Whitelist-based — never blanket-classifies unrecognized models. Records with
+// no recognized model are returned as null and counted as "Unknown" in the exec
+// report rather than being silently bucketed into GPON.
+function detectTechType(model) {
+  if (!model) return null;
+  const m = String(model).toUpperCase().trim().replace(/\s/g, '');
+  if (m.includes('DZS')) return 'XGS-PON';
+  const xgsModels = ['GP1101X', 'GP4201X', 'GP4201XH', '5222XG', '5228XG'];
+  const gponModels = ['711GE', '717GE', '725G', '725GE', '725', '812G-1', '844G-1', '844GE-1', '803G'];
+  for (const x of xgsModels) if (m.includes(x)) return 'XGS-PON';
+  for (const g of gponModels) if (m.includes(g)) return 'GPON';
+  // FSAN serial fallback for DZS XGS units written by processPonPmRecords as "DZS 522x XG"
+  return null;
+}
+
+// Parse a "street, city, zip" address into components. The zip is taken from
+// the LAST comma-segment if it contains a 5-digit number — never via a global
+// regex over the whole address (house numbers like "12345 Main St" would
+// otherwise be misread as zip codes).
+function parseAddress(addr) {
+  if (!addr) return { city: 'Unknown', zip: 'Unknown' };
+  const parts = String(addr).split(',').map(p => p.trim()).filter(Boolean);
+  let city = 'Unknown';
+  let zip = 'Unknown';
+  if (parts.length >= 3) {
+    city = parts[1] || 'Unknown';
+    const zipMatch = parts[parts.length - 1].match(/\b\d{5}\b/);
+    if (zipMatch) zip = zipMatch[0];
+  } else if (parts.length === 2) {
+    // Could be "street, city" or "street, zip"
+    const zipMatch = parts[1].match(/^\d{5}(-\d{4})?$/);
+    if (zipMatch) zip = zipMatch[0].slice(0, 5);
+    else city = parts[1];
+  }
+  return { city, zip };
 }
 
 // ─── Logo fetch ────────────────────────────────────────────────────────────────
@@ -263,79 +325,106 @@ Deno.serve(async (req) => {
       for (const e of eeros) { if (e.home_identifier) eeroHomes.add(e.home_identifier); }
     }
 
+    // ── Build a normalized eero home_id Set for fast lookup ─────────────────
+    // Mirrors the UI's buildEeroLookup → normalizeHomeId pipeline so match
+    // counts here equal what the user sees on the PON PM Analysis page.
+    const eeroHomeKeys = new Set();
+    for (const home of eeroHomes) {
+      const k = normalizeHomeId(home);
+      if (k) eeroHomeKeys.add(k);
+    }
+
     // ── Aggregate Current Report ──────────────────────────────────────────────
-    let records = currentRecs;
-    const totalCurrent  = records.length;
-    const critCurrent   = records.filter(r => r.status === 'critical').length;
-    const warnCurrent   = records.filter(r => r.status === 'warning').length;
-    const okCurrent     = records.filter(r => r.status === 'ok').length;
-    const offCurrent    = records.filter(r => r.status === 'offline').length;
-    
+    // Prefer the authoritative summary counts written by processPonPmRecords
+    // onto PONPMReport — they are exactly what the PON PM Analysis page shows.
+    // Fall back to a record-level tally only if the report row is missing them
+    // (older reports created before the counts column was populated).
+    const records = currentRecs;
+    const recCritical = records.filter(r => r.status === 'critical').length;
+    const recWarning  = records.filter(r => r.status === 'warning').length;
+    const recOk       = records.filter(r => r.status === 'ok').length;
+    const recOffline  = records.filter(r => r.status === 'offline').length;
+
+    const totalCurrent = currentReport?.ont_count      ?? records.length;
+    const critCurrent  = currentReport?.critical_count ?? recCritical;
+    const warnCurrent  = currentReport?.warning_count  ?? recWarning;
+    const okCurrent    = currentReport?.ok_count       ?? recOk;
+    const offCurrent   = recOffline; // not stored on PONPMReport — always tally
+
+    // GPON / XGS-PON via the SAME whitelist used at ingest time. Records with
+    // no recognized model are NOT counted as either tech (kept as Unknown).
     let gponCurrent = 0, xgsCurrent = 0, eeroCountCurrent = 0;
     for (const r of records) {
-      const isXgs = r.model?.toUpperCase().includes('XGS') || r.optic_model?.toUpperCase().includes('XGS') || r.shelf_slot_port?.toUpperCase().includes('XGS');
-      if (isXgs) xgsCurrent++; else gponCurrent++;
-      if (r.subscriber_account_name && eeroHomes.has(r.subscriber_account_name)) eeroCountCurrent++;
+      const tech = detectTechType(r.model) || detectTechType(r.subscriber_model);
+      if (tech === 'XGS-PON') xgsCurrent++;
+      else if (tech === 'GPON') gponCurrent++;
+      // else: unknown → not counted in either bucket
+
+      const acctKey = normalizeHomeId(r.subscriber_account_name);
+      if (acctKey && eeroHomeKeys.has(acctKey)) eeroCountCurrent++;
     }
 
     // ── Aggregate Prev Report ─────────────────────────────────────────────────
-    const totalPrev     = prevRecs.length;
-    const critPrev      = prevRecs.filter(r => r.status === 'critical').length;
-    const warnPrev      = prevRecs.filter(r => r.status === 'warning').length;
-    const okPrev        = prevRecs.filter(r => r.status === 'ok').length;
-    const offPrev       = prevRecs.filter(r => r.status === 'offline').length;
-    
+    const prevRecCritical = prevRecs.filter(r => r.status === 'critical').length;
+    const prevRecWarning  = prevRecs.filter(r => r.status === 'warning').length;
+    const prevRecOk       = prevRecs.filter(r => r.status === 'ok').length;
+    const prevRecOffline  = prevRecs.filter(r => r.status === 'offline').length;
+
+    const totalPrev = prevReport?.ont_count      ?? prevRecs.length;
+    const critPrev  = prevReport?.critical_count ?? prevRecCritical;
+    const warnPrev  = prevReport?.warning_count  ?? prevRecWarning;
+    const okPrev    = prevReport?.ok_count       ?? prevRecOk;
+    const offPrev   = prevRecOffline;
+
     let gponPrev = 0, xgsPrev = 0, eeroCountPrev = 0;
     for (const r of prevRecs) {
-      const isXgs = r.model?.toUpperCase().includes('XGS') || r.optic_model?.toUpperCase().includes('XGS') || r.shelf_slot_port?.toUpperCase().includes('XGS');
-      if (isXgs) xgsPrev++; else gponPrev++;
-      if (r.subscriber_account_name && eeroHomes.has(r.subscriber_account_name)) eeroCountPrev++;
+      const tech = detectTechType(r.model) || detectTechType(r.subscriber_model);
+      if (tech === 'XGS-PON') xgsPrev++;
+      else if (tech === 'GPON') gponPrev++;
+
+      const acctKey = normalizeHomeId(r.subscriber_account_name);
+      if (acctKey && eeroHomeKeys.has(acctKey)) eeroCountPrev++;
     }
 
-    const critDelta     = totalPrev > 0 ? critCurrent - critPrev : null;
-    const healthPct     = totalCurrent > 0 ? ((okCurrent / totalCurrent) * 100).toFixed(1) : '0.0';
+    const critDelta = totalPrev > 0 ? critCurrent - critPrev : null;
+    const healthPct = totalCurrent > 0 ? ((okCurrent / totalCurrent) * 100).toFixed(1) : '0.0';
 
-    // ── Aggregate by city ───────────────────────────────────────────────────
-    // subscriber_address is stored as "street, city, zip" (3 segments).
-    // If only 2 segments, second could be city or zip — check for 5-digit zip.
-    // If only 1 segment (old records with street-only), classify as Unknown.
-    const cityMap = new Map(); // city → { total, critical, warning, ok, offline }
+    // ── Aggregate by city + zip in a single pass via parseAddress ───────────
+    // parseAddress takes the LAST comma-segment for the zip (avoids matching
+    // house numbers) and the second segment for the city.
+    const cityMap = new Map();
+    const zipMap  = new Map();
+    let unknownZipCount = 0;
     for (const r of records) {
-      let city = 'Unknown';
-      const addr = r.subscriber_address || '';
-      const parts = addr.split(',').map(p => p.trim()).filter(Boolean);
-      if (parts.length >= 3) {
-        // "street, city, zip" — city is parts[1]
-        city = parts[1] || 'Unknown';
-      } else if (parts.length === 2) {
-        // Could be "street, city" or "street, zip" — if second part is a zip, skip it
-        city = /^\d{5}(-\d{4})?$/.test(parts[1]) ? 'Unknown' : (parts[1] || 'Unknown');
-      }
-      // else: single segment (street only) or empty → Unknown
+      const { city, zip } = parseAddress(r.subscriber_address);
+
       if (!cityMap.has(city)) cityMap.set(city, { total: 0, critical: 0, warning: 0, ok: 0, offline: 0 });
       const c = cityMap.get(city);
       c.total++;
       if (r.status) c[r.status] = (c[r.status] || 0) + 1;
+
+      if (zip === 'Unknown') {
+        unknownZipCount++;
+      } else {
+        if (!zipMap.has(zip)) zipMap.set(zip, { total: 0, critical: 0, warning: 0 });
+        const z = zipMap.get(zip);
+        z.total++;
+        if (r.status === 'critical') z.critical++;
+        if (r.status === 'warning')  z.warning++;
+      }
     }
     const cityRows = [...cityMap.entries()]
       .map(([city, v]) => ({ city, ...v, critPct: v.total > 0 ? ((v.critical / v.total) * 100).toFixed(1) : '0.0' }))
       .sort((a, b) => b.critical - a.critical)
       .slice(0, 20);
 
-    // ── Aggregate by zip ────────────────────────────────────────────────────
-    const zipMap = new Map();
-    for (const r of records) {
-      const zip = r.subscriber_address?.match(/\b\d{5}\b/)?.[0] || 'Unknown';
-      if (!zipMap.has(zip)) zipMap.set(zip, { total: 0, critical: 0, warning: 0 });
-      const z = zipMap.get(zip);
-      z.total++;
-      if (r.status === 'critical') z.critical++;
-      if (r.status === 'warning')  z.warning++;
-    }
+    // Zip saturation report — top 10 REAL zip codes (Unknown excluded from the
+    // ranked list and shown separately as a coverage note so it doesn't
+    // dominate the table when many records lack subscriber join data).
     const zipRows = [...zipMap.entries()]
       .map(([zip, v]) => ({ zip, ...v, critPct: v.total > 0 ? ((v.critical / v.total) * 100).toFixed(1) : '0.0' }))
-      .sort((a, b) => b.critical - a.critical)
-      .slice(0, 15);
+      .sort((a, b) => b.total - a.total) // sort by saturation (total ONTs), not critical
+      .slice(0, 10);
 
     // ── Aggregate by OLT ────────────────────────────────────────────────────
     const oltMap = new Map();
@@ -355,16 +444,20 @@ Deno.serve(async (req) => {
       .sort((a, b) => b.critical - a.critical);
 
     // ── Customer branding ───────────────────────────────────────────────────
+    // Sources (priority):
+    //   1. AppSettings.company_name / logo_url  (set in app Settings → Branding)
+    //   2. Fiber Oracle defaults
+    // The previous version silently fell back to defaults if AppSettings was
+    // empty AND skipped the customer name when it equalled the literal default
+    // string — which made it impossible to override only the logo. Both
+    // behaviours are now independent.
     const settingsArr = await base44.asServiceRole.entities.AppSettings.list('-created_date', 1);
     const appSettings = settingsArr[0] || {};
-    let customerName = 'Fiber Oracle';
-    let customerLogo = null;
-    if (appSettings.company_name && appSettings.company_name !== 'Fiber Oracle') {
-      customerName = s(appSettings.company_name);
-    }
-    const rawLogo = appSettings.logo_url 
+    const customerName = s(appSettings.company_name || 'Fiber Oracle');
+    const rawLogo = appSettings.logo_url
       || 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png';
-    customerLogo = await fetchLogo(rawLogo);
+    const customerLogo = await fetchLogo(rawLogo);
+    console.log(`[generateExecutiveReport] Branding — name: "${customerName}", logo: ${appSettings.logo_url ? 'custom' : 'default Fiber Oracle'}`);
 
     const reportDate = new Date().toLocaleDateString('en-US', {
       timeZone: tz, year: 'numeric', month: 'long', day: 'numeric',
@@ -424,14 +517,29 @@ Deno.serve(async (req) => {
     y += 26 + kpiInset + 6;
 
     // ── Saturation Report Section ──────────────────────────────────────────
-    if (zipRows.length > 0) {
-      y = maybeNewPage(doc, y, 60, customerLogo, customerName, reportDate);
-      y = sectionTitle(doc, `Saturation Report  (top ${zipRows.length} zip codes)`, y, C.accent);
+    // Shows the top 10 zip codes by ONT count. Unknown zips (records with no
+    // subscriber join or addresses missing a parseable zip) are reported
+    // separately as a coverage note — they're a data-quality signal, not a
+    // saturation result, and including them in the ranked list misleads.
+    y = maybeNewPage(doc, y, 60, customerLogo, customerName, reportDate);
+    y = sectionTitle(doc, `Saturation Report — Top ${zipRows.length} Zip Codes`, y, C.accent);
 
+    if (zipRows.length === 0) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.muted);
+      doc.text(
+        'No subscriber addresses with parseable zip codes were found. Upload subscriber data on the PON PM Analysis page to populate this section.',
+        M + 4, y + 2, { maxWidth: CW - 8 }
+      );
+      y += 12;
+    } else {
       const cols = [
-        { label: 'Zip Code',  x: M + 5  },
-        { label: 'Total ONTs', x: M + 80 },
-        { label: '% of Network', x: M + 140 },
+        { label: 'Zip Code',     x: M + 5   },
+        { label: 'Total ONTs',   x: M + 60  },
+        { label: 'Critical',     x: M + 100 },
+        { label: 'Warning',      x: M + 130 },
+        { label: '% of Network', x: M + 158 },
       ];
       y = tableHeader(doc, y, cols);
 
@@ -440,10 +548,26 @@ Deno.serve(async (req) => {
         const r = zipRows[i];
         const pct = totalCurrent > 0 ? ((r.total / totalCurrent) * 100).toFixed(1) : '0.0';
         y = tableRow(doc, y, [
-          { value: r.zip,               x: M + 5  },
-          { value: String(r.total),     x: M + 80 },
-          { value: `${pct}%`,           x: M + 140 },
+          { value: r.zip,                                       x: M + 5   },
+          { value: r.total.toLocaleString(),                    x: M + 60  },
+          { value: String(r.critical), color: r.critical > 0 ? C.red : C.dark, x: M + 100 },
+          { value: String(r.warning),  color: r.warning  > 0 ? C.amber : C.dark, x: M + 130 },
+          { value: `${pct}%`,                                   x: M + 158 },
         ], i % 2 === 0);
+      }
+
+      // Data-coverage note for unmatched / Unknown zips
+      if (unknownZipCount > 0) {
+        y += 1;
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(...C.muted);
+        const pctUnknown = totalCurrent > 0 ? ((unknownZipCount / totalCurrent) * 100).toFixed(1) : '0.0';
+        doc.text(
+          `Note: ${unknownZipCount.toLocaleString()} ONTs (${pctUnknown}%) have no parseable zip code in their subscriber address and are excluded from the table.`,
+          M + 4, y + 4, { maxWidth: CW - 8 }
+        );
+        y += 8;
       }
       y += 4;
     }
@@ -482,8 +606,31 @@ Deno.serve(async (req) => {
 
     // ── Week-over-week summary section ─────────────────────────────────────
     if (totalPrev > 0) {
-      y = maybeNewPage(doc, y, 70, customerLogo, customerName, reportDate);
+      y = maybeNewPage(doc, y, 80, customerLogo, customerName, reportDate);
       y = sectionTitle(doc, 'Week-over-Week Summary', y, C.purple);
+
+      // Show the actual report dates so readers can see exactly which two
+      // snapshots the comparison is built from. Falls back gracefully if
+      // either upload_date is missing.
+      const fmtReportDate = (iso) => {
+        if (!iso) return 'N/A';
+        try {
+          return new Date(iso).toLocaleDateString('en-US', {
+            timeZone: tz, year: 'numeric', month: 'short', day: 'numeric',
+          });
+        } catch { return 'N/A'; }
+      };
+      const currentLabel = fmtReportDate(currentReport?.upload_date);
+      const prevLabel    = fmtReportDate(prevReport?.upload_date);
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.muted);
+      doc.text(
+        `Comparing report from ${currentLabel} to report from ${prevLabel}.`,
+        M + 4, y - 1, { maxWidth: CW - 8 }
+      );
+      y += 5;
 
       const wowData = [
         { metric: 'Total ONTs in scope', current: totalCurrent, prev: totalPrev },
@@ -496,11 +643,13 @@ Deno.serve(async (req) => {
         { metric: 'ONTs with Eero',      current: eeroCountCurrent, prev: eeroCountPrev },
       ];
 
+      // Column headers now include the actual report dates so each value
+      // column is unambiguous in the printed report.
       const cols = [
-        { label: 'Metric',       x: M + 5  },
-        { label: 'This Period',  x: M + 95 },
-        { label: 'Prior Period', x: M + 125 },
-        { label: 'Delta',        x: M + 158 },
+        { label: 'Metric',                x: M + 5   },
+        { label: currentLabel,            x: M + 90  },
+        { label: prevLabel,               x: M + 130 },
+        { label: 'Delta',                 x: M + 168 },
       ];
       y = tableHeader(doc, y, cols);
 
@@ -515,13 +664,26 @@ Deno.serve(async (req) => {
             : (delta > 0 ? C.red   : C.green);
 
         y = tableRow(doc, y, [
-          { value: r.metric,                   x: M + 5   },
-          { value: String(r.current),          x: M + 95  },
-          { value: String(r.prev),             x: M + 125 },
-          { value: `${sign}${delta}`,          x: M + 158, color: deltaColor },
+          { value: r.metric,                          x: M + 5   },
+          { value: r.current.toLocaleString(),        x: M + 90  },
+          { value: r.prev.toLocaleString(),           x: M + 130 },
+          { value: `${sign}${delta}`,                 x: M + 168, color: deltaColor },
         ], i % 2 === 0);
       }
       y += 4;
+    } else if (currentReport) {
+      // No prior report found in the lookback window — make this explicit so
+      // the user doesn't think the section is silently broken.
+      y = maybeNewPage(doc, y, 30, customerLogo, customerName, reportDate);
+      y = sectionTitle(doc, 'Week-over-Week Summary', y, C.purple);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.muted);
+      doc.text(
+        'No prior report was found within the lookback window. Upload a second report to enable week-over-week comparison.',
+        M + 4, y + 2, { maxWidth: CW - 8 }
+      );
+      y += 12;
     }
 
     // ── Stamp header + footer on every page ────────────────────────────────
