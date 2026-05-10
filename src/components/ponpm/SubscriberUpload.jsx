@@ -205,10 +205,14 @@ export function enrichOntsWithSubscriber(lookup, onts) {
     }
 
     if (sub) {
+      // Build full address: "123 Main St, Springfield, 01103"
+      const addrParts = [sub.Address, sub.City, sub.Zip].filter(p => p && p.trim());
+      const fullAddress = addrParts.join(', ');
+
       ont._subscriber = {
         name: sub.SubscriberName || '',
         account: sub.AccountName || '',
-        address: sub.Address || '',
+        address: fullAddress || sub.Address || '',
         city: sub.City || '',
         zip: sub.Zip || '',
         ontRanged: sub.ONTRanged || '',

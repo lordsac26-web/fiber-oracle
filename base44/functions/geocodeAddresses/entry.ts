@@ -64,13 +64,32 @@ Deno.serve(async (req) => {
       // Rate limit: 1 req/sec for Nominatim
       await new Promise(r => setTimeout(r, 1100));
 
-      const query = encodeURIComponent(item.address);
       console.log(`Geocoding: "${item.address}" (ID: ${item.id})`);
 
-      const geoRes = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${query}`,
-        { headers: { 'User-Agent': 'FiberOracle/1.0 (admin@fiberoracle.com)' } }
-      );
+      // Parse comma-separated address parts: "123 Main St, Springfield, 01103"
+      // Use Nominatim structured search for better accuracy with US addresses.
+      const parts = item.address.split(',').map(p => p.trim()).filter(Boolean);
+      let url;
+      if (parts.length >= 3) {
+        // street, city, zip/state
+        const street = encodeURIComponent(parts[0]);
+        const city = encodeURIComponent(parts[1]);
+        const postalOrState = encodeURIComponent(parts.slice(2).join(' '));
+        url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&street=${street}&city=${city}&postalcode=${postalOrState}`;
+      } else if (parts.length === 2) {
+        // street, city
+        const street = encodeURIComponent(parts[0]);
+        const city = encodeURIComponent(parts[1]);
+        url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&street=${street}&city=${city}`;
+      } else {
+        // Fallback: free-form query with US country bias
+        const query = encodeURIComponent(item.address);
+        url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${query}`;
+      }
+
+      const geoRes = await fetch(url, {
+        headers: { 'User-Agent': 'FiberOracle/1.0 (admin@fiberoracle.com)' }
+      });
 
       if (!geoRes.ok) {
         failed++;
@@ -78,7 +97,21 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const results = await geoRes.json();
+      let results = await geoRes.json();
+
+      // Fallback: if structured search found nothing, try free-form query
+      if ((!results || results.length === 0) && parts.length >= 2) {
+        console.log(`Structured search failed, trying free-form for: "${item.address}"`);
+        await new Promise(r => setTimeout(r, 1100));
+        const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(item.address)}`;
+        const fallbackRes = await fetch(fallbackUrl, {
+          headers: { 'User-Agent': 'FiberOracle/1.0 (admin@fiberoracle.com)' }
+        });
+        if (fallbackRes.ok) {
+          results = await fallbackRes.json();
+        }
+      }
+
       if (!results || results.length === 0) {
         failed++;
         errors.push(`No results for "${item.address}"`);

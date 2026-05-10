@@ -68,9 +68,14 @@ function buildLookups(subscriberRecords) {
   const serialMap = new Map();
 
   for (const rec of subscriberRecords) {
+    // Build a full address string: "123 Main St, Springfield, 01103"
+    // This ensures geocoding returns US results instead of random global matches.
+    const addrParts = [rec.Address, rec.City, rec.Zip].filter(p => p && p.trim());
+    const fullAddress = addrParts.join(', ');
+
     const fields = {
       subscriber_account_name: rec.AccountName || '',
-      subscriber_address:      rec.Address      || '',
+      subscriber_address:      fullAddress || rec.Address || '',
       subscriber_model:        rec.ONTModel      || '',
     };
 
