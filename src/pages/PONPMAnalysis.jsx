@@ -301,6 +301,8 @@ export default function PONPMAnalysis() {
         avg_ont_rx: reportData.avg_ont_rx,
         min_ont_rx: reportData.min_ont_rx,
         max_ont_rx: reportData.max_ont_rx,
+        gpon_count: reportData.gpon_count ?? 0,
+        xgs_count: reportData.xgs_count ?? 0,
         processing_status: 'pending',
         processing_progress: 0,
         processing_saved_count: 0,
@@ -435,7 +437,10 @@ export default function PONPMAnalysis() {
           ont_count: response.data.summary.totalOnts, critical_count: response.data.summary.criticalCount,
           warning_count: response.data.summary.warningCount, ok_count: response.data.summary.okCount,
           olt_count: response.data.summary.oltCount, olts: Object.keys(response.data.olts || {}),
-          avg_ont_rx: avgRx, min_ont_rx: minRx, max_ont_rx: maxRx, onts: response.data.onts,
+          avg_ont_rx: avgRx, min_ont_rx: minRx, max_ont_rx: maxRx,
+          gpon_count: response.data.summary.gponCount ?? 0,
+          xgs_count: response.data.summary.xgsCount ?? 0,
+          onts: response.data.onts,
         });
       } else {
         toast.error(response.data?.error || 'Failed to parse file', { id: 'pon-parse' });

@@ -26,15 +26,18 @@ function detectTechTypeFromModel(model) {
   
   const modelUpper = model.toUpperCase().trim();
   
-  // XGS-PON models
+  // XGS-PON models — authoritative list
   const xgsModels = [
     'GP1101X', 'GP4201X', 'GP4201XH',
-    'DZS 522', 'DZS522', '522X', 'DZS 522X', 'DZS 522XX', 'DZS 522XG'
+    'DZS522XG', 'DZS 522XG',
+    'DZS5222XG', 'DZS 5222XG', '5222XG',
+    'DZS5228XG', 'DZS 5228XG', '5228XG'
   ];
   
-  // GPON models
+  // GPON models — authoritative list
   const gponModels = [
-    '711GE', '717GE', '725G', '812G-1', '844G-1', '844GE-1', '725GE', '725GX', '725'
+    '711GE', '717GE', '725G', '725GE', '725',
+    '812G-1', '844G-1', '844GE-1', '803G'
   ];
   
   // Check for XGS-PON
@@ -572,6 +575,8 @@ Deno.serve(async (req) => {
     });
 
     // Summary statistics
+    const gponCount = analyzedOnts.filter(o => o._techType?.includes('GPON')).length;
+    const xgsCount  = analyzedOnts.filter(o => o._techType?.includes('XGS')).length;
     const summary = {
       totalOnts: analyzedOnts.length,
       criticalCount: analyzedOnts.filter(o => o._analysis.status === 'critical').length,
@@ -580,6 +585,8 @@ Deno.serve(async (req) => {
       offlineCount: analyzedOnts.filter(o => o._analysis.status === 'offline').length,
       oltCount: Object.keys(segmentStats).length,
       portCount: Object.values(segmentStats).reduce((sum, olt) => sum + Object.keys(olt.ports).length, 0),
+      gponCount,
+      xgsCount,
     };
 
     return Response.json({
