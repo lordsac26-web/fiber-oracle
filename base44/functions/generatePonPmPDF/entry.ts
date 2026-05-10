@@ -1115,9 +1115,9 @@ Deno.serve(async (req) => {
     }
 
     const generatedDate = new Date().toLocaleDateString('en-US', {
-      year: 'numeric', month: 'long', day: 'numeric',
+      timeZone: tz, year: 'numeric', month: 'long', day: 'numeric',
     });
-    const generatedDateTime = new Date().toLocaleString('en-US');
+    const generatedDateTime = new Date().toLocaleString('en-US', { timeZone: tz });
 
     const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
 

@@ -98,7 +98,8 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { reportData, reportName } = await req.json();
+    const { reportData, reportName, timezone } = await req.json();
+    const tz = timezone || 'America/New_York';
     if (!reportData?.onts) {
       return Response.json({ error: 'Missing reportData.onts' }, { status: 400 });
     }
@@ -184,7 +185,7 @@ Deno.serve(async (req) => {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
       doc.setTextColor(...COLORS.sub);
-      doc.text(new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' }),
+      doc.text(new Date().toLocaleDateString('en-US', { timeZone: tz, year:'numeric', month:'long', day:'numeric' }),
         W - M, 17, { align: 'right' });
     }
 
@@ -240,7 +241,7 @@ Deno.serve(async (req) => {
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.muted);
     doc.text(s(reportName || 'PON PM Analysis'), M, y + 10, { maxWidth: CW });
-    doc.text(`Generated: ${new Date().toLocaleString()}`, M, y + 15);
+    doc.text(`Generated: ${new Date().toLocaleString('en-US', { timeZone: tz })}`, M, y + 15);
     y += 22;
 
     // KPI strip

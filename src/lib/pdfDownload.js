@@ -30,7 +30,10 @@ export async function downloadPdfFromFunction(functionName, payload, filename) {
     // Do NOT use credentials:'include' — the platform responds with
     // Access-Control-Allow-Origin: * which browsers reject for credentialed
     // requests. The Bearer token above is sufficient for authentication.
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      ...payload,
+    }),
   });
 
   if (!response.ok) {
