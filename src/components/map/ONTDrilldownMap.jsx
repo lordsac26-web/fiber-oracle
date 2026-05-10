@@ -72,7 +72,10 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
 
         const items = batch
           .filter(r => r.id)
-          .map(r => ({ id: r.id, address: r.subscriber_address.trim() }));
+          .map(r => {
+            const addr = r._subscriber?.address || r.subscriber_address || '';
+            return { id: r.id, address: addr.trim() };
+          });
         if (items.length === 0) continue;
         toast.loading(`Geocoding batch ${Math.floor(i / batchSize) + 1}...`, { id: 'geocode' });
         const res = await base44.functions.invoke('geocodeAddresses', { items });

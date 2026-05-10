@@ -187,7 +187,12 @@ function SplitterAccordion({ entry, lcpNumber, isExpanded, onToggle, onMapOnts, 
     try {
       const items = needsGeocode
         .filter(o => o.id)
-        .map(o => ({ id: o.id, address: o.subscriber_address.trim() }));
+        .map(o => {
+          // Prefer the enriched _subscriber address (includes city+zip) over
+          // the denormalized subscriber_address (may be street-only on old records)
+          const addr = o._subscriber?.address || o.subscriber_address || '';
+          return { id: o.id, address: addr.trim() };
+        });
       toast.loading(`Geocoding ${items.length} addresses…`, { id: 'geocode-splitter' });
       const res = await base44.functions.invoke('geocodeAddresses', { items });
       const { geocoded: count = 0, updated = [], failed = 0, errors = [] } = res.data || {};

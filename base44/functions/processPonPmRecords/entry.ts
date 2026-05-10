@@ -281,9 +281,14 @@ Deno.serve(async (req) => {
         allSubs = [...allSubs, ...s2, ...s3, ...s4, ...s5];
       }
       for (const rec of allSubs) {
+        // Compose full address with city + zip for accurate geocoding
+        const streetAddr = (rec.Address || '').trim();
+        const city = (rec.City || '').trim();
+        const zip = (rec.Zip || '').trim();
+        const fullAddress = [streetAddr, city, zip].filter(Boolean).join(', ');
         const fields = {
           subscriber_account_name: rec.AccountName || '',
-          subscriber_address:      rec.Address      || '',
+          subscriber_address:      fullAddress,
           subscriber_model:        rec.ONTModel      || '',
         };
         // Composite key: normalize OLT + PON port (strip xp prefix) + ONT ID
