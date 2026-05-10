@@ -66,9 +66,15 @@ export function useSubscriberData() {
       // server-side avoids pulling orphaned legacy rows that the background
       // purge hasn't deleted yet.
       const filter = subscriberMeta?.id ? { upload_id: subscriberMeta.id } : {};
+      // CRITICAL: sort by `id` (unique) for stable pagination. Bulk-inserted
+      // subscriber records share near-identical created_date timestamps, so
+      // sorting by `-created_date` produces non-deterministic page boundaries
+      // — pages overlap or skip rows, causing the lookup map to be missing
+      // entries and undercounting the ONT match (e.g. 7071 instead of the
+      // true ~7400+ matches for an 8084-row dataset).
       for (let i = 0; i < MAX_PAGES; i++) {
         const page = await base44.entities.SubscriberRecord.filter(
-          filter, '-created_date', PAGE, i * PAGE
+          filter, 'id', PAGE, i * PAGE
         );
         all.push(...page);
         if (page.length < PAGE) break; // last page

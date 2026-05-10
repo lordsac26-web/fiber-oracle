@@ -39,9 +39,14 @@ export function useEeroData() {
       const PAGE = 5000; // platform list/filter cap
       const MAX_PAGES = 20;
       const filter = eeroMeta?.id ? { upload_id: eeroMeta.id } : {};
+      // CRITICAL: sort by `id` (unique) for stable pagination. Bulk-inserted
+      // eero records share near-identical created_date timestamps, so sorting
+      // by `-created_date` produces non-deterministic page boundaries — pages
+      // overlap or skip rows, which previously capped the lookup map at ~3492
+      // unique home_identifiers even though 7071 ONTs could match.
       for (let i = 0; i < MAX_PAGES; i++) {
         const page = await base44.entities.EeroRecord.filter(
-          filter, '-created_date', PAGE, i * PAGE
+          filter, 'id', PAGE, i * PAGE
         );
         all.push(...page);
         if (page.length < PAGE) break;
