@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Download, FileSpreadsheet, FileText, ChevronDown, AlertCircle, Router,
-  Wifi, Cable, Database, Search, Server,
+  Wifi, Cable, Database, Search, Server, BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { exportOfflineCSV } from './ontCsvExports';
@@ -291,6 +291,32 @@ export default function UnifiedExportMenu({
     }
   };
 
+  /** Comprehensive System Report PDF (for management / investors) */
+  const exportSystemReport = async () => {
+    if (!onts) return;
+    toast.loading('Generating Comprehensive System Report...', { id: 'system-report' });
+    try {
+      await downloadPdfFromFunction(
+        'generateSystemReport',
+        {
+          onts,
+          reportName: result?.summary?.reportName || 'PON PM Analysis',
+          reportDate: result?.reportDate,
+          lcpEntries: lcpEntries.map(e => ({
+            lcp_number: e.lcp_number, splitter_number: e.splitter_number,
+            olt_name: e.olt_name, olt_shelf: e.olt_shelf, olt_slot: e.olt_slot, olt_port: e.olt_port,
+            optic_type: e.optic_type, optic_model: e.optic_model,
+          })),
+          eeroRecords: [],
+        },
+        `system-report-${new Date().toISOString().slice(0, 10)}.pdf`
+      );
+      toast.success('System Report generated', { id: 'system-report' });
+    } catch (error) {
+      toast.error('Failed to generate system report: ' + error.message, { id: 'system-report' });
+    }
+  };
+
   /** 9. eero Saturation PDF */
   const exportEeroSatPDF = async () => {
     if (!onts || !eeroRecordsLoaded) { toast.error('Load eero data first'); return; }
@@ -352,6 +378,10 @@ export default function UnifiedExportMenu({
           <DropdownMenuItem onClick={() => exportOfflineCSV(onts)} disabled={!onts}>
             <Router className="h-4 w-4 mr-2 text-purple-500" />
             Offline ONTs (CSV)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={exportSystemReport} disabled={!onts}>
+            <BarChart3 className="h-4 w-4 mr-2 text-indigo-600" />
+            Comprehensive System Report (PDF)
           </DropdownMenuItem>
 
           {/* eero section — always visible when data is loaded */}
