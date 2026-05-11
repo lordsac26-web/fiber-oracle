@@ -46,6 +46,24 @@ function normalizeHomeId(value) {
   return canonical ? canonical[0] : digits;
 }
 
+// ─── Port / serial normalization (mirrors components/ponpm/SubscriberUpload)
+// Used to rebuild the live subscriber→ONT join so eero match counts in the PDF
+// match the UI exactly, even when ONTPerformanceRecord.subscriber_account_name
+// is stale (e.g. subscriber CSV was re-uploaded after the report was ingested).
+function normalizePortPath(port) {
+  return (port || '').trim().replace(/\s+/g, '').replace(/\/xp(\d)/gi, '/$1').toUpperCase();
+}
+const VENDOR_PREFIXES = ['CXNK', 'ZNTS'];
+function normalizeSerial(serial) {
+  if (!serial || typeof serial !== 'string') return null;
+  let n = serial.trim().toUpperCase();
+  for (const prefix of VENDOR_PREFIXES) {
+    if (n.startsWith(prefix)) { n = n.substring(prefix.length); break; }
+  }
+  n = n.replace(/[^A-Z0-9]/g, '');
+  return n.length > 0 ? n : null;
+}
+
 // ─── Technology detection (mirrors parsePonPm.detectTechTypeFromModel + DZS FSAN fallback)
 // Whitelist-based — never blanket-classifies unrecognized models. Records with
 // no recognized model are returned as null and counted as "Unknown" in the exec
@@ -371,31 +389,82 @@ Deno.serve(async (req) => {
       if (k) eeroHomeKeys.add(k);
     }
 
-    // ── Build SubscriberRecord lookup for authoritative zip/city ─────────────
-    // ONTPerformanceRecord.subscriber_address often contains ONLY the street
-    // (no city/zip) because old reports were processed before the concat fix,
-    // or because subscriber data was uploaded after the report. We join
-    // SubscriberRecord directly by account name to get the structured Zip/City
-    // fields, which is exactly what the UI does via _subscriber.zip.
-    const subByAccount = new Map();
+    // ── Build SubscriberRecord live join (mirrors UI enrichOntsWithSubscriber)
+    // ONTPerformanceRecord.subscriber_account_name is denormalized at ingest
+    // time and CAN be stale — if a subscriber CSV is uploaded AFTER the PON PM
+    // report, the stored value is empty / outdated and the eero match
+    // undercounts. The UI avoids this by computing the join LIVE every page
+    // render using buildSubscriberLookup (composite key OLT+port+ontId, with
+    // serial fallback). We replicate the same logic here so the PDF's eero
+    // tally matches the UI's badge exactly.
+    //
+    // We scope to the currently active SubscriberUploadMeta — same as the UI's
+    // useSubscriberData hook — so legacy orphan rows from a prior generation
+    // don't pollute the lookup.
+    const subByComposite = new Map(); // "OLT|PORT|ONTID" → AccountName (and fallback "|PORT|ONTID")
+    const subBySerial    = new Map(); // normalizedSerial → AccountName
+    const subByAccount   = new Map(); // normalized account → { city, zip } for zip-saturation table
     try {
-      // Use `id` sort for stable pagination — `-created_date` can collide for
-      // bulk-inserted rows and drop records across page boundaries.
-      const subs = await fetchAllFiltered('SubscriberRecord', {}, 'id');
+      const activeSubUploads = await base44.asServiceRole.entities.SubscriberUploadMeta
+        .filter({ status: 'active' }, '-created_date', 1);
+      const subUploadId = activeSubUploads[0]?.id;
+      const subFilter = subUploadId ? { upload_id: subUploadId } : {};
+      const subs = await fetchAllFiltered('SubscriberRecord', subFilter, 'id');
+
       for (const sub of subs) {
-        if (!sub.AccountName) continue;
-        // Use canonical 16-digit form so partial / prefixed accounts still match
-        const key = normalizeHomeId(sub.AccountName) || sub.AccountName.trim();
-        if (key && !subByAccount.has(key)) {
-          subByAccount.set(key, {
+        const account = (sub.AccountName || '').trim();
+
+        // Composite-key index (primary + OLT-less fallback) — same as UI
+        if (sub.DeviceName && sub.LinkedPon && sub.OntID && account) {
+          const oltName = sub.DeviceName.trim().toUpperCase();
+          const port    = normalizePortPath(sub.LinkedPon);
+          const ontId   = String(sub.OntID).trim().toUpperCase();
+          subByComposite.set(`${oltName}|${port}|${ontId}`, account);
+          subByComposite.set(`|${port}|${ontId}`, account);
+        }
+
+        // Serial fallback index
+        const ns = normalizeSerial(sub.ONTSerialNo);
+        if (ns && account && !subBySerial.has(ns)) subBySerial.set(ns, account);
+
+        // Account → city/zip index (used for the zip saturation table)
+        const acctKey = normalizeHomeId(account) || account;
+        if (acctKey && !subByAccount.has(acctKey)) {
+          subByAccount.set(acctKey, {
             city: (sub.City || '').trim() || 'Unknown',
             zip:  (sub.Zip || '').trim().match(/^\d{5}/)?.[0] || 'Unknown',
           });
         }
       }
-      console.log(`[generateExecutiveReport] SubscriberRecord lookup: ${subByAccount.size} accounts`);
+      console.log(`[generateExecutiveReport] Subscriber lookup — upload=${subUploadId || 'all'}, rows=${subs.length}, composite_keys=${subByComposite.size}, serial_keys=${subBySerial.size}, accounts=${subByAccount.size}`);
     } catch (err) {
       console.log(`[generateExecutiveReport] SubscriberRecord lookup failed (non-fatal): ${err.message}`);
+    }
+
+    // Resolves an ONT's live account name using the same precedence as the UI:
+    //   1. composite key OLT+port+ontId
+    //   2. composite key port+ontId (OLT name mismatch tolerance)
+    //   3. normalized serial
+    //   4. stored subscriber_account_name (last resort — may be stale)
+    function resolveLiveAccount(rec) {
+      const oltName = (rec.olt_name || '').trim().toUpperCase();
+      const port    = normalizePortPath(rec.shelf_slot_port || '');
+      const ontId   = String(rec.ont_id || '').trim().toUpperCase();
+
+      if (oltName && port && ontId) {
+        const v = subByComposite.get(`${oltName}|${port}|${ontId}`);
+        if (v) return v;
+      }
+      if (port && ontId) {
+        const v = subByComposite.get(`|${port}|${ontId}`);
+        if (v) return v;
+      }
+      const ns = normalizeSerial(rec.serial_number);
+      if (ns) {
+        const v = subBySerial.get(ns);
+        if (v) return v;
+      }
+      return rec.subscriber_account_name || null;
     }
 
     // ── Aggregate Current Report — always tally from records ────────────────
@@ -419,7 +488,10 @@ Deno.serve(async (req) => {
       if (tech === 'XGS-PON')      xgsCurrent++;
       else if (tech === 'GPON')    gponCurrent++;
 
-      const acctKey = normalizeHomeId(r.subscriber_account_name);
+      // Eero match uses LIVE subscriber join — same as UI — to avoid undercount
+      // when subscriber CSV was uploaded after the report was ingested.
+      const liveAccount = resolveLiveAccount(r);
+      const acctKey = normalizeHomeId(liveAccount);
       if (acctKey && eeroHomeKeys.has(acctKey)) eeroCountCurrent++;
     }
     const totalCurrent = records.length;
@@ -437,7 +509,8 @@ Deno.serve(async (req) => {
       if (tech === 'XGS-PON')      xgsPrev++;
       else if (tech === 'GPON')    gponPrev++;
 
-      const acctKey = normalizeHomeId(r.subscriber_account_name);
+      const liveAccount = resolveLiveAccount(r);
+      const acctKey = normalizeHomeId(liveAccount);
       if (acctKey && eeroHomeKeys.has(acctKey)) eeroCountPrev++;
     }
     const totalPrev = prevRecs.length;
@@ -458,8 +531,11 @@ Deno.serve(async (req) => {
       let city = 'Unknown';
       let zip  = 'Unknown';
 
-      // Try authoritative subscriber join first
-      const acctKey = normalizeHomeId(r.subscriber_account_name);
+      // Try authoritative subscriber join first — use LIVE account (same as
+      // the eero tally) so zip/city numbers reflect the current subscriber
+      // upload, not stale ingest-time data.
+      const liveAccount = resolveLiveAccount(r);
+      const acctKey = normalizeHomeId(liveAccount);
       const subInfo = acctKey ? subByAccount.get(acctKey) : null;
       if (subInfo) {
         city = subInfo.city;
