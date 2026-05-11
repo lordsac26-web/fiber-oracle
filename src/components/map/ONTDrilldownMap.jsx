@@ -16,12 +16,27 @@ import ONTSelectionDialog from './ONTSelectionDialog';
  * Build a Nominatim-friendly address string from a record. The geocoder
  * splits on commas — so emitting "street, city, zip" gives us a structured
  * search even when the DB row only has the street portion.
+ *
+ * IMPORTANT: `subscriber_address` from loadSavedReport already contains the
+ * full "street, city, zip" string (composed at ingest by processPonPmRecords).
+ * For those records we MUST NOT re-append city/zip — doing so produces
+ * malformed input like "184 Schroeder Rd, Hudson, 12534, Hudson, 12534"
+ * which Nominatim rejects. We only append city/zip when the source address
+ * appears to be a bare street (fewer than 2 comma-separated parts).
  */
 function buildFullAddress(record) {
-  const street = (record.subscriber_address || record._subscriber?.address || '').trim();
+  const raw = (record.subscriber_address || record._subscriber?.address || '').trim();
+  if (!raw) return '';
+
+  // Count meaningful comma parts — if 2+, the address is already structured
+  // (street, city[, zip]). Just normalize whitespace and return as-is.
+  const parts = raw.split(',').map(p => p.trim()).filter(Boolean);
+  if (parts.length >= 2) return parts.join(', ');
+
+  // Bare street — supplement with subscriber city/zip if available.
   const city = (record._subscriber?.city || '').trim();
   const zip = (record._subscriber?.zip || '').trim();
-  return [street, city, zip].filter(Boolean).join(', ');
+  return [raw, city, zip].filter(Boolean).join(', ');
 }
 
 /**
