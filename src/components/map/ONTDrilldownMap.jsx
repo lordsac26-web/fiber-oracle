@@ -137,16 +137,38 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
 
       toast.success(`Geocoded ${totalGeocoded} ONT addresses`, { id: 'geocode' });
 
-      // Refresh records from DB
-      if (lcpGroup.lcpNumber) {
-        const reportId = localRecords[0]?.report_id;
-        if (reportId) {
-          const fresh = await base44.entities.ONTPerformanceRecord.filter(
-            { report_id: reportId, lcp_number: lcpGroup.lcpNumber },
-            '-updated_date', 500
+      // Refresh: re-query the same set of ONT records (by serial — the only
+      // reliable membership key for this LCP group) and merge the fresh
+      // gps_lat/gps_lng back in. We can't simply re-fetch by lcp_number
+      // because many DB rows have an empty lcp_number column.
+      const reportId = localRecords[0]?.report_id;
+      const wantedSerials = [...new Set(
+        localRecords
+          .map(r => (r.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
+          .filter(Boolean)
+      )];
+      if (reportId && wantedSerials.length > 0) {
+        const CHUNK = 100;
+        const fresh = [];
+        for (let i = 0; i < wantedSerials.length; i += CHUNK) {
+          const chunk = wantedSerials.slice(i, i + CHUNK);
+          const recs = await base44.entities.ONTPerformanceRecord.filter(
+            { report_id: reportId, serial_number: { $in: chunk } },
+            '-updated_date', CHUNK
           );
-          setLocalRecords(fresh);
+          if (recs?.length) fresh.push(...recs);
         }
+        const freshBySerial = new Map(
+          fresh.map(r => [(r.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''), r])
+        );
+        // Patch only the coord fields back onto existing merged records so
+        // we keep the live `_subscriber` enrichment provided by the parent.
+        setLocalRecords(prev => prev.map(r => {
+          const s = (r.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const f = freshBySerial.get(s);
+          if (!f) return r;
+          return { ...r, gps_lat: f.gps_lat, gps_lng: f.gps_lng, gps_manual: f.gps_manual };
+        }));
       }
     } catch (err) {
       toast.error('Geocoding failed: ' + err.message, { id: 'geocode' });

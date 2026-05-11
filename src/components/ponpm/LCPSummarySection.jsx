@@ -40,62 +40,105 @@ const SPLITTER_CAPACITY = 32;
 
 /**
  * Wrapper that fetches ONT records from DB for a given LCP, then merges them
- * with the in-memory enriched ONTs (which carry the live `_subscriber` join
- * built from the currently loaded subscriber CSV). Without this merge the
- * drilldown map would show "0 / 0" because most DB rows lack the denormalized
- * `subscriber_address`/`subscriber_account_name` fields at the time the row
- * was saved — those values only become available after the subscriber upload
- * runs against the live dataset.
+ * with the in-memory enriched ONTs.
  *
- * Match strategy:
- *   1) by serial_number (canonical, stable across reports)
- *   2) by ont_id + shelf/slot/port  (fallback when serial is missing)
+ * Why we DON'T filter by `lcp_number` server-side:
+ *   The DB `lcp_number` column is only populated at ingest time when LCP
+ *   enrichment ran. For many historical reports (and for any ONT whose
+ *   port wasn't yet in the LCP database when the report was indexed) the
+ *   column is empty — yet the in-memory `lcpGroup.onts` correctly groups
+ *   those ONTs via client-side `resolveLcpForOnt`. Filtering by lcp_number
+ *   silently dropped those rows, giving the user an empty selection dialog.
+ *
+ * Strategy:
+ *   1. Collect the serial numbers from the in-memory ONTs (which are the
+ *      authoritative membership list for this LCP group).
+ *   2. Query the DB for those serials within the active report.
+ *   3. Merge — DB row provides the stable `id` needed for geocoding /
+ *      `saveOntGpsPosition`; in-memory ONT provides the live `_subscriber`
+ *      join (street/city/zip) built from the currently loaded subscriber CSV.
  */
 function ONTDrilldownMapWrapper({ lcpGroup, onBack }) {
   const reportId = lcpGroup.onts?.[0]?.report_id || lcpGroup.onts?.[0]?._reportId;
 
+  // Build the list of serials we need DB rows for. Normalize the same way
+  // `saveOntRecords`/`processPonPmRecords` do (uppercase, alnum-only).
+  const wantedSerials = useMemo(() => {
+    const set = new Set();
+    for (const o of lcpGroup.onts || []) {
+      const raw = (o.SerialNumber || o.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (raw) set.add(raw);
+    }
+    return [...set];
+  }, [lcpGroup.onts]);
+
   const { data: dbRecords = [], isLoading } = useQuery({
-    queryKey: ['ont-drilldown', lcpGroup.lcpNumber, reportId],
-    enabled: !!lcpGroup.lcpNumber,
+    queryKey: ['ont-drilldown', reportId, wantedSerials.length, wantedSerials[0], wantedSerials[wantedSerials.length - 1]],
+    enabled: !!reportId && wantedSerials.length > 0,
     queryFn: async () => {
-      if (!reportId) return [];
-      const records = await base44.entities.ONTPerformanceRecord.filter(
-        { report_id: reportId, lcp_number: lcpGroup.lcpNumber },
-        '-updated_date', 500
-      );
-      return records;
+      // Base44's filter supports $in — chunk to stay well under URL/payload limits.
+      const CHUNK = 100;
+      const out = [];
+      for (let i = 0; i < wantedSerials.length; i += CHUNK) {
+        const chunk = wantedSerials.slice(i, i + CHUNK);
+        const recs = await base44.entities.ONTPerformanceRecord.filter(
+          { report_id: reportId, serial_number: { $in: chunk } },
+          '-updated_date', CHUNK
+        );
+        if (recs?.length) out.push(...recs);
+      }
+      return out;
     },
   });
 
-  // Merge the DB row (which gives us a stable `id` for geocoding/saving) with
-  // the in-memory enriched ONT (which gives us live `_subscriber.{address,city,zip}`
-  // even when those fields were never persisted to the row).
+  // Merge: for every in-memory ONT in this LCP group, emit one record that
+  // combines DB id/coords (if a row exists) with the live subscriber join.
+  // ONTs without a DB row still appear in the list — but flagged as
+  // "not yet indexed" so the operator knows why they can't be geocoded.
   const mergedRecords = useMemo(() => {
-    const inMemBySerial = new Map();
-    const inMemByPortOntId = new Map();
-    for (const o of lcpGroup.onts || []) {
-      const serial = (o.SerialNumber || o.serial_number || '').trim().toUpperCase();
-      if (serial) inMemBySerial.set(serial, o);
-      const portKey = `${o._oltName || ''}|${o._port || o['Shelf/Slot/Port'] || ''}|${o.OntID ?? ''}`;
-      if (portKey !== '||') inMemByPortOntId.set(portKey, o);
+    const dbBySerial = new Map();
+    for (const rec of dbRecords) {
+      const s = (rec.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (s) dbBySerial.set(s, rec);
     }
 
-    return (dbRecords || []).map(rec => {
-      const serial = (rec.serial_number || '').trim().toUpperCase();
-      const portKey = `${rec.olt_name || ''}|${rec.shelf_slot_port || ''}|${rec.ont_id ?? ''}`;
-      const live = (serial && inMemBySerial.get(serial)) || inMemByPortOntId.get(portKey) || null;
-      const sub = live?._subscriber || null;
+    return (lcpGroup.onts || []).map((ont) => {
+      const serial = (ont.SerialNumber || ont.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const rec = serial ? dbBySerial.get(serial) : null;
+      const sub = ont._subscriber || null;
 
-      // Prefer values already on the DB row, otherwise fall back to the live join.
+      // Compose an address that includes street, city, zip when available.
+      // `_subscriber.address` from loadSavedReport already contains the full
+      // "street, city, zip" string saved at ingest. For live in-memory ONTs
+      // from a fresh parse, _subscriber may carry separate fields — we still
+      // hand the dialog `_subscriber` so it can build the full address itself.
+      const subscriberAddress = rec?.subscriber_address || sub?.address || '';
+      const subscriberAccountName = rec?.subscriber_account_name || sub?.name || sub?.account || '';
+
       return {
-        ...rec,
+        // DB-sourced fields (may be undefined if not yet indexed)
+        id: rec?.id || null,
+        report_id: rec?.report_id || reportId || null,
+        serial_number: rec?.serial_number || ont.SerialNumber || '',
+        ont_id: rec?.ont_id || String(ont.OntID ?? ''),
+        olt_name: rec?.olt_name || ont._oltName || '',
+        shelf_slot_port: rec?.shelf_slot_port || ont._port || ont['Shelf/Slot/Port'] || '',
+        splitter_number: rec?.splitter_number || ont._splitterNumber || '',
+        lcp_number: rec?.lcp_number || ont._lcpNumber || lcpGroup.lcpNumber || '',
+        gps_lat: rec?.gps_lat ?? null,
+        gps_lng: rec?.gps_lng ?? null,
+        gps_manual: rec?.gps_manual || false,
+        status: rec?.status || ont._analysis?.status || 'ok',
+        ont_rx_power: rec?.ont_rx_power ?? (ont.OntRxOptPwr != null ? parseFloat(ont.OntRxOptPwr) : null),
+        // Merged subscriber info
+        subscriber_address: subscriberAddress,
+        subscriber_account_name: subscriberAccountName,
         _subscriber: sub || undefined,
-        subscriber_address: rec.subscriber_address || sub?.address || '',
-        subscriber_account_name: rec.subscriber_account_name || sub?.name || sub?.account || '',
-        _analysis: live?._analysis || undefined,
+        _analysis: ont._analysis || undefined,
+        _notIndexed: !rec, // True when no DB row exists yet — can't geocode until processPonPmRecords finishes
       };
     });
-  }, [dbRecords, lcpGroup.onts]);
+  }, [dbRecords, lcpGroup.onts, lcpGroup.lcpNumber, reportId]);
 
   if (isLoading) {
     return (

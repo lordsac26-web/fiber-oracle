@@ -132,7 +132,10 @@ export default function ONTSelectionDialog({
   }, [records]);
 
   const totalSelected = draft.size;
-  const totalRecords = records.filter(r => r.id).length;
+  // Show "X of Y selectable" — only records with a DB id can be selected/geocoded.
+  // Records without an id are still listed but flagged as "Not indexed".
+  const totalSelectable = records.filter(r => r.id).length;
+  const totalRecords = records.length;
 
   const statusColor = (s) => ({
     ok: 'bg-green-500',
@@ -201,22 +204,36 @@ export default function ONTSelectionDialog({
                 </div>
 
                 <div className="divide-y">
-                  {items.map((r) => {
+                  {items.map((r, idx) => {
                     const id = r.id;
-                    if (!id) return null; // Defensive — shouldn't happen for DB records
-                    const checked = draft.has(id);
+                    const notIndexed = !id || r._notIndexed;
+                    const checked = id ? draft.has(id) : false;
                     const name = r.subscriber_account_name || r._subscriber?.name || r._subscriber?.account;
                     const address = r.subscriber_address || r._subscriber?.address || '';
                     const city = r._subscriber?.city || '';
                     const zip = r._subscriber?.zip || '';
-                    const fullAddress = [address, city, zip].filter(Boolean).join(', ');
+                    // `subscriber_address` from loadSavedReport already contains
+                    // "street, city, zip"; only append city/zip when they aren't
+                    // already part of the address string (in-memory parse path).
+                    const baseAddr = address.trim();
+                    const hasCommas = baseAddr.includes(',');
+                    const fullAddress = hasCommas
+                      ? baseAddr
+                      : [baseAddr, city, zip].filter(Boolean).join(', ');
                     const hasCoords = !!(r.gps_lat && r.gps_lng);
                     const status = r.status || r._analysis?.status || 'ok';
+                    const key = id || `${r.serial_number || 'no-serial'}-${idx}`;
                     return (
-                      <label key={id} className="flex items-start gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer">
+                      <label
+                        key={key}
+                        className={`flex items-start gap-2 px-3 py-2 ${
+                          notIndexed ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer'
+                        }`}
+                      >
                         <Checkbox
                           checked={checked}
-                          onCheckedChange={() => toggleOne(id)}
+                          disabled={notIndexed}
+                          onCheckedChange={() => id && toggleOne(id)}
                           className="mt-0.5"
                         />
                         <div className="flex-1 min-w-0">
@@ -236,7 +253,11 @@ export default function ONTSelectionDialog({
                           )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          {hasCoords ? (
+                          {notIndexed ? (
+                            <Badge variant="outline" className="text-[10px] text-gray-500" title="ONT records still indexing — refresh once it finishes">
+                              Not indexed
+                            </Badge>
+                          ) : hasCoords ? (
                             <Badge variant="outline" className="text-[10px] text-green-700 border-green-300 bg-green-50">
                               <CheckCircle2 className="h-3 w-3 mr-0.5" />
                               GPS
@@ -264,7 +285,10 @@ export default function ONTSelectionDialog({
 
         <DialogFooter className="border-t pt-3">
           <div className="flex-1 text-xs text-gray-500">
-            {totalSelected} of {totalRecords} ONTs selected
+            {totalSelected} selected • {totalSelectable} selectable
+            {totalRecords > totalSelectable && (
+              <span className="text-gray-400"> • {totalRecords - totalSelectable} not indexed</span>
+            )}
           </div>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
