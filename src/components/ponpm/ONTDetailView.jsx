@@ -36,6 +36,9 @@ import {
   Router,
   Wifi,
   Users,
+  ChevronDown,
+  ChevronRight,
+  Archive,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -57,6 +60,17 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
 
   const [peerData, setPeerData] = useState({ onts: [], avgMetrics: null });
   const [showPeerComparison, setShowPeerComparison] = useState(false);
+
+  // History "Data Points" table — collapsed by default so the dialog opens
+  // compactly. Archived section (rows beyond the chart cap) is also collapsed
+  // by default and nested inside the main section once expanded.
+  const [showHistoryTable, setShowHistoryTable] = useState(false);
+  const [showArchivedHistory, setShowArchivedHistory] = useState(false);
+
+  // Max history points used in the trend chart at the top. Roughly 3 months
+  // of weekly snapshots — keeps the chart readable and bounded. Any older
+  // points are still visible in the table below under the "Archived" group.
+  const HISTORY_CHART_CAP = 90;
 
   useEffect(() => {
     loadHistoricalData();
@@ -777,75 +791,134 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                   </p>
                 </CardContent>
               </Card>
-            ) : (
-              <>
-                {/* Enhanced Chart */}
-                <EnhancedHistoryChart
-                  historicalData={historicalData}
-                  title={`${ont.SerialNumber} - Performance Trends`}
-                  serialNumber={ont.SerialNumber}
-                />
+            ) : (() => {
+              // historicalData is ordered oldest → newest (see getComparisonRecord
+              // which walks from the end backwards). The chart should only render
+              // the most recent HISTORY_CHART_CAP points; older points are still
+              // shown in the table below under an "Archived" subsection.
+              const recent = historicalData.length > HISTORY_CHART_CAP
+                ? historicalData.slice(-HISTORY_CHART_CAP)
+                : historicalData;
+              const archived = historicalData.length > HISTORY_CHART_CAP
+                ? historicalData.slice(0, historicalData.length - HISTORY_CHART_CAP)
+                : [];
 
-                {/* Data Table */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Historical Data Points</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="max-h-96 overflow-y-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead className="text-right">ONT Rx</TableHead>
-                            <TableHead className="text-right">OLT Rx</TableHead>
-                            <TableHead className="text-right">ONT Tx</TableHead>
-                            <TableHead className="text-right">US BIP</TableHead>
-                            <TableHead className="text-right">DS BIP</TableHead>
-                            <TableHead className="text-right">US FEC</TableHead>
-                            <TableHead className="text-right">DS FEC</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {historicalData.map((record, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell className="text-xs">{moment(record.date).format('MM/DD/YY HH:mm')}</TableCell>
-                              <TableCell className="text-right font-mono text-xs">
-                                {record.ont_rx_power?.toFixed(1) || '-'}
-                              </TableCell>
-                              <TableCell className="text-right font-mono text-xs">
-                                {record.olt_rx_power?.toFixed(1) || '-'}
-                              </TableCell>
-                              <TableCell className="text-right font-mono text-xs">
-                                {record.ont_tx_power?.toFixed(1) || '-'}
-                              </TableCell>
-                              <TableCell className="text-right font-mono text-xs">
-                                {record.us_bip_errors || 0}
-                              </TableCell>
-                              <TableCell className="text-right font-mono text-xs">
-                                {record.ds_bip_errors || 0}
-                              </TableCell>
-                              <TableCell className="text-right font-mono text-xs">
-                                {record.us_fec_uncorrected || 0}
-                              </TableCell>
-                              <TableCell className="text-right font-mono text-xs">
-                                {record.ds_fec_uncorrected || 0}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[record.status] || ''}`}>
-                                  {record.status}
-                                </Badge>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
+              // Reusable row renderer keeps the recent/archived bodies in sync.
+              const renderRow = (record, idx) => (
+                <TableRow key={idx}>
+                  <TableCell className="text-xs">{moment(record.date).format('MM/DD/YY HH:mm')}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{record.ont_rx_power?.toFixed(1) || '-'}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{record.olt_rx_power?.toFixed(1) || '-'}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{record.ont_tx_power?.toFixed(1) || '-'}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{record.us_bip_errors || 0}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{record.ds_bip_errors || 0}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{record.us_fec_uncorrected || 0}</TableCell>
+                  <TableCell className="text-right font-mono text-xs">{record.ds_fec_uncorrected || 0}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[record.status] || ''}`}>
+                      {record.status}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              );
+
+              const tableHead = (
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">ONT Rx</TableHead>
+                    <TableHead className="text-right">OLT Rx</TableHead>
+                    <TableHead className="text-right">ONT Tx</TableHead>
+                    <TableHead className="text-right">US BIP</TableHead>
+                    <TableHead className="text-right">DS BIP</TableHead>
+                    <TableHead className="text-right">US FEC</TableHead>
+                    <TableHead className="text-right">DS FEC</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+              );
+
+              return (
+                <>
+                  {/* Chart — capped to most recent 90 points */}
+                  <EnhancedHistoryChart
+                    historicalData={recent}
+                    title={`${ont.SerialNumber} - Performance Trends`}
+                    serialNumber={ont.SerialNumber}
+                  />
+                  {archived.length > 0 && (
+                    <p className="text-xs text-gray-500 -mt-2 px-1">
+                      Showing the most recent {recent.length} of {historicalData.length} data points in the chart.
+                      Older points are available under <span className="font-medium">Archived</span> below.
+                    </p>
+                  )}
+
+                  {/* Collapsible Data Table */}
+                  <Card>
+                    <button
+                      type="button"
+                      onClick={() => setShowHistoryTable(v => !v)}
+                      className="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-t-lg"
+                      aria-expanded={showHistoryTable}
+                    >
+                      <span className="text-sm font-semibold flex items-center gap-2">
+                        {showHistoryTable ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        Historical Data Points
+                        <Badge variant="outline" className="ml-1 text-xs">{historicalData.length}</Badge>
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {showHistoryTable ? 'Hide' : 'Show'}
+                      </span>
+                    </button>
+                    {showHistoryTable && (
+                      <CardContent>
+                        <div className="max-h-96 overflow-y-auto">
+                          <Table>
+                            {tableHead}
+                            <TableBody>
+                              {/* Recent points first (newest at bottom — matches array order) */}
+                              {recent.map(renderRow)}
+                            </TableBody>
+                          </Table>
+                        </div>
+
+                        {/* Archived (older than the chart cap) — nested collapsible */}
+                        {archived.length > 0 && (
+                          <div className="mt-4 border-t pt-3">
+                            <button
+                              type="button"
+                              onClick={() => setShowArchivedHistory(v => !v)}
+                              className="w-full flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded px-2 py-2"
+                              aria-expanded={showArchivedHistory}
+                            >
+                              <span className="text-sm font-semibold flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                                {showArchivedHistory ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                                <Archive className="h-4 w-4" />
+                                Archived (older than last {HISTORY_CHART_CAP} points)
+                                <Badge variant="outline" className="ml-1 text-xs">{archived.length}</Badge>
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {showArchivedHistory ? 'Hide' : 'Show'}
+                              </span>
+                            </button>
+                            {showArchivedHistory && (
+                              <div className="max-h-96 overflow-y-auto mt-2">
+                                <Table>
+                                  {tableHead}
+                                  <TableBody>
+                                    {archived.map(renderRow)}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    )}
+                  </Card>
+                </>
+              );
+            })()}
           </TabsContent>
 
           {/* Job Reports Tab */}
