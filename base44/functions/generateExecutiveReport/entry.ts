@@ -594,19 +594,36 @@ Deno.serve(async (req) => {
 
     // ── Customer branding ───────────────────────────────────────────────────
     // Sources (priority):
-    //   1. AppSettings.company_name / logo_url  (set in app Settings → Branding)
-    //   2. Fiber Oracle defaults
-    // The previous version silently fell back to defaults if AppSettings was
-    // empty AND skipped the customer name when it equalled the literal default
-    // string — which made it impossible to override only the logo. Both
-    // behaviours are now independent.
-    const settingsArr = await base44.asServiceRole.entities.AppSettings.list('-created_date', 1);
-    const appSettings = settingsArr[0] || {};
-    const customerName = s(appSettings.company_name || 'Fiber Oracle');
-    const rawLogo = appSettings.logo_url
+    //   1. The requesting admin user's User.preferences.{companyName,logoUrl}
+    //      — this is where the Settings → Branding tab actually writes
+    //      (via UserPreferencesContext → base44.auth.updateMe({ preferences })).
+    //   2. AppSettings.company_name / logo_url (legacy, kept for backward
+    //      compatibility if anyone ever populated this entity).
+    //   3. Fiber Oracle defaults.
+    //
+    // Each source is consulted independently so a user can override only the
+    // logo OR only the company name and the other still falls back correctly.
+    const userPrefs = user?.preferences || {};
+    let appSettings = {};
+    try {
+      const settingsArr = await base44.asServiceRole.entities.AppSettings.list('-created_date', 1);
+      appSettings = settingsArr[0] || {};
+    } catch { /* non-fatal — AppSettings may not exist */ }
+
+    const customerName = s(
+      userPrefs.companyName
+      || appSettings.company_name
+      || 'Fiber Oracle'
+    );
+    const rawLogo =
+      userPrefs.logoUrl
+      || appSettings.logo_url
       || 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png';
     const customerLogo = await fetchLogo(rawLogo);
-    console.log(`[generateExecutiveReport] Branding — name: "${customerName}", logo: ${appSettings.logo_url ? 'custom' : 'default Fiber Oracle'}`);
+    const brandSource = userPrefs.logoUrl ? 'user.preferences'
+      : appSettings.logo_url ? 'AppSettings'
+      : 'default';
+    console.log(`[generateExecutiveReport] Branding — name: "${customerName}", logo source: ${brandSource}`);
 
     const reportDate = new Date().toLocaleDateString('en-US', {
       timeZone: tz, year: 'numeric', month: 'long', day: 'numeric',
@@ -683,12 +700,15 @@ Deno.serve(async (req) => {
       );
       y += 12;
     } else {
+      // Column x-positions kept inside the header bar (M+1.5 → M+CW-1.5 = M+172.5).
+      // "% of Network" needs ~22mm of width, so it must START no later than
+      // ~M+150 to fully render its label.
       const cols = [
         { label: 'Zip Code',     x: M + 5   },
-        { label: 'Total ONTs',   x: M + 60  },
-        { label: 'Critical',     x: M + 100 },
-        { label: 'Warning',      x: M + 130 },
-        { label: '% of Network', x: M + 158 },
+        { label: 'Total ONTs',   x: M + 55  },
+        { label: 'Critical',     x: M + 90  },
+        { label: 'Warning',      x: M + 118 },
+        { label: '% of Network', x: M + 145 },
       ];
       y = tableHeader(doc, y, cols);
 
@@ -698,10 +718,10 @@ Deno.serve(async (req) => {
         const pct = totalCurrent > 0 ? ((r.total / totalCurrent) * 100).toFixed(1) : '0.0';
         y = tableRow(doc, y, [
           { value: r.zip,                                       x: M + 5   },
-          { value: r.total.toLocaleString(),                    x: M + 60  },
-          { value: String(r.critical), color: r.critical > 0 ? C.red : C.dark, x: M + 100 },
-          { value: String(r.warning),  color: r.warning  > 0 ? C.amber : C.dark, x: M + 130 },
-          { value: `${pct}%`,                                   x: M + 158 },
+          { value: r.total.toLocaleString(),                    x: M + 55  },
+          { value: String(r.critical), color: r.critical > 0 ? C.red : C.dark, x: M + 90  },
+          { value: String(r.warning),  color: r.warning  > 0 ? C.amber : C.dark, x: M + 118 },
+          { value: `${pct}%`,                                   x: M + 145 },
         ], i % 2 === 0);
       }
 
@@ -792,13 +812,14 @@ Deno.serve(async (req) => {
         { metric: 'ONTs with Eero',      current: eeroCountCurrent, prev: eeroCountPrev },
       ];
 
-      // Column headers now include the actual report dates so each value
-      // column is unambiguous in the printed report.
+      // Column x-positions kept inside the header bar (M+1.5 → M+172.5).
+      // Date labels (~24mm) and "Delta" need to fit; shift everything left so
+      // the Delta column header isn't clipped at the right edge.
       const cols = [
         { label: 'Metric',                x: M + 5   },
-        { label: currentLabel,            x: M + 90  },
-        { label: prevLabel,               x: M + 130 },
-        { label: 'Delta',                 x: M + 168 },
+        { label: currentLabel,            x: M + 80  },
+        { label: prevLabel,               x: M + 115 },
+        { label: 'Delta',                 x: M + 152 },
       ];
       y = tableHeader(doc, y, cols);
 
@@ -814,9 +835,9 @@ Deno.serve(async (req) => {
 
         y = tableRow(doc, y, [
           { value: r.metric,                          x: M + 5   },
-          { value: r.current.toLocaleString(),        x: M + 90  },
-          { value: r.prev.toLocaleString(),           x: M + 130 },
-          { value: `${sign}${delta}`,                 x: M + 168, color: deltaColor },
+          { value: r.current.toLocaleString(),        x: M + 80  },
+          { value: r.prev.toLocaleString(),           x: M + 115 },
+          { value: `${sign}${delta}`,                 x: M + 152, color: deltaColor },
         ], i % 2 === 0);
       }
       y += 4;
