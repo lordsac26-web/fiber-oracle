@@ -206,7 +206,10 @@ export default function ONTSelectionDialog({
                 <div className="divide-y">
                   {items.map((r, idx) => {
                     const id = r.id;
-                    const notIndexed = !id || r._notIndexed;
+                    // `notIndexed` is now an extremely rare edge case (an ONT
+                    // appearing in the in-memory group with no DB record id).
+                    // Kept as a safety rail; normal flow always has an id.
+                    const notIndexed = !id;
                     const checked = id ? draft.has(id) : false;
                     const name = r.subscriber_account_name || r._subscriber?.name || r._subscriber?.account;
                     const address = r.subscriber_address || r._subscriber?.address || '';

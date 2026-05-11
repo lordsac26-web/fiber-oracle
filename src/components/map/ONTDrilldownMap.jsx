@@ -116,15 +116,14 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
     setGeocoding(true);
     const batchSize = 50;
     let totalGeocoded = 0;
+    // Collect every coord update across batches and apply them in a single
+    // setLocalRecords pass at the end — avoids the broken re-query path that
+    // previously tried to filter by lcp_number (often empty in the DB).
+    const allUpdates = [];
 
     try {
       for (let i = 0; i < recordsNeedingGeocode.length; i += batchSize) {
         const batch = recordsNeedingGeocode.slice(i, i + batchSize);
-        const ids = batch.map(r => r.id).filter(Boolean);
-        if (ids.length === 0) continue;
-
-        // Build "street, city, zip" so Nominatim's structured search path
-        // (in functions/geocodeAddresses) gets all three parts.
         const items = batch
           .filter(r => r.id)
           .map(r => ({ id: r.id, address: buildFullAddress(r) }))
@@ -133,51 +132,19 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
         toast.loading(`Geocoding batch ${Math.floor(i / batchSize) + 1}...`, { id: 'geocode' });
         const res = await base44.functions.invoke('geocodeAddresses', { items });
         totalGeocoded += res.data.geocoded || 0;
+        if (Array.isArray(res.data.updated)) allUpdates.push(...res.data.updated);
       }
 
       toast.success(`Geocoded ${totalGeocoded} ONT addresses`, { id: 'geocode' });
 
-      // Refresh: re-query the same set of ONT records (by serial — the only
-      // reliable membership key for this LCP group) and merge the fresh
-      // gps_lat/gps_lng back in. We can't simply re-fetch by lcp_number
-      // because many DB rows have an empty lcp_number column.
-      const reportId = localRecords[0]?.report_id;
-      const wantedSerials = [...new Set(
-        localRecords
-          .map(r => (r.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
-          .filter(Boolean)
-      )];
-      if (reportId && wantedSerials.length > 0) {
-        // Base44's `.filter()` doesn't support `$in` — issue per-serial queries
-        // with bounded concurrency (same pattern as functions/getBatchOntHistory).
-        const CONCURRENCY = 6;
-        const INTER_WAVE_MS = 60;
-        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-        const fresh = [];
-        const fetchOne = async (serial) => {
-          try {
-            const recs = await base44.entities.ONTPerformanceRecord.filter(
-              { report_id: reportId, serial_number: serial },
-              '-updated_date', 1
-            );
-            if (recs?.length) fresh.push(recs[0]);
-          } catch (_) { /* non-fatal */ }
-        };
-        for (let i = 0; i < wantedSerials.length; i += CONCURRENCY) {
-          const wave = wantedSerials.slice(i, i + CONCURRENCY);
-          await Promise.all(wave.map(fetchOne));
-          if (i + CONCURRENCY < wantedSerials.length) await sleep(INTER_WAVE_MS);
-        }
-        const freshBySerial = new Map(
-          fresh.map(r => [(r.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''), r])
-        );
-        // Patch only the coord fields back onto existing merged records so
-        // we keep the live `_subscriber` enrichment provided by the parent.
+      // Merge the freshly-geocoded coords back into local state in a single
+      // pass. `geocodeAddresses` returns the canonical {id, gps_lat, gps_lng}
+      // it just wrote to the DB, so we don't need a second roundtrip.
+      if (allUpdates.length > 0) {
+        const updatesById = new Map(allUpdates.map(u => [u.id, u]));
         setLocalRecords(prev => prev.map(r => {
-          const s = (r.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-          const f = freshBySerial.get(s);
-          if (!f) return r;
-          return { ...r, gps_lat: f.gps_lat, gps_lng: f.gps_lng, gps_manual: f.gps_manual };
+          const u = r.id && updatesById.get(r.id);
+          return u ? { ...r, gps_lat: u.gps_lat, gps_lng: u.gps_lng, gps_manual: false } : r;
         }));
       }
     } catch (err) {
@@ -185,7 +152,7 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
     } finally {
       setGeocoding(false);
     }
-  }, [recordsNeedingGeocode, localRecords, lcpGroup]);
+  }, [recordsNeedingGeocode]);
 
   // Handle pin drag
   const handleDragEnd = useCallback(async (recordId, newLat, newLng) => {

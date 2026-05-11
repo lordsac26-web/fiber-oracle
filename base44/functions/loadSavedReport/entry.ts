@@ -125,6 +125,14 @@ function recordToOnt(rec) {
   const comboInfo = detectComboPort(rec.shelf_slot_port);
 
   return {
+    // DB identity & geocoding fields — needed by the LCP drilldown map so it
+    // can geocode/reposition pins without a second roundtrip to look up the id.
+    _recordId:        rec.id,
+    _reportId:        rec.report_id,
+    _gpsLat:          rec.gps_lat ?? null,
+    _gpsLng:          rec.gps_lng ?? null,
+    _gpsManual:       rec.gps_manual || false,
+    _status:          rec.status || 'ok',
     OLTName:          rec.olt_name || '',
     'Shelf/Slot/Port': rec.shelf_slot_port || '',
     OntID:            rec.ont_id || '',

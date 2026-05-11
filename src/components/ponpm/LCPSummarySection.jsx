@@ -59,112 +59,41 @@ const SPLITTER_CAPACITY = 32;
  *      join (street/city/zip) built from the currently loaded subscriber CSV.
  */
 function ONTDrilldownMapWrapper({ lcpGroup, onBack }) {
-  const reportId = lcpGroup.onts?.[0]?.report_id || lcpGroup.onts?.[0]?._reportId;
-
-  // Build the list of serials we need DB rows for. Normalize the same way
-  // `saveOntRecords`/`processPonPmRecords` do (uppercase, alnum-only).
-  const wantedSerials = useMemo(() => {
-    const set = new Set();
-    for (const o of lcpGroup.onts || []) {
-      const raw = (o.SerialNumber || o.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      if (raw) set.add(raw);
-    }
-    return [...set];
-  }, [lcpGroup.onts]);
-
-  const { data: dbRecords = [], isLoading } = useQuery({
-    queryKey: ['ont-drilldown', reportId, wantedSerials.length, wantedSerials[0], wantedSerials[wantedSerials.length - 1]],
-    enabled: !!reportId && wantedSerials.length > 0,
-    queryFn: async () => {
-      // The Base44 SDK `.filter()` does NOT support a `$in` operator — passing
-      // one returns 0 rows silently. We therefore issue one filter call per
-      // serial, bounded by a small concurrency window to respect platform
-      // rate limits (same pattern used by functions/getBatchOntHistory).
-      const CONCURRENCY = 6;
-      const INTER_WAVE_MS = 60;
-      const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-      const out = [];
-
-      const fetchOne = async (serial) => {
-        try {
-          const recs = await base44.entities.ONTPerformanceRecord.filter(
-            { report_id: reportId, serial_number: serial },
-            '-updated_date', 1
-          );
-          if (recs?.length) out.push(recs[0]);
-        } catch (err) {
-          // Non-fatal — the ONT just won't have a DB row and will be flagged
-          // as "Not indexed" in the selection dialog.
-          console.warn(`[ONTDrilldownMapWrapper] filter failed for ${serial}:`, err?.message);
-        }
-      };
-
-      for (let i = 0; i < wantedSerials.length; i += CONCURRENCY) {
-        const wave = wantedSerials.slice(i, i + CONCURRENCY);
-        await Promise.all(wave.map(fetchOne));
-        if (i + CONCURRENCY < wantedSerials.length) await sleep(INTER_WAVE_MS);
-      }
-      return out;
-    },
-  });
-
-  // Merge: for every in-memory ONT in this LCP group, emit one record that
-  // combines DB id/coords (if a row exists) with the live subscriber join.
-  // ONTs without a DB row still appear in the list — but flagged as
-  // "not yet indexed" so the operator knows why they can't be geocoded.
+  // The in-memory ONTs from loadSavedReport already carry the DB record id
+  // (`_recordId`), report id (`_reportId`), GPS coords, and the subscriber
+  // join. We just need to project them into the shape the drilldown map and
+  // selection dialog expect. No second DB query is needed — that path was
+  // returning 0 rows and producing the "Not indexed" false-positive.
   const mergedRecords = useMemo(() => {
-    const dbBySerial = new Map();
-    for (const rec of dbRecords) {
-      const s = (rec.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      if (s) dbBySerial.set(s, rec);
-    }
-
     return (lcpGroup.onts || []).map((ont) => {
-      const serial = (ont.SerialNumber || ont.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const rec = serial ? dbBySerial.get(serial) : null;
       const sub = ont._subscriber || null;
-
-      // Compose an address that includes street, city, zip when available.
-      // `_subscriber.address` from loadSavedReport already contains the full
-      // "street, city, zip" string saved at ingest. For live in-memory ONTs
-      // from a fresh parse, _subscriber may carry separate fields — we still
-      // hand the dialog `_subscriber` so it can build the full address itself.
-      const subscriberAddress = rec?.subscriber_address || sub?.address || '';
-      const subscriberAccountName = rec?.subscriber_account_name || sub?.name || sub?.account || '';
+      // `_subscriber.address` already contains "street, city, zip" (composed
+      // at ingest time by processPonPmRecords). Use it as the canonical
+      // address for both display and geocoding.
+      const subscriberAddress = sub?.address || ont._subscriberAddress || '';
+      const subscriberAccountName = sub?.account || sub?.name || ont._subscriberAccountName || '';
 
       return {
-        // DB-sourced fields (may be undefined if not yet indexed)
-        id: rec?.id || null,
-        report_id: rec?.report_id || reportId || null,
-        serial_number: rec?.serial_number || ont.SerialNumber || '',
-        ont_id: rec?.ont_id || String(ont.OntID ?? ''),
-        olt_name: rec?.olt_name || ont._oltName || '',
-        shelf_slot_port: rec?.shelf_slot_port || ont._port || ont['Shelf/Slot/Port'] || '',
-        splitter_number: rec?.splitter_number || ont._splitterNumber || '',
-        lcp_number: rec?.lcp_number || ont._lcpNumber || lcpGroup.lcpNumber || '',
-        gps_lat: rec?.gps_lat ?? null,
-        gps_lng: rec?.gps_lng ?? null,
-        gps_manual: rec?.gps_manual || false,
-        status: rec?.status || ont._analysis?.status || 'ok',
-        ont_rx_power: rec?.ont_rx_power ?? (ont.OntRxOptPwr != null ? parseFloat(ont.OntRxOptPwr) : null),
-        // Merged subscriber info
+        id:               ont._recordId || null,
+        report_id:        ont._reportId || null,
+        serial_number:    ont.SerialNumber || '',
+        ont_id:           String(ont.OntID ?? ''),
+        olt_name:         ont._oltName || ont.OLTName || '',
+        shelf_slot_port:  ont._port || ont['Shelf/Slot/Port'] || '',
+        splitter_number:  ont._splitterNumber || '',
+        lcp_number:       ont._lcpNumber || lcpGroup.lcpNumber || '',
+        gps_lat:          ont._gpsLat ?? null,
+        gps_lng:          ont._gpsLng ?? null,
+        gps_manual:       ont._gpsManual || false,
+        status:           ont._status || ont._analysis?.status || 'ok',
+        ont_rx_power:     ont.OntRxOptPwr != null ? parseFloat(ont.OntRxOptPwr) : null,
         subscriber_address: subscriberAddress,
         subscriber_account_name: subscriberAccountName,
-        _subscriber: sub || undefined,
-        _analysis: ont._analysis || undefined,
-        _notIndexed: !rec, // True when no DB row exists yet — can't geocode until processPonPmRecords finishes
+        _subscriber:      sub || undefined,
+        _analysis:        ont._analysis || undefined,
       };
     });
-  }, [dbRecords, lcpGroup.onts, lcpGroup.lcpNumber, reportId]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12 text-gray-500 gap-2">
-        <Loader2 className="h-5 w-5 animate-spin" />
-        Loading ONT records for {lcpGroup.lcpNumber}...
-      </div>
-    );
-  }
+  }, [lcpGroup.onts, lcpGroup.lcpNumber]);
 
   return (
     <ONTDrilldownMap
