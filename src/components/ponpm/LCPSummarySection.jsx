@@ -38,11 +38,23 @@ import ONTDrilldownMap from '@/components/map/ONTDrilldownMap';
 
 const SPLITTER_CAPACITY = 32;
 
-/** Wrapper that fetches ONT records from DB for a given LCP, then renders the drilldown map */
+/**
+ * Wrapper that fetches ONT records from DB for a given LCP, then merges them
+ * with the in-memory enriched ONTs (which carry the live `_subscriber` join
+ * built from the currently loaded subscriber CSV). Without this merge the
+ * drilldown map would show "0 / 0" because most DB rows lack the denormalized
+ * `subscriber_address`/`subscriber_account_name` fields at the time the row
+ * was saved — those values only become available after the subscriber upload
+ * runs against the live dataset.
+ *
+ * Match strategy:
+ *   1) by serial_number (canonical, stable across reports)
+ *   2) by ont_id + shelf/slot/port  (fallback when serial is missing)
+ */
 function ONTDrilldownMapWrapper({ lcpGroup, onBack }) {
   const reportId = lcpGroup.onts?.[0]?.report_id || lcpGroup.onts?.[0]?._reportId;
 
-  const { data: ontRecords = [], isLoading } = useQuery({
+  const { data: dbRecords = [], isLoading } = useQuery({
     queryKey: ['ont-drilldown', lcpGroup.lcpNumber, reportId],
     enabled: !!lcpGroup.lcpNumber,
     queryFn: async () => {
@@ -54,6 +66,36 @@ function ONTDrilldownMapWrapper({ lcpGroup, onBack }) {
       return records;
     },
   });
+
+  // Merge the DB row (which gives us a stable `id` for geocoding/saving) with
+  // the in-memory enriched ONT (which gives us live `_subscriber.{address,city,zip}`
+  // even when those fields were never persisted to the row).
+  const mergedRecords = useMemo(() => {
+    const inMemBySerial = new Map();
+    const inMemByPortOntId = new Map();
+    for (const o of lcpGroup.onts || []) {
+      const serial = (o.SerialNumber || o.serial_number || '').trim().toUpperCase();
+      if (serial) inMemBySerial.set(serial, o);
+      const portKey = `${o._oltName || ''}|${o._port || o['Shelf/Slot/Port'] || ''}|${o.OntID ?? ''}`;
+      if (portKey !== '||') inMemByPortOntId.set(portKey, o);
+    }
+
+    return (dbRecords || []).map(rec => {
+      const serial = (rec.serial_number || '').trim().toUpperCase();
+      const portKey = `${rec.olt_name || ''}|${rec.shelf_slot_port || ''}|${rec.ont_id ?? ''}`;
+      const live = (serial && inMemBySerial.get(serial)) || inMemByPortOntId.get(portKey) || null;
+      const sub = live?._subscriber || null;
+
+      // Prefer values already on the DB row, otherwise fall back to the live join.
+      return {
+        ...rec,
+        _subscriber: sub || undefined,
+        subscriber_address: rec.subscriber_address || sub?.address || '',
+        subscriber_account_name: rec.subscriber_account_name || sub?.name || sub?.account || '',
+        _analysis: live?._analysis || undefined,
+      };
+    });
+  }, [dbRecords, lcpGroup.onts]);
 
   if (isLoading) {
     return (
@@ -67,7 +109,7 @@ function ONTDrilldownMapWrapper({ lcpGroup, onBack }) {
   return (
     <ONTDrilldownMap
       lcpGroup={lcpGroup}
-      ontRecords={ontRecords}
+      ontRecords={mergedRecords}
       height="500px"
       onBack={onBack}
     />
