@@ -76,16 +76,33 @@ function ONTDrilldownMapWrapper({ lcpGroup, onBack }) {
     queryKey: ['ont-drilldown', reportId, wantedSerials.length, wantedSerials[0], wantedSerials[wantedSerials.length - 1]],
     enabled: !!reportId && wantedSerials.length > 0,
     queryFn: async () => {
-      // Base44's filter supports $in — chunk to stay well under URL/payload limits.
-      const CHUNK = 100;
+      // The Base44 SDK `.filter()` does NOT support a `$in` operator — passing
+      // one returns 0 rows silently. We therefore issue one filter call per
+      // serial, bounded by a small concurrency window to respect platform
+      // rate limits (same pattern used by functions/getBatchOntHistory).
+      const CONCURRENCY = 6;
+      const INTER_WAVE_MS = 60;
+      const sleep = (ms) => new Promise(r => setTimeout(r, ms));
       const out = [];
-      for (let i = 0; i < wantedSerials.length; i += CHUNK) {
-        const chunk = wantedSerials.slice(i, i + CHUNK);
-        const recs = await base44.entities.ONTPerformanceRecord.filter(
-          { report_id: reportId, serial_number: { $in: chunk } },
-          '-updated_date', CHUNK
-        );
-        if (recs?.length) out.push(...recs);
+
+      const fetchOne = async (serial) => {
+        try {
+          const recs = await base44.entities.ONTPerformanceRecord.filter(
+            { report_id: reportId, serial_number: serial },
+            '-updated_date', 1
+          );
+          if (recs?.length) out.push(recs[0]);
+        } catch (err) {
+          // Non-fatal — the ONT just won't have a DB row and will be flagged
+          // as "Not indexed" in the selection dialog.
+          console.warn(`[ONTDrilldownMapWrapper] filter failed for ${serial}:`, err?.message);
+        }
+      };
+
+      for (let i = 0; i < wantedSerials.length; i += CONCURRENCY) {
+        const wave = wantedSerials.slice(i, i + CONCURRENCY);
+        await Promise.all(wave.map(fetchOne));
+        if (i + CONCURRENCY < wantedSerials.length) await sleep(INTER_WAVE_MS);
       }
       return out;
     },

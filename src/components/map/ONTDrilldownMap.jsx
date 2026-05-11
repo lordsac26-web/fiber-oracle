@@ -148,15 +148,25 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
           .filter(Boolean)
       )];
       if (reportId && wantedSerials.length > 0) {
-        const CHUNK = 100;
+        // Base44's `.filter()` doesn't support `$in` — issue per-serial queries
+        // with bounded concurrency (same pattern as functions/getBatchOntHistory).
+        const CONCURRENCY = 6;
+        const INTER_WAVE_MS = 60;
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
         const fresh = [];
-        for (let i = 0; i < wantedSerials.length; i += CHUNK) {
-          const chunk = wantedSerials.slice(i, i + CHUNK);
-          const recs = await base44.entities.ONTPerformanceRecord.filter(
-            { report_id: reportId, serial_number: { $in: chunk } },
-            '-updated_date', CHUNK
-          );
-          if (recs?.length) fresh.push(...recs);
+        const fetchOne = async (serial) => {
+          try {
+            const recs = await base44.entities.ONTPerformanceRecord.filter(
+              { report_id: reportId, serial_number: serial },
+              '-updated_date', 1
+            );
+            if (recs?.length) fresh.push(recs[0]);
+          } catch (_) { /* non-fatal */ }
+        };
+        for (let i = 0; i < wantedSerials.length; i += CONCURRENCY) {
+          const wave = wantedSerials.slice(i, i + CONCURRENCY);
+          await Promise.all(wave.map(fetchOne));
+          if (i + CONCURRENCY < wantedSerials.length) await sleep(INTER_WAVE_MS);
         }
         const freshBySerial = new Map(
           fresh.map(r => [(r.serial_number || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''), r])
