@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -7,9 +7,22 @@ import DraggableOntMarker from './DraggableOntMarker';
 import { createLcpHealthIcon, getHealthColor, createOntPinIcon } from './lcpMapUtils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, MapPin, Navigation } from 'lucide-react';
+import { Loader2, MapPin, Navigation, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
+import ONTSelectionDialog from './ONTSelectionDialog';
+
+/**
+ * Build a Nominatim-friendly address string from a record. The geocoder
+ * splits on commas — so emitting "street, city, zip" gives us a structured
+ * search even when the DB row only has the street portion.
+ */
+function buildFullAddress(record) {
+  const street = (record.subscriber_address || record._subscriber?.address || '').trim();
+  const city = (record._subscriber?.city || '').trim();
+  const zip = (record._subscriber?.zip || '').trim();
+  return [street, city, zip].filter(Boolean).join(', ');
+}
 
 /**
  * ONTDrilldownMap — Shows a single LCP and its individual ONT pins.
@@ -25,20 +38,60 @@ import { base44 } from '@/api/base44Client';
 export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '500px', onBack, onOntSelect }) {
   const [geocoding, setGeocoding] = useState(false);
   const [localRecords, setLocalRecords] = useState(ontRecords);
+  const [showSelection, setShowSelection] = useState(false);
 
-  // Merge any existing geocoded positions into the record set
+  // Keep local state in sync if the parent refetches (e.g. after a new report load).
+  // Without this, switching LCPs leaves stale records in view.
+  useEffect(() => { setLocalRecords(ontRecords); }, [ontRecords]);
+
+  // Selected ONT ids — defaults to "all geocodable + already-plotted" so the
+  // map is useful on first open without forcing the user to interact.
+  const [selectedIds, setSelectedIds] = useState(() => {
+    const ids = new Set();
+    for (const r of ontRecords) {
+      if (!r.id) continue;
+      const hasCoords = r.gps_lat && r.gps_lng;
+      const hasAddress = buildFullAddress(r).length >= 5;
+      if (hasCoords || hasAddress) ids.add(r.id);
+    }
+    return ids;
+  });
+
+  // When the underlying record set changes, re-seed selection to include any
+  // newly-arrived ONTs that are plottable. Records the user explicitly
+  // deselected are preserved (we only ADD, never remove).
+  useEffect(() => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      for (const r of ontRecords) {
+        if (!r.id || next.has(r.id)) continue;
+        const hasCoords = r.gps_lat && r.gps_lng;
+        const hasAddress = buildFullAddress(r).length >= 5;
+        if (hasCoords || hasAddress) next.add(r.id);
+      }
+      return next;
+    });
+  }, [ontRecords]);
+
+  // Pins shown on the map = records WITH coords that are also selected.
   const recordsWithPositions = useMemo(() => {
-    return localRecords.filter(r => r.gps_lat && r.gps_lng && isFinite(r.gps_lat) && isFinite(r.gps_lng));
-  }, [localRecords]);
-
-  const recordsNeedingGeocode = useMemo(() => {
     return localRecords.filter(r =>
-      (!r.gps_lat || !r.gps_lng) &&
-      r.subscriber_address &&
-      r.subscriber_address.trim().length >= 5 &&
-      !r.gps_manual
+      r.gps_lat && r.gps_lng && isFinite(r.gps_lat) && isFinite(r.gps_lng) &&
+      selectedIds.has(r.id)
     );
-  }, [localRecords]);
+  }, [localRecords, selectedIds]);
+
+  // Records to feed the geocoder = SELECTED + no coords yet + has an address.
+  // The address is built from subscriber address + city + zip so the backend
+  // gets enough context for accurate structured search.
+  const recordsNeedingGeocode = useMemo(() => {
+    return localRecords.filter(r => {
+      if (!r.id || !selectedIds.has(r.id)) return false;
+      if (r.gps_lat && r.gps_lng) return false;
+      if (r.gps_manual) return false;
+      return buildFullAddress(r).length >= 5;
+    });
+  }, [localRecords, selectedIds]);
 
   // Build positions for FitBounds
   const positions = useMemo(() => {
@@ -70,12 +123,12 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
         const ids = batch.map(r => r.id).filter(Boolean);
         if (ids.length === 0) continue;
 
+        // Build "street, city, zip" so Nominatim's structured search path
+        // (in functions/geocodeAddresses) gets all three parts.
         const items = batch
           .filter(r => r.id)
-          .map(r => {
-            const addr = r._subscriber?.address || r.subscriber_address || '';
-            return { id: r.id, address: addr.trim() };
-          });
+          .map(r => ({ id: r.id, address: buildFullAddress(r) }))
+          .filter(it => it.address.length >= 5);
         if (items.length === 0) continue;
         toast.loading(`Geocoding batch ${Math.floor(i / batchSize) + 1}...`, { id: 'geocode' });
         const res = await base44.functions.invoke('geocodeAddresses', { items });
@@ -130,7 +183,7 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
     <div className="space-y-3">
       {/* Header controls */}
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {onBack && (
             <Button variant="outline" size="sm" onClick={onBack}>← Back to LCP Map</Button>
           )}
@@ -139,11 +192,15 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
             {lcpGroup.lcpNumber}
           </Badge>
           <Badge variant="outline" className="text-xs">
-            {recordsWithPositions.length} plotted / {localRecords.length} total ONTs
+            {recordsWithPositions.length} plotted / {selectedIds.size} selected / {localRecords.length} total
           </Badge>
         </div>
 
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowSelection(true)}>
+            <ListChecks className="h-4 w-4 mr-1" />
+            Select ONTs
+          </Button>
           {recordsNeedingGeocode.length > 0 && (
             <Button
               variant="outline"
@@ -157,6 +214,17 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
           )}
         </div>
       </div>
+
+      {/* Selection dialog — grouped by splitter, lets the user pick which
+          ONTs participate on the map (and in the geocode batch). */}
+      <ONTSelectionDialog
+        open={showSelection}
+        onOpenChange={setShowSelection}
+        lcpNumber={lcpGroup.lcpNumber}
+        records={localRecords}
+        selectedIds={selectedIds}
+        onApply={setSelectedIds}
+      />
 
       {/* Legend */}
       <div className="flex items-center gap-3 text-[11px] text-gray-500 flex-wrap">
@@ -203,8 +271,12 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
         <div className="text-center py-4 text-gray-500 text-sm border rounded-lg bg-gray-50">
           <MapPin className="h-8 w-8 mx-auto mb-2 opacity-30" />
           <p>No ONTs have GPS coordinates yet.</p>
-          {recordsNeedingGeocode.length > 0 && (
+          {recordsNeedingGeocode.length > 0 ? (
             <p className="text-xs mt-1">Click "Geocode" above to resolve {recordsNeedingGeocode.length} subscriber addresses.</p>
+          ) : (
+            <p className="text-xs mt-1">
+              Use <strong>Select ONTs</strong> to pick which subscribers to plot. ONTs need a subscriber address (street, city, zip) to be geocoded.
+            </p>
           )}
         </div>
       )}
