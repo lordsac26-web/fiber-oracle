@@ -49,9 +49,7 @@ export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, hasSp
           <span className="text-blue-600 font-medium">{ont._lcpNumber}/{ont._splitterNumber}</span>
         ) : '-'}
       </TableCell>
-      <TableCell className={`${monoCls} max-w-[80px] truncate`}>{ont.SerialNumber || '-'}</TableCell>
-      <TableCell className={`${cellCls} max-w-[60px] truncate`}>{ont._subscriber?.model || ont.model || '-'}</TableCell>
-      {/* eero indicator — shown when an eero report has been loaded */}
+      {/* eero indicator — in the LCP/Splitter column group (col D) */}
       {hasEeroData && (
         <TableCell className={`${cellCls} text-center`}>
           {ont._eero ? (
@@ -75,6 +73,8 @@ export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, hasSp
           )}
         </TableCell>
       )}
+      <TableCell className={`${monoCls} max-w-[80px] truncate`}>{ont.SerialNumber || '-'}</TableCell>
+      <TableCell className={`${cellCls} max-w-[60px] truncate`}>{ont._subscriber?.model || ont._subscriberModel || ont.model || '-'}</TableCell>
       {/* ONT Rx */}
       <TableCell className={rightMono}>
         <span className={parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600 font-bold' : parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' : ''}>{ont.OntRxOptPwr || '-'}</span>

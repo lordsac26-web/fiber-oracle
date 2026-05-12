@@ -50,8 +50,10 @@ export default function GlobalFilterBar({
         oltPorts.set(key, (oltPorts.get(key) || 0) + 1);
       }
 
-      // Model — fall back to subscriber model when the OLT-reported one is empty
-      const model = ont.model || ont._subscriber?.model;
+      // Model — prefer OLT-reported model, fall back through all enriched model fields.
+      // _subscriberModel is the denormalized subscriber model stored at ingest time
+      // (mapped from rec.subscriber_model in loadSavedReport/recordToOnt).
+      const model = ont.model || ont._subscriberModel || ont.subscriber_model || ont._subscriber?.model;
       if (model) {
         models.set(model, (models.get(model) || 0) + 1);
       }

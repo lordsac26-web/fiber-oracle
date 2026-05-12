@@ -523,7 +523,7 @@ export default function PONPMAnalysis() {
 
       let matchesGlobalModel = true;
       if (modelSet) {
-        const m = ont.model || ont._subscriber?.model;
+        const m = ont.model || ont._subscriberModel || ont.subscriber_model || ont._subscriber?.model;
         matchesGlobalModel = m ? modelSet.has(m) : false;
       }
 
@@ -1667,8 +1667,8 @@ Be specific, technical, and actionable.`;
                                               <TableHead className="px-1.5 py-1 text-[10px] w-8">St</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px]">ID</TableHead>
                                               {subscriberMatchCount > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Subscriber</TableHead>}
-                                              {eeroRecordsLoaded && <TableHead className="px-1.5 py-1 text-[10px] text-center">eero</TableHead>}
                                               <TableHead className="px-1.5 py-1 text-[10px]">LCP/Spl</TableHead>
+                                              {eeroRecordsLoaded && <TableHead className="px-1.5 py-1 text-[10px] text-center">eero</TableHead>}
                                               <TableHead className="px-1.5 py-1 text-[10px]">Serial</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px]">Model</TableHead>
                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">ONT Rx</TableHead>
