@@ -11,11 +11,18 @@ export default function LCPListView({
   const getOntKey = (entry) => 
     `${(entry.lcp_number || '').trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`;
 
+  const getSplitterCapacity = (entry) => {
+    const ratio = entry.splitter_ratio || '';
+    const match = ratio.match(/1:(\d+)/);
+    return match ? parseInt(match[1], 10) : 32;
+  };
+
   return (
     <div className="space-y-4">
       {entries.map((entry) => {
         const count = latestOntCountsByKey[getOntKey(entry)] || 0;
-        const remaining = Math.max(0, 32 - count);
+        const capacity = getSplitterCapacity(entry);
+        const remaining = Math.max(0, capacity - count);
         return (
           <Card key={entry.id} className={`border-0 shadow-lg ${selectedIds.includes(entry.id) ? 'ring-2 ring-blue-500' : ''}`}>
             <CardContent className="p-4">
@@ -32,7 +39,7 @@ export default function LCPListView({
                       remaining === 0 ? 'bg-red-50 text-red-700 border-red-300' :
                       remaining <= 5 ? 'bg-amber-50 text-amber-700 border-amber-300' : ''
                     }`}>
-                      ~{remaining} remaining
+                      ~{remaining} / {capacity} remaining
                     </Badge>
                     {entry.gps_lat && entry.gps_lng && (
                       <Badge variant="outline" className="text-xs text-blue-600">📍 Has GPS</Badge>

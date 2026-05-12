@@ -54,21 +54,37 @@ export default function LCPExportMenu({ lcpEntries = [], latestOntCountsByKey = 
   );
 
   // For a given LCP entry, find the matching subscriber records.
-  // Normalize both sides: trim + uppercase. Support OLT-name mismatch by also
-  // matching on port+shelf/slot/port alone when OLT names don't agree.
+  // olt_port on LCP entries can be a single port, a range ("1-4"), or comma-list ("1,2,3").
+  // LinkedPon on subscriber records is always a single "shelf/slot/port" path.
   const getSubscribersForEntry = (entry) => {
     if (!subscriberRecords?.length) return [];
-    const port = `${entry.olt_shelf || ''}/${entry.olt_slot || ''}/${entry.olt_port || ''}`.replace(/\s+/g, '');
+    const shelf = (entry.olt_shelf || '').trim();
+    const slot = (entry.olt_slot || '').trim();
+    const rawPort = (entry.olt_port || '').trim();
     const oltName = (entry.olt_name || '').trim().toUpperCase();
+
+    // Expand olt_port into the set of individual port numbers it covers
+    const portNumbers = new Set();
+    const rangeMatch = rawPort.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (rangeMatch) {
+      const lo = parseInt(rangeMatch[1], 10), hi = parseInt(rangeMatch[2], 10);
+      for (let p = lo; p <= hi; p++) portNumbers.add(String(p));
+    } else {
+      rawPort.split(',').forEach(p => { const t = p.trim().replace(/^xp/i, ''); if (t) portNumbers.add(t); });
+    }
 
     return (subscriberRecords || []).filter(rec => {
       const recOlt = (rec.DeviceName || '').trim().toUpperCase();
       const recPon = (rec.LinkedPon || '').trim().replace(/\s+/g, '');
-      // Primary: exact OLT + port match
-      if (oltName && recOlt === oltName && recPon === port) return true;
-      // Fallback: port path only (handles OLT name discrepancies between systems)
-      if (port && recPon === port && !recOlt) return true;
-      return false;
+      // Parse the subscriber's LinkedPon into shelf/slot/port components
+      const ponParts = recPon.split('/');
+      if (ponParts.length < 3) return false;
+      const recShelf = ponParts[0], recSlot = ponParts[1];
+      const recPort = ponParts[2].replace(/^xp/i, '');
+
+      if (recShelf !== shelf || recSlot !== slot) return false;
+      if (oltName && recOlt && recOlt !== oltName) return false;
+      return portNumbers.size === 0 ? false : portNumbers.has(recPort);
     });
   };
 
@@ -178,14 +194,14 @@ export default function LCPExportMenu({ lcpEntries = [], latestOntCountsByKey = 
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => {
-            // Plain database export (existing behavior, re-exported here)
-            const h = ['Type','LCP','Splitter','Location','Lat','Long','OLT','Shelf','Slot','Port','Optic-Make','Optic-Model','Optic-Serial','Notes'];
+            // Plain database export — matches the import template exactly (re-importable)
+            const h = ['Type','LCP','Splitter','Location','Lat','Long','OLT','Shelf','Slot','Port','Optic-Make','Optic-Model','Optic-Serial','Notes','SplitterRatio'];
             const rows = lcpEntries.map(e => [
               (e.lcp_number||'').toUpperCase().startsWith('CLCP')?'CLCP':'LCP',
               e.lcp_number||'',e.splitter_number||'',e.location||'',
               e.gps_lat||'',e.gps_lng||'',e.olt_name||'',e.olt_shelf||'',
               e.olt_slot||'',e.olt_port||'',e.optic_make||'',e.optic_model||'',
-              e.optic_serial||'',e.notes||''
+              e.optic_serial||'',e.notes||'',e.splitter_ratio||''
             ]);
             const csv = buildCSVString(h, rows);
             downloadCSV(csv, `lcp_entries_${new Date().toISOString().slice(0,10)}.csv`);

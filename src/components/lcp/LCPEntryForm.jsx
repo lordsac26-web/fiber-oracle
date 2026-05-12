@@ -124,9 +124,24 @@ export default function LCPEntryForm({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Notes</Label>
-            <Input placeholder="Additional notes..." value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Splitter Ratio</Label>
+              <Select value={formData.splitterRatio || ''} onValueChange={(value) => setFormData({ ...formData, splitterRatio: value })}>
+                <SelectTrigger><SelectValue placeholder="Select ratio..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={null}>Unknown</SelectItem>
+                  <SelectItem value="1:32">1:32</SelectItem>
+                  <SelectItem value="1:64">1:64</SelectItem>
+                  <SelectItem value="1:16">1:16</SelectItem>
+                  <SelectItem value="1:8">1:8</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Input placeholder="Additional notes..." value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
+            </div>
           </div>
 
           <div className="flex gap-2 pt-2">

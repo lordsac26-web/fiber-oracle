@@ -12,6 +12,12 @@ export default function LCPTableView({
   const getOntKey = (entry) => 
     `${(entry.lcp_number || '').trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`;
 
+  const getSplitterCapacity = (entry) => {
+    const ratio = entry.splitter_ratio || '';
+    const match = ratio.match(/1:(\d+)/);
+    return match ? parseInt(match[1], 10) : 32;
+  };
+
   return (
     <Card className="border-0 shadow-lg overflow-hidden">
       <div className="overflow-x-auto">
@@ -42,7 +48,8 @@ export default function LCPTableView({
           <TableBody>
             {entries.map((entry) => {
               const count = latestOntCountsByKey[getOntKey(entry)] || 0;
-              const remaining = Math.max(0, 32 - count);
+              const capacity = getSplitterCapacity(entry);
+              const remaining = Math.max(0, capacity - count);
               return (
                 <TableRow key={entry.id} className={selectedIds.includes(entry.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}>
                   {selectionMode && (
@@ -70,7 +77,7 @@ export default function LCPTableView({
                       remaining <= 5 ? 'bg-amber-50 text-amber-700 border-amber-300' :
                       'text-gray-600'
                     }`}>
-                      ~{remaining} / 32
+                      ~{remaining} / {capacity}
                     </Badge>
                   </TableCell>
                   <TableCell>

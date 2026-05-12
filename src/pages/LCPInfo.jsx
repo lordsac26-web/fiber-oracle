@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Link } from 'react-router-dom';
@@ -20,14 +19,14 @@ import LCPExportMenu from '@/components/lcp/LCPExportMenu';
 import { useSubscriberData } from '@/components/ponpm/useSubscriberData';
 import { validateCsvFile, LCP_CSV_SPEC } from '@/lib/csvValidator';
 import {
-  ArrowLeft, Plus, Search, Trash2, X, Cable, Upload, Download, Map,
+  ArrowLeft, Plus, Trash2, X, Cable, Upload, Map,
   Loader2, CloudOff, Cloud, List, LayoutGrid, Info, ArrowUpDown, Server
 } from 'lucide-react';
 
 const INITIAL_FORM = {
   entryType: 'LCP', lcpNumber: '', splitterNumber: '', physicalLocation: '',
   latitude: '', longitude: '', oltName: '', oltShelf: '', oltSlot: '', oltPort: '',
-  opticMake: '', opticModel: '', opticSerial: '', notes: ''
+  opticMake: '', opticModel: '', opticSerial: '', notes: '', splitterRatio: ''
 };
 
 export default function LCPInfo() {
@@ -147,6 +146,7 @@ export default function LCPInfo() {
       olt_slot: formData.oltSlot?.trim() || '', olt_port: formData.oltPort?.trim() || '',
       optic_make: formData.opticMake?.trim() || '', optic_model: formData.opticModel?.trim() || '',
       optic_serial: formData.opticSerial?.trim() || '', notes: formData.notes?.trim() || '',
+      splitter_ratio: formData.splitterRatio?.trim() || '',
     };
     editingId ? updateMutation.mutate({ id: editingId, data: entryData }) : createMutation.mutate(entryData);
   };
@@ -159,7 +159,8 @@ export default function LCPInfo() {
       latitude: entry.gps_lat?.toString() || '', longitude: entry.gps_lng?.toString() || '',
       oltName: entry.olt_name || '', oltShelf: entry.olt_shelf || '', oltSlot: entry.olt_slot || '',
       oltPort: entry.olt_port || '', opticMake: entry.optic_make || '', opticModel: entry.optic_model || '',
-      opticSerial: entry.optic_serial || '', notes: entry.notes || ''
+      opticSerial: entry.optic_serial || '', notes: entry.notes || '',
+      splitterRatio: entry.splitter_ratio || '',
     });
     setEditingId(entry.id); setShowAddDialog(true);
   };
@@ -256,15 +257,6 @@ export default function LCPInfo() {
   const downloadTemplate = () => {
     const t = 'Type,LCP,Splitter,Location,Lat,Long,OLT,Shelf,Slot,Port,Optic-Make,Optic-Model,Optic-Serial,Notes,SplitterRatio\nLCP,LCP-001,SPL-001,"123 Main St",40.7128,-74.0060,OLT-01,0,1,1-4,Finisar,FTLX1475D3BCL,ABC123,Sample,1:32';
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t],{type:'text/csv'})); a.download = 'lcp_clcp_template.csv'; a.click();
-  };
-
-  const exportToCSV = () => {
-    if (!lcpEntries.length) { toast.error('No entries'); return; }
-    const h = ['Type','LCP','Splitter','Location','Lat','Long','OLT','Shelf','Slot','Port','Optic-Make','Optic-Model','Optic-Serial','Notes','SplitterRatio'];
-    const rows = lcpEntries.map(e => [(e.lcp_number||'').toUpperCase().startsWith('CLCP')?'CLCP':'LCP',e.lcp_number||'',e.splitter_number||'',e.location||'',e.gps_lat||'',e.gps_lng||'',e.olt_name||'',e.olt_shelf||'',e.olt_slot||'',e.olt_port||'',e.optic_make||'',e.optic_model||'',e.optic_serial||'',e.notes||'',e.splitter_ratio||'']);
-    const csv = [h.join(','),...rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(','))].join('\n');
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download = `lcp_entries_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-    toast.success(`Exported ${lcpEntries.length} entries`);
   };
 
   const filteredEntries = lcpEntries
