@@ -232,14 +232,10 @@ Deno.serve(async (req) => {
       if (!user) {
         return Response.json({ error: 'Unauthorized' }, { status: 401 });
       }
-
+      // Admin-only when invoked directly: this function performs bulk writes of
+      // sensitive ONT performance records and uses service-role DB access.
       if (user.role !== 'admin') {
-        const matchingReports = await base44.entities.PONPMReport.filter({ id: reportId }, null, 1);
-        const report = matchingReports?.[0];
-
-        if (!report || report.created_by !== user.email) {
-          return Response.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
       }
     }
 
