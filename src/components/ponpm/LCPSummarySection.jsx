@@ -36,7 +36,14 @@ import { useQuery } from '@tanstack/react-query';
 import LCPHealthMap from '@/components/map/LCPHealthMap';
 import ONTDrilldownMap from '@/components/map/ONTDrilldownMap';
 
-const SPLITTER_CAPACITY = 32;
+const DEFAULT_SPLITTER_CAPACITY = 32;
+
+/** Parse a splitter_ratio string like "1:32" or "1:64" → 32 or 64. Falls back to default. */
+function parseSplitterCapacity(ratioStr) {
+  if (!ratioStr) return DEFAULT_SPLITTER_CAPACITY;
+  const m = String(ratioStr).match(/:(\d+)/);
+  return m ? parseInt(m[1], 10) : DEFAULT_SPLITTER_CAPACITY;
+}
 
 /**
  * Wrapper that fetches ONT records from DB for a given LCP, then merges them
@@ -173,6 +180,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
         lcpMap[lcpNumber].splitters[lcpEntry.splitter_number] = {
           splitterNumber: lcpEntry.splitter_number,
           opticType: lcpEntry.optic_type,
+          splitterRatio: lcpEntry.splitter_ratio || lcpMap[lcpNumber].splitter_ratio || null,
           ontCount: 0,
         };
       }
@@ -215,6 +223,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
         lcp.splitters[splitterNumber] = {
           splitterNumber,
           opticType: undefined,
+          splitterRatio: lcp.splitter_ratio || null,
           ontCount: 0,
         };
       }
@@ -243,10 +252,15 @@ export default function LCPSummarySection({ result, onPortClick }) {
       .filter(lcp => lcp.onts.length > 0)
       .map(lcp => ({
         ...lcp,
-        splitters: Object.values(lcp.splitters).map((splitter) => ({
-          ...splitter,
-          approxFibersLeft: Math.max(0, SPLITTER_CAPACITY - splitter.ontCount),
-        })).sort((a, b) => String(a.splitterNumber).localeCompare(String(b.splitterNumber), undefined, { numeric: true })),
+        splitters: Object.values(lcp.splitters).map((splitter) => {
+          // Use the splitter's own ratio first, then fall back to the LCP-level ratio, then default 32
+          const capacity = parseSplitterCapacity(splitter.splitterRatio || lcp.splitter_ratio);
+          return {
+            ...splitter,
+            capacity,
+            approxFibersLeft: Math.max(0, capacity - splitter.ontCount),
+          };
+        }).sort((a, b) => String(a.splitterNumber).localeCompare(String(b.splitterNumber), undefined, { numeric: true })),
         portCount: lcp.ports.size,
         ontCount: lcp.onts.length,
         healthScore: lcp.ok / lcp.ontCount,
@@ -429,7 +443,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                           {lcp.splitters.slice(0, 3).map((splitter) => (
                             <div key={splitter.splitterNumber} className="flex items-center justify-between text-[11px]">
                               <span className="font-medium text-gray-700">S{splitter.splitterNumber}</span>
-                              <span className="font-mono text-gray-600">{splitter.ontCount} ONTs • ~{splitter.approxFibersLeft} left</span>
+                              <span className="font-mono text-gray-600">{splitter.ontCount}/{splitter.capacity} • ~{splitter.approxFibersLeft} left</span>
                             </div>
                           ))}
                           {lcp.splitters.length > 3 && (
@@ -546,29 +560,31 @@ export default function LCPSummarySection({ result, onPortClick }) {
               </div>
 
               <Card className="border">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Splitter Utilization (32-way approx.)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {selectedLCP.splitters.map((splitter, idx) => {
-                      const color = SPLITTER_COLORS[idx % SPLITTER_COLORS.length];
-                      return (
-                        <div key={splitter.splitterNumber} className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${color.bg} ${color.border}`}>
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2.5 h-2.5 rounded-full ${color.dot}`} />
-                            <span className={`font-medium ${color.text}`}>Splitter {splitter.splitterNumber}</span>
-                          </div>
-                          <div className="flex items-center gap-3 font-mono text-xs text-gray-600">
-                            <span>{splitter.ontCount} ONTs</span>
-                            {splitter.opticType && <span className="text-gray-500">{splitter.opticType}</span>}
-                            <span>~{splitter.approxFibersLeft} fibers left</span>
-                          </div>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Splitter Utilization</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {selectedLCP.splitters.map((splitter, idx) => {
+                    const color = SPLITTER_COLORS[idx % SPLITTER_COLORS.length];
+                    const ratio = splitter.splitterRatio || selectedLCP.splitter_ratio || `1:${splitter.capacity}`;
+                    return (
+                      <div key={splitter.splitterNumber} className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${color.bg} ${color.border}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${color.dot}`} />
+                          <span className={`font-medium ${color.text}`}>Splitter {splitter.splitterNumber}</span>
+                          <span className="text-[10px] text-gray-400 font-mono">({ratio})</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
+                        <div className="flex items-center gap-3 font-mono text-xs text-gray-600">
+                          <span>{splitter.ontCount} ONTs</span>
+                          {splitter.opticType && <span className="text-gray-500">{splitter.opticType}</span>}
+                          <span>~{splitter.approxFibersLeft} left</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
               </Card>
 
               {/* Location Info */}

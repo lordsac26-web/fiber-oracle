@@ -253,13 +253,14 @@ export const LCP_CSV_SPEC = {
   optionalColumns: [
     'Type', 'Location', 'Lat', 'Long',
     'OLT', 'Shelf', 'Slot', 'Port',
-    'Optic-Make', 'Optic-Model', 'Optic-Serial', 'Notes',
+    'Optic-Make', 'Optic-Model', 'Optic-Serial', 'Notes', 'SplitterRatio',
   ],
   aliases: {
     LCP: ['lcp_number', 'lcpnumber', 'clcp'],
     Splitter: ['splitter_number', 'splitternumber'],
+    SplitterRatio: ['splitter_ratio', 'splitterratio', 'splitter ratio'],
   },
   sampleRows: [
-    ['LCP-001', '1', 'LCP', '123 Main St', '40.7128', '-74.0060', 'OLT-CENTRAL-01', '1', '1', '1', 'Calix', '100-05730', 'SN12345', ''],
+    ['LCP-001', '1', 'LCP', '123 Main St', '40.7128', '-74.0060', 'OLT-CENTRAL-01', '1', '1', '1', 'Calix', '100-05730', 'SN12345', '', '1:32'],
   ],
 };
