@@ -65,7 +65,6 @@ import FiberLocator from './pages/FiberLocator';
 import Home from './pages/Home';
 import Impairments from './pages/Impairments';
 import IndustryLinks from './pages/IndustryLinks';
-import JobReports from './pages/JobReports';
 import KMLParser from './pages/KMLParser';
 import LCPInfo from './pages/LCPInfo';
 import LCPMap from './pages/LCPMap';
@@ -107,7 +106,6 @@ export const PAGES = {
     "Home": Home,
     "Impairments": Impairments,
     "IndustryLinks": IndustryLinks,
-    "JobReports": JobReports,
     "KMLParser": KMLParser,
     "LCPInfo": LCPInfo,
     "LCPMap": LCPMap,

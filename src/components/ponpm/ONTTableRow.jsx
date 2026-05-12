@@ -3,12 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Activity, Clipboard, Wifi } from 'lucide-react';
+import { Activity, Wifi } from 'lucide-react';
 import { formatUptime } from '@/components/ponpm/formatUptime';
 
 const STATUS_COLORS = { critical: 'bg-red-500', warning: 'bg-amber-500', ok: 'bg-green-500', offline: 'bg-purple-500' };
 
-export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, hasSparklines, onSelectDetail, onCreateJobReport }) {
+export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, hasSparklines, onSelectDetail }) {
   const cellCls = "px-1.5 py-1 text-[10px]";
   const monoCls = `${cellCls} font-mono`;
   const rightMono = `${monoCls} text-right`;
@@ -130,7 +130,7 @@ export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, hasSp
           </div>
         </TooltipProvider>
       </TableCell>
-      {/* Actions — icon-only buttons with tooltips */}
+      {/* Actions */}
       <TableCell className="px-1 py-1">
         <TooltipProvider>
           <div className="flex gap-0.5">
@@ -139,11 +139,6 @@ export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, hasSp
                 <Activity className="h-3 w-3" />
               </Button>
             </TooltipTrigger><TooltipContent className="text-xs">Details</TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); onCreateJobReport(ont); }} className="h-6 w-6">
-                <Clipboard className="h-3 w-3" />
-              </Button>
-            </TooltipTrigger><TooltipContent className="text-xs">Create Job Report</TooltipContent></Tooltip>
           </div>
         </TooltipProvider>
       </TableCell>

@@ -6,7 +6,7 @@ import {
   Calculator, Stethoscope, Sparkles, ImageIcon, BookOpen, Activity, Zap,
   Settings, ChevronRight, Wifi, WifiOff, Moon, Sun, Cable, GraduationCap,
   FileText, LayoutGrid, Eye, EyeOff, X, Check, FileSearch, FlaskConical,
-  ClipboardList, Info, HelpCircle
+  Info, HelpCircle
 } from 'lucide-react';
 import OnboardingTour from '@/components/OnboardingTour';
 import { Link } from 'react-router-dom';
@@ -41,7 +41,6 @@ const MODULES = [
   { id: 'links', title: 'Industry Links', description: 'Vendors, standards & resources', icon: BookOpen, color: 'from-gray-500 to-slate-600', page: 'IndustryLinks', badge: 'Reference' },
   { id: 'education', title: 'Education Center', description: 'Fiber 101, 102, 103 courses', icon: GraduationCap, color: 'from-green-500 to-emerald-600', page: 'Education', badge: 'Learn' },
   { id: 'userguide', title: 'User Guide', description: 'Complete how-to documentation', icon: BookOpen, color: 'from-blue-500 to-indigo-600', page: 'UserGuide', badge: 'Learn' },
-  { id: 'jobreports', title: 'Job Reports', description: 'Track & document fiber jobs', icon: ClipboardList, color: 'from-slate-500 to-gray-600', page: 'JobReports', badge: 'Testing' },
 ];
 
 const QUICK_REFS = [

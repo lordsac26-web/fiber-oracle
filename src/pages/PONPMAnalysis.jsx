@@ -81,9 +81,7 @@ import { useEeroData } from '@/components/ponpm/useEeroData';
 import { useEeroOntEnrichmentHandler } from '@/components/ponpm/useEeroOntEnrichment';
 import ONTTableRow from '@/components/ponpm/ONTTableRow';
 import UnifiedExportMenu from '@/components/ponpm/UnifiedExportMenu';
-import JobReportDialog from '@/components/ponpm/JobReportDialog';
 import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
-import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 const useLcpQuery = () => useQuery({
   queryKey: ['lcp-entries'],
   queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
@@ -133,9 +131,6 @@ export default function PONPMAnalysis() {
   const autoLoadAttemptedRef = useRef(false);
   const headerFileInputRef = useRef(null);
   const [viewMode, setViewMode] = useState('hierarchy');
-  const [creatingJobReport, setCreatingJobReport] = useState(null);
-  const [jobReportFormData, setJobReportFormData] = useState(null);
-  const [generatingReport, setGeneratingReport] = useState(false);
   const [selectedOntDetail, setSelectedOntDetail] = useState(null);
 
 
@@ -579,218 +574,6 @@ export default function PONPMAnalysis() {
   // CSV export helpers extracted to components/ponpm/ontCsvExports.js
   // Export functions consolidated into UnifiedExportMenu component
 
-  const createJobReportForONT = async (ont) => {
-    setCreatingJobReport(ont);
-    setGeneratingReport(true);
-    
-    try {
-      // Build comprehensive issue summary
-      const issues = [];
-      if (ont._analysis?.issues) {
-        ont._analysis.issues.forEach(issue => {
-          issues.push(`${issue.field}: ${issue.message} (${issue.value})`);
-        });
-      }
-      if (ont._analysis?.warnings) {
-        ont._analysis.warnings.forEach(warning => {
-          issues.push(`${warning.field}: ${warning.message} (${warning.value})`);
-        });
-      }
-      
-      // Build trend summary
-      const trends = [];
-      const trendDetails = [];
-      if (ont._trends) {
-        if (ont._trends.ont_rx_change !== null && ont._trends.ont_rx_change !== undefined) {
-          const change = ont._trends.ont_rx_change;
-          trends.push(`ONT Rx changed by ${change > 0 ? '+' : ''}${change.toFixed(1)} dB since ${format(new Date(ont._trends.previous_date), 'MMM d')}`);
-          trendDetails.push(`ONT Rx Power: ${change.toFixed(1)} dB change over ${ont._trends.days_since_last} days ${change < -1 ? '(DEGRADING)' : change > 1 ? '(IMPROVING)' : '(STABLE)'}`);
-        }
-        if (ont._trends.olt_rx_change !== null && ont._trends.olt_rx_change !== undefined) {
-          const change = ont._trends.olt_rx_change;
-          trendDetails.push(`OLT Rx Power: ${change > 0 ? '+' : ''}${change.toFixed(1)} dB change ${change < -1 ? '(DEGRADING)' : change > 1 ? '(IMPROVING)' : '(STABLE)'}`);
-        }
-        if (ont._trends.us_bip_change !== 0) {
-          trends.push(`Upstream BIP errors ${ont._trends.us_bip_change > 0 ? 'increased' : 'decreased'} by ${Math.abs(ont._trends.us_bip_change)}`);
-          trendDetails.push(`US BIP Errors: ${ont._trends.us_bip_change > 0 ? '+' : ''}${ont._trends.us_bip_change} ${ont._trends.us_bip_change > 100 ? '(SIGNIFICANT INCREASE)' : ''}`);
-        }
-        if (ont._trends.ds_bip_change !== 0) {
-          trends.push(`Downstream BIP errors ${ont._trends.ds_bip_change > 0 ? 'increased' : 'decreased'} by ${Math.abs(ont._trends.ds_bip_change)}`);
-          trendDetails.push(`DS BIP Errors: ${ont._trends.ds_bip_change > 0 ? '+' : ''}${ont._trends.ds_bip_change} ${ont._trends.ds_bip_change > 100 ? '(SIGNIFICANT INCREASE)' : ''}`);
-        }
-        if (ont._trends.us_fec_change !== 0) {
-          trends.push(`Upstream FEC uncorrected ${ont._trends.us_fec_change > 0 ? 'increased' : 'decreased'} by ${Math.abs(ont._trends.us_fec_change)}`);
-          trendDetails.push(`US FEC Uncorrected: ${ont._trends.us_fec_change > 0 ? '+' : ''}${ont._trends.us_fec_change} ${ont._trends.us_fec_change > 10 ? '(SIGNIFICANT INCREASE)' : ''}`);
-        }
-        if (ont._trends.ds_fec_change !== 0) {
-          trends.push(`Downstream FEC uncorrected ${ont._trends.ds_fec_change > 0 ? 'increased' : 'decreased'} by ${Math.abs(ont._trends.ds_fec_change)}`);
-          trendDetails.push(`DS FEC Uncorrected: ${ont._trends.ds_fec_change > 0 ? '+' : ''}${ont._trends.ds_fec_change} ${ont._trends.ds_fec_change > 10 ? '(SIGNIFICANT INCREASE)' : ''}`);
-        }
-      }
-      
-      // Build subscriber info block for AI prompt
-      const sub = ont._subscriber;
-      const subscriberBlock = sub ? `
-Subscriber Information:
-- Customer Name: ${sub.name || 'N/A'}
-- Account: ${sub.account || 'N/A'}
-- Address: ${sub.address || 'N/A'}
-- City: ${sub.city || 'N/A'}
-- Zip: ${sub.zip || 'N/A'}
-- ONT Ranged: ${sub.ontRanged || 'N/A'}
-- Software Version: ${sub.softwareVersion || 'N/A'}` : '\nSubscriber Information: Not available';
-
-      // Use AI to generate smart diagnosis and recommendations
-      const aiPrompt = `You are a fiber optic technician creating a job report for an ONT with the following data:
-
-Serial Number (FSAN): ${ont.SerialNumber}
-ONT ID: ${ont.OntID || 'Unknown'}
-Model: ${ont.model || 'Unknown'}
-OLT: ${ont._oltName}
-Port: ${ont._port}
-Location: ${ont._lcpLocation || ont._lcpNumber ? `LCP ${ont._lcpNumber}${ont._splitterNumber ? ' / Splitter ' + ont._splitterNumber : ''}` : 'Unknown'}
-Address: ${ont._lcpAddress || 'Unknown'}
-${subscriberBlock}
-
-Current Power Levels:
-- ONT Rx: ${ont.OntRxOptPwr} dBm
-- OLT Rx: ${ont.OLTRXOptPwr} dBm
-- ONT Tx: ${ont.OntTxPwr || 'N/A'} dBm
-
-Issues Detected:
-${issues.length > 0 ? issues.join('\n') : 'No critical issues detected'}
-
-${trends.length > 0 ? `Performance Trends:\n${trends.join('\n')}` : ''}
-
-Error Counts:
-- Upstream BIP Errors: ${ont.UpstreamBipErrors || 0}
-- Downstream BIP Errors: ${ont.DownstreamBipErrors || 0}
-- Upstream FEC Uncorrected: ${ont.UpstreamFecUncorrectedCodeWords || 0}
-- Downstream FEC Uncorrected: ${ont.DownstreamFecUncorrectedCodeWords || 0}
-
-Based on this data, generate:
-1. A professional diagnosis of the issues
-2. Recommended actions to resolve them
-3. Equipment that should be used
-4. Expected outcomes
-
-Be specific, technical, and actionable.`;
-
-      const aiResponse = await base44.integrations.Core.InvokeLLM({
-        prompt: aiPrompt,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            diagnosis: { type: "string" },
-            recommended_actions: { type: "array", items: { type: "string" } },
-            equipment_needed: { type: "array", items: { type: "string" } },
-            expected_outcome: { type: "string" },
-            suggested_status: { type: "string", enum: ["in_progress", "needs_followup", "completed"] }
-          }
-        }
-      });
-      
-      // Pre-fill form data with historical trends
-      const trendSummary = trendDetails.length > 0 
-        ? `\n\nHISTORICAL PERFORMANCE TRENDS (Last ${ont._trends?.days_since_last || 0} days):\n${trendDetails.map(t => `- ${t}`).join('\n')}`
-        : '';
-      
-      const formData = {
-        job_number: `WO-PON-${ont.SerialNumber?.substring(0, 8)}-${Date.now().toString().slice(-4)}`,
-        technician_name: '',
-        location: ont._lcpAddress || ont._lcpLocation || `${ont._oltName} / ${ont._port}`,
-        start_power_level: ont.OntRxOptPwr,
-        end_power_level: '',
-        status: aiResponse.suggested_status || 'in_progress',
-        notes: `DIAGNOSIS:\n${aiResponse.diagnosis}\n\nRECOMMENDED ACTIONS:\n${aiResponse.recommended_actions?.map((a, i) => `${i + 1}. ${a}`).join('\n') || 'None'}\n\nEXPECTED OUTCOME:\n${aiResponse.expected_outcome}${trendSummary}\n\nONT DETAILS:\n- FSAN: ${ont.SerialNumber}\n- ONT ID: ${ont.OntID || 'Unknown'}\n- Model: ${ont.model || 'Unknown'}\n- OLT: ${ont._oltName} / ${ont._port}\n- LCP: ${ont._lcpNumber || 'Unknown'}${ont._splitterNumber ? ' / Splitter ' + ont._splitterNumber : ''}${sub ? `\n\nSUBSCRIBER INFO:\n- Customer: ${sub.name || 'N/A'}\n- Account: ${sub.account || 'N/A'}\n- Address: ${[sub.address, sub.city, sub.zip].filter(Boolean).join(', ') || 'N/A'}\n- ONT Ranged: ${sub.ontRanged || 'N/A'}\n- Software Version: ${sub.softwareVersion || 'N/A'}` : ''}`,
-        equipment_used: aiResponse.equipment_needed || [],
-        diagnosis_used: true,
-        diagnosis_result: aiResponse.diagnosis,
-        fiber_info: {
-          fsan: ont.SerialNumber,
-          ont_id: ont.OntID,
-          model: ont.model,
-          olt: ont._oltName,
-          port: ont._port,
-          lcp: ont._lcpNumber,
-          splitter: ont._splitterNumber
-        },
-        subscriber_info: sub ? {
-          name: sub.name || null,
-          account: sub.account || null,
-          address: sub.address || null,
-          city: sub.city || null,
-          zip: sub.zip || null,
-          ont_ranged: sub.ontRanged || null,
-          software_version: sub.softwareVersion || null,
-        } : null,
-        photo_urls: [],
-        historical_trends: trendDetails.length > 0 ? trendDetails : null
-      };
-      
-      setJobReportFormData(formData);
-      toast.success('Job report pre-filled with AI analysis');
-    } catch (error) {
-      console.error('Failed to generate job report:', error);
-      toast.error('Failed to generate AI analysis');
-      
-      // Fallback to basic data
-      const basicFormData = {
-        job_number: `WO-PON-${ont.SerialNumber?.substring(0, 8)}-${Date.now().toString().slice(-4)}`,
-        technician_name: '',
-        location: ont._lcpAddress || ont._lcpLocation || `${ont._oltName} / ${ont._port}`,
-        start_power_level: ont.OntRxOptPwr,
-        end_power_level: '',
-        status: 'in_progress',
-        notes: `ONT Analysis Job\n\nFSAN: ${ont.SerialNumber}\nONT ID: ${ont.OntID || 'Unknown'}\nModel: ${ont.model || 'Unknown'}\nOLT: ${ont._oltName} / ${ont._port}\nLCP: ${ont._lcpNumber || 'Unknown'}\n\nCurrent ONT Rx: ${ont.OntRxOptPwr} dBm\n\nIssues detected:\n${ont._analysis?.issues?.map(i => `- ${i.message}`).join('\n') || 'None'}`,
-        equipment_used: [],
-        diagnosis_used: false,
-        fiber_info: {
-          fsan: ont.SerialNumber,
-          ont_id: ont.OntID,
-          model: ont.model,
-          olt: ont._oltName,
-          port: ont._port,
-          lcp: ont._lcpNumber
-        },
-        photo_urls: []
-      };
-      setJobReportFormData(basicFormData);
-    } finally {
-      setGeneratingReport(false);
-    }
-  };
-  
-  const handleJobReportSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const data = {
-        ...jobReportFormData,
-        start_power_level: jobReportFormData.start_power_level ? parseFloat(jobReportFormData.start_power_level) : null,
-        end_power_level: jobReportFormData.end_power_level ? parseFloat(jobReportFormData.end_power_level) : null,
-        power_improvement: jobReportFormData.start_power_level && jobReportFormData.end_power_level 
-          ? (parseFloat(jobReportFormData.end_power_level) - parseFloat(jobReportFormData.start_power_level)).toFixed(2)
-          : null
-      };
-      
-      const report = await base44.entities.JobReport.create(data);
-      
-      // Generate and download PDF via direct fetch (SDK invoke doesn't support binary)
-      await downloadPdfFromFunction(
-        'generatePDF',
-        { type: 'jobReport', data: report },
-        `JobReport-${report.job_number}.pdf`
-      );
-      
-      toast.success('Job report created and PDF downloaded');
-      setCreatingJobReport(null);
-      setJobReportFormData(null);
-    } catch (error) {
-      console.error('Failed to create job report:', error);
-      toast.error('Failed to create job report');
-    }
-  };
-
   // Memoize the _trends count so the render doesn't iterate the ONT array 3+ times
   const ontsWithTrendsCount = useMemo(() => result?.onts?.filter(o => o._trends).length ?? 0, [result?.onts]);
   const ontsDegradingCount  = useMemo(() => result?.onts?.filter(o => o._trends?.ont_rx_change < -1).length ?? 0, [result?.onts]);
@@ -1075,7 +858,7 @@ Be specific, technical, and actionable.`;
             />
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <div className={`grid grid-cols-2 ${eeroMatchCount > 0 ? 'md:grid-cols-7' : 'md:grid-cols-6'} gap-3`}>
               <Card className="border-0 shadow">
                 <CardContent className="p-4 text-center">
                   <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -1142,6 +925,19 @@ Be specific, technical, and actionable.`;
                   <div className="text-xs text-gray-500">OLTs</div>
                 </CardContent>
               </Card>
+              {eeroMatchCount > 0 && (
+                <Card className="border-0 shadow">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-2xl font-bold text-emerald-600">
+                      {eeroMatchCount}
+                    </div>
+                    <div className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                      <Wifi className="h-3 w-3 text-emerald-500" />
+                      w/ eero
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Issue Detail Panel */}
@@ -1688,7 +1484,7 @@ Be specific, technical, and actionable.`;
                                           </TableHeader>
                                           <TableBody>
                                             {portOnts.filter(ont => !hideOntStatus[ont._analysis.status]).map((ont, idx) => (
-                                             <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} hasEeroData={eeroRecordsLoaded} onSelectDetail={setSelectedOntDetail} onCreateJobReport={createJobReportForONT} />
+                                             <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} hasEeroData={eeroRecordsLoaded} onSelectDetail={setSelectedOntDetail} />
                                             ))}
                                           </TableBody>
                                                 </Table>
@@ -1761,14 +1557,7 @@ Be specific, technical, and actionable.`;
         }}
       />
 
-      <JobReportDialog
-        open={!!creatingJobReport}
-        onOpenChange={(open) => { if (!open) { setCreatingJobReport(null); setJobReportFormData(null); } }}
-        generatingReport={generatingReport}
-        jobReportFormData={jobReportFormData}
-        setJobReportFormData={setJobReportFormData}
-        onSubmit={handleJobReportSubmit}
-      />
+
     </div>
   );
 }
