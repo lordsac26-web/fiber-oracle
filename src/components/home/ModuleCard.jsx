@@ -9,22 +9,22 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
   const isDisabled = module.isUnderConstruction;
 
   const Wrapper = isDisabled ? 'div' : Link;
-  const wrapperProps = isDisabled
-    ? { className: 'block h-full cursor-not-allowed', onClick: (e) => e.preventDefault() }
-    : { to: createPageUrl(module.page), className: 'block h-full' };
+  const wrapperProps = isDisabled ?
+  { className: 'block h-full cursor-not-allowed', onClick: (e) => e.preventDefault() } :
+  { to: createPageUrl(module.page), className: 'block h-full' };
 
   return (
     <Wrapper {...wrapperProps}>
       <div
         className={cn(
           'group relative overflow-hidden rounded-2xl h-full cursor-pointer transition-all duration-300',
-          darkMode
-            ? 'bg-white/5 border border-white/10 hover:border-cyan-400/40 backdrop-blur-sm hover:shadow-[0_0_24px_rgba(0,240,255,0.15)] hover:bg-white/10'
-            : 'bg-white border border-slate-200 hover:border-blue-400/60 shadow-sm hover:shadow-md hover:bg-slate-50',
+          darkMode ?
+          'bg-white/5 border border-white/10 hover:border-cyan-400/40 backdrop-blur-sm hover:shadow-[0_0_24px_rgba(0,240,255,0.15)] hover:bg-white/10' :
+          'bg-white border border-slate-200 hover:border-blue-400/60 shadow-sm hover:shadow-md hover:bg-slate-50',
           'hover:-translate-y-1',
           compact ? 'p-2.5 md:p-3' : 'p-3 md:p-5'
-        )}
-      >
+        )}>
+        
         {/* Gradient top-edge glow on hover */}
         <div className={cn(
           'absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/0 to-transparent',
@@ -33,7 +33,7 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
 
         {/* Background gradient bloom */}
         <div className={cn(
-          `absolute inset-0 bg-gradient-to-br ${module.color} opacity-0`,
+          `absolute inset-0 bg-gradient-to-br hidden ${module.color} opacity-0`,
           'group-hover:opacity-[0.06] transition-opacity duration-300'
         )} />
 
@@ -46,9 +46,9 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
             !isDisabled && 'group-hover:scale-110',
             compact ? 'w-8 h-8 md:w-9 md:h-9' : 'w-10 h-10 md:w-14 md:h-14 mb-2 md:mb-3'
           )}>
-            {isDisabled
-              ? <Construction className={cn('text-white', compact ? 'h-4 w-4' : 'h-5 w-5 md:h-7 md:w-7')} />
-              : <module.icon className={cn('text-white', compact ? 'h-4 w-4' : 'h-5 w-5 md:h-7 md:w-7')} />
+            {isDisabled ?
+            <Construction className={cn('text-white', compact ? 'h-4 w-4' : 'h-5 w-5 md:h-7 md:w-7')} /> :
+            <module.icon className={cn('text-white', compact ? 'h-4 w-4' : 'h-5 w-5 md:h-7 md:w-7')} />
             }
           </div>
 
@@ -59,19 +59,19 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
               compact ? 'text-xs md:text-sm' : 'text-sm md:text-base'
             )}>
               {module.title}
-              {module.isBeta && (
-                <Badge className="ml-1.5 bg-amber-500/80 text-[8px] px-1 py-0 align-middle">
+              {module.isBeta &&
+              <Badge className="ml-1.5 bg-amber-500/80 text-[8px] px-1 py-0 align-middle">
                   <FlaskConical className="h-2 w-2 mr-0.5 inline" />BETA
                 </Badge>
-              )}
-              {module.isNew && !isDisabled && (
-                <Badge className="ml-1.5 bg-emerald-500/80 text-[8px] px-1 py-0 align-middle">NEW</Badge>
-              )}
-              {isDisabled && (
-                <Badge className="ml-1.5 bg-amber-600/80 text-[8px] px-1 py-0 align-middle">
+              }
+              {module.isNew && !isDisabled &&
+              <Badge className="ml-1.5 bg-emerald-500/80 text-[8px] px-1 py-0 align-middle">NEW</Badge>
+              }
+              {isDisabled &&
+              <Badge className="ml-1.5 bg-amber-600/80 text-[8px] px-1 py-0 align-middle">
                   <Construction className="h-2 w-2 mr-0.5 inline" />WIP
                 </Badge>
-              )}
+              }
             </h3>
             <p className={cn(
               'mt-0.5 line-clamp-2',
@@ -84,12 +84,12 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
         </div>
 
         {/* Chevron */}
-        {!compact && (
-          <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
+        {!compact &&
+        <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block">
             <ChevronRight className="h-4 w-4 text-cyan-400" />
           </div>
-        )}
+        }
       </div>
-    </Wrapper>
-  );
+    </Wrapper>);
+
 }
