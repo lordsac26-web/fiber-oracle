@@ -27,10 +27,11 @@ export default function LCPImportDialog({
                   <li><strong>LCP</strong> – LCP/CLCP number *</li>
                   <li><strong>Splitter</strong> – Splitter number *</li>
                   <li><strong>Location</strong> – Physical location</li>
-                  <li><strong>Lat</strong> – GPS latitude (decimal or DMS)</li>
-                  <li><strong>Long</strong> – GPS longitude (decimal or DMS)</li>
+                  <li><strong>Lat</strong> or <strong>GPS Lat</strong> – GPS latitude (decimal or DMS)</li>
+                  <li><strong>Long</strong> or <strong>GPS Long</strong> – GPS longitude (decimal or DMS)</li>
                   <li><strong>OLT</strong> – OLT name</li>
                   <li><strong>Shelf, Slot, Port</strong> – OLT location</li>
+                  <li><strong>SplitterRatio</strong> – e.g. 1:32 or 1:64 (optional)</li>
                   <li><strong>Optic-Make, Optic-Model, Optic-Serial, Notes</strong> – Optional</li>
                 </ul>
                 <p className="mt-1 text-xs text-blue-600">💡 Coordinates: decimal (40.7128) or DMS (42°28&apos;40.25&quot;N)</p>

@@ -1,0 +1,110 @@
+{
+  "name": "LCPEntry",
+  "type": "object",
+  "properties": {
+    "lcp_number": {
+      "type": "string",
+      "description": "LCP/CLCP identifier"
+    },
+    "splitter_number": {
+      "type": "string",
+      "description": "Splitter number within the LCP"
+    },
+    "location": {
+      "type": "string",
+      "description": "Physical location description"
+    },
+    "address": {
+      "type": "string",
+      "description": "Street address"
+    },
+    "gps_lat": {
+      "type": "number",
+      "description": "GPS latitude"
+    },
+    "gps_lng": {
+      "type": "number",
+      "description": "GPS longitude"
+    },
+    "olt_name": {
+      "type": "string",
+      "description": "OLT name (e.g., Copake)"
+    },
+    "olt_shelf": {
+      "type": "string",
+      "description": "OLT shelf number"
+    },
+    "olt_slot": {
+      "type": "string",
+      "description": "OLT slot number"
+    },
+    "olt_port": {
+      "type": "string",
+      "description": "OLT port number"
+    },
+    "optic_make": {
+      "type": "string",
+      "description": "Optic manufacturer"
+    },
+    "optic_model": {
+      "type": "string",
+      "description": "Optic model number"
+    },
+    "optic_serial": {
+      "type": "string",
+      "description": "Optic serial number"
+    },
+    "optic_type": {
+      "type": "string",
+      "description": "Optic type classification (XGS-DD, XGS-COMBO, XGS-COMBO-EXT)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes"
+    },
+    "splitter_ratio": {
+      "type": "string",
+      "description": "Splitter ratio (e.g., 1:32 or 1:64)"
+    },
+    "fiber_count": {
+      "type": "number",
+      "description": "Number of fibers served"
+    }
+  },
+  "required": [
+    "lcp_number",
+    "splitter_number"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "read": {},
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

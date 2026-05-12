@@ -222,7 +222,7 @@ export default function LCPInfo() {
       if (fl.includes('\t')) delim = '\t';
       else if ((fl.match(/;/g)||[]).length > (fl.match(/,/g)||[]).length) delim = ';';
       const headers = parseCSVLine(fl, delim).map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
-      const hMap = { 'type':'entryType','lcp':'lcpNumber','lcp_number':'lcpNumber','lcpnumber':'lcpNumber','clcp':'lcpNumber','splitter':'splitterNumber','splitter_number':'splitterNumber','splitternumber':'splitterNumber','location':'physicalLocation','physical_location':'physicalLocation','address':'physicalLocation','lat':'latitude','latitude':'latitude','gps_lat':'latitude','long':'longitude','longitude':'longitude','lon':'longitude','lng':'longitude','gps_lng':'longitude','olt':'oltName','olt_name':'oltName','shelf':'oltShelf','olt_shelf':'oltShelf','slot':'oltSlot','olt_slot':'oltSlot','card':'oltSlot','port':'oltPort','olt_port':'oltPort','pon_port':'oltPort','optic_make':'opticMake','make':'opticMake','optic_model':'opticModel','model':'opticModel','optic_serial':'opticSerial','serial':'opticSerial','notes':'notes','note':'notes','comments':'notes' };
+      const hMap = { 'type':'entryType','lcp':'lcpNumber','lcp_number':'lcpNumber','lcpnumber':'lcpNumber','clcp':'lcpNumber','splitter':'splitterNumber','splitter_number':'splitterNumber','splitternumber':'splitterNumber','location':'physicalLocation','physical_location':'physicalLocation','address':'physicalLocation','lat':'latitude','latitude':'latitude','gps_lat':'latitude','gps lat':'latitude','long':'longitude','longitude':'longitude','lon':'longitude','lng':'longitude','gps_lng':'longitude','gps long':'longitude','gps_long':'longitude','olt':'oltName','olt_name':'oltName','shelf':'oltShelf','olt_shelf':'oltShelf','slot':'oltSlot','olt_slot':'oltSlot','card':'oltSlot','port':'oltPort','olt_port':'oltPort','pon_port':'oltPort','optic_make':'opticMake','make':'opticMake','optic_model':'opticModel','model':'opticModel','optic_serial':'opticSerial','serial':'opticSerial','notes':'notes','note':'notes','comments':'notes','splitterratio':'splitterRatio','splitter_ratio':'splitterRatio','splitter ratio':'splitterRatio' };
       const mapped = headers.map(h => hMap[h] || h);
       if (!mapped.includes('lcpNumber') && !mapped.includes('splitterNumber')) { setImportError(`No LCP/Splitter columns. Found: ${headers.join(', ')}`); return; }
       const entries = [], warnings = [];
@@ -249,18 +249,19 @@ export default function LCPInfo() {
       gps_lat: e.latitude ? parseFloat(e.latitude) : null, gps_lng: e.longitude ? parseFloat(e.longitude) : null,
       olt_name: e.oltName||'', olt_shelf: e.oltShelf||'', olt_slot: e.oltSlot||'', olt_port: e.oltPort||'',
       optic_make: e.opticMake||'', optic_model: e.opticModel||'', optic_serial: e.opticSerial||'', notes: e.notes||'',
+      splitter_ratio: e.splitterRatio||'',
     })));
   };
 
   const downloadTemplate = () => {
-    const t = 'Type,LCP,Splitter,Location,Lat,Long,OLT,Shelf,Slot,Port,Optic-Make,Optic-Model,Optic-Serial,Notes\nLCP,LCP-001,SPL-001,"123 Main St",40.7128,-74.0060,OLT-01,0,1,1-4,Finisar,FTLX1475D3BCL,ABC123,Sample';
+    const t = 'Type,LCP,Splitter,Location,Lat,Long,OLT,Shelf,Slot,Port,Optic-Make,Optic-Model,Optic-Serial,Notes,SplitterRatio\nLCP,LCP-001,SPL-001,"123 Main St",40.7128,-74.0060,OLT-01,0,1,1-4,Finisar,FTLX1475D3BCL,ABC123,Sample,1:32';
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([t],{type:'text/csv'})); a.download = 'lcp_clcp_template.csv'; a.click();
   };
 
   const exportToCSV = () => {
     if (!lcpEntries.length) { toast.error('No entries'); return; }
-    const h = ['Type','LCP','Splitter','Location','Lat','Long','OLT','Shelf','Slot','Port','Optic-Make','Optic-Model','Optic-Serial','Notes'];
-    const rows = lcpEntries.map(e => [(e.lcp_number||'').toUpperCase().startsWith('CLCP')?'CLCP':'LCP',e.lcp_number||'',e.splitter_number||'',e.location||'',e.gps_lat||'',e.gps_lng||'',e.olt_name||'',e.olt_shelf||'',e.olt_slot||'',e.olt_port||'',e.optic_make||'',e.optic_model||'',e.optic_serial||'',e.notes||'']);
+    const h = ['Type','LCP','Splitter','Location','Lat','Long','OLT','Shelf','Slot','Port','Optic-Make','Optic-Model','Optic-Serial','Notes','SplitterRatio'];
+    const rows = lcpEntries.map(e => [(e.lcp_number||'').toUpperCase().startsWith('CLCP')?'CLCP':'LCP',e.lcp_number||'',e.splitter_number||'',e.location||'',e.gps_lat||'',e.gps_lng||'',e.olt_name||'',e.olt_shelf||'',e.olt_slot||'',e.olt_port||'',e.optic_make||'',e.optic_model||'',e.optic_serial||'',e.notes||'',e.splitter_ratio||'']);
     const csv = [h.join(','),...rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(','))].join('\n');
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download = `lcp_entries_${new Date().toISOString().slice(0,10)}.csv`; a.click();
     toast.success(`Exported ${lcpEntries.length} entries`);
