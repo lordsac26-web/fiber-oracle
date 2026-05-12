@@ -18,6 +18,7 @@ const DEFAULT_PREFERENCES = {
   logoUrl: '',
   customFields: ['Job Number', 'Technician', 'Location'],
   hasSeenTour: false,
+  // aiCentricMode removed — Photon AI integration no longer active
 };
 
 const UserPreferencesContext = createContext();
