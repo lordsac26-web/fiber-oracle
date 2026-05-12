@@ -73,7 +73,7 @@ export default function UserGuide() {
         <ol>
           <li>Navigate to https://www.fiberoracle.com</li>
           <li>Log in with your company email and password</li>
-          <li>(Optional) Set your preference: Traditional Mode or AI-Centric Mode</li>
+
           <li>You're ready to go</li>
         </ol>
         
@@ -197,32 +197,7 @@ export default function UserGuide() {
         <p>Within a Job Report, tap Add Photo to open the camera. Photos automatically include metadata (time, GPS, job ID) and are tied directly to your measurements and site location.</p>
       `
     },
-    {
-      id: 'photon_ai',
-      title: 'P.H.O.T.O.N. AI Agent',
-      content: `
-        <h3>What Is P.H.O.T.O.N.?</h3>
-        <p>P.H.O.T.O.N. (Portable Hosting Optical Testing Operations Nexus) is your AI-powered technical expert. It is a conversational agent trained on your company's complete knowledge base, industry standards, and proven troubleshooting methods.</p>
 
-        <h3>How to Access</h3>
-        <ul>
-          <li><strong>Desktop:</strong> Click P.H.O.T.O.N. Chat from main menu</li>
-          <li><strong>Mobile (Traditional Mode):</strong> Tap Chat in bottom navigation</li>
-          <li><strong>Mobile (AI-Centric Mode):</strong> AI chat appears on every page</li>
-        </ul>
-
-        <h3>What P.H.O.T.O.N. Can Help With</h3>
-        <ul>
-          <li>Technical Calculations (power budgets, dB conversions, loss estimates)</li>
-          <li>Troubleshooting Guidance (diagnostic procedures, root cause analysis)</li>
-          <li>Installation Procedures (best practices, safety procedures, equipment specs)</li>
-          <li>Documentation Lookup (find references in your knowledge base)</li>
-          <li>Network Analysis (interpret ONT performance data, identify trends)</li>
-        </ul>
-
-        <p><strong>Important:</strong> Always verify critical information with your supervisor or company standards before acting on it.</p>
-      `
-    },
     {
       id: 'documentation',
       title: 'Documentation & Learning',
@@ -245,7 +220,6 @@ export default function UserGuide() {
 
         <p><strong>App won't sync:</strong> Check internet connection, go to Settings and Force Sync, or restart the app.</p>
         <p><strong>Photos not saving:</strong> Ensure sufficient storage and grant app permission to access camera and photos.</p>
-        <p><strong>P.H.O.T.O.N. not responding:</strong> Refresh browser, restart app, or check internet connection. Start a new conversation if needed.</p>
         <p><strong>PON PM upload failing:</strong> Ensure the file is a valid CSV export from your OLT system. Check that file size is under 50MB.</p>
         <p><strong>GPS location inaccurate:</strong> Try outdoors with clear sky view, or manually enter coordinates.</p>
         <p><strong>PDF export has garbled characters:</strong> This should not happen with the latest version. If you see unreadable characters, contact your admin.</p>
@@ -258,21 +232,18 @@ export default function UserGuide() {
         <h3>Recommended</h3>
         <ul>
           <li>Create detailed job reports with photos</li>
-          <li>Use P.H.O.T.O.N. for guidance before attempting unfamiliar tasks</li>
           <li>Verify critical calculations a second time</li>
           <li>Sync data regularly (especially end-of-day)</li>
           <li>Upload PON PM reports regularly to track trends over time</li>
           <li>Review the FEC Corrected analysis to catch degrading links early</li>
           <li>Keep your LCP database up to date with GPS coordinates</li>
-          <li>Submit useful documents you discover</li>
+          <li>Use the Fiber Doctor tool for interactive troubleshooting guidance</li>
         </ul>
 
         <h3>Avoid</h3>
         <ul>
-          <li>Relying solely on P.H.O.T.O.N. for critical safety decisions</li>
           <li>Taking photos of sensitive network architecture (if restricted)</li>
           <li>Forgetting to GPS-tag your locations</li>
-          <li>Deleting conversations prematurely (audit trail may be needed)</li>
           <li>Using outdated documents from the reference library without checking the version date</li>
         </ul>
       `
@@ -397,7 +368,7 @@ export default function UserGuide() {
           <CardContent className="space-y-4">
             <details className="group">
               <summary className="cursor-pointer font-medium text-white">Can I use FiberOracle without an internet connection?</summary>
-              <p className="mt-2 text-slate-300">Yes. Core tools (Loss Budget, Optical Calculator) work fully offline. Reference docs are accessible if viewed before losing connection. Job reports sync when you're back online. P.H.O.T.O.N. chat requires internet.</p>
+              <p className="mt-2 text-slate-300">Yes. Core tools (Loss Budget, Optical Calculator) work fully offline. Reference docs are accessible if viewed before losing connection. Job reports sync when you're back online.</p>
             </details>
 
             <details className="group">
@@ -407,12 +378,7 @@ export default function UserGuide() {
 
             <details className="group">
               <summary className="cursor-pointer font-medium text-white">Can I access FiberOracle on multiple devices?</summary>
-              <p className="mt-2 text-slate-300">Yes. Log in on any device. Your preferences and past conversations sync across devices. Job reports created on one device appear on all devices.</p>
-            </details>
-
-            <details className="group">
-              <summary className="cursor-pointer font-medium text-white">What should I do if P.H.O.T.O.N. gives me incorrect information?</summary>
-              <p className="mt-2 text-slate-300">P.H.O.T.O.N. can make mistakes. Always verify critical information with your supervisor or company standards before acting on it. Report issues to your admin.</p>
+              <p className="mt-2 text-slate-300">Yes. Log in on any device. Your preferences sync across devices. Job reports created on one device appear on all devices.</p>
             </details>
 
             <details className="group">
@@ -428,7 +394,7 @@ export default function UserGuide() {
             <h3 className="text-white font-semibold mb-2">Need Help?</h3>
             <p className="text-slate-300 mb-4">If you can't find the answer you're looking for:</p>
             <div className="space-y-2">
-              <p className="text-slate-300">1. <strong>Ask P.H.O.T.O.N.:</strong> Open P.H.O.T.O.N. Chat and ask your question directly</p>
+              <p className="text-slate-300">1. <strong>Use Fiber Doctor:</strong> The interactive troubleshooting flowchart covers most common field problems</p>
               <p className="text-slate-300">2. <strong>Contact Support:</strong> Reach out to your administrator or support team</p>
               <p className="text-slate-300">3. <strong>Report Issues:</strong> Go to Settings → Report Issue with details</p>
             </div>
