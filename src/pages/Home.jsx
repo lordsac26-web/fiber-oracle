@@ -37,7 +37,6 @@ const MODULES = [
   { id: 'tables', title: 'Reference Tables', description: 'Attenuation, connectors, splices & more', icon: BookOpen, color: 'from-slate-500 to-gray-600', page: 'ReferenceTables', badge: 'Reference' },
   { id: 'standards', title: 'Industry Standards', description: 'TIA-568, TIA-526, IEC, IEEE, ITU-T specs', icon: BookOpen, color: 'from-purple-500 to-pink-600', page: 'Standards', badge: 'Reference', isNew: true },
 
-  { id: 'kmlparser', title: 'KML/KMZ Parser', description: 'Extract GPS coordinates from Google Earth', icon: FileText, color: 'from-emerald-500 to-teal-600', page: 'KMLParser', badge: 'Reference', isNew: true },
   { id: 'links', title: 'Industry Links', description: 'Vendors, standards & resources', icon: BookOpen, color: 'from-gray-500 to-slate-600', page: 'IndustryLinks', badge: 'Reference' },
   { id: 'education', title: 'Education Center', description: 'Fiber 101, 102, 103 courses', icon: GraduationCap, color: 'from-green-500 to-emerald-600', page: 'Education', badge: 'Learn' },
   { id: 'userguide', title: 'User Guide', description: 'Complete how-to documentation', icon: BookOpen, color: 'from-blue-500 to-indigo-600', page: 'UserGuide', badge: 'Learn' },
