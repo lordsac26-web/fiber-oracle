@@ -579,10 +579,11 @@ Deno.serve(async (req) => {
     const oltMap = new Map();
     for (const r of records) {
       const olt = r.olt_name || 'Unknown';
-      if (!oltMap.has(olt)) oltMap.set(olt, { total: 0, critical: 0, warning: 0, ok: 0, offline: 0 });
+      if (!oltMap.has(olt)) oltMap.set(olt, { total: 0, critical: 0, warning: 0, ok: 0, offline: 0, rxSum: 0, rxCount: 0 });
       const o = oltMap.get(olt);
       o.total++;
       if (r.status) o[r.status] = (o[r.status] || 0) + 1;
+      if (r.ont_rx_power != null && !isNaN(r.ont_rx_power)) { o.rxSum += r.ont_rx_power; o.rxCount++; }
     }
     const oltRows = [...oltMap.entries()]
       .map(([olt, v]) => ({

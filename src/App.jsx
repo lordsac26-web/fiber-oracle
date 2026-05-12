@@ -11,7 +11,6 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppErrorBoundary from '@/components/AppErrorBoundary';
 import AlertThresholds from './pages/AlertThresholds';
-import ExecutiveReport from './pages/ExecutiveReport';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -64,7 +63,7 @@ const AuthenticatedApp = () => {
         />
       ))}
       <Route path="/AlertThresholds" element={<LayoutWrapper currentPageName="AlertThresholds"><AlertThresholds /></LayoutWrapper>} />
-      <Route path="/ExecutiveReport" element={<LayoutWrapper currentPageName="ExecutiveReport"><ExecutiveReport /></LayoutWrapper>} />
+
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
