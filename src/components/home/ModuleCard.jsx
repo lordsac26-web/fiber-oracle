@@ -32,10 +32,10 @@ export default function ModuleCard({ module, compact = false, darkMode = true })
         )} />
 
         {/* Background gradient bloom */}
-        <div className={cn(
-          `absolute inset-0 bg-gradient-to-br hidden ${module.color} opacity-0`,
-          'group-hover:opacity-[0.06] transition-opacity duration-300'
-        )} />
+        
+
+
+        
 
         <div className={cn('flex', compact ? 'items-start gap-2 md:gap-3' : 'flex-col items-center text-center md:items-start md:text-left')}>
           {/* Icon */}
