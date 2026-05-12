@@ -6,7 +6,7 @@ import {
   Calculator, Stethoscope, Sparkles, ImageIcon, BookOpen, Activity, Zap,
   Settings, ChevronRight, Wifi, WifiOff, Moon, Sun, Cable, GraduationCap,
   FileText, LayoutGrid, Eye, EyeOff, X, Check, FileSearch, FlaskConical,
-  ClipboardList, Info, HelpCircle, TrendingUp
+  ClipboardList, Info, HelpCircle
 } from 'lucide-react';
 import OnboardingTour from '@/components/OnboardingTour';
 import { Link } from 'react-router-dom';
@@ -26,8 +26,6 @@ const MODULES = [
   { id: 'splitterloss', title: 'Splitter Loss', description: 'Instant loss values by split ratio', icon: Activity, color: 'from-purple-500 to-pink-600', page: 'SplitterLoss', badge: 'Calculators' },
   { id: 'bendradius', title: 'Bend Radius', description: 'Minimum bend radius by cable type', icon: Cable, color: 'from-amber-500 to-orange-600', page: 'BendRadius', badge: 'Calculators' },
   { id: 'calixsmx', title: 'Calix SMx ONT Analysis', description: 'NOC-style PON PM, LCP & utilization hub', icon: Activity, color: 'from-cyan-500 to-blue-700', page: 'CalixSmxAnalysis', badge: 'Testing', isNew: true },
-  { id: 'executivereport', title: 'Executive Report', description: 'City/zip/OLT KPIs + week-over-week trends', icon: TrendingUp, color: 'from-violet-600 to-indigo-700', page: 'ExecutiveReport', badge: 'Testing', isNew: true },
-
   { id: 'olts', title: 'OLTS Tier-1', description: 'Method B bidirectional power testing', icon: Activity, color: 'from-emerald-500 to-teal-600', page: 'OLTSTest', badge: 'Testing' },
   { id: 'otdr', title: 'OTDR Tier-2', description: 'Bidirectional trace characterization', icon: Activity, color: 'from-indigo-500 to-purple-600', page: 'OTDRTest', badge: 'Testing' },
   { id: 'cleaning', title: 'Cleaning & Inspection', description: 'IEC 61300-3-35 procedures', icon: Sparkles, color: 'from-cyan-500 to-blue-600', page: 'Cleaning', badge: 'Testing' },
