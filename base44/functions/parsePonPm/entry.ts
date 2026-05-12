@@ -26,7 +26,7 @@ function detectTechTypeFromModel(model) {
   
   const modelUpper = model.toUpperCase().trim();
   
-  // XGS-PON models — authoritative list
+  // XGS-PON models — exact match list (case-insensitive)
   // Any model containing "DZS" is XGS-PON (all DZS ONTs are XGS)
   if (modelUpper.includes('DZS')) return 'XGS-PON';
   const xgsModels = [
@@ -34,24 +34,27 @@ function detectTechTypeFromModel(model) {
     '5222XG', '5228XG'
   ];
   
-  // GPON models — authoritative list
+  // GPON models — exact match list (case-insensitive)
   const gponModels = [
     '711GE', '717GE', '725G', '725GE', '725',
     '812G-1', '844G-1', '844GE-1', '803G'
   ];
   
-  // Check for XGS-PON
+  // Check for XGS-PON — use exact match against the full model string
   for (const xgsModel of xgsModels) {
-    if (modelUpper.includes(xgsModel.replace(/\s/g, ''))) {
-      return 'XGS-PON';
-    }
+    if (modelUpper === xgsModel.toUpperCase()) return 'XGS-PON';
+  }
+  // Also check substring for models that may have suffix variants
+  for (const xgsModel of xgsModels) {
+    if (modelUpper.includes(xgsModel.toUpperCase())) return 'XGS-PON';
   }
   
   // Check for GPON
   for (const gponModel of gponModels) {
-    if (modelUpper.includes(gponModel.replace(/\s/g, ''))) {
-      return 'GPON';
-    }
+    if (modelUpper === gponModel.toUpperCase()) return 'GPON';
+  }
+  for (const gponModel of gponModels) {
+    if (modelUpper.includes(gponModel.toUpperCase())) return 'GPON';
   }
   
   return null;
@@ -81,11 +84,14 @@ function detectComboPort(shelfSlotPort) {
 }
 
 // Fields to extract from CSV
+// NOTE: The SMx CSV export uses 'ONTModel' as the column header,
+// not 'model'. Both are listed so older exports with 'model' still work.
 const FIELDS = [
   'OLTName',
   'Shelf/Slot/Port',
   'OntID',
   'SerialNumber',
+  'ONTModel',
   'model',
   'OntRxOptPwr',
   'OntTxPwr',
@@ -476,6 +482,10 @@ Deno.serve(async (req) => {
         ont._opticModel = lcpMatch.optic_model || '';
       }
       
+      // Normalize: SMx CSV uses 'ONTModel' column; fall back to legacy 'model' column
+      ont.model = ont.ONTModel || ont.model || null;
+      delete ont.ONTModel;
+
       // Detect DZS model based on FSAN prefix if model is unknown
       if ((!ont.model || ont.model === 'Unknown' || ont.model === 'N/A' || ont.model === '') && ont.SerialNumber) {
         const fsan = ont.SerialNumber;
