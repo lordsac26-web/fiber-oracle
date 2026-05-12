@@ -5,6 +5,12 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
 
+    // Intentionally open to any authenticated user — this is a contact form
+    // endpoint and restricting it to admin would prevent regular users from
+    // reaching support. The recipient is a fixed admin email (ADMIN_CONTACT_EMAIL)
+    // so there is no open-relay risk. Abuse mitigation relies on requiring
+    // authentication (no anonymous submissions) and the platform's built-in
+    // rate limiting on backend function invocations.
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }

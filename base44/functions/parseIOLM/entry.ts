@@ -4,9 +4,15 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
-    
+
+    // Admin-only: processes potentially sensitive iOLM/OTDR files and invokes
+    // an LLM integration. Restricting to admin prevents unauthorized LLM usage
+    // and protects proprietary fiber-plant data embedded in uploaded files.
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (user.role !== 'admin') {
+      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
     const { file_url } = await req.json();

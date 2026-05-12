@@ -320,8 +320,14 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
 
+    // Admin-only: parses raw PON PM CSV files containing sensitive subscriber
+    // and optical-layer performance data. Restricting to admin prevents
+    // unauthorized access to network topology and subscriber information.
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (user.role !== 'admin') {
+      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
     const body = await req.json();

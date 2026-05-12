@@ -136,7 +136,13 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
+
+    // Admin-only: generates PDFs that may embed sensitive subscriber data,
+    // job report details, and customer branding fetched from user preferences.
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    if (user.role !== 'admin') {
+      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
 
     const { type, data } = await req.json();
     const branding = await resolveBranding(user);

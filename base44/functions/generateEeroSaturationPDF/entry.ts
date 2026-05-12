@@ -96,7 +96,14 @@ Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
+
+    // Admin-only: generates PDFs with aggregated eero saturation data derived
+    // from subscriber account matching. Contains sensitive network-topology
+    // and customer-presence information.
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    if (user.role !== 'admin') {
+      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
 
     const { reportData, reportName, timezone } = await req.json();
     const tz = timezone || 'America/New_York';
