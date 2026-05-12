@@ -164,8 +164,10 @@ export function downloadCsvTemplate(spec) {
 export const SUBSCRIBER_CSV_SPEC = {
   label: 'Subscriber Data',
   requiredColumns: ['OntID'],
+  // State is included so we can geocode street/city/state/zip accurately —
+  // without state, Nominatim frequently picks the wrong "Hudson" or "Cairo".
   optionalColumns: [
-    'SubscriberName', 'AccountName', 'Address', 'City', 'Zip',
+    'SubscriberName', 'AccountName', 'Address', 'City', 'State', 'Zip',
     'ONTRanged', 'ONTSerialNo', 'ONTModel', 'CurrentONTSoftwareVersion',
     'DeviceName', 'LinkedPon',
   ],
@@ -173,6 +175,7 @@ export const SUBSCRIBER_CSV_SPEC = {
     OntID: ['ont_id', 'ontid'],
     SubscriberName: ['subscriber_name', 'subscriber'],
     AccountName: ['account_name', 'account'],
+    State: ['st', 'province', 'region'],
     ONTSerialNo: ['ont_serial_no', 'ontserial', 'serial', 'serialnumber'],
     ONTModel: ['ont_model', 'model'],
     CurrentONTSoftwareVersion: ['current_ont_software_version', 'softwareversion', 'sw_version'],
@@ -181,7 +184,7 @@ export const SUBSCRIBER_CSV_SPEC = {
   },
   sampleRows: [
     [
-      '1', 'Jane Doe', 'ACCT-1001', '123 Main St', 'Anytown', '12345',
+      '1', 'Jane Doe', 'ACCT-1001', '123 Main St', 'Anytown', 'NY', '12345',
       'Yes', 'CXNK01234567', '844G', '3.6.0',
       'OLT-CENTRAL-01', '1/1/1',
     ],

@@ -68,9 +68,10 @@ function buildLookups(subscriberRecords) {
   const serialMap = new Map();
 
   for (const rec of subscriberRecords) {
-    // Build a full address string: "123 Main St, Springfield, 01103"
-    // This ensures geocoding returns US results instead of random global matches.
-    const addrParts = [rec.Address, rec.City, rec.Zip].filter(p => p && p.trim());
+    // Build a full address string: "123 Main St, Springfield, MA, 01103"
+    // State is included between city and zip so the geocoder can
+    // disambiguate towns with shared names across states.
+    const addrParts = [rec.Address, rec.City, rec.State, rec.Zip].filter(p => p && p.trim());
     const fullAddress = addrParts.join(', ');
 
     const fields = {

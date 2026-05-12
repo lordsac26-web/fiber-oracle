@@ -66,15 +66,27 @@ Deno.serve(async (req) => {
 
       console.log(`Geocoding: "${item.address}" (ID: ${item.id})`);
 
-      // Parse comma-separated address parts: "123 Main St, Springfield, 01103"
-      // Use Nominatim structured search for better accuracy with US addresses.
+      // Parse comma-separated address parts. Supported shapes:
+      //   "street, city, zip"               (legacy — pre-State rollout)
+      //   "street, city, state, zip"        (current — preferred for disambiguation)
+      //   "street, city"
+      // Nominatim's structured search treats `state` and `postalcode` as
+      // separate fields, so when state is present we pass it explicitly
+      // instead of merging it into the postalcode (which would silently fail).
       const parts = item.address.split(',').map(p => p.trim()).filter(Boolean);
       let url;
-      if (parts.length >= 3) {
-        // street, city, zip/state
+      if (parts.length >= 4) {
+        // street, city, state, zip — most accurate path
         const street = encodeURIComponent(parts[0]);
         const city = encodeURIComponent(parts[1]);
-        const postalOrState = encodeURIComponent(parts.slice(2).join(' '));
+        const state = encodeURIComponent(parts[2]);
+        const postal = encodeURIComponent(parts.slice(3).join(' '));
+        url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&street=${street}&city=${city}&state=${state}&postalcode=${postal}`;
+      } else if (parts.length === 3) {
+        // street, city, zip (legacy — no state)
+        const street = encodeURIComponent(parts[0]);
+        const city = encodeURIComponent(parts[1]);
+        const postalOrState = encodeURIComponent(parts[2]);
         url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&street=${street}&city=${city}&postalcode=${postalOrState}`;
       } else if (parts.length === 2) {
         // street, city

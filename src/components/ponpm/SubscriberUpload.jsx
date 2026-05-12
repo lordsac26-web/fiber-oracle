@@ -46,6 +46,10 @@ const HEADER_MAP = {
   account: 'AccountName',
   address: 'Address',
   city: 'City',
+  state: 'State',
+  st: 'State',
+  province: 'State',
+  region: 'State',
   zip: 'Zip',
   zipcode: 'Zip',
   zip_code: 'Zip',
@@ -205,8 +209,10 @@ export function enrichOntsWithSubscriber(lookup, onts) {
     }
 
     if (sub) {
-      // Build full address: "123 Main St, Springfield, 01103"
-      const addrParts = [sub.Address, sub.City, sub.Zip].filter(p => p && p.trim());
+      // Build full address: "123 Main St, Springfield, MA, 01103"
+      // State is included between city and zip so the geocoder can
+      // disambiguate ambiguous town names (e.g. multiple "Hudson"s).
+      const addrParts = [sub.Address, sub.City, sub.State, sub.Zip].filter(p => p && p.trim());
       const fullAddress = addrParts.join(', ');
 
       ont._subscriber = {
@@ -214,6 +220,7 @@ export function enrichOntsWithSubscriber(lookup, onts) {
         account: sub.AccountName || '',
         address: fullAddress || sub.Address || '',
         city: sub.City || '',
+        state: sub.State || '',
         zip: sub.Zip || '',
         ontRanged: sub.ONTRanged || '',
         softwareVersion: sub.CurrentONTSoftwareVersion || '',
@@ -325,6 +332,7 @@ export default function SubscriberUpload({ onDataLoaded, subscriberCount, subscr
                   <span>• AccountName</span>
                   <span>• Address</span>
                   <span>• City</span>
+                  <span>• State</span>
                   <span>• Zip</span>
                   <span>• OntID</span>
                   <span>• ONTRanged</span>
@@ -334,6 +342,9 @@ export default function SubscriberUpload({ onDataLoaded, subscriberCount, subscr
                   <span>• DeviceName (OLT)</span>
                   <span>• LinkedPon (Port)</span>
                 </div>
+                <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1">
+                  <strong>State</strong> (2-letter, e.g. "NY") is recommended — it lets the geocoder disambiguate towns with shared names.
+                </p>
                 <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-2">
                   Matching uses DeviceName + LinkedPon + OntID as the primary key, with serial number as fallback.
                 </p>

@@ -281,11 +281,13 @@ Deno.serve(async (req) => {
         allSubs = [...allSubs, ...s2, ...s3, ...s4, ...s5];
       }
       for (const rec of allSubs) {
-        // Compose full address with city + zip for accurate geocoding
+        // Compose full address with city + state + zip for accurate geocoding.
+        // State disambiguates ambiguous town names (e.g. multiple "Hudson"s).
         const streetAddr = (rec.Address || '').trim();
         const city = (rec.City || '').trim();
+        const state = (rec.State || '').trim();
         const zip = (rec.Zip || '').trim();
-        const fullAddress = [streetAddr, city, zip].filter(Boolean).join(', ');
+        const fullAddress = [streetAddr, city, state, zip].filter(Boolean).join(', ');
         const fields = {
           subscriber_account_name: rec.AccountName || '',
           subscriber_address:      fullAddress,

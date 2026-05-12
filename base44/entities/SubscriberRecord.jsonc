@@ -23,6 +23,10 @@
       "type": "string",
       "description": "City"
     },
+    "State": {
+      "type": "string",
+      "description": "State (2-letter abbreviation, e.g. 'NY', 'MA'). Used to disambiguate city/zip for accurate geocoding."
+    },
     "Zip": {
       "type": "string",
       "description": "Zip code"
