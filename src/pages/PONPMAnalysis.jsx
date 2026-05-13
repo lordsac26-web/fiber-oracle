@@ -54,7 +54,6 @@ import {
   Wifi
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -82,6 +81,10 @@ import { useEeroOntEnrichmentHandler } from '@/components/ponpm/useEeroOntEnrich
 import ONTTableRow from '@/components/ponpm/ONTTableRow';
 import UnifiedExportMenu from '@/components/ponpm/UnifiedExportMenu';
 import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
+import SummaryCardsRow from '@/components/ponpm/SummaryCardsRow';
+import IssueDetailPanel from '@/components/ponpm/IssueDetailPanel';
+import NetworkHealthBar from '@/components/ponpm/NetworkHealthBar';
+import AdvancedFiltersBar from '@/components/ponpm/AdvancedFiltersBar';
 const useLcpQuery = () => useQuery({
   queryKey: ['lcp-entries'],
   queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
@@ -535,8 +538,8 @@ export default function PONPMAnalysis() {
           case 'rx-desc':
             return (parseFloat(b.OntRxOptPwr) || -999) - (parseFloat(a.OntRxOptPwr) || -999);
           case 'errors-desc':
-            return (parseInt(b.UpstreamBipErrors) + parseInt(b.DownstreamBipErrors) || 0) - 
-                   (parseInt(a.UpstreamBipErrors) + parseInt(a.DownstreamBipErrors) || 0);
+            return ((parseInt(b.UpstreamBipErrors) || 0) + (parseInt(b.DownstreamBipErrors) || 0)) - 
+                   ((parseInt(a.UpstreamBipErrors) || 0) + (parseInt(a.DownstreamBipErrors) || 0));
           case 'serial':
             return (a.SerialNumber || '').localeCompare(b.SerialNumber || '');
           default:
@@ -584,7 +587,7 @@ export default function PONPMAnalysis() {
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link to={createPageUrl('Home')}>
+              <Link to="/">
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
@@ -858,218 +861,29 @@ export default function PONPMAnalysis() {
             />
 
             {/* Summary Cards */}
-            <div className={`grid grid-cols-2 ${eeroMatchCount > 0 ? 'md:grid-cols-7' : 'md:grid-cols-6'} gap-3`}>
-              <Card className="border-0 shadow">
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {result.summary.totalOnts}
-                  </div>
-                  <div className="text-xs text-gray-500">Total ONTs</div>
-                  {ontsWithTrendsCount > 0 && (
-                    <Badge variant="outline" className="text-[10px] mt-1 bg-blue-50 text-blue-700 border-blue-300">
-                      <TrendingUp className="h-2 w-2 mr-1" />
-                      {ontsWithTrendsCount} with trends
-                    </Badge>
-                  )}
-                </CardContent>
-              </Card>
-              <Card 
-                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-red-300 ${issueDetailView?.type === 'critical' && !issueDetailView?.oltName ? 'ring-2 ring-red-500' : ''}`}
-                onClick={() => setIssueDetailView(issueDetailView?.type === 'critical' && !issueDetailView?.oltName ? null : { type: 'critical' })}
-              >
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-red-600">
-                    {result.summary.criticalCount}
-                  </div>
-                  <div className="text-xs text-gray-500">Critical</div>
-                </CardContent>
-              </Card>
-              <Card 
-                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-amber-300 ${issueDetailView?.type === 'warning' && !issueDetailView?.oltName ? 'ring-2 ring-amber-500' : ''}`}
-                onClick={() => setIssueDetailView(issueDetailView?.type === 'warning' && !issueDetailView?.oltName ? null : { type: 'warning' })}
-              >
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-amber-600">
-                    {result.summary.warningCount}
-                  </div>
-                  <div className="text-xs text-gray-500">Warnings</div>
-                </CardContent>
-              </Card>
-              <Card 
-                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-purple-300 ${statusFilter === 'offline' ? 'ring-2 ring-purple-500' : ''}`}
-                onClick={() => { setStatusFilter(statusFilter === 'offline' ? 'all' : 'offline'); setIssueDetailView(null); }}
-              >
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {result.summary.offlineCount || 0}
-                  </div>
-                  <div className="text-xs text-gray-500">Offline</div>
-                </CardContent>
-              </Card>
-              <Card 
-                className={`border-0 shadow cursor-pointer transition-all hover:ring-2 hover:ring-green-300 ${statusFilter === 'ok' ? 'ring-2 ring-green-500' : ''}`}
-                onClick={() => { setStatusFilter(statusFilter === 'ok' ? 'all' : 'ok'); setIssueDetailView(null); }}
-              >
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {result.summary.okCount}
-                  </div>
-                  <div className="text-xs text-gray-500">Healthy</div>
-                </CardContent>
-              </Card>
-              <Card className="border-0 shadow">
-                <CardContent className="p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {result.summary.oltCount}
-                  </div>
-                  <div className="text-xs text-gray-500">OLTs</div>
-                </CardContent>
-              </Card>
-              {eeroMatchCount > 0 && (
-                <Card className="border-0 shadow">
-                  <CardContent className="p-4 text-center">
-                    <div className="text-2xl font-bold text-emerald-600">
-                      {eeroMatchCount}
-                    </div>
-                    <div className="text-xs text-gray-500 flex items-center justify-center gap-1">
-                      <Wifi className="h-3 w-3 text-emerald-500" />
-                      w/ eero
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            <SummaryCardsRow
+              summary={result.summary}
+              ontsWithTrendsCount={ontsWithTrendsCount}
+              eeroMatchCount={eeroMatchCount}
+              issueDetailView={issueDetailView}
+              setIssueDetailView={setIssueDetailView}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+            />
 
             {/* Issue Detail Panel */}
-            {issueDetailView && (
-              <Card className={`border-2 ${issueDetailView.type === 'critical' ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/20'}`}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className={`flex items-center gap-2 ${issueDetailView.type === 'critical' ? 'text-red-800' : 'text-amber-800'}`}>
-                      {issueDetailView.type === 'critical' ? <AlertCircle className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
-                      {issueDetailView.type === 'critical' ? 'Critical Issues' : 'Warnings'}
-                      {issueDetailView.oltName && <span className="text-sm font-normal">— {issueDetailView.oltName}</span>}
-                      {issueDetailView.portKey && <span className="text-sm font-normal">/ {issueDetailView.portKey}</span>}
-                    </CardTitle>
-                    <Button variant="ghost" size="sm" onClick={() => setIssueDetailView(null)}>
-                      ✕
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-80 overflow-y-auto">
-                    {result.onts
-                      .filter(ont => {
-                        const matchesType = issueDetailView.type === 'critical' 
-                          ? ont._analysis.issues.length > 0 
-                          : ont._analysis.warnings.length > 0;
-                        const matchesOlt = !issueDetailView.oltName || ont._oltName === issueDetailView.oltName;
-                        const matchesPort = !issueDetailView.portKey || ont._port === issueDetailView.portKey;
-                        return matchesType && matchesOlt && matchesPort;
-                      })
-                      .map((ont, idx) => {
-                        const issues = issueDetailView.type === 'critical' ? ont._analysis.issues : ont._analysis.warnings;
-                        return (
-                          <div key={idx} className="p-3 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="font-semibold text-sm">
-                                <span className="text-gray-500">{ont._oltName} / {ont._port} /</span> ONT {ont.OntID}
-                              </div>
-                              <span className="font-mono text-xs text-gray-500">{ont.SerialNumber}</span>
-                            </div>
-                            <div className="space-y-1">
-                              {issues.map((issue, i) => (
-                                <div key={i} className={`text-sm p-2 rounded ${issueDetailView.type === 'critical' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}`}>
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="font-medium">{issue.field}</span>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono text-xs bg-white/70 px-1.5 py-0.5 rounded font-bold">
-                                        {issue.value}
-                                      </span>
-                                      {issue.threshold && (
-                                        <span className="font-mono text-xs text-gray-600 bg-white/50 px-1.5 py-0.5 rounded">
-                                          Threshold: {issue.threshold}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="text-xs opacity-80">{issue.message}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })
-                    }
-                    {result.onts.filter(ont => {
-                      const matchesType = issueDetailView.type === 'critical'
-                        ? ont._analysis.issues.length > 0
-                        : ont._analysis.warnings.length > 0;
-                      return matchesType
-                        && (!issueDetailView.oltName || ont._oltName === issueDetailView.oltName)
-                        && (!issueDetailView.portKey || ont._port === issueDetailView.portKey);
-                    }).length === 0 && (
-                      <div className="text-center py-4 text-gray-500">
-                        No {issueDetailView.type === 'critical' ? 'critical issues' : 'warnings'} found
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            <IssueDetailPanel
+              issueDetailView={issueDetailView}
+              filteredOnts={filteredOnts}
+              onClose={() => setIssueDetailView(null)}
+            />
 
             {/* Health Overview */}
-            <Card className="border-0 shadow">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Network Health — All ONTs</span>
-                  <span className="text-sm text-gray-500">
-                    {((result.summary.okCount / result.summary.totalOnts) * 100).toFixed(1)}% healthy
-                  </span>
-                </div>
-                <div className="flex h-3 rounded-full overflow-hidden bg-gray-200">
-                  <div 
-                    className="bg-green-500 transition-all" 
-                    style={{ width: `${(result.summary.okCount / result.summary.totalOnts) * 100}%` }}
-                  />
-                  <div 
-                    className="bg-amber-500 transition-all" 
-                    style={{ width: `${(result.summary.warningCount / result.summary.totalOnts) * 100}%` }}
-                  />
-                  <div 
-                    className="bg-red-500 transition-all" 
-                    style={{ width: `${(result.summary.criticalCount / result.summary.totalOnts) * 100}%` }}
-                  />
-                  <div 
-                    className="bg-purple-500 transition-all" 
-                    style={{ width: `${((result.summary.offlineCount || 0) / result.summary.totalOnts) * 100}%` }}
-                  />
-                </div>
-                <div className="flex items-center gap-4 mt-2 text-[10px] text-gray-500 flex-wrap">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Healthy: {result.summary.okCount}</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Warning: {result.summary.warningCount}</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Critical: {result.summary.criticalCount}</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />Offline: {result.summary.offlineCount || 0}</span>
-                  <span className="ml-auto font-medium text-gray-400">Total: {result.summary.totalOnts} ONTs across {result.summary.oltCount} OLTs</span>
-                </div>
-                {ontsWithTrendsCount > 0 && (
-                  <div className="mt-3 pt-3 border-t flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Trend Data Available:</span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-300">
-                        {ontsWithTrendsCount} ONTs tracked
-                      </Badge>
-                      {ontsDegradingCount > 0 && (
-                        <Badge className="text-[10px] bg-red-100 text-red-700 border-red-300">
-                          <TrendingDown className="h-2 w-2 mr-1" />
-                          {ontsDegradingCount} degrading
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <NetworkHealthBar
+              summary={result.summary}
+              ontsWithTrendsCount={ontsWithTrendsCount}
+              ontsDegradingCount={ontsDegradingCount}
+            />
 
             {/* Global Filter Bar — applies to ALL charts, KPIs, hierarchy, and LCP summary */}
             <GlobalFilterBar
@@ -1083,106 +897,27 @@ export default function PONPMAnalysis() {
             />
 
             {/* Advanced Filters */}
-            <Card className="border-0 shadow">
-              <CardContent className="p-4">
-                <div className="space-y-3">
-                  <div className="flex flex-col md:flex-row gap-3">
-                    <div className="flex-1 relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input
-                        placeholder="Search by Serial, ONT ID, or Port..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full md:w-32">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="critical">Critical</SelectItem>
-                        <SelectItem value="warning">Warning</SelectItem>
-                        <SelectItem value="offline">Offline</SelectItem>
-                        <SelectItem value="ok">OK</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={oltFilter} onValueChange={(v) => { setOltFilter(v); setPortFilter('all'); }}>
-                      <SelectTrigger className="w-full md:w-32">
-                        <SelectValue placeholder="OLT" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All OLTs</SelectItem>
-                        {Object.keys(result.olts).sort().map(olt => (
-                          <SelectItem key={olt} value={olt}>{olt}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={portFilter} onValueChange={setPortFilter}>
-                      <SelectTrigger className="w-full md:w-32">
-                        <SelectValue placeholder="Port" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Ports</SelectItem>
-                        {oltFilter !== 'all' && result.olts[oltFilter] && 
-                          Object.keys(result.olts[oltFilter].ports).sort().map(port => (
-                            <SelectItem key={port} value={port}>{port}</SelectItem>
-                          ))
-                        }
-                        {oltFilter === 'all' && 
-                          [...new Set(result.onts.map(o => o._port))].sort().map(port => (
-                            <SelectItem key={port} value={port}>{port}</SelectItem>
-                          ))
-                        }
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col md:flex-row gap-3">
-                    <Select value={powerRangeFilter} onValueChange={setPowerRangeFilter}>
-                      <SelectTrigger className="w-full md:w-40">
-                        <SelectValue placeholder="Power Range" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Power Levels</SelectItem>
-                        <SelectItem value="critical">Critical (&lt; -27 dBm)</SelectItem>
-                        <SelectItem value="warning">Warning (-27 to -25)</SelectItem>
-                        <SelectItem value="optimal">Optimal (-25 to -15)</SelectItem>
-                        <SelectItem value="high">High (&gt; -15 dBm)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="w-full md:w-40">
-                        <SelectValue placeholder="Sort By" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No Sorting</SelectItem>
-                        <SelectItem value="rx-asc">Rx Power (Low to High)</SelectItem>
-                        <SelectItem value="rx-desc">Rx Power (High to Low)</SelectItem>
-                        <SelectItem value="errors-desc">Errors (High to Low)</SelectItem>
-                        <SelectItem value="serial">Serial Number</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => { 
-                        setSearchTerm(''); 
-                        setStatusFilter('all'); 
-                        setOltFilter('all'); 
-                        setPortFilter('all'); 
-                        setPowerRangeFilter('all');
-                        setSortBy('none');
-                        setGlobalSplitters([]);
-                        setGlobalOltPorts([]);
-                        setGlobalModels([]);
-                      }}
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <AdvancedFiltersBar
+              searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+              statusFilter={statusFilter} setStatusFilter={setStatusFilter}
+              oltFilter={oltFilter} setOltFilter={setOltFilter}
+              portFilter={portFilter} setPortFilter={setPortFilter}
+              powerRangeFilter={powerRangeFilter} setPowerRangeFilter={setPowerRangeFilter}
+              sortBy={sortBy} setSortBy={setSortBy}
+              olts={result.olts}
+              onts={result.onts}
+              onClearAll={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setOltFilter('all');
+                setPortFilter('all');
+                setPowerRangeFilter('all');
+                setSortBy('none');
+                setGlobalSplitters([]);
+                setGlobalOltPorts([]);
+                setGlobalModels([]);
+              }}
+            />
 
             {/* KPI Statistics */}
             <KPIStatistics result={result} filteredOnts={filteredOnts} previousReport={(() => {

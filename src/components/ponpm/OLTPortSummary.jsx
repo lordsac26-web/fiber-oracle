@@ -224,7 +224,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
     });
 
     return { olts: oltSummaries, ports: portSummaries };
-  }, [result]);
+  }, [result, lcpMap]);
 
   // Filter OLTs by search
   const filteredOlts = useMemo(() => {

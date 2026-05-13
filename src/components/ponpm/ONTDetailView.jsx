@@ -73,9 +73,46 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
   const HISTORY_CHART_CAP = 90;
 
   useEffect(() => {
-    loadHistoricalData();
-    loadJobReports();
-    loadPeerData();
+    let cancelled = false;
+
+    const loadAll = async () => {
+      // Historical data
+      setIsLoadingHistory(true);
+      try {
+        const response = await base44.functions.invoke('searchOntHistory', {
+          search_type: 'serial',
+          search_value: ont.SerialNumber
+        });
+        if (!cancelled && response.data?.results?.length > 0) {
+          setHistoricalData(response.data.results[0].history || []);
+        }
+      } catch (error) {
+        console.error('Failed to load historical data:', error);
+      } finally {
+        if (!cancelled) setIsLoadingHistory(false);
+      }
+
+      // Job reports
+      setIsLoadingJobs(true);
+      try {
+        const relatedReports = await base44.entities.JobReport.filter(
+          { 'fiber_info.fsan': ont.SerialNumber },
+          '-created_date',
+          50
+        );
+        if (!cancelled) setJobReports(relatedReports);
+      } catch (error) {
+        console.error('Failed to load job reports:', error);
+      } finally {
+        if (!cancelled) setIsLoadingJobs(false);
+      }
+
+      // Peer data (sync — no API call)
+      if (!cancelled) loadPeerData();
+    };
+
+    loadAll();
+    return () => { cancelled = true; };
   }, [ont.SerialNumber]);
 
   const loadPeerData = () => {
@@ -101,41 +138,8 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
     }
   };
 
-  const loadHistoricalData = async () => {
-    setIsLoadingHistory(true);
-    try {
-      const response = await base44.functions.invoke('searchOntHistory', {
-        search_type: 'serial',
-        search_value: ont.SerialNumber
-      });
-
-      if (response.data?.results?.length > 0) {
-        setHistoricalData(response.data.results[0].history || []);
-      }
-    } catch (error) {
-      console.error('Failed to load historical data:', error);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
-
-  const loadJobReports = async () => {
-    setIsLoadingJobs(true);
-    try {
-      // Filter server-side by FSAN to avoid fetching ALL job reports across the system.
-      // This scales properly as the team creates more reports over time.
-      const relatedReports = await base44.entities.JobReport.filter(
-        { 'fiber_info.fsan': ont.SerialNumber },
-        '-created_date',
-        50
-      );
-      setJobReports(relatedReports);
-    } catch (error) {
-      console.error('Failed to load job reports:', error);
-    } finally {
-      setIsLoadingJobs(false);
-    }
-  };
+  // loadHistoricalData and loadJobReports are now inlined in the useEffect above
+  // with cancellation support to prevent stale writes on rapid ONT switching.
 
   const toNumber = (value) => {
     const num = Number(value);

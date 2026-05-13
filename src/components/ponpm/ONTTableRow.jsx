@@ -107,11 +107,13 @@ export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, hasSp
       </TableCell>
       <TableCell className={rightMono}>{ont.UpstreamFecCorrectedCodeWords || '0'}</TableCell>
       <TableCell className={rightMono}>{ont.DownstreamFecCorrectedCodeWords || '0'}</TableCell>
-      <TableCell className={rightMono}>
-        <span className={parseInt(ont.UpstreamMissedBursts) >= 10 ? 'text-amber-600' : ''}>{ont.UpstreamMissedBursts || '0'}</span>
-      </TableCell>
+      {/* HEC column — matches header order: US FEC C, DS FEC C, HEC, MBurst */}
       <TableCell className={rightMono}>
         <span className={parseInt(ont.UpstreamGemHecErrors) >= 10 ? 'text-amber-600' : ''}>{ont.UpstreamGemHecErrors || '0'}</span>
+      </TableCell>
+      {/* Missed Bursts column */}
+      <TableCell className={rightMono}>
+        <span className={parseInt(ont.UpstreamMissedBursts) >= 10 ? 'text-amber-600' : ''}>{ont.UpstreamMissedBursts || '0'}</span>
       </TableCell>
       <TableCell className={`${cellCls} text-gray-500 whitespace-nowrap`}>{formatUptime(ont.upTime)}</TableCell>
       {/* Issues — compact badges */}
