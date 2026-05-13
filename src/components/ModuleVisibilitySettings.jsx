@@ -19,7 +19,6 @@ import {
   Sparkles,
   ImageIcon,
   FileText,
-  ClipboardList,
   FileSearch,
   RotateCcw
 } from 'lucide-react';
@@ -145,12 +144,7 @@ const MODULE_CONFIG = {
     color: 'from-blue-500 to-indigo-600',
     sections: []
   },
-  jobreports: {
-    title: 'Job Reports',
-    icon: ClipboardList,
-    color: 'from-slate-500 to-gray-600',
-    sections: []
-  },
+
 };
 
 export default function ModuleVisibilitySettings() {
