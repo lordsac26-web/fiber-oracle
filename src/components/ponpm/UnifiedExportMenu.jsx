@@ -17,11 +17,11 @@ import {
 import { toast } from 'sonner';
 import { exportOfflineCSV } from './ontCsvExports';
 import { exportEeroOntsCSV } from './eeroExports';
-import { exportCriticalIssuesCSV } from './exportCriticalCsv.js';
-import { exportFullIssueReportCSV } from './exportFullIssueReport.js';
-import { exportAllIssuesCSV } from './exportAllIssuesCsv.js';
-import { exportMultiOltCSV } from './exportMultiOltCsv.js';
-import MultiOltPickerDialog from './MultiOltPickerDialog.jsx';
+import { exportCriticalIssuesCSV } from './exportCriticalCsv';
+import { exportFullIssueReportCSV } from './exportFullIssueReport';
+import { exportAllIssuesCSV } from './exportAllIssuesCsv';
+import { exportMultiOltCSV } from './exportMultiOltCsv';
+import MultiOltPickerDialog from './MultiOltPickerDialog';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 import { buildSubscriberLookup } from './SubscriberUpload';
 
