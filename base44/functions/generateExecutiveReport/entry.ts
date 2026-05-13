@@ -1,26 +1,28 @@
 /**
  * generateExecutiveReport
  *
- * Admin-only. Aggregates ONTPerformanceRecord data across two time windows
- * (current week vs previous week) and produces a branded PDF with:
- *   1. Executive KPI strip (total ONTs, critical %, week-over-week delta)
- *   2. Saturation Report — top zip codes
- *   3. OLT Shelf comparison — avg Rx, critical count, health % per OLT
- *   4. Week-over-week trend section (with report dates)
+ * Admin-only. Aggregates ONTPerformanceRecord data for the most recent
+ * PONPMReport and produces a branded "Comprehensive System Report" PDF.
  *
- * IMPORTANT — parity with PON PM Analysis page:
- *   - status counts are pulled from PONPMReport.{critical,warning,ok,ont}_count
- *     when available (authoritative — written by processPonPmRecords) and only
- *     fall back to record-level tally if the report row is missing them.
- *   - eero matching uses normalizeHomeId() — same canonical 16-digit account
- *     lookup the UI uses (EeroUpload.js). Without this, prefixed/suffixed
- *     account numbers (e.g. "FD-8275…") miss every match.
- *   - GPON / XGS-PON technology detection uses the same model whitelist as
- *     processPonPmRecords.detectTechType() — never blanket-classifies unknown
- *     models as GPON.
- *   - Zip codes are extracted from the LAST comma-segment of subscriber_address
- *     (which is always "street, city, zip" when populated by the subscriber
- *     join), not from any 5-digit run anywhere in the string.
+ * Sections (in order):
+ *   1. Branded title block — logo, company name, report date, generation
+ *      time, description.
+ *   2. Network Health KPI strip — total, critical, warning, healthy,
+ *      health%, eero, GPON, XGS-PON.
+ *   3. OLT Breakdown — per-OLT stats (total, crit/warn/off/ok, avg Rx,
+ *      health%).
+ *   4. City / Zip Saturation — top 20 cities and top 10 zips by ONT count.
+ *   5. ONT Model Summary — count of each model in service.
+ *   6. Eero Model Summary — count of each eero model in service.
+ *   7. Top 20 Critical ONTs — quick triage list.
+ *   8. Top 20 OLT Ports by Corrected FEC.
+ *   9. Trend Deltas — current report vs ~7-day-old report vs ~30-day-old
+ *      report, picked by closest PONPMReport.upload_date to those targets
+ *      (upload_date IS the report's effective date per its schema).
+ *
+ * Branding: pulled from user.preferences (Settings → Branding) with
+ * AppSettings + FiberOracle defaults as fallbacks.
+ * Footer: "Presented with FiberOracle  •  <date>" on every page.
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
@@ -35,9 +37,7 @@ function s(v) {
     .replace(/\u00A0/g, ' ').replace(/[^\x00-\xFF]/g, '');
 }
 
-// ─── Account normalization (mirrors components/ponpm/EeroUpload.normalizeHomeId)
-// CRITICAL: must stay byte-for-byte identical to the UI logic so eero match counts
-// in the exec report align with what the PON PM Analysis page displays.
+// ─── Account / serial / port normalization (mirrors UI logic) ────────────────
 function normalizeHomeId(value) {
   if (!value) return null;
   const digits = String(value).replace(/\D+/g, '');
@@ -45,11 +45,6 @@ function normalizeHomeId(value) {
   const canonical = digits.match(/8275\d{12}/);
   return canonical ? canonical[0] : digits;
 }
-
-// ─── Port / serial normalization (mirrors components/ponpm/SubscriberUpload)
-// Used to rebuild the live subscriber→ONT join so eero match counts in the PDF
-// match the UI exactly, even when ONTPerformanceRecord.subscriber_account_name
-// is stale (e.g. subscriber CSV was re-uploaded after the report was ingested).
 function normalizePortPath(port) {
   return (port || '').trim().replace(/\s+/g, '').replace(/\/xp(\d)/gi, '/$1').toUpperCase();
 }
@@ -64,10 +59,7 @@ function normalizeSerial(serial) {
   return n.length > 0 ? n : null;
 }
 
-// ─── Technology detection (mirrors parsePonPm.detectTechTypeFromModel + DZS FSAN fallback)
-// Whitelist-based — never blanket-classifies unrecognized models. Records with
-// no recognized model are returned as null and counted as "Unknown" in the exec
-// report rather than being silently bucketed into GPON.
+// ─── Technology detection (mirrors parsePonPm + loadSavedReport) ──────────────
 function detectTechType(model) {
   if (!model) return null;
   const m = String(model).toUpperCase().trim().replace(/\s/g, '');
@@ -78,14 +70,6 @@ function detectTechType(model) {
   for (const g of gponModels) if (m.includes(g)) return 'GPON';
   return null;
 }
-
-// Combo port detection — mirrors parsePonPm.detectComboPort + loadSavedReport
-// recordToOnt. Combo ports follow the pattern <something>(\d+)-(\d+) — the
-// FIRST number's parity decides the tech (odd → XGS-PON, even → GPON). This
-// is the same rule the UI applies when assigning _techType, and is the
-// primary reason the UI's XGS-PON count exceeds what model-only detection
-// produces (many ONTs on combo ports have unknown models but valid port
-// patterns like "0/1/xp3-4").
 function detectComboTech(shelfSlotPort) {
   if (!shelfSlotPort) return null;
   const m = String(shelfSlotPort).match(/(?:xp)?(\d+)-(\d+)$/i);
@@ -94,12 +78,6 @@ function detectComboTech(shelfSlotPort) {
   if (isNaN(portNum)) return null;
   return portNum % 2 === 1 ? 'XGS-PON' : 'GPON';
 }
-
-// Tech detection on a record — same precedence as loadSavedReport.recordToOnt:
-//   1. model whitelist
-//   2. combo port pattern
-// This is what the UI's KPIStatistics counts via `_techType?.includes('GPON')`
-// and `_techType?.includes('XGS')`.
 function classifyTech(record) {
   return (
     detectTechType(record.model) ||
@@ -108,10 +86,7 @@ function classifyTech(record) {
   );
 }
 
-// Parse a "street, city, zip" address into components. The zip is taken from
-// the LAST comma-segment if it contains a 5-digit number — never via a global
-// regex over the whole address (house numbers like "12345 Main St" would
-// otherwise be misread as zip codes).
+// ─── Address parser (zip from LAST comma segment only) ────────────────────────
 function parseAddress(addr) {
   if (!addr) return { city: 'Unknown', zip: 'Unknown' };
   const parts = String(addr).split(',').map(p => p.trim()).filter(Boolean);
@@ -122,7 +97,6 @@ function parseAddress(addr) {
     const zipMatch = parts[parts.length - 1].match(/\b\d{5}\b/);
     if (zipMatch) zip = zipMatch[0];
   } else if (parts.length === 2) {
-    // Could be "street, city" or "street, zip"
     const zipMatch = parts[1].match(/^\d{5}(-\d{4})?$/);
     if (zipMatch) zip = zipMatch[0].slice(0, 5);
     else city = parts[1];
@@ -160,64 +134,87 @@ const C = {
   subText: [148, 163, 184],
   indigo:  [67,  56, 202],
   purple:  [124, 58,  237],
+  teal:    [13,  148, 136],
 };
 
-const PAGE_W = 210, PAGE_H = 297, M = 18, CW = PAGE_W - M * 2;
-const HDR_H = 22, FTR_H = 12;
+const PAGE_W = 210, PAGE_H = 297, M = 14, CW = PAGE_W - M * 2;
+// Larger branded header — fits logo + name + description block
+const HDR_H = 34, FTR_H = 12;
 const BODY_TOP = HDR_H + 6, BODY_BOT = PAGE_H - FTR_H - 4;
 
-// ─── Header / Footer ──────────────────────────────────────────────────────────
-function drawHeader(doc, logo, customerName, reportDate) {
+// ─── Branded Header (page 1 only — full size) ──────────────────────────────────
+function drawHeaderFull(doc, logo, customerName, generatedAtStr) {
   doc.setFillColor(...C.navy);
   doc.rect(0, 0, PAGE_W, HDR_H, 'F');
   doc.setFillColor(...C.accent);
-  doc.rect(0, HDR_H, PAGE_W, 1.2, 'F');
+  doc.rect(0, HDR_H, PAGE_W, 1.5, 'F');
 
+  // Logo on white plate
   let cx = M;
   if (logo) {
     doc.setFillColor(...C.white);
-    doc.roundedRect(cx, 4, 18, 14, 1.5, 1.5, 'F');
+    doc.roundedRect(cx, 5, 24, 24, 2, 2, 'F');
     try {
       const props = doc.getImageProperties(logo);
       const ratio = props.width / props.height;
-      let dW = 16, dH = dW / ratio;
-      if (dH > 12) { dH = 12; dW = dH * ratio; }
-      doc.addImage(logo, props.fileType || 'PNG', cx + (18 - dW) / 2, 4 + (14 - dH) / 2, dW, dH);
-    } catch {}
-    cx += 22;
+      let dW = 21, dH = dW / ratio;
+      if (dH > 21) { dH = 21; dW = dH * ratio; }
+      doc.addImage(logo, props.fileType || 'PNG', cx + (24 - dW) / 2, 5 + (24 - dH) / 2, dW, dH);
+    } catch { /* logo not critical */ }
+    cx += 30;
   }
 
+  // Company name + report label + generation timestamp
   doc.setTextColor(...C.white);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text(s(customerName || 'FIBER ORACLE'), cx, 11);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...C.subText);
-  doc.text(customerName ? 'Powered by FiberOracle.com' : 'fiberoracle.com', cx, 17);
+  doc.setFontSize(16);
+  doc.text(s(customerName || 'FIBER ORACLE'), cx, 14);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(9);
   doc.setTextColor(...C.accent);
-  doc.text('EXECUTIVE PERFORMANCE REPORT', PAGE_W - M, 10, { align: 'right' });
+  doc.text('COMPREHENSIVE SYSTEM REPORT', cx, 20);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...C.subText);
+  doc.text(s(`Generated ${generatedAtStr}`), cx, 25.5);
+  doc.text(
+    'A detailed system report intended for weekly/monthly management reviews — KPIs, per-OLT health, saturation, model inventory, and historical deltas.',
+    cx, 30,
+    { maxWidth: PAGE_W - cx - M, lineHeightFactor: 1.15 }
+  );
+}
+
+// ─── Continuation Header (page 2+ — compact) ──────────────────────────────────
+function drawHeaderCompact(doc, customerName) {
+  doc.setFillColor(...C.navy);
+  doc.rect(0, 0, PAGE_W, 12, 'F');
+  doc.setFillColor(...C.accent);
+  doc.rect(0, 12, PAGE_W, 1, 'F');
+  doc.setTextColor(...C.white);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text(s(customerName || 'FIBER ORACLE'), M, 8);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(...C.subText);
-  doc.text(s(reportDate), PAGE_W - M, 16, { align: 'right' });
+  doc.text('Comprehensive System Report', PAGE_W - M, 8, { align: 'right' });
 }
 
-function drawFooter(doc, pageNum, totalPages, customerName) {
+function drawFooter(doc, dateStr) {
   const fy = PAGE_H - FTR_H;
   doc.setFillColor(...C.navy);
   doc.rect(0, fy, PAGE_W, FTR_H, 'F');
   doc.setFillColor(...C.accent);
   doc.rect(0, fy, PAGE_W, 0.6, 'F');
-  doc.setFontSize(6.5);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...C.white);
+  doc.text('Presented with FiberOracle', M, fy + 7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...C.subText);
-  doc.text(s(customerName || 'Fiber Oracle'), M, fy + 7);
-  doc.text('FiberOracle.com', PAGE_W / 2, fy + 7, { align: 'center' });
-  doc.text(`Page ${pageNum} / ${totalPages}`, PAGE_W - M, fy + 7, { align: 'right' });
+  doc.text(s(dateStr), PAGE_W - M, fy + 7, { align: 'right' });
 }
 
 // ─── Section title bar ─────────────────────────────────────────────────────────
@@ -233,7 +230,7 @@ function sectionTitle(doc, label, y, color) {
 }
 
 // ─── KPI tile ──────────────────────────────────────────────────────────────────
-function kpiTile(doc, x, y, w, h, value, label, valueColor, accentColor, delta) {
+function kpiTile(doc, x, y, w, h, value, label, valueColor, accentColor) {
   doc.setFillColor(...C.white);
   doc.setDrawColor(...C.border);
   doc.setLineWidth(0.4);
@@ -241,23 +238,12 @@ function kpiTile(doc, x, y, w, h, value, label, valueColor, accentColor, delta) 
   doc.setFillColor(...accentColor);
   doc.roundedRect(x, y, w, 2, 1, 1, 'F');
 
-  // Scale font down for wide values (e.g. "7,140") so they don't overflow the tile
   const valStr = s(String(value));
-  const baseFontSize = delta !== undefined ? 16 : 20;
-  const fontSize = valStr.length > 5 ? Math.min(baseFontSize, 15) : baseFontSize;
+  const fontSize = valStr.length > 5 ? 15 : 20;
   doc.setFontSize(fontSize);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...valueColor);
-  doc.text(valStr, x + w / 2, y + h * (delta !== undefined ? 0.50 : 0.62), { align: 'center' });
-
-  if (delta !== undefined && delta !== null) {
-    const sign = delta > 0 ? '+' : '';
-    const col = delta > 0 ? C.red : C.green; // more issues = red, fewer = green
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...col);
-    doc.text(`${sign}${delta} vs last week`, x + w / 2, y + h * 0.73, { align: 'center' });
-  }
+  doc.text(valStr, x + w / 2, y + h * 0.62, { align: 'center' });
 
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
@@ -292,14 +278,94 @@ function tableRow(doc, y, cols, isEven) {
   return y + 6;
 }
 
+// ─── Simple bar chart (horizontal) ─────────────────────────────────────────────
+// Renders a horizontal bar chart in the document. `items` is an array of
+// { label, value } pairs. Used for "Top OLTs by Critical Count" and similar.
+function drawHorizBarChart(doc, x, y, w, h, items, color) {
+  if (items.length === 0) return y;
+  const maxVal = Math.max(...items.map(i => i.value), 1);
+  const labelW = 50;
+  const valueW = 18;
+  const barX = x + labelW;
+  const barW = w - labelW - valueW - 2;
+  const rowH = Math.min(5.5, (h - 2) / items.length);
+
+  items.forEach((it, i) => {
+    const yy = y + i * rowH;
+    // Label
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...C.dark);
+    doc.text(s(it.label), x, yy + rowH * 0.7, { maxWidth: labelW - 2 });
+
+    // Track
+    doc.setFillColor(...C.lightBg);
+    doc.roundedRect(barX, yy + 0.5, barW, rowH - 1.5, 0.6, 0.6, 'F');
+
+    // Filled bar
+    const fillW = Math.max(0.4, (it.value / maxVal) * barW);
+    doc.setFillColor(...color);
+    doc.roundedRect(barX, yy + 0.5, fillW, rowH - 1.5, 0.6, 0.6, 'F');
+
+    // Value
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.dark);
+    doc.text(String(it.value), barX + barW + 1, yy + rowH * 0.7);
+  });
+  return y + items.length * rowH;
+}
+
 // ─── Page-break guard ──────────────────────────────────────────────────────────
-function maybeNewPage(doc, y, needed, logo, customerName, reportDate) {
+function maybeNewPage(doc, y, needed, customerName) {
   if (y > BODY_BOT - needed) {
     doc.addPage();
-    drawHeader(doc, logo, customerName, reportDate);
-    return BODY_TOP;
+    drawHeaderCompact(doc, customerName);
+    return 18;
   }
   return y;
+}
+
+// ─── Closest-report picker for trend deltas ────────────────────────────────────
+// Given a list of PONPMReports (newest first), find the report whose
+// upload_date is closest to `target`. Returns null if none found.
+function findClosestReport(reports, targetMs, excludeId) {
+  let best = null;
+  let bestDiff = Infinity;
+  for (const r of reports) {
+    if (excludeId && r.id === excludeId) continue;
+    const t = new Date(r.upload_date).getTime();
+    if (isNaN(t)) continue;
+    const diff = Math.abs(t - targetMs);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = r;
+    }
+  }
+  return best;
+}
+
+// ─── Aggregate a record array into the stats bundle used in the report ────────
+function aggregateRecords(recs, eeroHomeKeys, resolveAccount) {
+  const agg = {
+    total: 0, critical: 0, warning: 0, ok: 0, offline: 0,
+    gpon: 0, xgs: 0, eeroCount: 0,
+  };
+  for (const r of recs) {
+    agg.total++;
+    if (r.status === 'critical')      agg.critical++;
+    else if (r.status === 'warning')  agg.warning++;
+    else if (r.status === 'offline')  agg.offline++;
+    else                              agg.ok++;
+    const tech = classifyTech(r);
+    if (tech === 'XGS-PON')      agg.xgs++;
+    else if (tech === 'GPON')    agg.gpon++;
+    if (eeroHomeKeys && resolveAccount) {
+      const acct = normalizeHomeId(resolveAccount(r));
+      if (acct && eeroHomeKeys.has(acct)) agg.eeroCount++;
+    }
+  }
+  return agg;
 }
 
 // ─── Main handler ───────────────────────────────────────────────────────────────
@@ -310,15 +376,8 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     if (user.role !== 'admin') return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
 
-    const { timezone, weeks_back = 1 } = await req.json().catch(() => ({}));
+    const { timezone } = await req.json().catch(() => ({}));
     const tz = timezone || 'America/New_York';
-
-    // ── Date windows ────────────────────────────────────────────────────────
-    const now = new Date();
-    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-    const currentStart = new Date(now.getTime() - weeks_back * msPerWeek).toISOString();
-    const prevStart    = new Date(now.getTime() - (weeks_back + 1) * msPerWeek).toISOString();
-    const prevEnd      = currentStart;
 
     // ── Paginated fetch helper ─────────────────────────────────────────────
     const PAGE = 5000;
@@ -338,72 +397,63 @@ Deno.serve(async (req) => {
       return all;
     }
 
-    // ── Fetch Reports ────────────────────────────────────────────────────────
-    const reports = await base44.asServiceRole.entities.PONPMReport.list('-upload_date', 50);
-    const currentReport = reports[0];
-    let prevReport = null;
+    // ── Fetch Reports, pick current + ~7d + ~30d historical ─────────────────
+    // upload_date IS the report's effective date (file's lastModified at upload
+    // time per the schema), so we use it directly for both "current report"
+    // selection and trend window matching.
+    const reports = await base44.asServiceRole.entities.PONPMReport.list('-upload_date', 200);
+    const currentReport = reports[0] || null;
 
+    let week1Report = null;
+    let month1Report = null;
     if (currentReport) {
       const currentMs = new Date(currentReport.upload_date).getTime();
-      const targetMs = currentMs - weeks_back * msPerWeek;
-      let minDiff = Infinity;
-      for (let i = 1; i < reports.length; i++) {
-        const diff = Math.abs(new Date(reports[i].upload_date).getTime() - targetMs);
-        if (diff < 4 * 24 * 60 * 60 * 1000) { // +/- 4 days tolerance
-          if (diff < minDiff) {
-            minDiff = diff;
-            prevReport = reports[i];
-          }
+      const msPerDay = 24 * 60 * 60 * 1000;
+      week1Report  = findClosestReport(reports, currentMs - 7  * msPerDay, currentReport.id);
+      month1Report = findClosestReport(reports, currentMs - 30 * msPerDay, currentReport.id);
+      // Guard: if the closest "week" report ended up being the same as the
+      // "month" report (only one historical report exists), null out the
+      // month slot so we don't show identical deltas twice.
+      if (week1Report && month1Report && week1Report.id === month1Report.id) {
+        month1Report = null;
+      }
+    }
+
+    // ── Fetch ONT records (current + historical for trend) ──────────────────
+    // CRITICAL: sort by `id` for stable pagination — records share report_date.
+    const [currentRecsRaw, week1RecsRaw, month1RecsRaw] = await Promise.all([
+      currentReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: currentReport.id }, 'id') : Promise.resolve([]),
+      week1Report   ? fetchAllFiltered('ONTPerformanceRecord', { report_id: week1Report.id   }, 'id') : Promise.resolve([]),
+      month1Report  ? fetchAllFiltered('ONTPerformanceRecord', { report_id: month1Report.id  }, 'id') : Promise.resolve([]),
+    ]);
+
+    const currentRecs = currentRecsRaw;
+    console.log(`[generateExecutiveReport] Records — current=${currentRecs.length}, week=${week1RecsRaw.length}, month=${month1RecsRaw.length}`);
+
+    if (!currentReport) {
+      return Response.json({ error: 'No PON PM report available — upload one first.' }, { status: 400 });
+    }
+
+    // ── Fetch active Eeros ───────────────────────────────────────────────────
+    const activeEeroUploads = await base44.asServiceRole.entities.EeroUploadMeta.filter({ status: 'active' }, '-upload_date', 1);
+    const eeroHomeKeys = new Set();
+    const eeroByAccount = new Map(); // normalized account → eero record (for model summary)
+    const eeroModelCounts = new Map();
+    if (activeEeroUploads.length > 0) {
+      const eeros = await fetchAllFiltered('EeroRecord', { upload_id: activeEeroUploads[0].id }, 'id');
+      for (const e of eeros) {
+        const k = normalizeHomeId(e.home_identifier);
+        if (k) {
+          eeroHomeKeys.add(k);
+          if (!eeroByAccount.has(k)) eeroByAccount.set(k, e);
         }
       }
     }
 
-    // CRITICAL: sort by `id` (or `created_date`) for stable pagination.
-    // Records in a single report all share the same `report_date`, so sorting
-    // by `-report_date` produces a non-deterministic order across paginated
-    // pages, which can drop or duplicate records silently.
-    const [currentRecsRaw, prevRecsRaw] = await Promise.all([
-      currentReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: currentReport.id }, 'id') : Promise.resolve([]),
-      prevReport ? fetchAllFiltered('ONTPerformanceRecord', { report_id: prevReport.id }, 'id') : Promise.resolve([])
-    ]);
-
-    // Use all records — the DB rows ARE the ground truth. Offline/eero counts
-    // and the zip-saturation join always iterate the full set; we do not
-    // filter rows out because every saved record represents a real ONT.
-    const currentRecs = currentRecsRaw;
-    const prevRecs    = prevRecsRaw;
-    console.log(`[generateExecutiveReport] Records — current=${currentRecs.length}, prev=${prevRecs.length}`);
-
-    // ── Fetch active Eeros ───────────────────────────────────────────────────
-    const activeEeroUploads = await base44.asServiceRole.entities.EeroUploadMeta.filter({ status: 'active' }, '-upload_date', 1);
-    let eeroHomes = new Set();
-    if (activeEeroUploads.length > 0) {
-      const eeros = await fetchAllFiltered('EeroRecord', { upload_id: activeEeroUploads[0].id }, 'id');
-      for (const e of eeros) { if (e.home_identifier) eeroHomes.add(e.home_identifier); }
-    }
-
-    // ── Build a normalized eero home_id Set for fast lookup ─────────────────
-    const eeroHomeKeys = new Set();
-    for (const home of eeroHomes) {
-      const k = normalizeHomeId(home);
-      if (k) eeroHomeKeys.add(k);
-    }
-
-    // ── Build SubscriberRecord live join (mirrors UI enrichOntsWithSubscriber)
-    // ONTPerformanceRecord.subscriber_account_name is denormalized at ingest
-    // time and CAN be stale — if a subscriber CSV is uploaded AFTER the PON PM
-    // report, the stored value is empty / outdated and the eero match
-    // undercounts. The UI avoids this by computing the join LIVE every page
-    // render using buildSubscriberLookup (composite key OLT+port+ontId, with
-    // serial fallback). We replicate the same logic here so the PDF's eero
-    // tally matches the UI's badge exactly.
-    //
-    // We scope to the currently active SubscriberUploadMeta — same as the UI's
-    // useSubscriberData hook — so legacy orphan rows from a prior generation
-    // don't pollute the lookup.
-    const subByComposite = new Map(); // "OLT|PORT|ONTID" → AccountName (and fallback "|PORT|ONTID")
-    const subBySerial    = new Map(); // normalizedSerial → AccountName
-    const subByAccount   = new Map(); // normalized account → { city, zip } for zip-saturation table
+    // ── Build subscriber lookup (mirrors UI) ────────────────────────────────
+    const subByComposite = new Map();
+    const subBySerial    = new Map();
+    const subByAccount   = new Map();
     try {
       const activeSubUploads = await base44.asServiceRole.entities.SubscriberUploadMeta
         .filter({ status: 'active' }, '-created_date', 1);
@@ -413,8 +463,6 @@ Deno.serve(async (req) => {
 
       for (const sub of subs) {
         const account = (sub.AccountName || '').trim();
-
-        // Composite-key index (primary + OLT-less fallback) — same as UI
         if (sub.DeviceName && sub.LinkedPon && sub.OntID && account) {
           const oltName = sub.DeviceName.trim().toUpperCase();
           const port    = normalizePortPath(sub.LinkedPon);
@@ -422,12 +470,9 @@ Deno.serve(async (req) => {
           subByComposite.set(`${oltName}|${port}|${ontId}`, account);
           subByComposite.set(`|${port}|${ontId}`, account);
         }
-
-        // Serial fallback index
         const ns = normalizeSerial(sub.ONTSerialNo);
         if (ns && account && !subBySerial.has(ns)) subBySerial.set(ns, account);
 
-        // Account → city/zip index (used for the zip saturation table)
         const acctKey = normalizeHomeId(account) || account;
         if (acctKey && !subByAccount.has(acctKey)) {
           subByAccount.set(acctKey, {
@@ -436,21 +481,15 @@ Deno.serve(async (req) => {
           });
         }
       }
-      console.log(`[generateExecutiveReport] Subscriber lookup — upload=${subUploadId || 'all'}, rows=${subs.length}, composite_keys=${subByComposite.size}, serial_keys=${subBySerial.size}, accounts=${subByAccount.size}`);
+      console.log(`[generateExecutiveReport] Subscriber lookup — rows=${subs.length}`);
     } catch (err) {
       console.log(`[generateExecutiveReport] SubscriberRecord lookup failed (non-fatal): ${err.message}`);
     }
 
-    // Resolves an ONT's live account name using the same precedence as the UI:
-    //   1. composite key OLT+port+ontId
-    //   2. composite key port+ontId (OLT name mismatch tolerance)
-    //   3. normalized serial
-    //   4. stored subscriber_account_name (last resort — may be stale)
     function resolveLiveAccount(rec) {
       const oltName = (rec.olt_name || '').trim().toUpperCase();
       const port    = normalizePortPath(rec.shelf_slot_port || '');
       const ontId   = String(rec.ont_id || '').trim().toUpperCase();
-
       if (oltName && port && ontId) {
         const v = subByComposite.get(`${oltName}|${port}|${ontId}`);
         if (v) return v;
@@ -467,117 +506,18 @@ Deno.serve(async (req) => {
       return rec.subscriber_account_name || null;
     }
 
-    // ── Aggregate Current Report — always tally from records ────────────────
-    // Parity rule: the UI's KPIStatistics computes GPON/XGS-PON counts live
-    // from each ONT's _techType (model OR combo port pattern), and offline
-    // status from r.status. The PONPMReport aggregate columns were written
-    // by parsePonPm BEFORE combo port classification was wired in, so they
-    // undercount XGS-PON. Tallying from records with the same `classifyTech`
-    // logic the UI uses (model + subscriber_model + combo port) guarantees
-    // identical numbers.
-    const records = currentRecs;
-    let critCurrent = 0, warnCurrent = 0, okCurrent = 0, offCurrent = 0;
-    let gponCurrent = 0, xgsCurrent = 0, eeroCountCurrent = 0;
-    for (const r of records) {
-      if (r.status === 'critical')      critCurrent++;
-      else if (r.status === 'warning')  warnCurrent++;
-      else if (r.status === 'offline')  offCurrent++;
-      else                              okCurrent++;
+    // ── Aggregate current + historical ──────────────────────────────────────
+    const currentAgg = aggregateRecords(currentRecs,  eeroHomeKeys, resolveLiveAccount);
+    const week1Agg   = aggregateRecords(week1RecsRaw, eeroHomeKeys, resolveLiveAccount);
+    const month1Agg  = aggregateRecords(month1RecsRaw, eeroHomeKeys, resolveLiveAccount);
 
-      const tech = classifyTech(r);
-      if (tech === 'XGS-PON')      xgsCurrent++;
-      else if (tech === 'GPON')    gponCurrent++;
+    const healthPct = currentAgg.total > 0
+      ? ((currentAgg.ok / currentAgg.total) * 100).toFixed(1)
+      : '0.0';
 
-      // Eero match uses LIVE subscriber join — same as UI — to avoid undercount
-      // when subscriber CSV was uploaded after the report was ingested.
-      const liveAccount = resolveLiveAccount(r);
-      const acctKey = normalizeHomeId(liveAccount);
-      if (acctKey && eeroHomeKeys.has(acctKey)) eeroCountCurrent++;
-    }
-    const totalCurrent = records.length;
-
-    // ── Aggregate Prev Report ────────────────────────────────────────────────
-    let critPrev = 0, warnPrev = 0, okPrev = 0, offPrev = 0;
-    let gponPrev = 0, xgsPrev = 0, eeroCountPrev = 0;
-    for (const r of prevRecs) {
-      if (r.status === 'critical')      critPrev++;
-      else if (r.status === 'warning')  warnPrev++;
-      else if (r.status === 'offline')  offPrev++;
-      else                              okPrev++;
-
-      const tech = classifyTech(r);
-      if (tech === 'XGS-PON')      xgsPrev++;
-      else if (tech === 'GPON')    gponPrev++;
-
-      const liveAccount = resolveLiveAccount(r);
-      const acctKey = normalizeHomeId(liveAccount);
-      if (acctKey && eeroHomeKeys.has(acctKey)) eeroCountPrev++;
-    }
-    const totalPrev = prevRecs.length;
-
-    const critDelta = totalPrev > 0 ? critCurrent - critPrev : null;
-    const healthPct = totalCurrent > 0 ? ((okCurrent / totalCurrent) * 100).toFixed(1) : '0.0';
-
-    console.log(`[generateExecutiveReport] Current totals — total=${totalCurrent}, crit=${critCurrent}, warn=${warnCurrent}, ok=${okCurrent}, off=${offCurrent}, gpon=${gponCurrent}, xgs=${xgsCurrent}, eero=${eeroCountCurrent}`);
-
-    // ── Aggregate by city + zip ─────────────────────────────────────────────
-    // Source priority for each record:
-    //   1. SubscriberRecord join by account name (structured City/Zip fields)
-    //   2. parseAddress() fallback on subscriber_address (legacy)
-    const cityMap = new Map();
-    const zipMap  = new Map();
-    let unknownZipCount = 0;
-    for (const r of records) {
-      let city = 'Unknown';
-      let zip  = 'Unknown';
-
-      // Try authoritative subscriber join first — use LIVE account (same as
-      // the eero tally) so zip/city numbers reflect the current subscriber
-      // upload, not stale ingest-time data.
-      const liveAccount = resolveLiveAccount(r);
-      const acctKey = normalizeHomeId(liveAccount);
-      const subInfo = acctKey ? subByAccount.get(acctKey) : null;
-      if (subInfo) {
-        city = subInfo.city;
-        zip  = subInfo.zip;
-      } else {
-        // Fallback: parse whatever is in subscriber_address
-        const parsed = parseAddress(r.subscriber_address);
-        city = parsed.city;
-        zip  = parsed.zip;
-      }
-
-      if (!cityMap.has(city)) cityMap.set(city, { total: 0, critical: 0, warning: 0, ok: 0, offline: 0 });
-      const c = cityMap.get(city);
-      c.total++;
-      if (r.status) c[r.status] = (c[r.status] || 0) + 1;
-
-      if (zip === 'Unknown') {
-        unknownZipCount++;
-      } else {
-        if (!zipMap.has(zip)) zipMap.set(zip, { total: 0, critical: 0, warning: 0 });
-        const z = zipMap.get(zip);
-        z.total++;
-        if (r.status === 'critical') z.critical++;
-        if (r.status === 'warning')  z.warning++;
-      }
-    }
-    const cityRows = [...cityMap.entries()]
-      .map(([city, v]) => ({ city, ...v, critPct: v.total > 0 ? ((v.critical / v.total) * 100).toFixed(1) : '0.0' }))
-      .sort((a, b) => b.critical - a.critical)
-      .slice(0, 20);
-
-    // Zip saturation report — top 10 REAL zip codes (Unknown excluded from the
-    // ranked list and shown separately as a coverage note so it doesn't
-    // dominate the table when many records lack subscriber join data).
-    const zipRows = [...zipMap.entries()]
-      .map(([zip, v]) => ({ zip, ...v, critPct: v.total > 0 ? ((v.critical / v.total) * 100).toFixed(1) : '0.0' }))
-      .sort((a, b) => b.total - a.total) // sort by saturation (total ONTs), not critical
-      .slice(0, 10);
-
-    // ── Aggregate by OLT ────────────────────────────────────────────────────
+    // ── Per-OLT breakdown ───────────────────────────────────────────────────
     const oltMap = new Map();
-    for (const r of records) {
+    for (const r of currentRecs) {
       const olt = r.olt_name || 'Unknown';
       if (!oltMap.has(olt)) oltMap.set(olt, { total: 0, critical: 0, warning: 0, ok: 0, offline: 0, rxSum: 0, rxCount: 0 });
       const o = oltMap.get(olt);
@@ -593,23 +533,104 @@ Deno.serve(async (req) => {
       }))
       .sort((a, b) => b.critical - a.critical);
 
+    // ── City + Zip saturation ───────────────────────────────────────────────
+    const cityMap = new Map();
+    const zipMap  = new Map();
+    let unknownZipCount = 0;
+    for (const r of currentRecs) {
+      let city = 'Unknown';
+      let zip  = 'Unknown';
+      const liveAccount = resolveLiveAccount(r);
+      const acctKey = normalizeHomeId(liveAccount);
+      const subInfo = acctKey ? subByAccount.get(acctKey) : null;
+      if (subInfo) {
+        city = subInfo.city;
+        zip  = subInfo.zip;
+      } else {
+        const parsed = parseAddress(r.subscriber_address);
+        city = parsed.city;
+        zip  = parsed.zip;
+      }
+      if (!cityMap.has(city)) cityMap.set(city, { total: 0, critical: 0, warning: 0 });
+      const c = cityMap.get(city); c.total++;
+      if (r.status === 'critical') c.critical++;
+      if (r.status === 'warning')  c.warning++;
+
+      if (zip === 'Unknown') { unknownZipCount++; }
+      else {
+        if (!zipMap.has(zip)) zipMap.set(zip, { total: 0, critical: 0, warning: 0 });
+        const z = zipMap.get(zip); z.total++;
+        if (r.status === 'critical') z.critical++;
+        if (r.status === 'warning')  z.warning++;
+      }
+    }
+    const cityRows = [...cityMap.entries()]
+      .map(([city, v]) => ({ city, ...v }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 20);
+    const zipRows = [...zipMap.entries()]
+      .map(([zip, v]) => ({ zip, ...v }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    // ── ONT Model Summary ───────────────────────────────────────────────────
+    const ontModelCounts = new Map();
+    for (const r of currentRecs) {
+      const m = (r.model || r.subscriber_model || 'Unknown').trim() || 'Unknown';
+      ontModelCounts.set(m, (ontModelCounts.get(m) || 0) + 1);
+    }
+    const ontModelRows = [...ontModelCounts.entries()]
+      .map(([model, count]) => ({ model, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // ── Eero Model Summary (only eeros matched to current ONTs) ─────────────
+    for (const r of currentRecs) {
+      const acct = normalizeHomeId(resolveLiveAccount(r));
+      if (!acct) continue;
+      const eero = eeroByAccount.get(acct);
+      if (!eero) continue;
+      const model = (eero.model || 'Unknown').trim() || 'Unknown';
+      eeroModelCounts.set(model, (eeroModelCounts.get(model) || 0) + 1);
+    }
+    const eeroModelRows = [...eeroModelCounts.entries()]
+      .map(([model, count]) => ({ model, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // ── Top 20 Critical ONTs ────────────────────────────────────────────────
+    const topCritical = currentRecs
+      .filter(r => r.status === 'critical')
+      // Worst-first: lowest Rx (most negative), then highest US BIP
+      .sort((a, b) => {
+        const ra = parseFloat(a.ont_rx_power); const rb = parseFloat(b.ont_rx_power);
+        const va = isNaN(ra) ? 0 : ra; const vb = isNaN(rb) ? 0 : rb;
+        if (va !== vb) return va - vb;
+        return (b.us_bip_errors || 0) - (a.us_bip_errors || 0);
+      })
+      .slice(0, 20);
+
+    // ── Top 20 OLT Ports by Corrected FEC (us + ds) ─────────────────────────
+    const portFec = new Map();
+    for (const r of currentRecs) {
+      const key = `${r.olt_name || 'Unknown'}|${r.shelf_slot_port || 'Unknown'}`;
+      if (!portFec.has(key)) {
+        portFec.set(key, { olt: r.olt_name || 'Unknown', port: r.shelf_slot_port || 'Unknown', total: 0, ontCount: 0 });
+      }
+      const p = portFec.get(key);
+      p.total += (r.us_fec_corrected || 0) + (r.ds_fec_corrected || 0);
+      p.ontCount++;
+    }
+    const topFecPorts = [...portFec.values()]
+      .filter(p => p.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 20);
+
     // ── Customer branding ───────────────────────────────────────────────────
-    // Sources (priority):
-    //   1. The requesting admin user's User.preferences.{companyName,logoUrl}
-    //      — this is where the Settings → Branding tab actually writes
-    //      (via UserPreferencesContext → base44.auth.updateMe({ preferences })).
-    //   2. AppSettings.company_name / logo_url (legacy, kept for backward
-    //      compatibility if anyone ever populated this entity).
-    //   3. Fiber Oracle defaults.
-    //
-    // Each source is consulted independently so a user can override only the
-    // logo OR only the company name and the other still falls back correctly.
     const userPrefs = user?.preferences || {};
     let appSettings = {};
     try {
       const settingsArr = await base44.asServiceRole.entities.AppSettings.list('-created_date', 1);
       appSettings = settingsArr[0] || {};
-    } catch { /* non-fatal — AppSettings may not exist */ }
+    } catch { /* non-fatal */ }
 
     const customerName = s(
       userPrefs.companyName
@@ -621,247 +642,408 @@ Deno.serve(async (req) => {
       || appSettings.logo_url
       || 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6927bc307b96037b8506c608/66efc74e1_fiberoraclenew.png';
     const customerLogo = await fetchLogo(rawLogo);
-    const brandSource = userPrefs.logoUrl ? 'user.preferences'
-      : appSettings.logo_url ? 'AppSettings'
-      : 'default';
-    console.log(`[generateExecutiveReport] Branding — name: "${customerName}", logo source: ${brandSource}`);
 
-    const reportDate = new Date().toLocaleDateString('en-US', {
+    const fmtDate = (iso) => {
+      if (!iso) return 'N/A';
+      try {
+        return new Date(iso).toLocaleDateString('en-US', {
+          timeZone: tz, year: 'numeric', month: 'short', day: 'numeric',
+        });
+      } catch { return 'N/A'; }
+    };
+    const reportDateLong = new Date().toLocaleDateString('en-US', {
       timeZone: tz, year: 'numeric', month: 'long', day: 'numeric',
     });
-    const reportDateTime = new Date().toLocaleString('en-US', { timeZone: tz });
+    const generatedAtStr = new Date().toLocaleString('en-US', { timeZone: tz });
 
     // ── PDF BUILD ────────────────────────────────────────────────────────────
     const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
 
-    // Page 1 — header + title + KPI strip
-    drawHeader(doc, customerLogo, customerName, reportDate);
+    // ─── Page 1: Branded header + KPI strip + OLT breakdown ───────────────
+    drawHeaderFull(doc, customerLogo, customerName, generatedAtStr);
     let y = BODY_TOP;
 
-    // Title block
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...C.dark);
-    doc.text('Executive Network Performance Sheet', M, y + 4);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...C.muted);
-    doc.text('Comprehensive analysis of optical network health, performance metrics, and subscriber saturation.', M, y + 10, { maxWidth: CW });
-    doc.text(`Generated: ${reportDateTime}`, M, y + 15);
-    y += 22;
-
-    // KPI strip (2 rows)
+    // KPI strip — 2 rows of 4
     y = sectionTitle(doc, 'Network Health Overview', y, C.navy);
     const kpiInset = 3;
-    const kw5 = (CW - 4 * 3) / 5;
-    
-    // Row 1 (5 tiles)
-    const kpis1 = [
-      { value: totalCurrent.toLocaleString(), label: 'Total ONTs', vc: C.dark, ac: C.accent, delta: null },
-      { value: critCurrent.toLocaleString(),  label: 'Critical',    vc: C.red,   ac: C.red,   delta: critDelta },
-      { value: warnCurrent.toLocaleString(),  label: 'Warning',     vc: C.amber, ac: C.amber, delta: null },
-      { value: okCurrent.toLocaleString(),    label: 'Healthy', vc: C.green, ac: C.green, delta: null },
-      { value: `${healthPct}%`, label: 'Health %',  vc: C.green, ac: C.indigo, delta: null },
+    const tileGap = 3;
+    const tileW = (CW - tileGap * 3 - kpiInset * 2) / 4;
+    const tileH = 22;
+
+    const kpis = [
+      { value: currentAgg.total.toLocaleString(),    label: 'Total ONTs',   vc: C.dark,  ac: C.accent },
+      { value: currentAgg.critical.toLocaleString(), label: 'Critical',     vc: C.red,   ac: C.red    },
+      { value: currentAgg.warning.toLocaleString(),  label: 'Warning',      vc: C.amber, ac: C.amber  },
+      { value: currentAgg.ok.toLocaleString(),       label: 'Healthy',      vc: C.green, ac: C.green  },
+      { value: `${healthPct}%`,                      label: 'Health %',     vc: C.green, ac: C.indigo },
+      { value: currentAgg.eeroCount.toLocaleString(),label: 'ONTs w/ Eero', vc: C.dark,  ac: C.teal   },
+      { value: currentAgg.gpon.toLocaleString(),     label: 'GPON ONTs',    vc: C.dark,  ac: C.slate  },
+      { value: currentAgg.xgs.toLocaleString(),      label: 'XGS-PON ONTs', vc: C.dark,  ac: C.slate  },
     ];
-    kpis1.forEach((k, i) => {
-      kpiTile(doc, M + kpiInset + i * (kw5 - 1.2 + 3), y + kpiInset, kw5 - 1.2, 26,
-              k.value, k.label, k.vc, k.ac, k.delta);
+    kpis.forEach((k, i) => {
+      const col = i % 4;
+      const row = Math.floor(i / 4);
+      kpiTile(doc,
+        M + kpiInset + col * (tileW + tileGap),
+        y + row * (tileH + tileGap),
+        tileW, tileH, k.value, k.label, k.vc, k.ac);
     });
-    
-    // Row 2 (3 tiles)
-    y += 26 + kpiInset * 2;
-    const kw3 = (CW - 2 * 3) / 3;
-    const kpis2 = [
-      { value: eeroCountCurrent.toLocaleString(), label: 'ONTs with Eero', vc: C.dark, ac: C.accent, delta: null },
-      { value: gponCurrent.toLocaleString(),  label: 'GPON ONTs',    vc: C.dark, ac: C.slate, delta: null },
-      { value: xgsCurrent.toLocaleString(),   label: 'XGS-PON ONTs', vc: C.dark, ac: C.slate, delta: null },
-    ];
-    kpis2.forEach((k, i) => {
-      kpiTile(doc, M + kpiInset + i * (kw3 - 1.2 + 3), y, kw3 - 1.2, 26,
-              k.value, k.label, k.vc, k.ac, k.delta);
-    });
-    
-    y += 26 + kpiInset + 6;
+    y += 2 * tileH + tileGap + 5;
 
-    // ── Saturation Report Section ──────────────────────────────────────────
-    // Shows the top 10 zip codes by ONT count. Unknown zips (records with no
-    // subscriber join or addresses missing a parseable zip) are reported
-    // separately as a coverage note — they're a data-quality signal, not a
-    // saturation result, and including them in the ranked list misleads.
-    y = maybeNewPage(doc, y, 60, customerLogo, customerName, reportDate);
-    y = sectionTitle(doc, `Saturation Report — Top ${zipRows.length} Zip Codes`, y, C.accent);
-
-    if (zipRows.length === 0) {
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(...C.muted);
-      doc.text(
-        'No subscriber addresses with parseable zip codes were found. Upload subscriber data on the PON PM Analysis page to populate this section.',
-        M + 4, y + 2, { maxWidth: CW - 8 }
-      );
-      y += 12;
-    } else {
-      // Column x-positions kept inside the header bar (M+1.5 → M+CW-1.5 = M+172.5).
-      // "% of Network" needs ~22mm of width, so it must START no later than
-      // ~M+150 to fully render its label.
-      const cols = [
-        { label: 'Zip Code',     x: M + 5   },
-        { label: 'Total ONTs',   x: M + 55  },
-        { label: 'Critical',     x: M + 90  },
-        { label: 'Warning',      x: M + 118 },
-        { label: '% of Network', x: M + 145 },
-      ];
-      y = tableHeader(doc, y, cols);
-
-      for (let i = 0; i < zipRows.length; i++) {
-        y = maybeNewPage(doc, y, 8, customerLogo, customerName, reportDate);
-        const r = zipRows[i];
-        const pct = totalCurrent > 0 ? ((r.total / totalCurrent) * 100).toFixed(1) : '0.0';
-        y = tableRow(doc, y, [
-          { value: r.zip,                                       x: M + 5   },
-          { value: r.total.toLocaleString(),                    x: M + 55  },
-          { value: String(r.critical), color: r.critical > 0 ? C.red : C.dark, x: M + 90  },
-          { value: String(r.warning),  color: r.warning  > 0 ? C.amber : C.dark, x: M + 118 },
-          { value: `${pct}%`,                                   x: M + 145 },
-        ], i % 2 === 0);
-      }
-
-      // Data-coverage note for unmatched / Unknown zips
-      if (unknownZipCount > 0) {
-        y += 1;
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'italic');
-        doc.setTextColor(...C.muted);
-        const pctUnknown = totalCurrent > 0 ? ((unknownZipCount / totalCurrent) * 100).toFixed(1) : '0.0';
-        doc.text(
-          `Note: ${unknownZipCount.toLocaleString()} ONTs (${pctUnknown}%) have no parseable zip code in their subscriber address and are excluded from the table.`,
-          M + 4, y + 4, { maxWidth: CW - 8 }
-        );
-        y += 8;
-      }
-      y += 4;
-    }
-
-    // ── OLT Shelf Comparison ───────────────────────────────────────────────
+    // OLT Breakdown
     if (oltRows.length > 0) {
-      y = maybeNewPage(doc, y, 60, customerLogo, customerName, reportDate);
-      y = sectionTitle(doc, `OLT Shelf Comparison  (${oltRows.length} chassis)`, y, C.indigo);
-
+      y = maybeNewPage(doc, y, 50, customerName);
+      y = sectionTitle(doc, `OLT Breakdown  (${oltRows.length} chassis)`, y, C.indigo);
       const cols = [
         { label: 'OLT / Chassis', x: M + 5  },
         { label: 'ONTs',          x: M + 60 },
         { label: 'Critical',      x: M + 82 },
         { label: 'Warning',       x: M + 106 },
         { label: 'Offline',       x: M + 130 },
-        { label: 'Health %',      x: M + 158 },
+        { label: 'Avg Rx',        x: M + 152 },
+        { label: 'Health %',      x: M + 172 },
       ];
       y = tableHeader(doc, y, cols);
-
       for (let i = 0; i < oltRows.length; i++) {
-        y = maybeNewPage(doc, y, 8, customerLogo, customerName, reportDate);
+        y = maybeNewPage(doc, y, 8, customerName);
         const r = oltRows[i];
         const hpct = parseFloat(r.healthPct);
         const hColor = hpct >= 90 ? C.green : hpct >= 70 ? C.amber : C.red;
         y = tableRow(doc, y, [
-          { value: r.olt,                        x: M + 5,   maxW: 52 },
-          { value: String(r.total),              x: M + 60  },
-          { value: String(r.critical),           x: M + 82,  color: r.critical > 0 ? C.red : C.dark },
-          { value: String(r.warning),            x: M + 106, color: r.warning > 0 ? C.amber : C.dark },
-          { value: String(r.offline),            x: M + 130, color: r.offline > 0 ? C.slate : C.dark },
-          { value: `${r.healthPct}%`,            x: M + 158, color: hColor },
+          { value: r.olt,                x: M + 5,   maxW: 52 },
+          { value: String(r.total),      x: M + 60  },
+          { value: String(r.critical),   x: M + 82,  color: r.critical > 0 ? C.red : C.dark },
+          { value: String(r.warning),    x: M + 106, color: r.warning > 0 ? C.amber : C.dark },
+          { value: String(r.offline),    x: M + 130, color: r.offline > 0 ? C.slate : C.dark },
+          { value: r.avgRx,              x: M + 152 },
+          { value: `${r.healthPct}%`,    x: M + 172, color: hColor },
         ], i % 2 === 0);
       }
       y += 4;
     }
 
-    // ── Week-over-week summary section ─────────────────────────────────────
-    if (totalPrev > 0) {
-      y = maybeNewPage(doc, y, 80, customerLogo, customerName, reportDate);
-      y = sectionTitle(doc, 'Week-over-Week Summary', y, C.purple);
-
-      // Show the actual report dates so readers can see exactly which two
-      // snapshots the comparison is built from. Falls back gracefully if
-      // either upload_date is missing.
-      const fmtReportDate = (iso) => {
-        if (!iso) return 'N/A';
-        try {
-          return new Date(iso).toLocaleDateString('en-US', {
-            timeZone: tz, year: 'numeric', month: 'short', day: 'numeric',
-          });
-        } catch { return 'N/A'; }
-      };
-      const currentLabel = fmtReportDate(currentReport?.upload_date);
-      const prevLabel    = fmtReportDate(prevReport?.upload_date);
-
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...C.muted);
-      doc.text(
-        `Comparing report from ${currentLabel} to report from ${prevLabel}.`,
-        M + 4, y - 1, { maxWidth: CW - 8 }
-      );
-      y += 5;
-
-      const wowData = [
-        { metric: 'Total ONTs in scope', current: totalCurrent, prev: totalPrev },
-        { metric: 'Critical issues',     current: critCurrent,  prev: critPrev  },
-        { metric: 'Warning issues',      current: warnCurrent,  prev: warnPrev  },
-        { metric: 'Healthy ONTs',        current: okCurrent,    prev: okPrev    },
-        { metric: 'Offline ONTs',        current: offCurrent,   prev: offPrev   },
-        { metric: 'GPON ONTs',           current: gponCurrent,  prev: gponPrev  },
-        { metric: 'XGS-PON ONTs',        current: xgsCurrent,   prev: xgsPrev   },
-        { metric: 'ONTs with Eero',      current: eeroCountCurrent, prev: eeroCountPrev },
-      ];
-
-      // Column x-positions kept inside the header bar (M+1.5 → M+172.5).
-      // Date labels (~24mm) and "Delta" need to fit; shift everything left so
-      // the Delta column header isn't clipped at the right edge.
+    // ─── City Saturation ─────────────────────────────────────────────────
+    y = maybeNewPage(doc, y, 60, customerName);
+    y = sectionTitle(doc, `City Saturation  (Top ${cityRows.length})`, y, C.accent);
+    if (cityRows.length === 0) {
+      doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
+      doc.text('No subscriber city data available.', M + 4, y + 2);
+      y += 8;
+    } else {
       const cols = [
-        { label: 'Metric',                x: M + 5   },
-        { label: currentLabel,            x: M + 80  },
-        { label: prevLabel,               x: M + 115 },
-        { label: 'Delta',                 x: M + 152 },
+        { label: 'City',         x: M + 5   },
+        { label: 'Total ONTs',   x: M + 80  },
+        { label: 'Critical',     x: M + 115 },
+        { label: 'Warning',      x: M + 140 },
+        { label: '% of Network', x: M + 165 },
       ];
       y = tableHeader(doc, y, cols);
-
-      for (let i = 0; i < wowData.length; i++) {
-        const r = wowData[i];
-        const delta = r.current - r.prev;
-        const sign = delta > 0 ? '+' : '';
-        const isGoodMetric = r.metric.includes('Healthy') || r.metric.includes('Total') || r.metric.includes('Eero') || r.metric.includes('PON');
-        const deltaColor = delta === 0 ? C.muted
-          : isGoodMetric
-            ? (delta > 0 ? C.green : C.red)
-            : (delta > 0 ? C.red   : C.green);
-
+      for (let i = 0; i < cityRows.length; i++) {
+        y = maybeNewPage(doc, y, 8, customerName);
+        const r = cityRows[i];
+        const pct = currentAgg.total > 0 ? ((r.total / currentAgg.total) * 100).toFixed(1) : '0.0';
         y = tableRow(doc, y, [
-          { value: r.metric,                          x: M + 5   },
-          { value: r.current.toLocaleString(),        x: M + 80  },
-          { value: r.prev.toLocaleString(),           x: M + 115 },
-          { value: `${sign}${delta}`,                 x: M + 152, color: deltaColor },
+          { value: r.city,                 x: M + 5,   maxW: 70 },
+          { value: r.total.toLocaleString(), x: M + 80  },
+          { value: String(r.critical),     x: M + 115, color: r.critical > 0 ? C.red : C.dark },
+          { value: String(r.warning),      x: M + 140, color: r.warning > 0 ? C.amber : C.dark },
+          { value: `${pct}%`,              x: M + 165 },
         ], i % 2 === 0);
       }
       y += 4;
-    } else if (currentReport) {
-      // No prior report found in the lookback window — make this explicit so
-      // the user doesn't think the section is silently broken.
-      y = maybeNewPage(doc, y, 30, customerLogo, customerName, reportDate);
-      y = sectionTitle(doc, 'Week-over-Week Summary', y, C.purple);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(...C.muted);
+    }
+
+    // ─── Zip Saturation ──────────────────────────────────────────────────
+    y = maybeNewPage(doc, y, 60, customerName);
+    y = sectionTitle(doc, `Zip Saturation  (Top ${zipRows.length})`, y, C.purple);
+    if (zipRows.length === 0) {
+      doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
+      doc.text('No subscriber zip data available.', M + 4, y + 2);
+      y += 8;
+    } else {
+      const cols = [
+        { label: 'Zip',          x: M + 5   },
+        { label: 'Total ONTs',   x: M + 60  },
+        { label: 'Critical',     x: M + 100 },
+        { label: 'Warning',      x: M + 130 },
+        { label: '% of Network', x: M + 158 },
+      ];
+      y = tableHeader(doc, y, cols);
+      for (let i = 0; i < zipRows.length; i++) {
+        y = maybeNewPage(doc, y, 8, customerName);
+        const r = zipRows[i];
+        const pct = currentAgg.total > 0 ? ((r.total / currentAgg.total) * 100).toFixed(1) : '0.0';
+        y = tableRow(doc, y, [
+          { value: r.zip,                  x: M + 5   },
+          { value: r.total.toLocaleString(), x: M + 60  },
+          { value: String(r.critical),     x: M + 100, color: r.critical > 0 ? C.red : C.dark },
+          { value: String(r.warning),      x: M + 130, color: r.warning > 0 ? C.amber : C.dark },
+          { value: `${pct}%`,              x: M + 158 },
+        ], i % 2 === 0);
+      }
+      if (unknownZipCount > 0) {
+        y += 1;
+        doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
+        const pctUnknown = currentAgg.total > 0 ? ((unknownZipCount / currentAgg.total) * 100).toFixed(1) : '0.0';
+        doc.text(
+          `Note: ${unknownZipCount.toLocaleString()} ONTs (${pctUnknown}%) have no parseable zip and are excluded.`,
+          M + 4, y + 4, { maxWidth: CW - 8 }
+        );
+        y += 6;
+      }
+      y += 4;
+    }
+
+    // ─── ONT Model Summary ───────────────────────────────────────────────
+    y = maybeNewPage(doc, y, 60, customerName);
+    y = sectionTitle(doc, `ONT Model Summary  (${ontModelRows.length} models)`, y, C.teal);
+    if (ontModelRows.length === 0) {
+      doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
+      doc.text('No ONT model data available.', M + 4, y + 2);
+      y += 8;
+    } else {
+      // Two columns: table on left, bar chart on right
+      const tableW = CW * 0.55;
+      const chartX = M + tableW + 4;
+      const chartW = CW - tableW - 4;
+      const startY = y;
+
+      // Table (left)
+      const cols = [
+        { label: 'Model',        x: M + 5   },
+        { label: 'Count',        x: M + tableW - 30 },
+        { label: '% of Network', x: M + tableW - 10 },
+      ];
+      y = tableHeader(doc, y, cols);
+      for (let i = 0; i < Math.min(ontModelRows.length, 15); i++) {
+        y = maybeNewPage(doc, y, 8, customerName);
+        const r = ontModelRows[i];
+        const pct = currentAgg.total > 0 ? ((r.count / currentAgg.total) * 100).toFixed(1) : '0.0';
+        y = tableRow(doc, y, [
+          { value: r.model, x: M + 5, maxW: tableW - 40 },
+          { value: r.count.toLocaleString(), x: M + tableW - 30 },
+          { value: `${pct}%`, x: M + tableW - 10 },
+        ], i % 2 === 0);
+      }
+
+      // Chart (right) — top 8 models for visual readability
+      drawHorizBarChart(doc, chartX, startY + 8, chartW, Math.min(50, y - startY - 8),
+        ontModelRows.slice(0, 8).map(r => ({ label: r.model, value: r.count })),
+        C.teal);
+      y += 4;
+    }
+
+    // ─── Eero Model Summary ──────────────────────────────────────────────
+    if (eeroModelRows.length > 0) {
+      y = maybeNewPage(doc, y, 50, customerName);
+      y = sectionTitle(doc, `Eero Model Summary  (${eeroModelRows.length} models)`, y, C.green);
+      const cols = [
+        { label: 'Eero Model', x: M + 5   },
+        { label: 'Count',      x: M + 100 },
+        { label: '% of Eeros', x: M + 140 },
+      ];
+      y = tableHeader(doc, y, cols);
+      const totalEero = currentAgg.eeroCount || 1;
+      for (let i = 0; i < eeroModelRows.length; i++) {
+        y = maybeNewPage(doc, y, 8, customerName);
+        const r = eeroModelRows[i];
+        const pct = ((r.count / totalEero) * 100).toFixed(1);
+        y = tableRow(doc, y, [
+          { value: r.model, x: M + 5,   maxW: 90 },
+          { value: r.count.toLocaleString(), x: M + 100 },
+          { value: `${pct}%`, x: M + 140 },
+        ], i % 2 === 0);
+      }
+      y += 4;
+    }
+
+    // ─── Top 20 Critical ONTs ────────────────────────────────────────────
+    if (topCritical.length > 0) {
+      y = maybeNewPage(doc, y, 60, customerName);
+      y = sectionTitle(doc, `Top ${topCritical.length} Critical ONTs`, y, C.red);
+      const cols = [
+        { label: 'OLT',      x: M + 5   },
+        { label: 'Port',     x: M + 50  },
+        { label: 'ONT ID',   x: M + 88  },
+        { label: 'Serial',   x: M + 105 },
+        { label: 'ONT Rx',   x: M + 142 },
+        { label: 'US BIP',   x: M + 158 },
+        { label: 'DS BIP',   x: M + 175 },
+      ];
+      y = tableHeader(doc, y, cols);
+      for (let i = 0; i < topCritical.length; i++) {
+        y = maybeNewPage(doc, y, 8, customerName);
+        const r = topCritical[i];
+        y = tableRow(doc, y, [
+          { value: r.olt_name || '',     x: M + 5,   maxW: 42 },
+          { value: r.shelf_slot_port || '', x: M + 50, maxW: 35 },
+          { value: String(r.ont_id || ''), x: M + 88 },
+          { value: r.serial_number || '', x: M + 105, maxW: 35 },
+          { value: r.ont_rx_power != null ? String(r.ont_rx_power) : '—', x: M + 142, color: C.red },
+          { value: String(r.us_bip_errors || 0), x: M + 158 },
+          { value: String(r.ds_bip_errors || 0), x: M + 175 },
+        ], i % 2 === 0);
+      }
+      y += 4;
+    }
+
+    // ─── Top 20 OLT Ports by Corrected FEC ───────────────────────────────
+    if (topFecPorts.length > 0) {
+      y = maybeNewPage(doc, y, 60, customerName);
+      y = sectionTitle(doc, `Top ${topFecPorts.length} OLT Ports — Corrected FEC`, y, C.amber);
+      const cols = [
+        { label: 'OLT',                   x: M + 5   },
+        { label: 'Port',                  x: M + 70  },
+        { label: 'Total Corrected FEC',   x: M + 120 },
+        { label: 'ONTs on Port',          x: M + 165 },
+      ];
+      y = tableHeader(doc, y, cols);
+      for (let i = 0; i < topFecPorts.length; i++) {
+        y = maybeNewPage(doc, y, 8, customerName);
+        const p = topFecPorts[i];
+        y = tableRow(doc, y, [
+          { value: p.olt,                 x: M + 5,   maxW: 60 },
+          { value: p.port,                x: M + 70,  maxW: 45 },
+          { value: p.total.toLocaleString(), x: M + 120 },
+          { value: String(p.ontCount),    x: M + 165 },
+        ], i % 2 === 0);
+      }
+      y += 4;
+    }
+
+    // ─── Trend Deltas (Current vs ~7d vs ~30d) ──────────────────────────
+    y = maybeNewPage(doc, y, 80, customerName);
+    y = sectionTitle(doc, 'Trend Comparison', y, C.purple);
+
+    const curLabel   = fmtDate(currentReport.upload_date);
+    const weekLabel  = week1Report  ? fmtDate(week1Report.upload_date)  : 'N/A';
+    const monthLabel = month1Report ? fmtDate(month1Report.upload_date) : 'N/A';
+
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.muted);
+    doc.text(
+      `Current report: ${curLabel}    |    ~7 days ago: ${weekLabel}    |    ~30 days ago: ${monthLabel}`,
+      M + 4, y - 1, { maxWidth: CW - 8 }
+    );
+    y += 5;
+
+    if (!week1Report && !month1Report) {
+      doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
       doc.text(
-        'No prior report was found within the lookback window. Upload a second report to enable week-over-week comparison.',
+        'No prior reports found in the database. Trend comparison will populate as more reports are uploaded.',
         M + 4, y + 2, { maxWidth: CW - 8 }
       );
       y += 12;
+    } else {
+      const metrics = [
+        { metric: 'Total ONTs',     cur: currentAgg.total,    w: week1Agg.total,    m: month1Agg.total,    good: true  },
+        { metric: 'Critical',       cur: currentAgg.critical, w: week1Agg.critical, m: month1Agg.critical, good: false },
+        { metric: 'Warning',        cur: currentAgg.warning,  w: week1Agg.warning,  m: month1Agg.warning,  good: false },
+        { metric: 'Healthy',        cur: currentAgg.ok,       w: week1Agg.ok,       m: month1Agg.ok,       good: true  },
+        { metric: 'Offline',        cur: currentAgg.offline,  w: week1Agg.offline,  m: month1Agg.offline,  good: false },
+        { metric: 'GPON ONTs',      cur: currentAgg.gpon,     w: week1Agg.gpon,     m: month1Agg.gpon,     good: true  },
+        { metric: 'XGS-PON ONTs',   cur: currentAgg.xgs,      w: week1Agg.xgs,      m: month1Agg.xgs,      good: true  },
+        { metric: 'ONTs w/ Eero',   cur: currentAgg.eeroCount,w: week1Agg.eeroCount,m: month1Agg.eeroCount,good: true  },
+      ];
+      const cols = [
+        { label: 'Metric',      x: M + 5   },
+        { label: curLabel,      x: M + 60  },
+        { label: weekLabel,     x: M + 88  },
+        { label: 'Δ 7d',        x: M + 116 },
+        { label: monthLabel,    x: M + 140 },
+        { label: 'Δ 30d',       x: M + 168 },
+      ];
+      y = tableHeader(doc, y, cols);
+
+      const deltaColor = (delta, isGood) => {
+        if (delta === 0 || delta === null) return C.muted;
+        if (isGood) return delta > 0 ? C.green : C.red;
+        return delta > 0 ? C.red : C.green;
+      };
+
+      for (let i = 0; i < metrics.length; i++) {
+        y = maybeNewPage(doc, y, 8, customerName);
+        const r = metrics[i];
+        const dw = week1Report ? r.cur - r.w : null;
+        const dm = month1Report ? r.cur - r.m : null;
+        const fmtDelta = (d) => d === null ? '—' : `${d > 0 ? '+' : ''}${d}`;
+        y = tableRow(doc, y, [
+          { value: r.metric,                      x: M + 5   },
+          { value: r.cur.toLocaleString(),        x: M + 60  },
+          { value: week1Report ? r.w.toLocaleString() : '—', x: M + 88  },
+          { value: fmtDelta(dw),                  x: M + 116, color: deltaColor(dw, r.good) },
+          { value: month1Report ? r.m.toLocaleString() : '—', x: M + 140 },
+          { value: fmtDelta(dm),                  x: M + 168, color: deltaColor(dm, r.good) },
+        ], i % 2 === 0);
+      }
+      y += 4;
+
+      // Trend chart for Total / Critical / Warning across the three time points
+      y = maybeNewPage(doc, y, 50, customerName);
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
+      doc.text('Critical & Warning Trend (snapshot comparison)', M + 4, y);
+      y += 4;
+      // Build a tiny 3-point series for criticals and warnings
+      const series = [
+        { label: 'Critical',
+          points: [
+            { x: '30d', v: month1Report ? month1Agg.critical : null },
+            { x: '7d',  v: week1Report  ? week1Agg.critical  : null },
+            { x: 'Now', v: currentAgg.critical },
+          ], color: C.red },
+        { label: 'Warning',
+          points: [
+            { x: '30d', v: month1Report ? month1Agg.warning : null },
+            { x: '7d',  v: week1Report  ? week1Agg.warning  : null },
+            { x: 'Now', v: currentAgg.warning },
+          ], color: C.amber },
+      ];
+      const chartY = y;
+      const chartH = 36;
+      const chartW = CW - 8;
+      const chartX = M + 4;
+      // Frame
+      doc.setDrawColor(...C.border); doc.setLineWidth(0.3);
+      doc.rect(chartX, chartY, chartW, chartH);
+      // Max value across both series
+      const allVals = series.flatMap(s => s.points.map(p => p.v).filter(v => v !== null));
+      const maxV = Math.max(...allVals, 1);
+      // X positions for 3 snapshots
+      const xs = [chartX + 12, chartX + chartW / 2, chartX + chartW - 12];
+      const labels = ['~30d ago', '~7d ago', 'Now'];
+      // Axis labels
+      doc.setFontSize(6); doc.setTextColor(...C.muted);
+      labels.forEach((lab, i) => doc.text(lab, xs[i], chartY + chartH + 4, { align: 'center' }));
+      // Plot each series
+      series.forEach((ser, sIdx) => {
+        doc.setDrawColor(...ser.color); doc.setLineWidth(0.8);
+        doc.setFillColor(...ser.color);
+        let prev = null;
+        ser.points.forEach((p, i) => {
+          if (p.v === null) { prev = null; return; }
+          const xx = xs[i];
+          const yy = chartY + chartH - 4 - (p.v / maxV) * (chartH - 8);
+          // Point
+          doc.circle(xx, yy, 1.2, 'F');
+          // Value label
+          doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(...ser.color);
+          doc.text(String(p.v), xx + 2.5, yy + 1);
+          if (prev) doc.line(prev.x, prev.y, xx, yy);
+          prev = { x: xx, y: yy };
+        });
+        // Legend
+        doc.setFillColor(...ser.color);
+        doc.rect(chartX + 4 + sIdx * 30, chartY + 2, 3, 3, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5); doc.setTextColor(...C.dark);
+        doc.text(ser.label, chartX + 8 + sIdx * 30, chartY + 4.5);
+      });
+      y = chartY + chartH + 8;
     }
 
-    // ── Stamp header + footer on every page ────────────────────────────────
+    // ─── Stamp footer on every page ──────────────────────────────────────
     const totalPages = doc.internal.pages.length - 1;
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
-      drawFooter(doc, p, totalPages, customerName);
+      drawFooter(doc, reportDateLong);
     }
 
     const dateStr = new Date().toISOString().slice(0, 10);
@@ -869,7 +1051,7 @@ Deno.serve(async (req) => {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename=FiberOracle-Executive-Report-${dateStr}.pdf`,
+        'Content-Disposition': `attachment; filename=FiberOracle-System-Report-${dateStr}.pdf`,
         'Cache-Control': 'no-store',
       },
     });

@@ -151,61 +151,84 @@ Deno.serve(async (req) => {
       border:  [203, 213, 225],
     };
 
-    // Header
-    function drawHeader() {
+    // Generation timestamp + long-form date used in branded header/footer
+    const generatedAtStr = new Date().toLocaleString('en-US', { timeZone: tz });
+    const reportDateLong = new Date().toLocaleDateString('en-US', {
+      timeZone: tz, year: 'numeric', month: 'long', day: 'numeric',
+    });
+
+    // ─── Branded header (page 1) — larger logo + name + description ─────
+    function drawHeaderFull() {
+      const HDR_H = 34;
       doc.setFillColor(...COLORS.navy);
-      doc.rect(0, 0, W, 26, 'F');
+      doc.rect(0, 0, W, HDR_H, 'F');
       doc.setFillColor(...COLORS.accent);
-      doc.rect(0, 26, W, 1.5, 'F');
+      doc.rect(0, HDR_H, W, 1.5, 'F');
 
       let cursorX = M;
       if (customerLogo) {
-        // Logo on white plate so it's legible against navy
-        const plateX = M, plateY = 4, plateW = 24, plateH = 18;
+        const plateX = M, plateY = 5, plateW = 24, plateH = 24;
         doc.setFillColor(...COLORS.white);
-        doc.roundedRect(plateX, plateY, plateW, plateH, 1.5, 1.5, 'F');
+        doc.roundedRect(plateX, plateY, plateW, plateH, 2, 2, 'F');
         try {
           const props = doc.getImageProperties(customerLogo);
           const ratio = props.width / props.height;
-          const maxW = plateW - 3, maxH = plateH - 3;
-          let dW = maxW, dH = dW / ratio;
-          if (dH > maxH) { dH = maxH; dW = dH * ratio; }
+          let dW = 21, dH = dW / ratio;
+          if (dH > 21) { dH = 21; dW = dH * ratio; }
           doc.addImage(customerLogo, props.fileType || 'PNG',
             plateX + (plateW - dW) / 2, plateY + (plateH - dH) / 2, dW, dH);
         } catch (_) {}
-        cursorX = M + plateW + 4;
+        cursorX = M + plateW + 6;
       }
 
       doc.setTextColor(...COLORS.white);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.text(s(customerName || 'FIBER ORACLE'), cursorX, 12);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.setTextColor(...COLORS.sub);
-      doc.text(customerName ? 'Powered by FiberOracle.com' : 'fiberoracle.com', cursorX, 18);
-
+      doc.setFontSize(16);
+      doc.text(s(customerName || 'FIBER ORACLE'), cursorX, 14);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       doc.setTextColor(...COLORS.accent);
-      doc.text('EERO SATURATION REPORT', W - M, 11, { align: 'right' });
+      doc.text('EERO SATURATION REPORT', cursorX, 20);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
+      doc.setFontSize(7.5);
       doc.setTextColor(...COLORS.sub);
-      doc.text(new Date().toLocaleDateString('en-US', { timeZone: tz, year:'numeric', month:'long', day:'numeric' }),
-        W - M, 17, { align: 'right' });
+      doc.text(s(`Generated ${generatedAtStr}`), cursorX, 25.5);
+      doc.text(
+        'Detailed eero saturation across the network — chassis, port, and model density to inform deployment and marketing.',
+        cursorX, 30, { maxWidth: W - cursorX - M, lineHeightFactor: 1.15 }
+      );
     }
 
-    function drawFooter(pageNum, totalPages) {
+    // Compact header for continuation pages
+    function drawHeaderCompact() {
+      doc.setFillColor(...COLORS.navy);
+      doc.rect(0, 0, W, 12, 'F');
+      doc.setFillColor(...COLORS.accent);
+      doc.rect(0, 12, W, 1, 'F');
+      doc.setTextColor(...COLORS.white);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text(s(customerName || 'FIBER ORACLE'), M, 8);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...COLORS.sub);
+      doc.text('Eero Saturation Report', W - M, 8, { align: 'right' });
+    }
+
+    // Footer: "Presented with FiberOracle" + date
+    function drawFooter() {
       const fy = H - 10;
       doc.setFillColor(...COLORS.navy);
       doc.rect(0, fy, W, 10, 'F');
-      doc.setFontSize(6.5);
+      doc.setFillColor(...COLORS.accent);
+      doc.rect(0, fy, W, 0.6, 'F');
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...COLORS.white);
+      doc.text('Presented with FiberOracle', M, fy + 6.5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...COLORS.sub);
-      doc.text(s(customerName ? `${customerName}  |  FiberOracle.com` : 'fiberoracle.com'), M, fy + 6);
-      doc.text(`Page ${pageNum} of ${totalPages}`, W / 2, fy + 6, { align: 'center' });
-      doc.text('CONFIDENTIAL', W - M, fy + 6, { align: 'right' });
+      doc.text(s(reportDateLong), W - M, fy + 6.5, { align: 'right' });
     }
 
     function sectionTitle(label, y, color) {
@@ -236,8 +259,8 @@ Deno.serve(async (req) => {
     }
 
     // ─── PAGE 1 ─────────────────────────────────────────────────────────
-    drawHeader();
-    let y = 34;
+    drawHeaderFull();
+    let y = 40;
 
     // Title block
     doc.setFontSize(18);
@@ -287,10 +310,9 @@ Deno.serve(async (req) => {
       chassis.forEach((c, i) => {
         // Page-break guard — leave room for footer
         if (y + barH + gap > H - 14) {
-          drawFooter(doc.internal.getCurrentPageInfo().pageNumber, 0);
           doc.addPage();
-          drawHeader();
-          y = 34;
+          drawHeaderCompact();
+          y = 18;
           y = sectionTitle('Saturation per Chassis / Device  (continued)', y, COLORS.accent);
         }
 
@@ -323,8 +345,8 @@ Deno.serve(async (req) => {
     // ─── Per-port saturation table ───────────────────────────────────────
     if (y > H - 60) {
       doc.addPage();
-      drawHeader();
-      y = 34;
+      drawHeaderCompact();
+      y = 18;
     } else {
       y += 4;
     }
@@ -351,10 +373,9 @@ Deno.serve(async (req) => {
 
       ports.forEach((p, i) => {
         if (y + 5.5 > H - 14) {
-          drawFooter(doc.internal.getCurrentPageInfo().pageNumber, 0);
           doc.addPage();
-          drawHeader();
-          y = 34;
+          drawHeaderCompact();
+          y = 18;
           y = sectionTitle('Saturation per Port  (continued)', y, [124, 58, 237]);
           // re-draw header row
           doc.setFillColor(...COLORS.navy);
@@ -404,7 +425,7 @@ Deno.serve(async (req) => {
     const totalPages = doc.internal.pages.length - 1;
     for (let p = 1; p <= totalPages; p++) {
       doc.setPage(p);
-      drawFooter(p, totalPages);
+      drawFooter();
     }
 
     return new Response(new Uint8Array(doc.output('arraybuffer')), {
