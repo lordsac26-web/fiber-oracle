@@ -219,6 +219,7 @@ export function enrichOntsWithSubscriber(lookup, onts) {
         name: sub.SubscriberName || '',
         account: sub.AccountName || '',
         address: fullAddress || sub.Address || '',
+        streetAddress: (sub.Address || '').trim(),
         city: sub.City || '',
         state: sub.State || '',
         zip: sub.Zip || '',

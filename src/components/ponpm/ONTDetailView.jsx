@@ -443,11 +443,11 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                     {ont._subscriber.account && (
                       <div className="flex justify-between"><span className="text-gray-500">Account:</span><span className="font-mono font-medium">{ont._subscriber.account}</span></div>
                     )}
-                    {ont._subscriber.address && (
-                      <div className="flex justify-between"><span className="text-gray-500">Address:</span><span className="font-medium">{ont._subscriber.address}</span></div>
+                    {(ont._subscriber.streetAddress || ont._subscriber.address) && (
+                      <div className="flex justify-between"><span className="text-gray-500">Address:</span><span className="font-medium">{ont._subscriber.streetAddress || ont._subscriber.address}</span></div>
                     )}
-                    {ont._subscriber.city && (
-                      <div className="flex justify-between"><span className="text-gray-500">City/Zip:</span><span className="font-medium">{ont._subscriber.city}{ont._subscriber.zip ? `, ${ont._subscriber.zip}` : ''}</span></div>
+                    {(ont._subscriber.city || ont._subscriber.zip) && (
+                      <div className="flex justify-between"><span className="text-gray-500">City/Zip:</span><span className="font-medium">{[ont._subscriber.city, ont._subscriber.state, ont._subscriber.zip].filter(Boolean).join(', ')}</span></div>
                     )}
                     {(ont._subscriber.model || ont.model) && (
                       <div className="flex justify-between"><span className="text-gray-500">ONT Model:</span><span className="font-medium">{ont._subscriber.model || ont.model}</span></div>
