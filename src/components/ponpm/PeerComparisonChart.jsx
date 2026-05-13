@@ -32,7 +32,8 @@ export default function PeerComparisonChart({ currentOnt, peers }) {
     return peers.filter(p =>
       p.SerialNumber?.toLowerCase().includes(term) ||
       p.OntID?.toString().includes(search) ||
-      p._subscriber?.name?.toLowerCase().includes(term)
+      p._subscriber?.name?.toLowerCase().includes(term) ||
+      p._subscriber?.address?.toLowerCase().includes(term)
     );
   }, [peers, search]);
 
@@ -201,8 +202,10 @@ export default function PeerComparisonChart({ currentOnt, peers }) {
                   <Badge variant="outline" className={`text-[9px] px-1 py-0 ${STATUS_COLORS[p._analysis?.status] || ''}`}>
                     {p._analysis?.status}
                   </Badge>
-                  {p._subscriber?.name && (
-                    <span className="text-gray-500 truncate max-w-[80px]">{p._subscriber.name}</span>
+                  {(p._subscriber?.name || p._subscriber?.address) && (
+                    <span className="text-gray-500 truncate max-w-[160px]" title={[p._subscriber?.name, p._subscriber?.address].filter(Boolean).join(' — ')}>
+                      {[p._subscriber?.name, p._subscriber?.address].filter(Boolean).join(' — ')}
+                    </span>
                   )}
                 </label>
               );
