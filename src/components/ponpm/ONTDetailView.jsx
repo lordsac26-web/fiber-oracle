@@ -29,7 +29,6 @@ import {
   TrendingUp,
   AlertCircle,
   Loader2,
-  FileText,
   Calendar,
   MapPin,
   Zap,
@@ -55,9 +54,7 @@ const STATUS_COLORS = {
 
 export default function ONTDetailView({ ont, onClose, allOnts }) {
   const [historicalData, setHistoricalData] = useState([]);
-  const [jobReports, setJobReports] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [isLoadingJobs, setIsLoadingJobs] = useState(true);
 
   const [peerData, setPeerData] = useState({ onts: [], avgMetrics: null });
   const [showPeerComparison, setShowPeerComparison] = useState(false);
@@ -91,21 +88,6 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
         console.error('Failed to load historical data:', error);
       } finally {
         if (!cancelled) setIsLoadingHistory(false);
-      }
-
-      // Job reports
-      setIsLoadingJobs(true);
-      try {
-        const relatedReports = await base44.entities.JobReport.filter(
-          { 'fiber_info.fsan': ont.SerialNumber },
-          '-created_date',
-          50
-        );
-        if (!cancelled) setJobReports(relatedReports);
-      } catch (error) {
-        console.error('Failed to load job reports:', error);
-      } finally {
-        if (!cancelled) setIsLoadingJobs(false);
       }
 
       // Peer data (sync — no API call)
@@ -192,7 +174,7 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="history">
               History
@@ -208,12 +190,6 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
             </TabsTrigger>
             <TabsTrigger value="compare">
               Compare
-            </TabsTrigger>
-            <TabsTrigger value="jobs">
-              Jobs
-              {jobReports.length > 0 && (
-                <Badge variant="outline" className="ml-1 text-xs">{jobReports.length}</Badge>
-              )}
             </TabsTrigger>
             <TabsTrigger value="raw">Raw</TabsTrigger>
           </TabsList>
@@ -932,69 +908,6 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
           {/* Interactive Comparison Tab */}
           <TabsContent value="compare" className="space-y-4">
             <PeerComparisonChart currentOnt={ont} peers={peerData.onts} />
-          </TabsContent>
-
-          {/* Job Reports Tab */}
-          <TabsContent value="jobs" className="space-y-4">
-            {isLoadingJobs ? (
-              <div className="text-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-3" />
-                <p className="text-gray-500">Loading job reports...</p>
-              </div>
-            ) : jobReports.length === 0 ? (
-              <Card className="border-2 border-gray-200 bg-gray-50">
-                <CardContent className="p-8 text-center">
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                  <h3 className="font-semibold text-gray-900 mb-1">No Job Reports</h3>
-                  <p className="text-sm text-gray-600">
-                    No job reports have been created for this ONT yet.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {jobReports.map((report, idx) => (
-                  <Card key={idx} className="border">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className="font-semibold text-sm">Job #{report.job_number}</div>
-                          <div className="text-xs text-gray-500 flex items-center gap-2 mt-1">
-                            <Calendar className="h-3 w-3" />
-                            {moment(report.created_date).format('MMM D, YYYY')}
-                            {report.technician_name && (
-                              <span>• Tech: {report.technician_name}</span>
-                            )}
-                          </div>
-                        </div>
-                        <Badge className={STATUS_COLORS[report.status] || 'bg-gray-100'}>
-                          {report.status?.replace('_', ' ')}
-                        </Badge>
-                      </div>
-                      {report.start_power_level && (
-                        <div className="flex items-center gap-4 text-sm mb-2">
-                          <span className="text-gray-500">Power:</span>
-                          <span className="font-mono">{report.start_power_level} dBm</span>
-                          {report.end_power_level && (
-                            <>
-                              <span>→</span>
-                              <span className="font-mono font-bold">{report.end_power_level} dBm</span>
-                              <Badge className="bg-green-100 text-green-800">
-                                {report.end_power_level - report.start_power_level > 0 ? '+' : ''}
-                                {(report.end_power_level - report.start_power_level).toFixed(1)} dB
-                              </Badge>
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {report.notes && (
-                        <p className="text-xs text-gray-600 mt-2 line-clamp-2">{report.notes}</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
           </TabsContent>
 
           {/* Raw Data Tab */}
