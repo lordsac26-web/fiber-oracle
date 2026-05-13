@@ -172,9 +172,14 @@ function recordToOnt(rec) {
       model:    rec.subscriber_model        || '',
     };
     // Prefer the specific subscriber model over the OLT-reported generic placeholder
-    // (e.g. subscriber CSV has "5222XG" while OLT reports "DZS 522x XG")
+    // (e.g. subscriber CSV has "5222XG" while OLT reports "DZS 522x XG").
+    // Recompute _techType from the corrected model — otherwise the KPI chips
+    // undercount XGS-PON because _techType was derived from the (often-blank)
+    // OLT-reported rec.model above and was never refreshed after the override.
     if (rec.subscriber_model) {
       ont.model = rec.subscriber_model;
+      const refinedTech = detectTechType(rec.subscriber_model);
+      if (refinedTech) ont._techType = refinedTech;
     }
   }
   return ont;
