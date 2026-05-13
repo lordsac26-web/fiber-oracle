@@ -69,7 +69,6 @@ export default function Settings() {
     const fileInputRefs = {
       pon_pm_all: React.useRef(null),
       lcp_all: React.useRef(null),
-      job_reports_all: React.useRef(null),
       test_reports_all: React.useRef(null),
     };
 
@@ -162,12 +161,6 @@ export default function Settings() {
     enabled: isAuthenticated,
   });
 
-  const { data: jobReports = [] } = useQuery({
-    queryKey: ['jobReports'],
-    queryFn: () => base44.entities.JobReport.list(),
-    enabled: isAuthenticated,
-  });
-
   const { data: testReports = [] } = useQuery({
     queryKey: ['testReports'],
     queryFn: () => base44.entities.TestReport.list(),
@@ -214,11 +207,6 @@ export default function Settings() {
         return {
           title: 'Delete All LCP Data?',
           description: `This will permanently delete ${lcpEntries.length} LCP entries. This action cannot be undone.`,
-        };
-      case 'job_reports_all':
-        return {
-          title: 'Delete All Job Reports?',
-          description: `This will permanently delete ${jobReports.length} job reports. This action cannot be undone.`,
         };
       case 'test_reports_all':
         return {
@@ -846,55 +834,6 @@ export default function Settings() {
                       size="sm"
                       onClick={() => openPurgeDialog('lcp_all')}
                       disabled={lcpEntries.length === 0}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Purge All
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Job Reports */}
-                <div className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">Job Reports</h3>
-                      <p className="text-sm text-gray-500">Field service and maintenance reports</p>
-                    </div>
-                    <Badge variant="outline" className="font-mono">
-                      {jobReports.length} reports
-                    </Badge>
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExport('job_reports_all')}
-                      disabled={jobReports.length === 0 || isExporting}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Export Backup
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRefs.job_reports_all.current?.click()}
-                      disabled={isImporting}
-                    >
-                      <FileUp className="h-4 w-4 mr-2" />
-                      Import Backup
-                    </Button>
-                    <input
-                      ref={fileInputRefs.job_reports_all}
-                      type="file"
-                      accept=".json"
-                      className="hidden"
-                      onChange={(e) => handleImportFile('job_reports_all', e.target.files[0])}
-                    />
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => openPurgeDialog('job_reports_all')}
-                      disabled={jobReports.length === 0}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
                       Purge All
