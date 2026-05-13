@@ -77,7 +77,29 @@ Deno.serve(async (req) => {
       // Flip the pending meta to active
       const activated = await base44.asServiceRole.entities.SubscriberUploadMeta.update(meta_id, { status: 'active' });
 
-      // Fire-and-forget background sync + orphan cleanup
+      // Fetch all subscriber records from the newly-active upload and enrich PON PM database
+      const pageSize = 5000;
+      let allSubscriberRecords = [];
+      let offset = 0;
+      while (true) {
+        const batch = await base44.asServiceRole.entities.SubscriberRecord.filter(
+          { upload_id: meta_id },
+          'created_date',
+          pageSize,
+          offset
+        );
+        if (!batch || batch.length === 0) break;
+        allSubscriberRecords = allSubscriberRecords.concat(batch);
+        if (batch.length < pageSize) break;
+        offset += pageSize;
+      }
+
+      // Fire-and-forget background tasks
+      base44.functions.invoke('enrichPonPmFromSubscriber', {
+        subscriberRecords: allSubscriberRecords,
+      }).catch((err) => {
+        console.error('[saveSubscriberData] Enrichment failed to start:', err.message);
+      });
       base44.functions.invoke('syncSubscriberToOntRecords', {}).catch((err) => {
         console.error('[saveSubscriberData] Background sync failed to start:', err.message);
       });
@@ -120,6 +142,28 @@ Deno.serve(async (req) => {
       status:       'active',
     });
 
+    // Fetch all subscriber records from the newly-active upload and enrich PON PM database
+    const pageSize = 5000;
+    let allSubscriberRecords = [];
+    let offset = 0;
+    while (true) {
+      const batch = await base44.asServiceRole.entities.SubscriberRecord.filter(
+        { upload_id: meta.id },
+        'created_date',
+        pageSize,
+        offset
+      );
+      if (!batch || batch.length === 0) break;
+      allSubscriberRecords = allSubscriberRecords.concat(batch);
+      if (batch.length < pageSize) break;
+      offset += pageSize;
+    }
+
+    base44.functions.invoke('enrichPonPmFromSubscriber', {
+      subscriberRecords: allSubscriberRecords,
+    }).catch((err) => {
+      console.error('[saveSubscriberData] Enrichment failed to start:', err.message);
+    });
     base44.functions.invoke('syncSubscriberToOntRecords', {}).catch((err) => {
       console.error('[saveSubscriberData] Background sync failed to start:', err.message);
     });
