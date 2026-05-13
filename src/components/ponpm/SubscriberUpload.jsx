@@ -162,6 +162,24 @@ function normalizeOntId(id) {
   return s;
 }
 
+// Detect technology type from ONT model. Must stay in sync with the lists in
+// functions/parsePonPm.js (detectTechTypeFromModel) and functions/loadSavedReport.js
+// (detectTechType). When subscriber enrichment overwrites ont.model with the
+// authoritative model (e.g. "5222XG"), we recompute _techType so the technology
+// counters (GPON / XGS-PON KPI chips) reflect the corrected model.
+const XGS_MODELS  = ['GP1101X', 'GP4201X', 'GP4201XH', '5222XG', '5228XG'];
+const GPON_MODELS = ['711GE', '717GE', '725G', '725GE', '725', '812G-1', '844G-1', '844GE-1', '803G'];
+function detectTechTypeFromModel(model) {
+  if (!model) return null;
+  const m = String(model).toUpperCase().trim();
+  if (!m) return null;
+  // Any model containing "DZS" is XGS-PON
+  if (m.replace(/\s/g, '').includes('DZS')) return 'XGS-PON';
+  for (const x of XGS_MODELS)  if (m.includes(x)) return 'XGS-PON';
+  for (const g of GPON_MODELS) if (m.includes(g)) return 'GPON';
+  return null;
+}
+
 export function buildSubscriberLookup(records) {
   const byComposite = new Map(); // "OLT|PORT|ONTID" → record
   const bySerial = new Map();    // "SERIAL" → record
@@ -253,9 +271,16 @@ export function enrichOntsWithSubscriber(lookup, onts) {
         serialNo: sub.ONTSerialNo || '',
       };
       // Always prefer the specific subscriber model over the OLT-reported model
-      // (e.g. subscriber CSV has "5222XG" while OLT reports generic "DZS 522x XG")
+      // (e.g. subscriber CSV has "5222XG" while OLT reports generic "DZS 522x XG").
+      // Also recompute _techType from the corrected model — otherwise the GPON/
+      // XGS-PON KPI chips undercount, since _techType was originally derived
+      // from a missing/generic model at ingest time and never refreshed.
       if (sub.ONTModel) {
         ont.model = sub.ONTModel;
+        const newTech = detectTechTypeFromModel(sub.ONTModel);
+        // Only overwrite when we resolved a known tech — preserve the
+        // existing combo-port fallback (e.g. "XGS-PON (combo odd)") otherwise.
+        if (newTech) ont._techType = newTech;
       }
       matched++;
     }
