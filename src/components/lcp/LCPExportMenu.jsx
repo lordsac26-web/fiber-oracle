@@ -10,7 +10,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Download, FileSpreadsheet, ChevronDown, Users, Cable, Server } from 'lucide-react';
+import { Download, FileSpreadsheet, ChevronDown, Users, Cable } from 'lucide-react';
 import { toast } from 'sonner';
 import { buildSubscriberLookup } from '@/components/ponpm/SubscriberUpload';
 
@@ -140,38 +140,6 @@ export default function LCPExportMenu({ lcpEntries = [], latestOntCountsByKey = 
     setShowSingleDialog(false);
   };
 
-  // --- Export: Comprehensive System Report ---
-  const exportSystemReport = () => {
-    if (!lcpEntries.length) { toast.error('No LCP entries to export'); return; }
-
-    const headers = [
-      'LCP/CLCP', 'Splitter', 'Location', 'GPS Lat', 'GPS Long',
-      'OLT', 'Shelf', 'Slot', 'Port',
-      'Optic Make', 'Optic Model', 'Optic Serial', 'Optic Type',
-      'Current ONT Count', 'Subscriber Count', 'Notes',
-    ];
-
-    const rows = lcpEntries
-      .sort((a, b) => (a.lcp_number || '').localeCompare(b.lcp_number || '', undefined, { numeric: true }) ||
-        (a.splitter_number || '').localeCompare(b.splitter_number || '', undefined, { numeric: true }))
-      .map(entry => {
-        const key = `${(entry.lcp_number || '').trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`;
-        const ontCount = latestOntCountsByKey[key] || 0;
-        const subCount = getSubscribersForEntry(entry).length;
-        return [
-          entry.lcp_number || '', entry.splitter_number || '', entry.location || '',
-          entry.gps_lat || '', entry.gps_lng || '',
-          entry.olt_name || '', entry.olt_shelf || '', entry.olt_slot || '', entry.olt_port || '',
-          entry.optic_make || '', entry.optic_model || '', entry.optic_serial || '', entry.optic_type || '',
-          ontCount, subCount, entry.notes || '',
-        ];
-      });
-
-    const csv = buildCSVString(headers, rows);
-    downloadCSV(csv, `lcp-system-report-${new Date().toISOString().slice(0, 10)}.csv`);
-    toast.success(`Exported system report (${rows.length} splitter entries)`);
-  };
-
   return (
     <>
       <DropdownMenu>
@@ -186,11 +154,6 @@ export default function LCPExportMenu({ lcpEntries = [], latestOntCountsByKey = 
           <DropdownMenuItem onClick={() => setShowSingleDialog(true)}>
             <Cable className="h-4 w-4 mr-2 text-blue-500" />
             Single LCP/CLCP Report
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={exportSystemReport}>
-            <Server className="h-4 w-4 mr-2 text-indigo-500" />
-            Comprehensive System Report
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => {
