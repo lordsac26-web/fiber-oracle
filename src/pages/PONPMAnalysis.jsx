@@ -244,30 +244,7 @@ export default function PONPMAnalysis() {
   useEffect(() => { enrichedRef.current = false; }, [result?.source]);
 
   // Subscriber data enrichment — uses persistent hook
-  const handleSubscriberDataLoaded = useCallback(async (records, fileName) => {
-    await persistSubscriberData(records, fileName);
-    
-    // After subscriber data is saved and enriched in the database,
-    // reload the current report from the DB so the frontend sees the updated
-    // serial numbers and models (persisted by enrichPonPmFromSubscriber backend function).
-    if (selectedReportId) {
-      const currentReport = savedReports.find(r => r.id === selectedReportId);
-      if (currentReport) {
-        try {
-          await loadSavedReport(currentReport);
-        } catch (err) {
-          console.error('Failed to reload report after subscriber enrichment:', err);
-          // Silently fail — user can manually reload if needed
-        }
-      }
-    } else if (result?.onts) {
-      // If viewing a non-saved report (freshly parsed), enrich in-memory only
-      const lookup = buildSubscriberLookup(records);
-      const matched = enrichOntsWithSubscriber(lookup, result.onts);
-      setSubscriberMatchCount(matched);
-      setResult(prev => ({ ...prev })); // trigger re-render
-    }
-  }, [result, persistSubscriberData, selectedReportId, savedReports, loadSavedReport]);
+
 
   // Eero enrichment — runs AFTER subscriber enrichment because eero matches
   // via ont._subscriber.account ↔ home_identifier.
@@ -378,6 +355,33 @@ export default function PONPMAnalysis() {
       setIsLoading(false);
     }
   }, []);
+
+  // Subscriber data enrichment — uses persistent hook
+  // MUST be after loadSavedReport definition to avoid TDZ error
+  const handleSubscriberDataLoaded = useCallback(async (records, fileName) => {
+    await persistSubscriberData(records, fileName);
+    
+    // After subscriber data is saved and enriched in the database,
+    // reload the current report from the DB so the frontend sees the updated
+    // serial numbers and models (persisted by enrichPonPmFromSubscriber backend function).
+    if (selectedReportId) {
+      const currentReport = savedReports.find(r => r.id === selectedReportId);
+      if (currentReport) {
+        try {
+          await loadSavedReport(currentReport);
+        } catch (err) {
+          console.error('Failed to reload report after subscriber enrichment:', err);
+          // Silently fail — user can manually reload if needed
+        }
+      }
+    } else if (result?.onts) {
+      // If viewing a non-saved report (freshly parsed), enrich in-memory only
+      const lookup = buildSubscriberLookup(records);
+      const matched = enrichOntsWithSubscriber(lookup, result.onts);
+      setSubscriberMatchCount(matched);
+      setResult(prev => ({ ...prev })); // trigger re-render
+    }
+  }, [result, persistSubscriberData, selectedReportId, savedReports, loadSavedReport]);
 
   // Auto-load the most recent saved report on first visit so users land on a populated dashboard.
   // LCP enrichment + subscriber enrichment are applied automatically by existing effects below.
