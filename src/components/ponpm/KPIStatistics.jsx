@@ -10,12 +10,36 @@ import ShelfHealthPanel from './ShelfHealthPanel';
 
 const TECH_OPTIONS = ['All', 'GPON', 'XGS-PON'];
 
-// Returns true if the ONT belongs to the given tech filter
+// Keep XGS_MODELS / GPON_MODELS in lock-step with detectTechTypeFromModel in
+// components/ponpm/SubscriberUpload.jsx and the backend (parsePonPm /
+// loadSavedReport). When adding a new model, update all three places.
+const XGS_MODELS  = ['GP1101X', 'GP4201X', 'GP4201XH', '5222XG', '5228XG'];
+const GPON_MODELS = ['711GE', '717GE', '725G', '725GE', '725', '812G-1', '844G-1', '844GE-1', '803G'];
+
+// Resolve the authoritative tech-type for an ONT using the SAME model source
+// that the GlobalFilterBar uses for its model counts. This guarantees the
+// "GPON / XGS-PON" chips are always in lock-step with the model filter — if
+// the global filter counts 2500 ONTs with model "5222XG", every one of those
+// also counts as XGS-PON here, even if backend `_techType` was never refreshed.
+function resolveTech(ont) {
+  // Same precedence as GlobalFilterBar.jsx line 55
+  const model = ont._subscriber?.model || ont._subscriberModel || ont.subscriber_model || ont.model;
+  if (model) {
+    const m = String(model).toUpperCase().trim();
+    if (m.replace(/\s/g, '').includes('DZS')) return 'XGS-PON';
+    for (const x of XGS_MODELS)  if (m.includes(x)) return 'XGS-PON';
+    for (const g of GPON_MODELS) if (m.includes(g)) return 'GPON';
+  }
+  // Fallback to the backend-computed _techType (covers combo-port heuristic
+  // and any models we haven't enumerated above).
+  if (ont._techType?.includes('XGS')) return 'XGS-PON';
+  if (ont._techType?.includes('GPON')) return 'GPON';
+  return null;
+}
+
 function matchesTech(ont, tech) {
   if (tech === 'All') return true;
-  if (tech === 'GPON') return ont._techType?.includes('GPON') ?? false;
-  if (tech === 'XGS-PON') return ont._techType?.includes('XGS') ?? false;
-  return true;
+  return resolveTech(ont) === tech;
 }
 
 function calcStats(onts) {
@@ -111,11 +135,16 @@ function RxPowerBar({ value, min = -35, max = -5, label }) {
 export default function KPIStatistics({ result, filteredOnts, previousReport }) {
   const [techFilter, setTechFilter] = useState('All');
 
-  // Counts for each tech (always from filteredOnts)
+  // Counts for each tech — derive from the same model field GlobalFilterBar
+  // uses so the chip counts and the model filter counts always agree.
   const techCounts = useMemo(() => {
     if (!filteredOnts) return { GPON: 0, 'XGS-PON': 0, unknown: 0 };
-    const gpon = filteredOnts.filter(o => o._techType?.includes('GPON')).length;
-    const xgs  = filteredOnts.filter(o => o._techType?.includes('XGS')).length;
+    let gpon = 0, xgs = 0;
+    for (const o of filteredOnts) {
+      const t = resolveTech(o);
+      if (t === 'GPON') gpon++;
+      else if (t === 'XGS-PON') xgs++;
+    }
     return { GPON: gpon, 'XGS-PON': xgs, unknown: filteredOnts.length - gpon - xgs };
   }, [filteredOnts]);
 
