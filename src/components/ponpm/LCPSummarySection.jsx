@@ -717,7 +717,9 @@ export default function LCPSummarySection({ result, onPortClick }) {
                         size="sm"
                         className="text-xs"
                         onClick={() => {
-                          const [olt, portKey] = port.split('/');
+                          const slashIdx = port.indexOf('/');
+                          const olt = port.substring(0, slashIdx);
+                          const portKey = port.substring(slashIdx + 1);
                           if (onPortClick) {
                             onPortClick(olt, portKey);
                             setSelectedLCP(null);
