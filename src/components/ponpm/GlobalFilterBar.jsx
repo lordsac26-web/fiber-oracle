@@ -50,9 +50,9 @@ export default function GlobalFilterBar({
         oltPorts.set(key, (oltPorts.get(key) || 0) + 1);
       }
 
-      // Model — use subscriber ONTModel exclusively (from the subscriber data upload).
-      // enrichOntsWithSubscriber stores it as ont._subscriber.model (mapped from ONTModel).
-      const model = ont._subscriber?.model || ont._subscriberModel;
+      // Model — prefer subscriber ONTModel (ground-truth from subscriber CSV upload),
+      // fall back to OLT-reported model so the filter is never empty.
+      const model = ont._subscriber?.model || ont._subscriberModel || ont.subscriber_model || ont.model;
       if (model) {
         models.set(model, (models.get(model) || 0) + 1);
       }
