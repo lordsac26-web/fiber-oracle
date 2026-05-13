@@ -3,21 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+// Table + Select components moved into sub-components (VirtualizedONTTable, AdvancedFiltersBar)
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,7 +64,7 @@ import EeroUpload from '@/components/ponpm/EeroUpload';
 import EeroDataBadge from '@/components/ponpm/EeroDataBadge';
 import { useEeroData } from '@/components/ponpm/useEeroData';
 import { useEeroOntEnrichmentHandler } from '@/components/ponpm/useEeroOntEnrichment';
-import ONTTableRow from '@/components/ponpm/ONTTableRow';
+import VirtualizedONTTable from '@/components/ponpm/VirtualizedONTTable';
 import UnifiedExportMenu from '@/components/ponpm/UnifiedExportMenu';
 import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
 import SummaryCardsRow from '@/components/ponpm/SummaryCardsRow';
@@ -1236,39 +1222,13 @@ export default function PONPMAnalysis() {
                                           <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">OK</Badge>
                                         </label>
                                       </div>
-                                      <div className="overflow-x-auto">
-                                        <Table>
-                                          <TableHeader>
-                                            <TableRow>
-                                              <TableHead className="px-1.5 py-1 text-[10px] w-8">St</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px]">ID</TableHead>
-                                              {subscriberMatchCount > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Subscriber</TableHead>}
-                                              <TableHead className="px-1.5 py-1 text-[10px]">LCP/Spl</TableHead>
-                                              {eeroRecordsLoaded && <TableHead className="px-1.5 py-1 text-[10px] text-center">eero</TableHead>}
-                                              <TableHead className="px-1.5 py-1 text-[10px]">Serial</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px]">Model</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">ONT Rx</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">OLT Rx</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px] text-right">US BIP</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">DS BIP</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC U</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC U</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">US FEC C</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">DS FEC C</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">HEC</TableHead>
-                                               <TableHead className="px-1.5 py-1 text-[10px] text-right">MBurst</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px]">Up</TableHead>
-                                              <TableHead className="px-1.5 py-1 text-[10px]">Issues</TableHead>
-                                              <TableHead className="px-1 py-1 w-16"></TableHead>
-                                            </TableRow>
-                                          </TableHeader>
-                                          <TableBody>
-                                            {portOnts.filter(ont => !hideOntStatus[ont._analysis.status]).map((ont, idx) => (
-                                             <ONTTableRow key={idx} ont={ont} hasSubscriberData={subscriberMatchCount > 0} hasEeroData={eeroRecordsLoaded} onSelectDetail={setSelectedOntDetail} />
-                                            ))}
-                                          </TableBody>
-                                                </Table>
-                                                </div>
+                                      <VirtualizedONTTable
+                                        portOnts={portOnts}
+                                        hideOntStatus={hideOntStatus}
+                                        subscriberMatchCount={subscriberMatchCount}
+                                        eeroRecordsLoaded={eeroRecordsLoaded}
+                                        onSelectDetail={setSelectedOntDetail}
+                                      />
                                                 </div>
                                                 </CollapsibleContent>
                                                 </Card>

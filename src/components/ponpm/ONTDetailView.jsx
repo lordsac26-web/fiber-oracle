@@ -44,6 +44,7 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import moment from 'moment';
 import EnhancedHistoryChart from './EnhancedHistoryChart';
+import PeerComparisonChart from './PeerComparisonChart';
 
 const STATUS_COLORS = {
   critical: 'bg-red-100 text-red-800 border-red-300',
@@ -191,7 +192,7 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="history">
               History
@@ -204,6 +205,9 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
               {peerData.onts.length > 0 && (
                 <Badge variant="outline" className="ml-1 text-xs">{peerData.onts.length}</Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="compare">
+              Compare
             </TabsTrigger>
             <TabsTrigger value="jobs">
               Jobs
@@ -923,6 +927,11 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                 </>
               );
             })()}
+          </TabsContent>
+
+          {/* Interactive Comparison Tab */}
+          <TabsContent value="compare" className="space-y-4">
+            <PeerComparisonChart currentOnt={ont} peers={peerData.onts} />
           </TabsContent>
 
           {/* Job Reports Tab */}

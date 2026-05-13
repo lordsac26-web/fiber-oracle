@@ -124,15 +124,16 @@ function recordToOnt(rec) {
   const modelTech = detectTechType(rec.model);
   const comboInfo = detectComboPort(rec.shelf_slot_port);
 
-  return {
-    // DB identity & geocoding fields — needed by the LCP drilldown map so it
-    // can geocode/reposition pins without a second roundtrip to look up the id.
+  // Lean ONT shape — only include fields actually consumed by the frontend.
+  // Omits: _subscriberAccountName, _subscriberAddress, _subscriberModel
+  // (redundant with _subscriber), _status (redundant with _analysis.status),
+  // _isCombo, _comboLabel (only used for port-level labels, not per-ONT).
+  const ont = {
     _recordId:        rec.id,
     _reportId:        rec.report_id,
     _gpsLat:          rec.gps_lat ?? null,
     _gpsLng:          rec.gps_lng ?? null,
     _gpsManual:       rec.gps_manual || false,
-    _status:          rec.status || 'ok',
     OLTName:          rec.olt_name || '',
     'Shelf/Slot/Port': rec.shelf_slot_port || '',
     OntID:            rec.ont_id || '',
@@ -150,16 +151,6 @@ function recordToOnt(rec) {
     UpstreamGemHecErrors:  rec.us_gem_hec_errors  != null ? String(rec.us_gem_hec_errors)  : '0',
     UpstreamMissedBursts:  rec.us_missed_bursts   != null ? String(rec.us_missed_bursts)   : '0',
     upTime:           rec.ont_uptime || null,
-    // Subscriber fields stored at ingest time — no UI-side enrichment needed for saved reports
-    _subscriberAccountName: rec.subscriber_account_name || '',
-    _subscriberAddress:     rec.subscriber_address      || '',
-    _subscriberModel:       rec.subscriber_model        || '',
-    // Expose as _subscriber shape so the UI subscriber block works
-    _subscriber: (rec.subscriber_account_name || rec.subscriber_address) ? {
-      account:  rec.subscriber_account_name || '',
-      address:  rec.subscriber_address      || '',
-      name:     rec.subscriber_account_name || '',
-    } : null,
     _lcpNumber:       rec.lcp_number     || '',
     _splitterNumber:  rec.splitter_number || '',
     _lcpLocation:     '',
@@ -171,9 +162,17 @@ function recordToOnt(rec) {
     _port:       rec.shelf_slot_port || 'Unknown',
     _trends:     null,
     _techType:   modelTech || comboInfo.techType || null,
-    _isCombo:    comboInfo.isCombo,
-    _comboLabel: comboInfo.comboLabel,
   };
+  // Only attach _subscriber if data exists (saves ~80 bytes per ONT with no subscriber)
+  if (rec.subscriber_account_name || rec.subscriber_address) {
+    ont._subscriber = {
+      account:  rec.subscriber_account_name || '',
+      address:  rec.subscriber_address      || '',
+      name:     rec.subscriber_account_name || '',
+      model:    rec.subscriber_model        || '',
+    };
+  }
+  return ont;
 }
 
 Deno.serve(async (req) => {
