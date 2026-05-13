@@ -21,7 +21,9 @@ export function exportMultiOltCSV(onts, selectedOlts) {
   const columns = [
     'Status', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'Model',
     'ONT Rx', 'OLT Rx', 'ONT Tx',
-    'US BIP', 'DS BIP', 'US FEC Unc', 'DS FEC Unc',
+    'US BIP', 'DS BIP',
+    'US FEC Unc', 'DS FEC Unc',
+    'US FEC Corr', 'DS FEC Corr',
     'LCP', 'Splitter', 'Subscriber', 'Address',
   ];
 
@@ -49,6 +51,8 @@ export function exportMultiOltCSV(onts, selectedOlts) {
         o.DownstreamBipErrors ?? 0,
         o.UpstreamFecUncorrectedCodeWords ?? 0,
         o.DownstreamFecUncorrectedCodeWords ?? 0,
+        o.UpstreamFecCorrectedCodeWords ?? 0,
+        o.DownstreamFecCorrectedCodeWords ?? 0,
         o._lcpNumber || '',
         o._splitterNumber || '',
         sub.name || '',
