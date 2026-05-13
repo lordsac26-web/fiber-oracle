@@ -518,7 +518,7 @@ export default function PONPMAnalysis() {
 
       let matchesGlobalModel = true;
       if (modelSet) {
-        const m = ont.model || ont._subscriberModel || ont.subscriber_model || ont._subscriber?.model;
+        const m = ont._subscriberModel || ont._subscriber?.ONTModel || ont._subscriber?.model;
         matchesGlobalModel = m ? modelSet.has(m) : false;
       }
 
