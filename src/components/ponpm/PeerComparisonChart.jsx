@@ -203,7 +203,7 @@ export default function PeerComparisonChart({ currentOnt, peers }) {
                     {p._analysis?.status}
                   </Badge>
                   {(p._subscriber?.name || p._subscriber?.address) && (
-                    <span className="text-gray-500 truncate max-w-[160px]" title={[p._subscriber?.name, p._subscriber?.address].filter(Boolean).join(' — ')}>
+                    <span className="text-gray-500 text-[10px] leading-tight whitespace-normal text-right min-w-[120px]">
                       {[p._subscriber?.name, p._subscriber?.address].filter(Boolean).join(' — ')}
                     </span>
                   )}
