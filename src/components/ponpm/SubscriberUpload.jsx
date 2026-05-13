@@ -183,6 +183,18 @@ function detectTechTypeFromModel(model) {
 export function buildSubscriberLookup(records) {
   const byComposite = new Map(); // "OLT|PORT|ONTID" → record
   const bySerial = new Map();    // "SERIAL" → record
+  // OntID-only → MODEL lookup. OntID is NOT globally unique (ONT 1 exists
+  // under every PON port), so we cannot use it to attribute full subscriber
+  // identity. BUT operationally, ONTs with the same OntID across the network
+  // usually run the same hardware family, so we can safely use it as a
+  // model-only fallback. To be extra safe we ONLY record the model when ALL
+  // subscriber rows sharing that OntID agree on it — if they disagree we
+  // mark the OntID ambiguous and skip the fallback for that ID entirely.
+  // Per ops feedback the OntID column is identical between the PON PM report
+  // and the subscriber CSV, which makes this a reliable bridge for the ~1000
+  // ONTs that don't resolve via composite or serial matching.
+  const ontIdToModel = new Map();      // "ONTID" → "MODEL"
+  const ontIdAmbiguous = new Set();    // OntIDs with conflicting models
 
   for (const rec of records) {
     // Build composite key from DeviceName (OLT) + LinkedPon (port) + OntID.
@@ -201,6 +213,21 @@ export function buildSubscriberLookup(records) {
       }
     }
 
+    // Track OntID → model with conflict detection (see note above the maps).
+    // We only commit a model when ALL subscriber rows sharing an OntID agree;
+    // any conflict marks the OntID ambiguous and drops it from the fallback.
+    const ontIdOnly = normalizeOntId(rec.OntID);
+    const subModel = (rec.ONTModel || '').trim();
+    if (ontIdOnly !== null && subModel && !ontIdAmbiguous.has(ontIdOnly)) {
+      const existing = ontIdToModel.get(ontIdOnly);
+      if (existing === undefined) {
+        ontIdToModel.set(ontIdOnly, subModel);
+      } else if (existing !== subModel) {
+        ontIdToModel.delete(ontIdOnly);
+        ontIdAmbiguous.add(ontIdOnly);
+      }
+    }
+
     // Strip vendor prefix when storing so subscriber serials align with PM-report
     // serials (which never carry a CXNK/ZNTS prefix).
     const normSerial = normalizeSerial(rec.ONTSerialNo);
@@ -209,19 +236,25 @@ export function buildSubscriberLookup(records) {
     }
   }
 
-  return { byComposite, bySerial };
+  return { byComposite, bySerial, ontIdToModel };
 }
 
 /**
  * Enriches ONT array in-place with subscriber data.
  * Match strategy:
- *   1) OLT name + port path + ONT ID (primary — most reliable)
- *   2) Serial number fallback
- * Returns count of matched ONTs.
+ *   1) OLT name + port path + ONT ID (primary — most reliable, full subscriber)
+ *   2) Serial number fallback (full subscriber)
+ *   3) OntID-only MODEL fallback — does NOT attach subscriber identity, only
+ *      overwrites ont.model + _techType so the GPON / XGS-PON chip counts and
+ *      the ONT Model filter reflect the authoritative subscriber-CSV model.
+ *      This catches ONTs the OLT reports without a vendor prefix (e.g. plain
+ *      "1101X" instead of "GP1101X") so they classify correctly.
+ * Returns count of ONTs that received full subscriber attribution (strategies
+ * 1 + 2 only — strategy 3 is model-only and not counted here).
  */
 export function enrichOntsWithSubscriber(lookup, onts) {
   if (!lookup || !onts) return 0;
-  const { byComposite, bySerial } = lookup;
+  const { byComposite, bySerial, ontIdToModel } = lookup;
   let matched = 0;
 
   for (const ont of onts) {
@@ -283,6 +316,18 @@ export function enrichOntsWithSubscriber(lookup, onts) {
         if (newTech) ont._techType = newTech;
       }
       matched++;
+    } else if (ontIdToModel && ontId) {
+      // Strategy 3: OntID-only model fallback. The ONT didn't match a single
+      // subscriber row (composite + serial both failed), but the OntID maps
+      // unambiguously to a model in the subscriber CSV. Set ont.model and
+      // _techType only — no identity, no address — so the model filter and
+      // GPON / XGS-PON chips classify this ONT correctly.
+      const fallbackModel = ontIdToModel.get(ontId);
+      if (fallbackModel) {
+        ont.model = fallbackModel;
+        const newTech = detectTechTypeFromModel(fallbackModel);
+        if (newTech) ont._techType = newTech;
+      }
     }
   }
 
