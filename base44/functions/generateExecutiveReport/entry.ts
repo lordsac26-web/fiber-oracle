@@ -262,6 +262,23 @@ function tableHeader(doc, y, cols) {
   return y + 9.5;
 }
 
+// Truncate text with an ellipsis so it always fits on a single line within
+// `maxW` millimeters. Prevents jsPDF's automatic word-wrap from spilling into
+// the next row (which made values appear cut-off in the previous build).
+function fitText(doc, text, maxW) {
+  const str = s(text);
+  if (!str) return '';
+  if (doc.getTextWidth(str) <= maxW) return str;
+  // Binary-search the longest prefix that fits with an ellipsis appended.
+  let lo = 0, hi = str.length;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (doc.getTextWidth(str.slice(0, mid) + '...') <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo > 0 ? str.slice(0, lo) + '...' : '';
+}
+
 function tableRow(doc, y, cols, isEven) {
   if (isEven) {
     doc.setFillColor(...C.lightBg);
@@ -273,9 +290,19 @@ function tableRow(doc, y, cols, isEven) {
   cols.forEach(col => {
     if (col.color) doc.setTextColor(...col.color);
     else doc.setTextColor(...C.dark);
-    doc.text(s(col.value), col.x, y + 4, { maxWidth: col.maxW || 50 });
+    // Force single-line render: truncate-with-ellipsis to maxW (default 50mm)
+    // instead of letting jsPDF wrap into the next row.
+    const txt = fitText(doc, col.value, col.maxW || 50);
+    doc.text(txt, col.x, y + 4);
   });
   return y + 6;
+}
+
+// Force the next section to start on a fresh page (compact header).
+function startSectionPage(doc, customerName) {
+  doc.addPage();
+  drawHeaderCompact(doc, customerName);
+  return 18;
 }
 
 // ─── Simple bar chart (horizontal) ─────────────────────────────────────────────
@@ -451,6 +478,10 @@ Deno.serve(async (req) => {
     }
 
     // ── Build subscriber lookup (mirrors UI) ────────────────────────────────
+    // Lookups now store { account, model } so we can also resolve the
+    // authoritative ONT model the same way the live UI's global filter does.
+    // (The frontend overwrites ont.model with sub.ONTModel during enrichment;
+    // mirroring that here makes the ONT Model Summary match the global filter.)
     const subByComposite = new Map();
     const subBySerial    = new Map();
     const subByAccount   = new Map();
@@ -463,21 +494,23 @@ Deno.serve(async (req) => {
 
       for (const sub of subs) {
         const account = (sub.AccountName || '').trim();
-        if (sub.DeviceName && sub.LinkedPon && sub.OntID && account) {
+        const model   = (sub.ONTModel || '').trim();
+        const payload = { account, model };
+        if (sub.DeviceName && sub.LinkedPon && sub.OntID) {
           const oltName = sub.DeviceName.trim().toUpperCase();
           const port    = normalizePortPath(sub.LinkedPon);
           const ontId   = String(sub.OntID).trim().toUpperCase();
-          subByComposite.set(`${oltName}|${port}|${ontId}`, account);
-          subByComposite.set(`|${port}|${ontId}`, account);
+          // Composite keys store account+model; either may be empty.
+          subByComposite.set(`${oltName}|${port}|${ontId}`, payload);
+          subByComposite.set(`|${port}|${ontId}`, payload);
         }
         const ns = normalizeSerial(sub.ONTSerialNo);
-        if (ns && account && !subBySerial.has(ns)) subBySerial.set(ns, account);
+        if (ns && !subBySerial.has(ns)) subBySerial.set(ns, payload);
 
         const acctKey = normalizeHomeId(account) || account;
         if (acctKey && !subByAccount.has(acctKey)) {
           subByAccount.set(acctKey, {
             city: (sub.City || '').trim() || 'Unknown',
-            zip:  (sub.Zip || '').trim().match(/^\d{5}/)?.[0] || 'Unknown',
           });
         }
       }
@@ -486,7 +519,10 @@ Deno.serve(async (req) => {
       console.log(`[generateExecutiveReport] SubscriberRecord lookup failed (non-fatal): ${err.message}`);
     }
 
-    function resolveLiveAccount(rec) {
+    // Resolve {account, model} for a record, mirroring the frontend's
+    // enrichment priority (composite OLT|port|ontId → composite |port|ontId
+    // → serial → fallback to whatever was denormalized at ingest).
+    function resolveLiveSub(rec) {
       const oltName = (rec.olt_name || '').trim().toUpperCase();
       const port    = normalizePortPath(rec.shelf_slot_port || '');
       const ontId   = String(rec.ont_id || '').trim().toUpperCase();
@@ -503,7 +539,24 @@ Deno.serve(async (req) => {
         const v = subBySerial.get(ns);
         if (v) return v;
       }
-      return rec.subscriber_account_name || null;
+      return {
+        account: rec.subscriber_account_name || null,
+        model:   rec.subscriber_model || null,
+      };
+    }
+
+    // Back-compat shim — most call sites only want the account string.
+    function resolveLiveAccount(rec) {
+      return resolveLiveSub(rec).account || null;
+    }
+
+    // Resolve the authoritative ONT model for a record. Subscriber-side wins
+    // (matches what the live UI displays); falls back to OLT-reported model.
+    function resolveLiveModel(rec) {
+      const sub = resolveLiveSub(rec);
+      const m = (sub.model || '').trim();
+      if (m) return m;
+      return (rec.model || '').trim() || 'Unknown';
     }
 
     // ── Aggregate current + historical ──────────────────────────────────────
@@ -533,50 +586,35 @@ Deno.serve(async (req) => {
       }))
       .sort((a, b) => b.critical - a.critical);
 
-    // ── City + Zip saturation ───────────────────────────────────────────────
+    // ── City saturation ─────────────────────────────────────────────────────
+    // Zip saturation removed — city-level reporting is sufficient.
     const cityMap = new Map();
-    const zipMap  = new Map();
-    let unknownZipCount = 0;
     for (const r of currentRecs) {
       let city = 'Unknown';
-      let zip  = 'Unknown';
       const liveAccount = resolveLiveAccount(r);
       const acctKey = normalizeHomeId(liveAccount);
       const subInfo = acctKey ? subByAccount.get(acctKey) : null;
       if (subInfo) {
         city = subInfo.city;
-        zip  = subInfo.zip;
       } else {
-        const parsed = parseAddress(r.subscriber_address);
-        city = parsed.city;
-        zip  = parsed.zip;
+        city = parseAddress(r.subscriber_address).city;
       }
       if (!cityMap.has(city)) cityMap.set(city, { total: 0, critical: 0, warning: 0 });
       const c = cityMap.get(city); c.total++;
       if (r.status === 'critical') c.critical++;
       if (r.status === 'warning')  c.warning++;
-
-      if (zip === 'Unknown') { unknownZipCount++; }
-      else {
-        if (!zipMap.has(zip)) zipMap.set(zip, { total: 0, critical: 0, warning: 0 });
-        const z = zipMap.get(zip); z.total++;
-        if (r.status === 'critical') z.critical++;
-        if (r.status === 'warning')  z.warning++;
-      }
     }
     const cityRows = [...cityMap.entries()]
       .map(([city, v]) => ({ city, ...v }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 20);
-    const zipRows = [...zipMap.entries()]
-      .map(([zip, v]) => ({ zip, ...v }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
 
     // ── ONT Model Summary ───────────────────────────────────────────────────
+    // Use resolveLiveModel so the count matches the GlobalFilterBar in the UI
+    // (subscriber-provided model wins over OLT-reported model).
     const ontModelCounts = new Map();
     for (const r of currentRecs) {
-      const m = (r.model || r.subscriber_model || 'Unknown').trim() || 'Unknown';
+      const m = resolveLiveModel(r) || 'Unknown';
       ontModelCounts.set(m, (ontModelCounts.get(m) || 0) + 1);
     }
     const ontModelRows = [...ontModelCounts.entries()]
@@ -690,9 +728,9 @@ Deno.serve(async (req) => {
     });
     y += 2 * tileH + tileGap + 5;
 
-    // OLT Breakdown
+    // OLT Breakdown — starts on its own page
     if (oltRows.length > 0) {
-      y = maybeNewPage(doc, y, 50, customerName);
+      y = startSectionPage(doc, customerName);
       y = sectionTitle(doc, `OLT Breakdown  (${oltRows.length} chassis)`, y, C.indigo);
       const cols = [
         { label: 'OLT / Chassis', x: M + 5  },
@@ -711,19 +749,19 @@ Deno.serve(async (req) => {
         const hColor = hpct >= 90 ? C.green : hpct >= 70 ? C.amber : C.red;
         y = tableRow(doc, y, [
           { value: r.olt,                x: M + 5,   maxW: 52 },
-          { value: String(r.total),      x: M + 60  },
-          { value: String(r.critical),   x: M + 82,  color: r.critical > 0 ? C.red : C.dark },
-          { value: String(r.warning),    x: M + 106, color: r.warning > 0 ? C.amber : C.dark },
-          { value: String(r.offline),    x: M + 130, color: r.offline > 0 ? C.slate : C.dark },
-          { value: r.avgRx,              x: M + 152 },
-          { value: `${r.healthPct}%`,    x: M + 172, color: hColor },
+          { value: String(r.total),      x: M + 60,  maxW: 20 },
+          { value: String(r.critical),   x: M + 82,  maxW: 22, color: r.critical > 0 ? C.red : C.dark },
+          { value: String(r.warning),    x: M + 106, maxW: 22, color: r.warning > 0 ? C.amber : C.dark },
+          { value: String(r.offline),    x: M + 130, maxW: 20, color: r.offline > 0 ? C.slate : C.dark },
+          { value: r.avgRx,              x: M + 152, maxW: 18 },
+          { value: `${r.healthPct}%`,    x: M + 172, maxW: 18, color: hColor },
         ], i % 2 === 0);
       }
       y += 4;
     }
 
-    // ─── City Saturation ─────────────────────────────────────────────────
-    y = maybeNewPage(doc, y, 60, customerName);
+    // ─── City Saturation ─── starts on its own page
+    y = startSectionPage(doc, customerName);
     y = sectionTitle(doc, `City Saturation  (Top ${cityRows.length})`, y, C.accent);
     if (cityRows.length === 0) {
       doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
@@ -744,103 +782,52 @@ Deno.serve(async (req) => {
         const pct = currentAgg.total > 0 ? ((r.total / currentAgg.total) * 100).toFixed(1) : '0.0';
         y = tableRow(doc, y, [
           { value: r.city,                 x: M + 5,   maxW: 70 },
-          { value: r.total.toLocaleString(), x: M + 80  },
-          { value: String(r.critical),     x: M + 115, color: r.critical > 0 ? C.red : C.dark },
-          { value: String(r.warning),      x: M + 140, color: r.warning > 0 ? C.amber : C.dark },
-          { value: `${pct}%`,              x: M + 165 },
+          { value: r.total.toLocaleString(), x: M + 80,  maxW: 32 },
+          { value: String(r.critical),     x: M + 115, maxW: 22, color: r.critical > 0 ? C.red : C.dark },
+          { value: String(r.warning),      x: M + 140, maxW: 22, color: r.warning > 0 ? C.amber : C.dark },
+          { value: `${pct}%`,              x: M + 165, maxW: 22 },
         ], i % 2 === 0);
       }
       y += 4;
     }
 
-    // ─── Zip Saturation ──────────────────────────────────────────────────
-    y = maybeNewPage(doc, y, 60, customerName);
-    y = sectionTitle(doc, `Zip Saturation  (Top ${zipRows.length})`, y, C.purple);
-    if (zipRows.length === 0) {
-      doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
-      doc.text('No subscriber zip data available.', M + 4, y + 2);
-      y += 8;
-    } else {
-      const cols = [
-        { label: 'Zip',          x: M + 5   },
-        { label: 'Total ONTs',   x: M + 60  },
-        { label: 'Critical',     x: M + 100 },
-        { label: 'Warning',      x: M + 130 },
-        { label: '% of Network', x: M + 158 },
-      ];
-      y = tableHeader(doc, y, cols);
-      for (let i = 0; i < zipRows.length; i++) {
-        y = maybeNewPage(doc, y, 8, customerName);
-        const r = zipRows[i];
-        const pct = currentAgg.total > 0 ? ((r.total / currentAgg.total) * 100).toFixed(1) : '0.0';
-        y = tableRow(doc, y, [
-          { value: r.zip,                  x: M + 5   },
-          { value: r.total.toLocaleString(), x: M + 60  },
-          { value: String(r.critical),     x: M + 100, color: r.critical > 0 ? C.red : C.dark },
-          { value: String(r.warning),      x: M + 130, color: r.warning > 0 ? C.amber : C.dark },
-          { value: `${pct}%`,              x: M + 158 },
-        ], i % 2 === 0);
-      }
-      if (unknownZipCount > 0) {
-        y += 1;
-        doc.setFontSize(6.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
-        const pctUnknown = currentAgg.total > 0 ? ((unknownZipCount / currentAgg.total) * 100).toFixed(1) : '0.0';
-        doc.text(
-          `Note: ${unknownZipCount.toLocaleString()} ONTs (${pctUnknown}%) have no parseable zip and are excluded.`,
-          M + 4, y + 4, { maxWidth: CW - 8 }
-        );
-        y += 6;
-      }
-      y += 4;
-    }
-
-    // ─── ONT Model Summary ───────────────────────────────────────────────
-    y = maybeNewPage(doc, y, 60, customerName);
+    // ─── ONT Model Summary ─── starts on its own page
+    y = startSectionPage(doc, customerName);
     y = sectionTitle(doc, `ONT Model Summary  (${ontModelRows.length} models)`, y, C.teal);
     if (ontModelRows.length === 0) {
       doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
       doc.text('No ONT model data available.', M + 4, y + 2);
       y += 8;
     } else {
-      // Two columns: table on left, bar chart on right
-      const tableW = CW * 0.55;
-      const chartX = M + tableW + 4;
-      const chartW = CW - tableW - 4;
-      const startY = y;
-
-      // Table (left)
+      // Full-width table (chart removed — caused overlap when many models).
+      // Wider Model column so long names (e.g. "DZS 522x XG") display in full.
       const cols = [
         { label: 'Model',        x: M + 5   },
-        { label: 'Count',        x: M + tableW - 30 },
-        { label: '% of Network', x: M + tableW - 10 },
+        { label: 'Count',        x: M + 110 },
+        { label: '% of Network', x: M + 150 },
       ];
       y = tableHeader(doc, y, cols);
-      for (let i = 0; i < Math.min(ontModelRows.length, 15); i++) {
+      for (let i = 0; i < ontModelRows.length; i++) {
         y = maybeNewPage(doc, y, 8, customerName);
         const r = ontModelRows[i];
         const pct = currentAgg.total > 0 ? ((r.count / currentAgg.total) * 100).toFixed(1) : '0.0';
         y = tableRow(doc, y, [
-          { value: r.model, x: M + 5, maxW: tableW - 40 },
-          { value: r.count.toLocaleString(), x: M + tableW - 30 },
-          { value: `${pct}%`, x: M + tableW - 10 },
+          { value: r.model,                  x: M + 5,   maxW: 100 },
+          { value: r.count.toLocaleString(), x: M + 110, maxW: 35 },
+          { value: `${pct}%`,                x: M + 150, maxW: 30 },
         ], i % 2 === 0);
       }
-
-      // Chart (right) — top 8 models for visual readability
-      drawHorizBarChart(doc, chartX, startY + 8, chartW, Math.min(50, y - startY - 8),
-        ontModelRows.slice(0, 8).map(r => ({ label: r.model, value: r.count })),
-        C.teal);
       y += 4;
     }
 
-    // ─── Eero Model Summary ──────────────────────────────────────────────
+    // ─── Eero Model Summary ─── starts on its own page
     if (eeroModelRows.length > 0) {
-      y = maybeNewPage(doc, y, 50, customerName);
+      y = startSectionPage(doc, customerName);
       y = sectionTitle(doc, `Eero Model Summary  (${eeroModelRows.length} models)`, y, C.green);
       const cols = [
         { label: 'Eero Model', x: M + 5   },
-        { label: 'Count',      x: M + 100 },
-        { label: '% of Eeros', x: M + 140 },
+        { label: 'Count',      x: M + 110 },
+        { label: '% of Eeros', x: M + 150 },
       ];
       y = tableHeader(doc, y, cols);
       const totalEero = currentAgg.eeroCount || 1;
@@ -849,25 +836,25 @@ Deno.serve(async (req) => {
         const r = eeroModelRows[i];
         const pct = ((r.count / totalEero) * 100).toFixed(1);
         y = tableRow(doc, y, [
-          { value: r.model, x: M + 5,   maxW: 90 },
-          { value: r.count.toLocaleString(), x: M + 100 },
-          { value: `${pct}%`, x: M + 140 },
+          { value: r.model,                  x: M + 5,   maxW: 100 },
+          { value: r.count.toLocaleString(), x: M + 110, maxW: 35 },
+          { value: `${pct}%`,                x: M + 150, maxW: 30 },
         ], i % 2 === 0);
       }
       y += 4;
     }
 
-    // ─── Top 20 Critical ONTs ────────────────────────────────────────────
+    // ─── Top 20 Critical ONTs ─── starts on its own page
     if (topCritical.length > 0) {
-      y = maybeNewPage(doc, y, 60, customerName);
+      y = startSectionPage(doc, customerName);
       y = sectionTitle(doc, `Top ${topCritical.length} Critical ONTs`, y, C.red);
       const cols = [
         { label: 'OLT',      x: M + 5   },
         { label: 'Port',     x: M + 50  },
         { label: 'ONT ID',   x: M + 88  },
-        { label: 'Serial',   x: M + 105 },
-        { label: 'ONT Rx',   x: M + 142 },
-        { label: 'US BIP',   x: M + 158 },
+        { label: 'Serial',   x: M + 108 },
+        { label: 'ONT Rx',   x: M + 144 },
+        { label: 'US BIP',   x: M + 160 },
         { label: 'DS BIP',   x: M + 175 },
       ];
       y = tableHeader(doc, y, cols);
@@ -875,21 +862,21 @@ Deno.serve(async (req) => {
         y = maybeNewPage(doc, y, 8, customerName);
         const r = topCritical[i];
         y = tableRow(doc, y, [
-          { value: r.olt_name || '',     x: M + 5,   maxW: 42 },
-          { value: r.shelf_slot_port || '', x: M + 50, maxW: 35 },
-          { value: String(r.ont_id || ''), x: M + 88 },
-          { value: r.serial_number || '', x: M + 105, maxW: 35 },
-          { value: r.ont_rx_power != null ? String(r.ont_rx_power) : '—', x: M + 142, color: C.red },
-          { value: String(r.us_bip_errors || 0), x: M + 158 },
-          { value: String(r.ds_bip_errors || 0), x: M + 175 },
+          { value: r.olt_name || '',        x: M + 5,   maxW: 42 },
+          { value: r.shelf_slot_port || '', x: M + 50,  maxW: 35 },
+          { value: String(r.ont_id || ''),  x: M + 88,  maxW: 18 },
+          { value: r.serial_number || '',   x: M + 108, maxW: 34 },
+          { value: r.ont_rx_power != null ? String(r.ont_rx_power) : '—', x: M + 144, maxW: 14, color: C.red },
+          { value: String(r.us_bip_errors || 0), x: M + 160, maxW: 14 },
+          { value: String(r.ds_bip_errors || 0), x: M + 175, maxW: 14 },
         ], i % 2 === 0);
       }
       y += 4;
     }
 
-    // ─── Top 20 OLT Ports by Corrected FEC ───────────────────────────────
+    // ─── Top 20 OLT Ports by Corrected FEC ─── starts on its own page
     if (topFecPorts.length > 0) {
-      y = maybeNewPage(doc, y, 60, customerName);
+      y = startSectionPage(doc, customerName);
       y = sectionTitle(doc, `Top ${topFecPorts.length} OLT Ports — Corrected FEC`, y, C.amber);
       const cols = [
         { label: 'OLT',                   x: M + 5   },
@@ -902,17 +889,17 @@ Deno.serve(async (req) => {
         y = maybeNewPage(doc, y, 8, customerName);
         const p = topFecPorts[i];
         y = tableRow(doc, y, [
-          { value: p.olt,                 x: M + 5,   maxW: 60 },
-          { value: p.port,                x: M + 70,  maxW: 45 },
-          { value: p.total.toLocaleString(), x: M + 120 },
-          { value: String(p.ontCount),    x: M + 165 },
+          { value: p.olt,                    x: M + 5,   maxW: 60 },
+          { value: p.port,                   x: M + 70,  maxW: 45 },
+          { value: p.total.toLocaleString(), x: M + 120, maxW: 40 },
+          { value: String(p.ontCount),       x: M + 165, maxW: 25 },
         ], i % 2 === 0);
       }
       y += 4;
     }
 
-    // ─── Trend Deltas (Current vs ~7d vs ~30d) ──────────────────────────
-    y = maybeNewPage(doc, y, 80, customerName);
+    // ─── Trend Deltas (Current vs ~7d vs ~30d) ─── starts on its own page
+    y = startSectionPage(doc, customerName);
     y = sectionTitle(doc, 'Trend Comparison', y, C.purple);
 
     const curLabel   = fmtDate(currentReport.upload_date);
@@ -967,12 +954,12 @@ Deno.serve(async (req) => {
         const dm = month1Report ? r.cur - r.m : null;
         const fmtDelta = (d) => d === null ? '—' : `${d > 0 ? '+' : ''}${d}`;
         y = tableRow(doc, y, [
-          { value: r.metric,                      x: M + 5   },
-          { value: r.cur.toLocaleString(),        x: M + 60  },
-          { value: week1Report ? r.w.toLocaleString() : '—', x: M + 88  },
-          { value: fmtDelta(dw),                  x: M + 116, color: deltaColor(dw, r.good) },
-          { value: month1Report ? r.m.toLocaleString() : '—', x: M + 140 },
-          { value: fmtDelta(dm),                  x: M + 168, color: deltaColor(dm, r.good) },
+          { value: r.metric,                                 x: M + 5,   maxW: 52 },
+          { value: r.cur.toLocaleString(),                   x: M + 60,  maxW: 26 },
+          { value: week1Report ? r.w.toLocaleString() : '—', x: M + 88,  maxW: 26 },
+          { value: fmtDelta(dw),                             x: M + 116, maxW: 22, color: deltaColor(dw, r.good) },
+          { value: month1Report ? r.m.toLocaleString() : '—',x: M + 140, maxW: 26 },
+          { value: fmtDelta(dm),                             x: M + 168, maxW: 22, color: deltaColor(dm, r.good) },
         ], i % 2 === 0);
       }
       y += 4;
