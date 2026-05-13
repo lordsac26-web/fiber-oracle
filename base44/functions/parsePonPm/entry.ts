@@ -482,17 +482,13 @@ Deno.serve(async (req) => {
         ont._opticModel = lcpMatch.optic_model || '';
       }
       
-      // Normalize: SMx CSV uses 'ONTModel' column; fall back to legacy 'model' column
+      // Normalize: SMx CSV uses 'ONTModel' column; fall back to legacy 'model' column.
+      // We intentionally do NOT apply an FSAN-prefix model fallback here — generic
+      // labels like "DZS 522x XG" mask the precise model (5222XG vs 5228XG) that
+      // the subscriber CSV provides via ONTModel. Subscriber enrichment runs after
+      // this and will set the authoritative model when a match exists.
       ont.model = ont.ONTModel || ont.model || null;
       delete ont.ONTModel;
-
-      // Detect DZS model based on FSAN prefix if model is unknown
-      if ((!ont.model || ont.model === 'Unknown' || ont.model === 'N/A' || ont.model === '') && ont.SerialNumber) {
-        const fsan = ont.SerialNumber;
-        if (fsan.startsWith('050') || fsan.startsWith('051') || fsan.startsWith('053')) {
-          ont.model = 'DZS 522x XG';
-        }
-      }
       
       // Detect technology type from model (primary method)
       const modelTechType = detectTechTypeFromModel(ont.model);

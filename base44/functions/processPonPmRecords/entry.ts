@@ -276,6 +276,16 @@ Deno.serve(async (req) => {
         ]);
         allSubs = [...allSubs, ...s2, ...s3, ...s4, ...s5];
       }
+      // Normalize ONT IDs identically on both sides so "01" matches "1".
+      // Purely-numeric IDs have leading zeros stripped; alphanumeric IDs are
+      // preserved (uppercased) so vendor-specific IDs still match exactly.
+      const normalizeOntIdLocal = (id) => {
+        if (id === null || id === undefined) return null;
+        const s = String(id).trim().toUpperCase();
+        if (!s) return null;
+        if (/^\d+$/.test(s)) return s.replace(/^0+/, '') || '0';
+        return s;
+      };
       for (const rec of allSubs) {
         // Compose full address with city + state + zip for accurate geocoding.
         // State disambiguates ambiguous town names (e.g. multiple "Hudson"s).
@@ -292,9 +302,11 @@ Deno.serve(async (req) => {
         // Composite key: normalize OLT + PON port (strip xp prefix) + ONT ID
         const oltNorm = rec.DeviceName ? rec.DeviceName.trim().toUpperCase() : null;
         const sspNorm = rec.LinkedPon  ? rec.LinkedPon.trim().toUpperCase().replace(/\/XP(\d)/g, '/$1') : null;
-        const ontId   = rec.OntID !== null && rec.OntID !== undefined ? String(rec.OntID).trim() : null;
+        const ontId   = normalizeOntIdLocal(rec.OntID);
         if (oltNorm && sspNorm && ontId !== null) {
           subCompositeMap.set(`${oltNorm}|${sspNorm}|${ontId}`, fields);
+          // Cross-system OLT-name mismatch fallback (port + ONT ID only)
+          subCompositeMap.set(`|${sspNorm}|${ontId}`, fields);
         }
         // Serial fallback
         const serial = rec.ONTSerialNo ? rec.ONTSerialNo.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') : null;
@@ -358,13 +370,9 @@ Deno.serve(async (req) => {
         // Normalize serial number
         const serial = normalizeSerial(ont.SerialNumber);
 
-        // DZS model detection from FSAN prefix
-        let model = ont.model;
-        if ((!model || model === 'Unknown' || model === 'N/A' || model === '') && serial) {
-          if (serial.startsWith('050') || serial.startsWith('051') || serial.startsWith('053')) {
-            model = 'DZS 522x XG';
-          }
-        }
+        // No FSAN-prefix model fallback — subscriber enrichment below provides
+        // the authoritative model (e.g. 5222XG vs 5228XG) when available.
+        const model = ont.model;
 
         // LCP lookup using robust Map-based matcher
         const oltName = ont.OLTName || '';
@@ -374,17 +382,31 @@ Deno.serve(async (req) => {
         if (lcpData) lcpMatched++;
         else if (oltName && shelfSlotPort) lcpUnmatched++;
 
-        // Subscriber enrichment: composite key first, serial fallback
+        // Subscriber enrichment: normalize ONT ID identically to the lookup
+        // build path (leading zeros stripped, uppercased) so "01" matches "1".
         const oltNorm = oltName.trim().toUpperCase();
         const sspNorm = shelfSlotPort.trim().toUpperCase().replace(/\/XP(\d)/g, '/$1');
-        const ontIdStr = ont.OntID !== null && ont.OntID !== undefined ? String(ont.OntID).trim() : null;
+        let ontIdNorm = null;
+        if (ont.OntID !== null && ont.OntID !== undefined) {
+          const s = String(ont.OntID).trim().toUpperCase();
+          ontIdNorm = s && /^\d+$/.test(s) ? (s.replace(/^0+/, '') || '0') : (s || null);
+        }
         let subFields = null;
-        if (oltNorm && sspNorm && ontIdStr !== null) {
-          subFields = subCompositeMap.get(`${oltNorm}|${sspNorm}|${ontIdStr}`) || null;
+        if (oltNorm && sspNorm && ontIdNorm) {
+          subFields = subCompositeMap.get(`${oltNorm}|${sspNorm}|${ontIdNorm}`) || null;
+        }
+        // Cross-system OLT-name mismatch fallback (port + ONT ID only)
+        if (!subFields && sspNorm && ontIdNorm) {
+          subFields = subCompositeMap.get(`|${sspNorm}|${ontIdNorm}`) || null;
         }
         if (!subFields && serial) {
           subFields = subSerialMap.get(serial) || null;
         }
+
+        // If subscriber provides an authoritative model (e.g. "5222XG"), prefer
+        // it over the OLT-reported model. This is the same precedence used in
+        // the frontend enrichOntsWithSubscriber() — keeps DB rows consistent.
+        const resolvedModel = subFields?.subscriber_model || model || '';
 
         // Analyse
         const analysis = analyzeOnt(ont);
@@ -396,7 +418,7 @@ Deno.serve(async (req) => {
           ont_id: ont.OntID?.toString() || '',
           olt_name: oltName,
           shelf_slot_port: shelfSlotPort,
-          model: model || '',
+          model: resolvedModel,
           ont_rx_power: parseNumeric(ont.OntRxOptPwr),
           olt_rx_power: parseNumeric(ont.OLTRXOptPwr),
           ont_tx_power: parseNumeric(ont.OntTxPwr),

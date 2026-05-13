@@ -147,20 +147,40 @@ function normalizeSerial(serial) {
   return n.length > 0 ? n : null;
 }
 
+// Normalize ONT ID for matching. The OLT may emit "1" while the subscriber CSV
+// has "01" (or vice versa). We canonicalize to: trim, uppercase, and strip
+// leading zeros from purely-numeric IDs. Letters are preserved so non-numeric
+// IDs (rare) still match exactly.
+function normalizeOntId(id) {
+  if (id === null || id === undefined) return null;
+  const s = String(id).trim().toUpperCase();
+  if (!s) return null;
+  // If purely numeric, strip leading zeros (but keep "0" itself as "0")
+  if (/^\d+$/.test(s)) {
+    return s.replace(/^0+/, '') || '0';
+  }
+  return s;
+}
+
 export function buildSubscriberLookup(records) {
   const byComposite = new Map(); // "OLT|PORT|ONTID" → record
   const bySerial = new Map();    // "SERIAL" → record
 
   for (const rec of records) {
-    // Build composite key from DeviceName (OLT) + LinkedPon (port) + OntID
-    if (rec.DeviceName && rec.LinkedPon && rec.OntID) {
+    // Build composite key from DeviceName (OLT) + LinkedPon (port) + OntID.
+    // Note: OntID may be a number in some CSV exports — accept both string and
+    // number values rather than calling .trim() directly (which would crash on
+    // numerics) and use normalizeOntId() so "01" and "1" collide on the same key.
+    if (rec.DeviceName && rec.LinkedPon && (rec.OntID !== null && rec.OntID !== undefined && rec.OntID !== '')) {
       const oltName = rec.DeviceName.trim().toUpperCase();
       const linkedPon = normalizePort(rec.LinkedPon).toUpperCase();
-      const ontId = rec.OntID.trim().toUpperCase();
-      // Primary key: exact match
-      byComposite.set(`${oltName}|${linkedPon}|${ontId}`, rec);
-      // Fallback key without OLT name (in case OLT names differ between systems)
-      byComposite.set(`|${linkedPon}|${ontId}`, rec);
+      const ontId = normalizeOntId(rec.OntID);
+      if (ontId !== null) {
+        // Primary key: exact match
+        byComposite.set(`${oltName}|${linkedPon}|${ontId}`, rec);
+        // Fallback key without OLT name (in case OLT names differ between systems)
+        byComposite.set(`|${linkedPon}|${ontId}`, rec);
+      }
     }
 
     // Strip vendor prefix when storing so subscriber serials align with PM-report
@@ -187,10 +207,11 @@ export function enrichOntsWithSubscriber(lookup, onts) {
   let matched = 0;
 
   for (const ont of onts) {
-    // Strategy 1: composite key (OLT + port + ONT ID)
+    // Strategy 1: composite key (OLT + port + ONT ID) — IDs normalized so "01"
+    // matches "1" (leading-zero variants are the most common silent mismatch).
     const oltName = (ont._oltName || ont.OLTName || '').trim().toUpperCase();
     const port = normalizePort(ont['Shelf/Slot/Port'] || ont._port || '').toUpperCase();
-    const ontId = (ont.OntID || '').toString().trim().toUpperCase();
+    const ontId = normalizeOntId(ont.OntID);
 
     let sub = null;
     if (oltName && port && ontId) {
@@ -202,7 +223,9 @@ export function enrichOntsWithSubscriber(lookup, onts) {
       sub = byComposite.get(`|${port}|${ontId}`);
     }
 
-    // Strategy 2: serial fallback — normalize both sides identically
+    // Strategy 2: serial fallback — normalize both sides identically.
+    // Run this BEFORE giving up so vendor-prefix and formatting differences
+    // (CXNK/ZNTS, dashes, spaces) don't block a legitimate match.
     if (!sub && ont.SerialNumber) {
       const normSn = normalizeSerial(ont.SerialNumber);
       if (normSn) sub = bySerial.get(normSn);
