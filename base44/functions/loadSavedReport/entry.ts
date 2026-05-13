@@ -171,6 +171,11 @@ function recordToOnt(rec) {
       name:     rec.subscriber_account_name || '',
       model:    rec.subscriber_model        || '',
     };
+    // Prefer the specific subscriber model over the OLT-reported generic placeholder
+    // (e.g. subscriber CSV has "5222XG" while OLT reports "DZS 522x XG")
+    if (rec.subscriber_model) {
+      ont.model = rec.subscriber_model;
+    }
   }
   return ont;
 }

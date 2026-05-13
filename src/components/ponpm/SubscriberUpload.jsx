@@ -229,8 +229,9 @@ export function enrichOntsWithSubscriber(lookup, onts) {
         model: sub.ONTModel || '',
         serialNo: sub.ONTSerialNo || '',
       };
-      // If the PM data doesn't have a model but subscriber data does, backfill it
-      if (!ont.model && sub.ONTModel) {
+      // Always prefer the specific subscriber model over the OLT-reported model
+      // (e.g. subscriber CSV has "5222XG" while OLT reports generic "DZS 522x XG")
+      if (sub.ONTModel) {
         ont.model = sub.ONTModel;
       }
       matched++;
