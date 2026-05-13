@@ -581,11 +581,17 @@ Deno.serve(async (req) => {
       const subs = await fetchAllFiltered('SubscriberRecord', subFilter, 'id');
 
       for (const sub of subs) {
-        // Count every CSV row exactly once for the tech tally — independent of
-        // serial/account presence so we never under-count.
-        const t = detectTechType(sub.ONTModel);
-        if (t === 'XGS-PON') subXgsCount++;
-        else if (t === 'GPON') subGponCount++;
+        // Tech tally — only count RANGED ONTs (ONTRanged === true). Un-ranged
+        // rows represent provisioned-but-not-yet-active service and should not
+        // appear in the deployed inventory totals. Mirrors the spreadsheet
+        // filter the ops team uses as ground truth.
+        const rangedRaw = String(sub.ONTRanged ?? '').trim().toLowerCase();
+        const isRanged = rangedRaw === 'true' || rangedRaw === 'yes' || rangedRaw === '1';
+        if (isRanged) {
+          const t = detectTechType(sub.ONTModel);
+          if (t === 'XGS-PON') subXgsCount++;
+          else if (t === 'GPON') subGponCount++;
+        }
 
         const account = (sub.AccountName || '').trim();
         const model   = (sub.ONTModel || '').trim();
