@@ -51,9 +51,8 @@ export default function GlobalFilterBar({
       }
 
       // Model — use subscriber ONTModel exclusively (from the subscriber data upload).
-      // _subscriberModel is populated from subscriber_model on the ONT record, which is
-      // denormalized from the SubscriberRecord.ONTModel field at enrichment time.
-      const model = ont._subscriberModel || ont._subscriber?.ONTModel || ont._subscriber?.model;
+      // enrichOntsWithSubscriber stores it as ont._subscriber.model (mapped from ONTModel).
+      const model = ont._subscriber?.model || ont._subscriberModel;
       if (model) {
         models.set(model, (models.get(model) || 0) + 1);
       }
