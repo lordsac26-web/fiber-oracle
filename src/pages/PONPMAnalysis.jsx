@@ -85,6 +85,9 @@ import SummaryCardsRow from '@/components/ponpm/SummaryCardsRow';
 import IssueDetailPanel from '@/components/ponpm/IssueDetailPanel';
 import NetworkHealthBar from '@/components/ponpm/NetworkHealthBar';
 import AdvancedFiltersBar from '@/components/ponpm/AdvancedFiltersBar';
+import { readFiltersFromUrl, useFilterUrlSync } from '@/hooks/useFilterUrlSync';
+import { useNewReportToast } from '@/hooks/useNewReportToast';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 const useLcpQuery = () => useQuery({
   queryKey: ['lcp-entries'],
   queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
@@ -108,19 +111,31 @@ const DEFAULT_THRESHOLDS = {
 
 export default function PONPMAnalysis() {
   const queryClient = useQueryClient();
+  const { isAdmin } = useIsAdmin();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [selectedReportId, setSelectedReportId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [oltFilter, setOltFilter] = useState('all');
-  const [portFilter, setPortFilter] = useState('all');
-  const [powerRangeFilter, setPowerRangeFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('none');
+
+  // Read initial filter state from URL query params (enables shareable/bookmarkable views)
+  const initialFilters = useRef(readFiltersFromUrl());
+
+  const [searchTerm, setSearchTerm] = useState(initialFilters.current.searchTerm || '');
+  const [statusFilter, setStatusFilter] = useState(initialFilters.current.statusFilter || 'all');
+  const [oltFilter, setOltFilter] = useState(initialFilters.current.oltFilter || 'all');
+  const [portFilter, setPortFilter] = useState(initialFilters.current.portFilter || 'all');
+  const [powerRangeFilter, setPowerRangeFilter] = useState(initialFilters.current.powerRangeFilter || 'all');
+  const [sortBy, setSortBy] = useState(initialFilters.current.sortBy || 'none');
   // Global multi-select filters — apply across the entire dashboard (KPIs, charts, hierarchy, LCP summary)
-  const [globalSplitters, setGlobalSplitters] = useState([]);
-  const [globalOltPorts, setGlobalOltPorts] = useState([]);
-  const [globalModels, setGlobalModels] = useState([]);
+  const [globalSplitters, setGlobalSplitters] = useState(initialFilters.current.splitters || []);
+  const [globalOltPorts, setGlobalOltPorts] = useState(initialFilters.current.oltPorts || []);
+  const [globalModels, setGlobalModels] = useState(initialFilters.current.models || []);
+
+  // Sync filter state → URL (debounced, replaceState)
+  useFilterUrlSync({
+    oltFilter, portFilter, statusFilter, powerRangeFilter,
+    sortBy, searchTerm,
+    globalSplitters, globalOltPorts, globalModels,
+  });
 
   const [expandedOlts, setExpandedOlts] = useState([]);
   const [expandedPorts, setExpandedPorts] = useState([]);
@@ -375,6 +390,13 @@ export default function PONPMAnalysis() {
     }
   }, [loadingReports, savedReports, result, isLoading, loadSavedReport]);
 
+  // Real-time toast when another user uploads a new report — click to load it
+  const handleNewReportAvailable = useCallback((reportData) => {
+    queryClient.invalidateQueries({ queryKey: ['ponPmReports'] });
+    if (reportData?.id) loadSavedReport(reportData);
+  }, [queryClient, loadSavedReport]);
+  useNewReportToast(handleNewReportAvailable);
+
   // Accepts either a File object (from FileUploadZone) or a change event (from header dropdown input)
   const handleFileUpload = async (fileOrEvent) => {
     const file = fileOrEvent instanceof File ? fileOrEvent : fileOrEvent?.target?.files?.[0];
@@ -621,95 +643,104 @@ export default function PONPMAnalysis() {
                        <Database className="h-4 w-4 mr-2 text-blue-500" />
                        Choose another report
                      </DropdownMenuItem>
-                     <DropdownMenuItem onClick={() => headerFileInputRef.current?.click()}>
-                       <Upload className="h-4 w-4 mr-2 text-cyan-500" />
-                       Upload new PON PM CSV
-                     </DropdownMenuItem>
+                     {isAdmin && (
+                       <DropdownMenuItem onClick={() => headerFileInputRef.current?.click()}>
+                         <Upload className="h-4 w-4 mr-2 text-cyan-500" />
+                         Upload new PON PM CSV
+                       </DropdownMenuItem>
+                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Subscriber data — dropdown with two clear actions:
-                    upload new CSV, or reload latest from DB into memory. */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className={`inline-flex items-center gap-1 text-xs rounded-md px-2.5 py-1 font-semibold border transition-colors cursor-pointer ${
-                        subscriberRecordsLoaded
-                          ? 'text-indigo-700 border-indigo-300 bg-indigo-50 hover:bg-indigo-100'
+                {/* Subscriber data — admin can upload, all users can reload from DB */}
+                {isAdmin && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={`inline-flex items-center gap-1 text-xs rounded-md px-2.5 py-1 font-semibold border transition-colors cursor-pointer ${
+                          subscriberRecordsLoaded
+                            ? 'text-indigo-700 border-indigo-300 bg-indigo-50 hover:bg-indigo-100'
+                            : subscriberMeta
+                              ? 'text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100'
+                              : 'text-gray-600 border-gray-300 bg-gray-50 hover:bg-gray-100'
+                        }`}
+                        title="Subscriber data actions"
+                        aria-label="Subscriber data actions"
+                      >
+                        <span>👥</span>
+                        {subscriberRecordsLoaded
+                          ? `Sub data: ${format(new Date(subscriberMeta.upload_date || subscriberMeta.created_date), 'MMM d, yyyy')}`
                           : subscriberMeta
-                            ? 'text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100'
-                            : 'text-gray-600 border-gray-300 bg-gray-50 hover:bg-gray-100'
-                      }`}
-                      title="Subscriber data actions"
-                      aria-label="Subscriber data actions"
-                    >
-                      <span>👥</span>
-                      {subscriberRecordsLoaded
-                        ? `Sub data: ${format(new Date(subscriberMeta.upload_date || subscriberMeta.created_date), 'MMM d, yyyy')}`
-                        : subscriberMeta
-                          ? 'Sub data not loaded'
-                          : 'Upload subscriber data'}
-                      <ChevronDown className="h-3 w-3 ml-0.5 opacity-70" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64">
-                    <DropdownMenuItem onClick={() => setShowSubscriberDialog(true)}>
-                      <Upload className="h-4 w-4 mr-2 text-cyan-500" />
-                      Upload new subscriber CSV
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={!subscriberMeta || subscriberLoading}
-                      onClick={async () => {
-                        toast.loading('Reloading subscriber data…', { id: 'sub-reload' });
-                        try {
-                          await loadSubscriberRecordsNow();
-                          toast.success('Subscriber data reloaded', { id: 'sub-reload' });
-                        } catch (e) {
-                          toast.error('Failed to reload subscriber data', { id: 'sub-reload' });
-                        }
-                      }}
-                    >
-                      <Database className="h-4 w-4 mr-2 text-indigo-500" />
-                      {subscriberLoading ? 'Reloading…' : 'Reload latest from database'}
-                    </DropdownMenuItem>
-                    {subscriberMeta && (
-                      <div className="px-2 py-1.5 text-[10px] text-gray-500 border-t mt-1">
-                        Latest in DB: {subscriberMeta.record_count?.toLocaleString()} records
-                        <br />
-                        {format(new Date(subscriberMeta.upload_date || subscriberMeta.created_date), 'MMM d, yyyy h:mm a')}
-                      </div>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                            ? 'Sub data not loaded'
+                            : 'Upload subscriber data'}
+                        <ChevronDown className="h-3 w-3 ml-0.5 opacity-70" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-64">
+                      <DropdownMenuItem onClick={() => setShowSubscriberDialog(true)}>
+                        <Upload className="h-4 w-4 mr-2 text-cyan-500" />
+                        Upload new subscriber CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={!subscriberMeta || subscriberLoading}
+                        onClick={async () => {
+                          toast.loading('Reloading subscriber data…', { id: 'sub-reload' });
+                          try {
+                            await loadSubscriberRecordsNow();
+                            toast.success('Subscriber data reloaded', { id: 'sub-reload' });
+                          } catch (e) {
+                            toast.error('Failed to reload subscriber data', { id: 'sub-reload' });
+                          }
+                        }}
+                      >
+                        <Database className="h-4 w-4 mr-2 text-indigo-500" />
+                        {subscriberLoading ? 'Reloading…' : 'Reload latest from database'}
+                      </DropdownMenuItem>
+                      {subscriberMeta && (
+                        <div className="px-2 py-1.5 text-[10px] text-gray-500 border-t mt-1">
+                          Latest in DB: {subscriberMeta.record_count?.toLocaleString()} records
+                          <br />
+                          {format(new Date(subscriberMeta.upload_date || subscriberMeta.created_date), 'MMM d, yyyy h:mm a')}
+                        </div>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
 
                 {/* Hidden controlled subscriber upload dialog (opened by badge above) */}
-                <SubscriberUpload
-                  onDataLoaded={handleSubscriberDataLoaded}
-                  subscriberCount={subscriberMatchCount}
-                  subscriberMeta={subscriberMeta}
-                  open={showSubscriberDialog}
-                  onOpenChange={setShowSubscriberDialog}
-                  hideTrigger
-                />
+                {isAdmin && (
+                  <SubscriberUpload
+                    onDataLoaded={handleSubscriberDataLoaded}
+                    subscriberCount={subscriberMatchCount}
+                    subscriberMeta={subscriberMeta}
+                    open={showSubscriberDialog}
+                    onOpenChange={setShowSubscriberDialog}
+                    hideTrigger
+                  />
+                )}
 
-                {/* eero data badge — same UX as subscriber dropdown */}
-                <EeroDataBadge
-                  eeroMeta={eeroMeta}
-                  eeroRecordsLoaded={eeroRecordsLoaded}
-                  eeroMatchCount={eeroMatchCount}
-                  eeroLoading={eeroLoading}
-                  onUploadClick={() => setShowEeroDialog(true)}
-                  onLoadExistingClick={loadEeroRecordsNow}
-                />
-                <EeroUpload
-                  onDataLoaded={handleEeroDataLoaded}
-                  eeroMatchCount={eeroMatchCount}
-                  eeroMeta={eeroMeta}
-                  open={showEeroDialog}
-                  onOpenChange={setShowEeroDialog}
-                  hideTrigger
-                />
+                {/* eero data badge — admin only for upload, all users see status */}
+                {isAdmin && (
+                  <>
+                    <EeroDataBadge
+                      eeroMeta={eeroMeta}
+                      eeroRecordsLoaded={eeroRecordsLoaded}
+                      eeroMatchCount={eeroMatchCount}
+                      eeroLoading={eeroLoading}
+                      onUploadClick={() => setShowEeroDialog(true)}
+                      onLoadExistingClick={loadEeroRecordsNow}
+                    />
+                    <EeroUpload
+                      onDataLoaded={handleEeroDataLoaded}
+                      eeroMatchCount={eeroMatchCount}
+                      eeroMeta={eeroMeta}
+                      open={showEeroDialog}
+                      onOpenChange={setShowEeroDialog}
+                      hideTrigger
+                    />
+                  </>
+                )}
                 <ThresholdSettingsDialog
                   open={showThresholdSettings}
                   onOpenChange={setShowThresholdSettings}
@@ -764,7 +795,7 @@ export default function PONPMAnalysis() {
           />
         )}
 
-        {/* Upload Section */}
+        {/* Upload Section — admin sees upload + saved reports; regular users only see saved reports */}
         {!result && !isLoading && (
           <Card className="border-0 shadow-lg">
             <CardContent className="p-8">
@@ -777,23 +808,29 @@ export default function PONPMAnalysis() {
                     PON PM Analysis
                   </h2>
                   <p className="text-gray-500 mt-2 max-w-lg mx-auto">
-                    Upload a new CSV export or work with previously saved reports
+                    {isAdmin
+                      ? 'Upload a new CSV export or work with previously saved reports'
+                      : 'View the latest performance monitoring data'}
                   </p>
                 </div>
 
                 <div className="max-w-md mx-auto space-y-4">
-                  <FileUploadZone onChange={handleFileUpload} isLoading={isLoading} disabled={isAnyReportProcessing} disabledMessage={isAnyReportProcessing ? `Wait for "${globalActiveReport?.report_name || 'current report'}" to finish indexing` : null} />
+                  {isAdmin && (
+                    <FileUploadZone onChange={handleFileUpload} isLoading={isLoading} disabled={isAnyReportProcessing} disabledMessage={isAnyReportProcessing ? `Wait for "${globalActiveReport?.report_name || 'current report'}" to finish indexing` : null} />
+                  )}
 
                   {savedReports.length > 0 && (
                     <>
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-gray-300"></div>
+                      {isAdmin && (
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-300"></div>
+                          </div>
+                          <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">Or</span>
+                          </div>
                         </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">Or</span>
-                        </div>
-                      </div>
+                      )}
 
                       <Button 
                         variant="outline" 
@@ -805,39 +842,47 @@ export default function PONPMAnalysis() {
                       </Button>
                     </>
                   )}
+
+                  {!isAdmin && savedReports.length === 0 && (
+                    <div className="text-sm text-gray-500 py-4">
+                      No reports available yet. An admin will upload the first report.
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto mt-8">
-                  <Card className="border bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200">
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold flex items-center gap-2 mb-2 text-cyan-800 dark:text-cyan-200">
-                        <Activity className="h-4 w-4" />
-                        What It Analyzes
-                      </h3>
-                      <ul className="text-sm text-cyan-700 dark:text-cyan-300 space-y-1">
-                        <li>• ONT & OLT optical power levels</li>
-                        <li>• Upstream/downstream BIP errors</li>
-                        <li>• FEC corrected & uncorrected</li>
-                        <li>• Missed bursts & GEM HEC errors</li>
-                        <li>• BER rates (Us/Ds)</li>
-                      </ul>
-                    </CardContent>
-                  </Card>
-                  <Card className="border bg-purple-50 dark:bg-purple-900/20 border-purple-200">
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold flex items-center gap-2 mb-2 text-purple-800 dark:text-purple-200">
-                        <Zap className="h-4 w-4" />
-                        Peer Comparison
-                      </h3>
-                      <ul className="text-sm text-purple-700 dark:text-purple-300 space-y-1">
-                        <li>• Groups ONTs by Shelf/Slot/Port</li>
-                        <li>• Calculates segment averages</li>
-                        <li>• Identifies outliers</li>
-                        <li>• Flags ONTs below peer average</li>
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
+                {isAdmin && (
+                  <div className="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto mt-8">
+                    <Card className="border bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200">
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold flex items-center gap-2 mb-2 text-cyan-800 dark:text-cyan-200">
+                          <Activity className="h-4 w-4" />
+                          What It Analyzes
+                        </h3>
+                        <ul className="text-sm text-cyan-700 dark:text-cyan-300 space-y-1">
+                          <li>• ONT & OLT optical power levels</li>
+                          <li>• Upstream/downstream BIP errors</li>
+                          <li>• FEC corrected & uncorrected</li>
+                          <li>• Missed bursts & GEM HEC errors</li>
+                          <li>• BER rates (Us/Ds)</li>
+                        </ul>
+                      </CardContent>
+                    </Card>
+                    <Card className="border bg-purple-50 dark:bg-purple-900/20 border-purple-200">
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold flex items-center gap-2 mb-2 text-purple-800 dark:text-purple-200">
+                          <Zap className="h-4 w-4" />
+                          Peer Comparison
+                        </h3>
+                        <ul className="text-sm text-purple-700 dark:text-purple-300 space-y-1">
+                          <li>• Groups ONTs by Shelf/Slot/Port</li>
+                          <li>• Calculates segment averages</li>
+                          <li>• Identifies outliers</li>
+                          <li>• Flags ONTs below peer average</li>
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1238,19 +1283,21 @@ export default function PONPMAnalysis() {
                                                 })}
                                                 </div>
 
-            {/* New Analysis Button */}
-            <div className="text-center pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setResult(null);
-                  setSelectedReportId(null);
-                }}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Upload New File
-              </Button>
-            </div>
+            {/* New Analysis Button — admin only */}
+            {isAdmin && (
+              <div className="text-center pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setResult(null);
+                    setSelectedReportId(null);
+                  }}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload New File
+                </Button>
+              </div>
+            )}
           </>
         )}
 

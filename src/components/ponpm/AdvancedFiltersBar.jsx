@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -13,7 +15,7 @@ import { Search } from 'lucide-react';
 
 /**
  * Advanced filters bar: free-text search, status, OLT, port, power range, sort.
- * Also provides a "Clear All" that resets both local and global filters.
+ * Port filter is grouped by OLT when OLT="all" and port count exceeds 20.
  */
 export default function AdvancedFiltersBar({
   searchTerm, setSearchTerm,
@@ -26,6 +28,28 @@ export default function AdvancedFiltersBar({
   onts,
   onClearAll,
 }) {
+  // Group ports by OLT for the "all OLTs" case — avoids a flat list of hundreds
+  const portsByOlt = useMemo(() => {
+    if (oltFilter !== 'all') return null;
+    const map = {};
+    for (const o of onts) {
+      if (!o._oltName || !o._port) continue;
+      if (!map[o._oltName]) map[o._oltName] = new Set();
+      map[o._oltName].add(o._port);
+    }
+    // Convert to sorted arrays
+    const sorted = {};
+    for (const olt of Object.keys(map).sort()) {
+      sorted[olt] = [...map[olt]].sort();
+    }
+    return sorted;
+  }, [onts, oltFilter]);
+
+  const totalPortCount = useMemo(() => {
+    if (!portsByOlt) return 0;
+    return Object.values(portsByOlt).reduce((s, arr) => s + arr.length, 0);
+  }, [portsByOlt]);
+
   return (
     <Card className="border-0 shadow">
       <CardContent className="p-4">
@@ -64,17 +88,30 @@ export default function AdvancedFiltersBar({
               </SelectContent>
             </Select>
             <Select value={portFilter} onValueChange={setPortFilter}>
-              <SelectTrigger className="w-full md:w-32">
+              <SelectTrigger className="w-full md:w-36">
                 <SelectValue placeholder="Port" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-80">
                 <SelectItem value="all">All Ports</SelectItem>
+                {/* Single OLT selected — flat list */}
                 {oltFilter !== 'all' && olts[oltFilter] &&
                   Object.keys(olts[oltFilter].ports).sort().map(port => (
                     <SelectItem key={port} value={port}>{port}</SelectItem>
                   ))
                 }
-                {oltFilter === 'all' &&
+                {/* All OLTs — group by OLT when > 20 ports */}
+                {oltFilter === 'all' && portsByOlt && totalPortCount > 20 &&
+                  Object.entries(portsByOlt).map(([olt, ports]) => (
+                    <SelectGroup key={olt}>
+                      <SelectLabel className="text-xs font-semibold text-blue-600 px-2">{olt}</SelectLabel>
+                      {ports.map(port => (
+                        <SelectItem key={`${olt}|${port}`} value={port}>{port}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))
+                }
+                {/* All OLTs — flat list when <= 20 ports */}
+                {oltFilter === 'all' && totalPortCount <= 20 &&
                   [...new Set(onts.map(o => o._port))].sort().map(port => (
                     <SelectItem key={port} value={port}>{port}</SelectItem>
                   ))

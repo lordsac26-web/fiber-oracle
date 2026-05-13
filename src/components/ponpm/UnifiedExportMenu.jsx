@@ -179,6 +179,12 @@ export default function UnifiedExportMenu({
   const [selectedLcps, setSelectedLcps] = useState([]);
   const [lcpSearch, setLcpSearch] = useState('');
 
+  // OLT data export with ONT selection
+  const [showOltExport, setShowOltExport] = useState(false);
+  const [selectedOlt, setSelectedOlt] = useState('');
+  const [selectedOntIds, setSelectedOntIds] = useState(new Set());
+  const [ontExportSearch, setOntExportSearch] = useState('');
+
   const onts = result?.onts;
 
   // Unique LCP names for multi-select dialog
@@ -227,6 +233,70 @@ export default function UnifiedExportMenu({
 
   const selectAllVisible = () => setSelectedLcps(filteredLcps.map(l => l.name));
   const deselectAll = () => setSelectedLcps([]);
+
+  // OLT export helpers
+  const oltNames = useMemo(() => result?.olts ? Object.keys(result.olts).sort() : [], [result?.olts]);
+
+  const oltOntsFiltered = useMemo(() => {
+    if (!selectedOlt || !onts) return [];
+    const filtered = onts.filter(o => o._oltName === selectedOlt);
+    if (!ontExportSearch) return filtered;
+    const term = ontExportSearch.toLowerCase();
+    return filtered.filter(o =>
+      o.SerialNumber?.toLowerCase().includes(term) ||
+      o.OntID?.toString().includes(ontExportSearch) ||
+      o._subscriber?.name?.toLowerCase().includes(term) ||
+      o._subscriber?.account?.toLowerCase().includes(term) ||
+      o._port?.toLowerCase().includes(term)
+    );
+  }, [onts, selectedOlt, ontExportSearch]);
+
+  const toggleOntSelection = (serial) => {
+    setSelectedOntIds(prev => {
+      const next = new Set(prev);
+      if (next.has(serial)) next.delete(serial); else next.add(serial);
+      return next;
+    });
+  };
+
+  const selectAllOntVisible = () => {
+    setSelectedOntIds(new Set(oltOntsFiltered.map(o => o.SerialNumber)));
+  };
+  const deselectAllOnts = () => setSelectedOntIds(new Set());
+
+  const exportSelectedOnts = () => {
+    if (selectedOntIds.size === 0) { toast.error('Select at least one ONT'); return; }
+    const selected = onts.filter(o => selectedOntIds.has(o.SerialNumber));
+    if (!selected.length) return;
+    const headers = [
+      'Status', 'OLT', 'Port', 'ONT ID', 'Serial', 'Model', 'Technology',
+      'ONT Rx (dBm)', 'OLT Rx (dBm)', 'ONT Tx (dBm)',
+      'US BIP', 'DS BIP', 'US FEC Unc', 'DS FEC Unc', 'US FEC Cor', 'DS FEC Cor',
+      'US GEM HEC', 'US Missed Bursts', 'Uptime',
+      'LCP', 'Splitter',
+      'Subscriber Name', 'Account', 'Address',
+      'Issues',
+    ];
+    const rows = selected.map(o => {
+      const sub = o._subscriber || {};
+      const allIssues = [...(o._analysis?.issues || []), ...(o._analysis?.warnings || [])];
+      return [
+        o._analysis?.status?.toUpperCase() || '', o._oltName || '', o._port || '',
+        o.OntID || '', o.SerialNumber || '', o.model || '', o._techType || '',
+        o.OntRxOptPwr ?? '', o.OLTRXOptPwr ?? '', o.OntTxPwr ?? '',
+        o.UpstreamBipErrors || 0, o.DownstreamBipErrors || 0,
+        o.UpstreamFecUncorrectedCodeWords || 0, o.DownstreamFecUncorrectedCodeWords || 0,
+        o.UpstreamFecCorrectedCodeWords || 0, o.DownstreamFecCorrectedCodeWords || 0,
+        o.UpstreamGemHecErrors || 0, o.UpstreamMissedBursts || 0, o.OntUptime || '',
+        o._lcpNumber || '', o._splitterNumber || '',
+        sub.name || '', sub.account || '', sub.streetAddress || sub.address || '',
+        allIssues.map(i => `${i.field}: ${i.value}`).join('; '),
+      ];
+    });
+    downloadCSV(buildCSV(headers, rows), `${selectedOlt}-selected-onts-${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success(`Exported ${selected.length} ONTs from ${selectedOlt}`);
+    setShowOltExport(false);
+  };
 
   /** 2. Single/Multi LCP Report CSV with subscriber data */
   const exportSelectedLcps = () => {
@@ -365,6 +435,10 @@ export default function UnifiedExportMenu({
             <FileSpreadsheet className="h-4 w-4 mr-2 text-blue-500" />
             All Results (CSV)
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { setSelectedOlt(oltNames[0] || ''); setSelectedOntIds(new Set()); setOntExportSearch(''); setShowOltExport(true); }} disabled={!onts || oltNames.length === 0}>
+            <Server className="h-4 w-4 mr-2 text-cyan-600" />
+            OLT Data — Select ONTs (CSV)
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => exportOfflineCSV(onts)} disabled={!onts}>
             <Router className="h-4 w-4 mr-2 text-purple-500" />
             Offline ONTs (CSV)
@@ -454,6 +528,101 @@ export default function UnifiedExportMenu({
             <Button onClick={exportSelectedLcps} disabled={selectedLcps.length === 0}>
               <Download className="h-4 w-4 mr-2" />
               Export {selectedLcps.length > 0 ? `(${selectedLcps.length})` : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OLT Data Export — Select ONTs Dialog */}
+      <Dialog open={showOltExport} onOpenChange={setShowOltExport}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Server className="h-5 w-5 text-cyan-600" />
+              Export OLT Data — Select ONTs
+            </DialogTitle>
+            <DialogDescription>
+              Choose an OLT, then select specific ONTs to include in the CSV export.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {/* OLT selector */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-600 whitespace-nowrap">OLT:</span>
+              <select
+                className="flex h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                value={selectedOlt}
+                onChange={(e) => { setSelectedOlt(e.target.value); setSelectedOntIds(new Set()); setOntExportSearch(''); }}
+              >
+                {oltNames.map(olt => (
+                  <option key={olt} value={olt}>{olt}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search + select all/none */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <Input
+                  placeholder="Filter by serial, subscriber, port..."
+                  value={ontExportSearch}
+                  onChange={(e) => setOntExportSearch(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                />
+              </div>
+              <Button variant="outline" size="sm" className="text-xs h-8" onClick={selectAllOntVisible}>All</Button>
+              <Button variant="outline" size="sm" className="text-xs h-8" onClick={deselectAllOnts}>None</Button>
+            </div>
+
+            {selectedOntIds.size > 0 && (
+              <Badge variant="outline" className="text-xs">
+                {selectedOntIds.size} ONTs selected
+              </Badge>
+            )}
+
+            {/* ONT checklist */}
+            <div className="max-h-72 overflow-y-auto border rounded-lg divide-y text-xs">
+              {oltOntsFiltered.length === 0 ? (
+                <div className="p-4 text-center text-sm text-gray-500">No ONTs match filter</div>
+              ) : (
+                oltOntsFiltered.map(o => {
+                  const statusColors = {
+                    critical: 'text-red-600', warning: 'text-amber-600',
+                    ok: 'text-green-600', offline: 'text-purple-600',
+                  };
+                  return (
+                    <label
+                      key={o.SerialNumber}
+                      className="flex items-center gap-3 px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={selectedOntIds.has(o.SerialNumber)}
+                        onCheckedChange={() => toggleOntSelection(o.SerialNumber)}
+                      />
+                      <span className={`w-12 font-semibold ${statusColors[o._analysis?.status] || ''}`}>
+                        {(o._analysis?.status || '').toUpperCase().slice(0, 4)}
+                      </span>
+                      <span className="font-mono w-16">{o._port}</span>
+                      <span className="font-mono w-10">#{o.OntID}</span>
+                      <span className="font-mono flex-1 truncate">{o.SerialNumber}</span>
+                      <span className="font-mono w-16 text-right">{o.OntRxOptPwr ?? '—'}</span>
+                      {o._subscriber?.name && (
+                        <span className="text-gray-500 truncate max-w-[120px]">{o._subscriber.name}</span>
+                      )}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowOltExport(false)}>Cancel</Button>
+            <Button onClick={exportSelectedOnts} disabled={selectedOntIds.size === 0}>
+              <Download className="h-4 w-4 mr-2" />
+              Export {selectedOntIds.size > 0 ? `(${selectedOntIds.size} ONTs)` : ''}
             </Button>
           </DialogFooter>
         </DialogContent>
