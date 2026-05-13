@@ -78,10 +78,23 @@ function detectComboTech(shelfSlotPort) {
   if (isNaN(portNum)) return null;
   return portNum % 2 === 1 ? 'XGS-PON' : 'GPON';
 }
-function classifyTech(record) {
+// Classify a record's tech type using EXACTLY the same precedence as the
+// frontend's resolveTech() in components/ponpm/KPIStatistics.jsx, otherwise
+// the PDF totals drift from the dashboard. The frontend uses:
+//   subscriber.model (live, from current upload)
+//     → subscriber_model (denormalized at ingest)
+//     → record.model (OLT-reported)
+//     → combo-port heuristic
+// The PDF must use the same chain, with `liveSubModel` injected by the caller
+// (resolveLiveSub from the active subscriber upload). Records that were
+// ingested BEFORE the current subscriber upload won't have a fresh
+// `subscriber_model` denormalized on them — without the live lookup we miss
+// ~1000 XGS records every time a new subscriber CSV lands.
+function classifyTech(record, liveSubModel) {
   return (
-    detectTechType(record.model) ||
+    detectTechType(liveSubModel) ||
     detectTechType(record.subscriber_model) ||
+    detectTechType(record.model) ||
     detectComboTech(record.shelf_slot_port)
   );
 }
@@ -390,7 +403,10 @@ function findClosestReport(reports, targetMs, excludeId) {
 }
 
 // ─── Aggregate a record array into the stats bundle used in the report ────────
-function aggregateRecords(recs, eeroHomeKeys, resolveAccount) {
+// `resolveSub` (optional) returns { account, model } from the live subscriber
+// lookup; passing it ensures tech-type counts match the live dashboard even
+// when records were ingested before the most recent subscriber upload.
+function aggregateRecords(recs, eeroHomeKeys, resolveAccount, resolveSub) {
   const agg = {
     total: 0, critical: 0, warning: 0, ok: 0, offline: 0,
     gpon: 0, xgs: 0, eeroCount: 0,
@@ -401,7 +417,8 @@ function aggregateRecords(recs, eeroHomeKeys, resolveAccount) {
     else if (r.status === 'warning')  agg.warning++;
     else if (r.status === 'offline')  agg.offline++;
     else                              agg.ok++;
-    const tech = classifyTech(r);
+    const liveSubModel = resolveSub ? (resolveSub(r)?.model || null) : null;
+    const tech = classifyTech(r, liveSubModel);
     if (tech === 'XGS-PON')      agg.xgs++;
     else if (tech === 'GPON')    agg.gpon++;
     if (eeroHomeKeys && resolveAccount) {
@@ -627,9 +644,13 @@ Deno.serve(async (req) => {
     }
 
     // ── Aggregate current + historical ──────────────────────────────────────
-    const currentAgg = aggregateRecords(currentRecs,  eeroHomeKeys, resolveLiveAccount);
-    const week1Agg   = aggregateRecords(week1RecsRaw, eeroHomeKeys, resolveLiveAccount);
-    const month1Agg  = aggregateRecords(month1RecsRaw, eeroHomeKeys, resolveLiveAccount);
+    // Pass resolveLiveSub so classifyTech can pull the FRESH subscriber-side
+    // model for every record. Without it the function falls back to whatever
+    // was denormalized onto the record at ingest time, which routinely misses
+    // ~1000 XGS-PON records whenever a new subscriber CSV is uploaded.
+    const currentAgg = aggregateRecords(currentRecs,   eeroHomeKeys, resolveLiveAccount, resolveLiveSub);
+    const week1Agg   = aggregateRecords(week1RecsRaw,  eeroHomeKeys, resolveLiveAccount, resolveLiveSub);
+    const month1Agg  = aggregateRecords(month1RecsRaw, eeroHomeKeys, resolveLiveAccount, resolveLiveSub);
 
     const healthPct = currentAgg.total > 0
       ? ((currentAgg.ok / currentAgg.total) * 100).toFixed(1)
