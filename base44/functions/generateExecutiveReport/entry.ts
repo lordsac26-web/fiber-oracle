@@ -569,6 +569,10 @@ Deno.serve(async (req) => {
     const subByComposite = new Map();
     const subBySerial    = new Map();
     const subByAccount   = new Map();
+    // Tech counts driven directly off the subscriber CSV (ONTModel column) —
+    // this is the authoritative inventory list per product decision (2026-05).
+    let subGponCount = 0;
+    let subXgsCount  = 0;
     try {
       const activeSubUploads = await base44.asServiceRole.entities.SubscriberUploadMeta
         .filter({ status: 'active' }, '-created_date', 1);
@@ -577,6 +581,12 @@ Deno.serve(async (req) => {
       const subs = await fetchAllFiltered('SubscriberRecord', subFilter, 'id');
 
       for (const sub of subs) {
+        // Count every CSV row exactly once for the tech tally — independent of
+        // serial/account presence so we never under-count.
+        const t = detectTechType(sub.ONTModel);
+        if (t === 'XGS-PON') subXgsCount++;
+        else if (t === 'GPON') subGponCount++;
+
         const account = (sub.AccountName || '').trim();
         const model   = (sub.ONTModel || '').trim();
         const payload = { account, model };
@@ -651,6 +661,17 @@ Deno.serve(async (req) => {
     const currentAgg = aggregateRecords(currentRecs,   eeroHomeKeys, resolveLiveAccount, resolveLiveSub);
     const week1Agg   = aggregateRecords(week1RecsRaw,  eeroHomeKeys, resolveLiveAccount, resolveLiveSub);
     const month1Agg  = aggregateRecords(month1RecsRaw, eeroHomeKeys, resolveLiveAccount, resolveLiveSub);
+
+    // ── Override GPON / XGS-PON counts from subscriber CSV ──────────────────
+    // Per product decision (2026-05): the GPON / XGS-PON KPI tiles count
+    // directly off the subscriber CSV's ONTModel column — this is the
+    // authoritative provisioned inventory and includes ONTs that didn't
+    // report on the most recent PON PM run. Historical aggregates
+    // (week1/month1) keep the per-record tech classification because we
+    // can't time-travel the subscriber CSV; only current totals are swapped.
+    currentAgg.gpon = subGponCount;
+    currentAgg.xgs  = subXgsCount;
+    console.log(`[generateExecutiveReport] Subscriber-CSV tech counts — GPON=${subGponCount}, XGS-PON=${subXgsCount}`);
 
     const healthPct = currentAgg.total > 0
       ? ((currentAgg.ok / currentAgg.total) * 100).toFixed(1)
