@@ -112,6 +112,21 @@ function cleanInventoryValue(value) {
   return str || 'Unknown';
 }
 
+function extractEvenGponPort(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const nums = raw.match(/\d+/g);
+  if (!nums || nums.length === 0) return null;
+  const even = nums.map(n => parseInt(n, 10)).filter(n => Number.isFinite(n) && n % 2 === 0).pop();
+  return even ? String(even) : null;
+}
+
+function portPathKey(olt, shelf, slot, port) {
+  const o = String(olt || '').trim().toUpperCase();
+  const path = normalizePortPath(`${shelf}/${slot}/xp${port}`);
+  return o && path ? `${o}|${path}` : null;
+}
+
 function lcpSplitterKey(lcp, splitter) {
   const l = String(lcp || '').trim().toUpperCase();
   const sNum = String(splitter || '').trim().toUpperCase();
@@ -981,54 +996,49 @@ Deno.serve(async (req) => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 20);
 
-    // ── XGS optic port inventory by shelf ───────────────────────────────────
-    const XGS_OPTIC_TYPES = ['XGS-DD', 'XGS-COMBO', 'XGS-COMBO-EXT'];
-    const ontByLcpSplitter = new Map();
+    // ── Remaining GPON swaps: GPON side of combo optics only ────────────────
+    const GPON_SWAP_TYPES = ['XGS-COMBO', 'XGS-COMBO-EXT'];
+    const ontByPonPort = new Map();
     for (const r of currentRecs) {
-      const key = lcpSplitterKey(r.lcp_number, r.splitter_number);
-      if (key) ontByLcpSplitter.set(key, (ontByLcpSplitter.get(key) || 0) + 1);
+      const olt = String(r.olt_name || '').trim().toUpperCase();
+      const path = normalizePortPath(r.shelf_slot_port || '');
+      if (olt && path) ontByPonPort.set(`${olt}|${path}`, (ontByPonPort.get(`${olt}|${path}`) || 0) + 1);
     }
 
     const lcpEntries = await fetchAllFiltered('LCPEntry', {}, 'id');
     const opticPortMap = new Map();
     for (const entry of lcpEntries) {
       const opticType = normalizeOpticType(entry);
-      if (!opticType || !XGS_OPTIC_TYPES.includes(opticType)) continue;
+      if (!opticType || !GPON_SWAP_TYPES.includes(opticType)) continue;
 
       const olt = cleanInventoryValue(entry.olt_name);
       const shelf = cleanInventoryValue(entry.olt_shelf);
       const slot = cleanInventoryValue(entry.olt_slot);
-      const port = cleanInventoryValue(entry.olt_port);
-      const portKey = `${olt}|${shelf}|${slot}|${port}|${opticType}`;
+      const gponPort = extractEvenGponPort(entry.olt_port);
+      if (!gponPort) continue;
 
+      const ponKey = portPathKey(olt, shelf, slot, gponPort);
+      const portKey = `${olt}|${shelf}|${slot}|${gponPort}|${opticType}`;
       if (!opticPortMap.has(portKey)) {
         opticPortMap.set(portKey, {
           olt,
           shelf,
           slot,
-          port,
+          port: gponPort,
+          displayPort: `${shelf}/${slot}/xp${gponPort}`,
           opticType,
-          ontCount: 0,
-          splitterKeys: new Set(),
+          ontCount: ponKey ? (ontByPonPort.get(ponKey) || 0) : 0,
         });
-      }
-
-      const row = opticPortMap.get(portKey);
-      const splitKey = lcpSplitterKey(entry.lcp_number, entry.splitter_number);
-      if (splitKey && !row.splitterKeys.has(splitKey)) {
-        row.splitterKeys.add(splitKey);
-        row.ontCount += ontByLcpSplitter.get(splitKey) || 0;
       }
     }
 
     const opticPortRows = [...opticPortMap.values()]
-      .map(({ splitterKeys, ...row }) => row)
       .sort((a, b) =>
+        b.ontCount - a.ontCount ||
         a.olt.localeCompare(b.olt, undefined, { numeric: true }) ||
         a.shelf.localeCompare(b.shelf, undefined, { numeric: true }) ||
         a.slot.localeCompare(b.slot, undefined, { numeric: true }) ||
-        a.port.localeCompare(b.port, undefined, { numeric: true }) ||
-        a.opticType.localeCompare(b.opticType)
+        a.port.localeCompare(b.port, undefined, { numeric: true })
       );
 
     const opticShelfMap = new Map();
@@ -1038,7 +1048,7 @@ Deno.serve(async (req) => {
         opticShelfMap.set(shelfKey, {
           olt: row.olt,
           shelf: row.shelf,
-          types: Object.fromEntries(XGS_OPTIC_TYPES.map(t => [t, { ports: 0, onts: 0 }])),
+          types: Object.fromEntries(GPON_SWAP_TYPES.map(t => [t, { ports: 0, onts: 0 }])),
           totalPorts: 0,
           totalOnts: 0,
         });
@@ -1051,6 +1061,7 @@ Deno.serve(async (req) => {
     }
     const opticShelfRows = [...opticShelfMap.values()]
       .sort((a, b) =>
+        b.totalOnts - a.totalOnts ||
         a.olt.localeCompare(b.olt, undefined, { numeric: true }) ||
         a.shelf.localeCompare(b.shelf, undefined, { numeric: true })
       );
@@ -1226,28 +1237,26 @@ Deno.serve(async (req) => {
       y += 4;
     }
 
-    // ─── XGS Optic Port Inventory by Shelf ─── starts on its own page
+    // ─── Remaining GPON swaps ─── starts on its own page
     y = startSectionPage(doc, customerName);
-    y = sectionTitle(doc, `XGS Optic Port Inventory by Shelf  (${opticPortRows.length} ports)`, y, C.teal);
+    y = sectionTitle(doc, `Remaining GPON swaps  (${opticPortRows.length} GPON-side combo ports)`, y, C.teal);
     if (opticShelfRows.length === 0) {
       doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
-      doc.text('No XGS optic inventory data available from LCP records.', M + 4, y + 2, { maxWidth: CW - 8 });
+      doc.text('No GPON-side XGS-COMBO or XGS-COMBO-EXT ports found in LCP records.', M + 4, y + 2, { maxWidth: CW - 8 });
       y += 10;
     } else {
       doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...C.muted);
-      doc.text('Port counts come from LCP inventory; ONT counts come from the current PON PM report matched by LCP and splitter.', M + 4, y - 1, { maxWidth: CW - 8 });
+      doc.text('Only even-numbered GPON-side ports from XGS-COMBO and XGS-COMBO-EXT optics are included, sorted by ONTs descending.', M + 4, y - 1, { maxWidth: CW - 8 });
       y += 4;
 
       const shelfCols = [
         { label: 'OLT / Shelf',  x: M + 5 },
-        { label: 'DD Ports',     x: M + 52,  align: 'right' },
-        { label: 'DD ONTs',      x: M + 73,  align: 'right' },
-        { label: 'Combo Ports',  x: M + 100, align: 'right' },
-        { label: 'Combo ONTs',   x: M + 124, align: 'right' },
-        { label: 'Ext Ports',    x: M + 149, align: 'right' },
-        { label: 'Ext ONTs',     x: M + 169, align: 'right' },
+        { label: 'Combo Ports',  x: M + 70, align: 'right' },
+        { label: 'Combo ONTs',   x: M + 100, align: 'right' },
+        { label: 'Ext Ports',    x: M + 130, align: 'right' },
+        { label: 'Ext ONTs',     x: M + 158, align: 'right' },
         { label: 'Total ONTs',   x: M + CW - 4, align: 'right' },
       ];
       y = tableHeader(doc, y, shelfCols);
@@ -1257,14 +1266,12 @@ Deno.serve(async (req) => {
         if (y < before) y = tableHeader(doc, y, shelfCols);
         const r = opticShelfRows[i];
         y = tableRow(doc, y, [
-          { value: `${r.olt} / Shelf ${r.shelf}`, x: M + 5, maxW: 42 },
-          { value: String(r.types['XGS-DD'].ports), x: M + 52, maxW: 16, align: 'right' },
-          { value: r.types['XGS-DD'].onts.toLocaleString(), x: M + 73, maxW: 18, align: 'right' },
-          { value: String(r.types['XGS-COMBO'].ports), x: M + 100, maxW: 18, align: 'right' },
-          { value: r.types['XGS-COMBO'].onts.toLocaleString(), x: M + 124, maxW: 18, align: 'right' },
-          { value: String(r.types['XGS-COMBO-EXT'].ports), x: M + 149, maxW: 18, align: 'right' },
-          { value: r.types['XGS-COMBO-EXT'].onts.toLocaleString(), x: M + 169, maxW: 18, align: 'right' },
-          { value: r.totalOnts.toLocaleString(), x: M + CW - 4, maxW: 22, align: 'right', color: r.totalOnts > 0 ? C.dark : C.muted },
+          { value: `${r.olt} / Shelf ${r.shelf}`, x: M + 5, maxW: 60 },
+          { value: String(r.types['XGS-COMBO'].ports), x: M + 70, maxW: 20, align: 'right' },
+          { value: r.types['XGS-COMBO'].onts.toLocaleString(), x: M + 100, maxW: 22, align: 'right' },
+          { value: String(r.types['XGS-COMBO-EXT'].ports), x: M + 130, maxW: 20, align: 'right' },
+          { value: r.types['XGS-COMBO-EXT'].onts.toLocaleString(), x: M + 158, maxW: 22, align: 'right' },
+          { value: r.totalOnts.toLocaleString(), x: M + CW - 4, maxW: 24, align: 'right', color: r.totalOnts > 0 ? C.dark : C.muted },
         ], i % 2 === 0);
       }
 
@@ -1273,12 +1280,12 @@ Deno.serve(async (req) => {
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(...C.dark);
-      doc.text('Port-Level ONT Counts', M + 4, y);
+      doc.text('GPON-Side Port ONT Counts', M + 4, y);
       y += 2;
       const portCols = [
         { label: 'OLT / Shelf', x: M + 5 },
-        { label: 'Slot / Port', x: M + 62 },
-        { label: 'Optic Type',  x: M + 100 },
+        { label: 'GPON Port',   x: M + 68 },
+        { label: 'Optic Type',  x: M + 108 },
         { label: 'ONTs on Port', x: M + CW - 4, align: 'right' },
       ];
       y = tableHeader(doc, y, portCols);
@@ -1288,9 +1295,9 @@ Deno.serve(async (req) => {
         if (y < before) y = tableHeader(doc, y, portCols);
         const r = opticPortRows[i];
         y = tableRow(doc, y, [
-          { value: `${r.olt} / Shelf ${r.shelf}`, x: M + 5, maxW: 54 },
-          { value: `Slot ${r.slot} / Port ${r.port}`, x: M + 62, maxW: 35 },
-          { value: r.opticType, x: M + 100, maxW: 48, color: r.opticType === 'XGS-COMBO-EXT' ? C.purple : r.opticType === 'XGS-COMBO' ? C.indigo : C.teal },
+          { value: `${r.olt} / Shelf ${r.shelf}`, x: M + 5, maxW: 60 },
+          { value: r.displayPort, x: M + 68, maxW: 36 },
+          { value: r.opticType, x: M + 108, maxW: 48, color: r.opticType === 'XGS-COMBO-EXT' ? C.purple : C.indigo },
           { value: r.ontCount.toLocaleString(), x: M + CW - 4, maxW: 28, align: 'right', color: r.ontCount > 0 ? C.dark : C.muted },
         ], i % 2 === 0);
       }
