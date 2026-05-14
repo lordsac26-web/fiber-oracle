@@ -62,8 +62,8 @@ export default function CertificationExam() {
   // Initialize exam
   useEffect(() => {
     if (examData) {
-      // Shuffle questions and their options
-      const shuffledQuestions = shuffleArray(examData.questions).map(q => {
+      // Shuffle the full question bank, then draw only the configured exam length.
+      const shuffledQuestions = shuffleArray(examData.questions).slice(0, examData.totalQuestions).map(q => {
         if (q.type === 'single' || q.type === 'scenario') {
           // Shuffle options and track new correct answer position
           const optionsWithIndex = q.options.map((opt, idx) => ({ opt, isCorrect: idx === q.correctAnswer }));
@@ -384,8 +384,8 @@ export default function CertificationExam() {
     setCurrentQuestion(0);
     setExamResults(null);
     setShowExplanation({});
-    // Re-shuffle questions
-    const shuffledQuestions = shuffleArray(examData.questions).map(q => {
+    // Re-shuffle the full bank and draw a fresh exam set
+    const shuffledQuestions = shuffleArray(examData.questions).slice(0, examData.totalQuestions).map(q => {
       if (q.type === 'single' || q.type === 'scenario') {
         const optionsWithIndex = q.options.map((opt, idx) => ({ opt, isCorrect: idx === q.correctAnswer }));
         const shuffledOptions = shuffleArray(optionsWithIndex);

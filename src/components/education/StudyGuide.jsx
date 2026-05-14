@@ -26,90 +26,122 @@ const STUDY_GUIDES = {
     passingScore: 70,
     sections: [
       {
+        title: 'Reference Sources Used',
+        content: [
+          { term: 'Primary Reference', definition: 'FOA Online Reference Guide to Fiber Optics: optical fiber basics, fiber optic cable construction, cleaning, testing, OTDRs, and safety.' },
+          { term: 'Practice Alignment', definition: 'New exam questions are rewritten as original Fiber Oracle questions based on concepts from free public FOA references and general industry practice.' },
+          { term: 'Exam Rotation', definition: 'Fiber 101 now has a larger question bank than the 40-question exam, so each attempt can draw a different mix of fundamentals, cable construction, cleaning, testing, safety, and PON questions.' },
+        ]
+      },
+      {
         title: 'Fiber Optic Fundamentals',
         content: [
-          { term: 'Core', definition: 'The center of the fiber where light travels. SMF core = 9μm, MMF core = 50μm or 62.5μm' },
-          { term: 'Cladding', definition: 'Surrounds the core (125μm), reflects light back into the core via total internal reflection' },
-          { term: 'Jacket/Buffer', definition: 'Outer protective coating, color-coded for identification' },
-          { term: 'Single-Mode Fiber (SMF)', definition: 'Yellow jacket, 9μm core, used for long distances (up to 100+ km), wavelengths 1310nm/1550nm' },
-          { term: 'Multi-Mode Fiber (MMF)', definition: 'Aqua/Orange jacket, 50/62.5μm core, short distances (up to 550m), wavelengths 850nm/1300nm' },
+          { term: 'Core', definition: 'The center of the optical fiber where the signal light is guided. Single-mode fiber is typically about 9um core; multimode is commonly 50um or 62.5um.' },
+          { term: 'Cladding', definition: 'The glass surrounding the core. Standard telecommunications glass fiber normally has 125um cladding.' },
+          { term: 'Total Internal Reflection', definition: 'Light stays guided because the core has a higher refractive index than the cladding. Rays within the acceptance angle reflect back into the core.' },
+          { term: 'Numerical Aperture', definition: 'A measure related to the angles of light the fiber can accept and still guide through total internal reflection.' },
+          { term: 'Buffer and Jacket', definition: 'The buffer protects the glass fiber; the cable jacket protects the complete cable assembly from the installation environment.' },
+        ]
+      },
+      {
+        title: 'Single-Mode vs Multi-Mode',
+        content: [
+          { term: 'Single-Mode Fiber (SMF)', definition: 'Small core around 9um, yellow jacket in common TIA color coding, low loss, very high bandwidth, used for FTTH, PON, telecom, and long-distance links.' },
+          { term: 'Multi-Mode Fiber (MMF)', definition: 'Larger 50um or 62.5um core, usually orange or aqua jacket depending on grade, used mainly for short premises, LAN, and data-center links.' },
+          { term: 'Why SMF Goes Farther', definition: 'Single-mode fiber carries essentially one optical mode, avoiding modal dispersion that limits multimode bandwidth-distance performance.' },
+          { term: 'Graded-Index MMF', definition: 'A multimode design that varies the refractive index across the core to reduce modal dispersion compared with older step-index multimode fiber.' },
+          { term: 'Typical Wavelengths', definition: 'Multimode commonly uses 850nm and 1300nm. Single-mode commonly uses 1310nm and 1550nm; PON systems also use 1490nm, 1577nm, and 1270nm depending on technology.' },
+        ]
+      },
+      {
+        title: 'Cable Construction and Installation',
+        content: [
+          { term: 'Cable Assembly', definition: 'A fiber optic cable includes fibers, buffers or tubes, strength members, water blocking if needed, and an outer jacket.' },
+          { term: 'Tight-Buffered Cable', definition: 'Common indoors where flexibility and direct termination are important. Examples include simplex, zipcord, distribution, and breakout styles.' },
+          { term: 'Loose Tube Cable', definition: 'Common for outside plant trunks because the fibers are protected from pulling tension and can be protected from moisture with gel or dry water-blocking materials.' },
+          { term: 'Strength Members', definition: 'Aramid yarn or other members take pulling force. Pulling should attach to the strength members, not the glass fibers or connector bodies.' },
+          { term: 'Indoor Ratings', definition: 'Indoor cable jackets must meet applicable fire code requirements such as riser or plenum ratings.' },
+          { term: 'Outdoor Ratings', definition: 'Outdoor cable selection depends on moisture, sunlight, temperature, aerial/buried/conduit exposure, rodent risk, and pulling tension.' },
         ]
       },
       {
         title: 'TIA-598 Color Code (12-Fiber)',
         content: [
-          { term: 'Position 1-6', definition: 'Blue, Orange, Green, Brown, Slate, White' },
-          { term: 'Position 7-12', definition: 'Red, Black, Yellow, Violet, Rose, Aqua' },
-          { term: 'Memory Aid', definition: '"Blue-Orange-Green-Brown-Slate-White" then "Red-Black-Yellow-Violet-Rose-Aqua"' },
+          { term: 'Position 1-6', definition: 'Blue, Orange, Green, Brown, Slate, White.' },
+          { term: 'Position 7-12', definition: 'Red, Black, Yellow, Violet, Rose, Aqua.' },
+          { term: 'How It Repeats', definition: 'The 12-color sequence repeats for fibers, buffer tubes, and high-count cable groupings depending on cable construction.' },
+          { term: 'Memory Aid', definition: 'Blue-Orange-Green-Brown-Slate-White, then Red-Black-Yellow-Violet-Rose-Aqua.' },
         ]
       },
       {
-        title: 'Connectors & Polish Types',
+        title: 'Connectors and Polish Types',
         content: [
-          { term: 'LC Connector', definition: 'Lucent Connector, 1.25mm ferrule, most common in data centers, push-pull latch' },
-          { term: 'SC Connector', definition: 'Subscriber Connector, 2.5mm ferrule, standard for FTTH/PON, snap-in design' },
-          { term: 'UPC (Blue)', definition: 'Ultra Physical Contact, return loss >50 dB' },
-          { term: 'APC (Green)', definition: 'Angled Physical Contact (8°), return loss >60 dB, required for RF video overlay' },
-          { term: 'CRITICAL', definition: 'NEVER mix UPC and APC connectors - green to green, blue to blue only!' },
+          { term: 'LC Connector', definition: 'Small-form connector with 1.25mm ferrule, common in SFPs, patch panels, and high-density equipment.' },
+          { term: 'SC Connector', definition: 'Push-pull connector with 2.5mm ferrule, widely used in FTTH/PON customer and splitter environments.' },
+          { term: 'UPC (Blue)', definition: 'Ultra Physical Contact polish, commonly blue, with low reflection for most digital links.' },
+          { term: 'APC (Green)', definition: 'Angled Physical Contact polish, commonly green, with an 8-degree angle and very low reflectance; common in PON/RF video environments.' },
+          { term: 'CRITICAL', definition: 'Never mate APC to UPC. Their end-face geometries do not match and can cause high loss, high reflection, and physical damage.' },
+        ]
+      },
+      {
+        title: 'Cleaning and Inspection',
+        content: [
+          { term: 'Inspect-Clean-Inspect', definition: 'Inspect before connecting, clean if needed, then inspect again before mating.' },
+          { term: 'Dry Cleaning', definition: 'Use proper fiber cleaning tools first for dust and loose particles.' },
+          { term: 'Wet/Dry Cleaning', definition: 'Use approved fiber cleaning materials when oily residue or stubborn contamination remains, then dry clean and inspect again.' },
+          { term: 'Dust Caps', definition: 'Dust caps protect connectors but do not guarantee cleanliness. Caps can also carry dust or residue.' },
+          { term: 'Never Do', definition: 'Do not touch ferrule end faces, blow on connectors, use household cleaners, or connect a contaminated end face.' },
         ]
       },
       {
         title: 'PON Network Architecture',
         content: [
-          { term: 'OLT', definition: 'Optical Line Terminal - Located at central office, sends downstream/receives upstream' },
-          { term: 'ONT/ONU', definition: 'Optical Network Terminal/Unit - At customer premises, converts fiber to Ethernet/voice' },
-          { term: 'Splitter', definition: 'Passive device that splits optical signal. 1:32 typical, ~17.5 dB loss' },
-          { term: 'Feeder Fiber', definition: 'Fiber from OLT to splitter' },
-          { term: 'Drop Fiber', definition: 'Fiber from splitter to customer ONT' },
+          { term: 'OLT', definition: 'Optical Line Terminal at the central office or headend. It sends downstream traffic and receives upstream traffic.' },
+          { term: 'ONT/ONU', definition: 'Optical Network Terminal or Unit at the customer side. It converts optical service to customer interfaces such as Ethernet and voice.' },
+          { term: 'Splitter', definition: 'Passive optical device that divides one optical input into many outputs without electrical power.' },
+          { term: 'Feeder Fiber', definition: 'Fiber section from the OLT area toward the splitter or distribution network.' },
+          { term: 'Drop Fiber', definition: 'Final fiber segment from the distribution point or splitter area to the customer premises.' },
         ]
       },
       {
-        title: 'GPON Specifications (ITU-T G.984)',
+        title: 'GPON and Intro XGS-PON Facts',
         content: [
-          { term: 'Downstream', definition: '2.488 Gbps at 1490nm wavelength' },
-          { term: 'Upstream', definition: '1.244 Gbps at 1310nm wavelength' },
-          { term: 'Max Split Ratio', definition: '1:128 (typically 1:32 or 1:64)' },
-          { term: 'Max Distance', definition: '20 km standard, up to 60 km with extended optics' },
-          { term: 'Class B+', definition: '28 dB optical budget (most common)' },
-          { term: 'Class C+', definition: '32 dB optical budget (extended reach)' },
+          { term: 'GPON Downstream', definition: '2.488 Gbps downstream at 1490nm.' },
+          { term: 'GPON Upstream', definition: '1.244 Gbps upstream at 1310nm.' },
+          { term: 'GPON Split Ratios', definition: 'GPON can support high split ratios such as 1:64 or 1:128, but 1:32 and 1:64 are common because power budget and margin matter.' },
+          { term: 'Class B+ and C+', definition: 'Class B+ is commonly associated with a 28 dB optical budget; Class C+ provides about 32 dB.' },
+          { term: 'XGS-PON Introduction', definition: 'XGS-PON provides about 10 Gbps symmetric service using 1577nm downstream and 1270nm upstream, allowing coexistence with GPON wavelengths.' },
         ]
       },
       {
-        title: 'Power Levels & dB',
+        title: 'Power Levels and Loss Budget',
         content: [
-          { term: 'dBm', definition: 'Absolute power level referenced to 1 milliwatt' },
-          { term: 'dB', definition: 'Relative measurement (loss or gain)' },
-          { term: 'OLT Tx Power', definition: '+3 to +7 dBm (Class C+)' },
-          { term: 'ONT Rx (Good)', definition: '-8 to -25 dBm' },
-          { term: 'ONT Rx (Low)', definition: 'Below -27 dBm = problems' },
-          { term: 'SMF Loss @1310nm', definition: '0.35 dB/km' },
-          { term: 'SMF Loss @1550nm', definition: '0.25 dB/km' },
-          { term: 'Elite Connector Loss', definition: '≤0.15 dB' },
-          { term: 'Fusion Splice Loss', definition: '≤0.10 dB' },
-        ]
-      },
-      {
-        title: 'Cleaning & Inspection (IEC 61300-3-35)',
-        content: [
-          { term: 'Key Statistic', definition: '85% of fiber problems are caused by contamination' },
-          { term: 'Cleaning Steps', definition: '1) Inspect → 2) Dry clean → 3) Re-inspect → 4) Wet clean if needed → 5) Final inspection' },
-          { term: 'Never Do', definition: 'Touch ferrule end face, blow on connectors, use household cleaners' },
-          { term: 'Always Do', definition: 'Inspect before connecting, use dust caps, dry clean first' },
+          { term: 'dBm', definition: 'Absolute optical power referenced to 1 milliwatt.' },
+          { term: 'dB', definition: 'Relative gain or loss. Link budgets subtract passive losses in dB from transmitter power in dBm.' },
+          { term: 'Basic Formula', definition: 'Receiver power = transmitter power - total passive loss. Example: +4 dBm - 23 dB = -19 dBm.' },
+          { term: 'SMF Loss', definition: 'Common planning values are about 0.35 dB/km at 1310nm and 0.25 dB/km at 1550nm.' },
+          { term: 'Connector and Splice Loss', definition: 'Field connector planning often uses about 0.3 dB each; fusion splices are commonly much lower, often around 0.1 dB or less.' },
+          { term: 'Splitter Loss', definition: 'Approximate splitter losses: 1:4 = 7.4 dB, 1:8 = 10.7 dB, 1:16 = 14.1 dB, 1:32 = 17.5 dB, 1:64 = 20.9 dB.' },
+          { term: 'Margin', definition: 'Always leave margin for aging, temperature, repairs, dirty connections, measurement uncertainty, and future changes.' },
         ]
       },
       {
         title: 'Testing Overview',
         content: [
-          { term: 'OLTS (Tier 1)', definition: 'Optical Loss Test Set - Measures total end-to-end loss, quick pass/fail certification' },
-          { term: 'OTDR (Tier 2)', definition: 'Optical Time Domain Reflectometer - Shows events along fiber, locates faults and splices' },
-          { term: 'Key Difference', definition: 'OLTS tells you IF there\'s a problem. OTDR tells you WHERE the problem is.' },
+          { term: 'OLTS / Insertion Loss', definition: 'An optical loss test set uses a source and power meter to measure total end-to-end loss for pass/fail acceptance.' },
+          { term: 'OTDR', definition: 'An optical time domain reflectometer shows events versus distance and can help locate faults, verify length, and evaluate splice or connector events.' },
+          { term: 'When To Use Each', definition: 'OLTS tells whether the complete link loss passes. OTDR helps find where excess loss, reflections, breaks, or macrobends are located.' },
+          { term: 'Launch / Receive Fibers', definition: 'Launch and receive fibers help move near-end and far-end connectors out of OTDR dead zones so connector loss can be evaluated.' },
+          { term: 'Documentation', definition: 'Save before/after readings and traces. Good documentation proves work quality and helps future troubleshooting.' },
         ]
       },
       {
         title: 'Safety',
         content: [
-          { term: 'Eye Safety', definition: 'NEVER look into fiber ends or laser sources. IR light (1310/1550nm) is invisible but dangerous' },
-          { term: 'Fiber Shards', definition: 'Glass fiber is extremely sharp. Use fiber trash container, wear safety glasses when cleaving' },
+          { term: 'Eye Safety', definition: 'Never look into a fiber end, connector, microscope, or source until optical power is verified safe. Telecom IR light may be invisible.' },
+          { term: 'Fiber Shards', definition: 'Cleaved fiber scraps are sharp glass. Wear eye protection and place scraps in a dedicated container.' },
+          { term: 'Work Area', definition: 'Keep the work area clean, avoid food or drinks near fiber work, and dispose of all scraps properly.' },
+          { term: 'Live Fiber', definition: 'Use proper test equipment to verify whether a fiber is active. Do not rely on visibility because common wavelengths are outside human vision.' },
         ]
       },
     ]
@@ -396,14 +428,14 @@ export default function StudyGuide({ courseId }) {
       </Card>
 
       {/* Notice */}
-      <Card className="border-2 border-amber-200 bg-amber-50 dark:bg-amber-900/20">
+      <Card className="border border-emerald-200 bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-900/20 dark:to-blue-900/20">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
-            <Lightbulb className="h-5 w-5 text-amber-600 mt-0.5" />
+            <Lightbulb className="h-5 w-5 text-emerald-600 mt-0.5" />
             <div>
-              <h4 className="font-semibold text-amber-800 dark:text-amber-200">Open Book Exam</h4>
-              <p className="text-sm text-amber-700 dark:text-amber-300">
-                You may reference this study guide during the certification exam. Download the PDF to have it ready.
+              <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">Open Book Exam · Expanded Question Pool</h4>
+              <p className="text-sm text-emerald-800/80 dark:text-emerald-200/80">
+                You may reference this refreshed guide during the certification exam. Fiber 101 now rotates questions from a larger source-referenced bank.
               </p>
             </div>
           </div>

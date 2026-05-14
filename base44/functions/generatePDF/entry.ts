@@ -686,11 +686,15 @@ function generateBrochurePDF() {
 // ═══════════════════════════════════════════════════════════════════════════════
 function generateStudyGuidePDF(data) {
   const { courseId, title, subtitle, passingScore, sections } = data;
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
-  const M = 20;
+  const M = 16;
   const CW = W - 2 * M;
+  const HEADER_H = 24;
+  const FOOTER_H = 12;
+  const BODY_TOP = HEADER_H + 10;
+  const BODY_BOTTOM = H - FOOTER_H - 10;
 
   const courseColors = {
     fiber101: [16, 185, 129],
@@ -698,112 +702,153 @@ function generateStudyGuidePDF(data) {
     fiber103: [168, 85, 247],
   };
   const accent = courseColors[courseId] || courseColors.fiber101;
+  const C = {
+    header: [15, 23, 42],
+    dark: [30, 41, 59],
+    slate: [71, 85, 105],
+    muted: [100, 116, 139],
+    border: [226, 232, 240],
+    light: [248, 250, 252],
+    white: [255, 255, 255],
+    amberBg: [255, 251, 235],
+    amberBorder: [245, 158, 11],
+    redBg: [254, 242, 242],
+    redText: [185, 28, 28],
+  };
 
-  // ── COVER ──────────────────────────────────────────────────────────────────
-  doc.setFillColor(15, 23, 42);
-  doc.rect(0, 0, W, H, 'F');
-  doc.setFillColor(...accent);
-  doc.rect(0, 0, W, 3, 'F');
+  let pageNumber = 0;
+  let y = BODY_TOP;
 
-  doc.setFillColor(20, 30, 55);
-  doc.roundedRect(M, 60, CW, 80, 4, 4, 'F');
-  doc.setFillColor(...accent);
-  doc.roundedRect(M, 60, 4, 80, 2, 2, 'F');
-
-  doc.setTextColor(...accent);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.text('FIBER ORACLE EDUCATION CENTER', M + 8, 76);
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.text(s(title), M + 8, 92);
-
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(150, 165, 200);
-  doc.text(s(subtitle), M + 8, 103);
-
-  doc.setFillColor(...accent);
-  doc.roundedRect(M + 8, 112, 50, 8, 4, 4, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`PASSING SCORE: ${passingScore}%`, M + 33, 117.5, { align: 'center' });
-
-  // Footer
-  doc.setFillColor(10, 14, 30);
-  doc.rect(0, H - 12, W, 12, 'F');
-  doc.setTextColor(80, 100, 140);
-  doc.setFontSize(7);
-  doc.text('fiberoracle.com', M, H - 4);
-  doc.text(new Date().toLocaleDateString(), W - M, H - 4, { align: 'right' });
-
-  // ── CONTENT PAGES ──────────────────────────────────────────────────────────
-  doc.addPage();
-  let y = 22;
-  const CONTENT_H = H - 24; // leave footer room
-
-  const addPageHeader = () => {
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, W, 16, 'F');
+  const drawHeader = () => {
+    pageNumber += 1;
+    doc.setFillColor(...C.header);
+    doc.rect(0, 0, W, HEADER_H, 'F');
     doc.setFillColor(...accent);
-    doc.rect(0, 16, W, 1, 'F');
-    doc.setTextColor(...accent);
-    doc.setFontSize(7);
+    doc.rect(0, HEADER_H, W, 1.4, 'F');
+
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...C.white);
     doc.text('FIBER ORACLE', M, 10);
-    doc.setTextColor(150, 165, 200);
-    doc.setFont('helvetica', 'normal');
-    doc.text(s(title), W - M, 10, { align: 'right' });
-    y = 22;
-  };
+    doc.setFontSize(7);
+    doc.setTextColor(203, 213, 225);
+    doc.text('Education Center', M, 16.5);
 
-  const addPageFooter = () => {
-    doc.setFillColor(10, 14, 30);
-    doc.rect(0, H - 10, W, 10, 'F');
-    doc.setTextColor(80, 100, 140);
-    doc.setFontSize(6.5);
-    doc.text('fiberoracle.com', M, H - 3.5);
-    doc.text(new Date().toLocaleDateString(), W - M, H - 3.5, { align: 'right' });
-  };
-
-  addPageHeader();
-
-  sections.forEach((section, si) => {
-    if (y > CONTENT_H - 20) { addPageFooter(); doc.addPage(); addPageHeader(); }
-
-    // Section header
-    doc.setFillColor(...accent);
-    doc.roundedRect(M, y, CW, 8, 1, 1, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${si + 1}. ${s(section.title)}`, M + 4, y + 5.5);
+    doc.setTextColor(...C.white);
+    doc.text(s(title), W - M, 10, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(203, 213, 225);
+    doc.text(s(subtitle), W - M, 16.5, { align: 'right' });
+  };
+
+  const drawFooter = () => {
+    doc.setFillColor(...C.header);
+    doc.rect(0, H - FOOTER_H, W, FOOTER_H, 'F');
+    doc.setFillColor(...accent);
+    doc.rect(0, H - FOOTER_H, W, 0.6, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text('fiberoracle.com', M, H - 4.5);
+    doc.text(`Page ${pageNumber}`, W / 2, H - 4.5, { align: 'center' });
+    doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), W - M, H - 4.5, { align: 'right' });
+  };
+
+  const newPage = () => {
+    if (pageNumber > 0) {
+      drawFooter();
+      doc.addPage();
+    }
+    drawHeader();
+    y = BODY_TOP;
+  };
+
+  const ensureSpace = (needed) => {
+    if (y + needed > BODY_BOTTOM) newPage();
+  };
+
+  const drawSection = (section, index) => {
+    ensureSpace(18);
+    doc.setFillColor(...accent);
+    doc.roundedRect(M, y, CW, 8.5, 1.5, 1.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...C.white);
+    doc.text(`${index + 1}. ${s(section.title).toUpperCase()}`, M + 4, y + 5.8);
     y += 12;
 
-    section.content.forEach(item => {
-      if (y > CONTENT_H - 16) { addPageFooter(); doc.addPage(); addPageHeader(); }
+    section.content.forEach((item) => {
+      const term = s(item.term);
+      const definition = s(item.definition);
+      const defLines = doc.splitTextToSize(definition, CW - 14);
+      const rowH = Math.max(13, 7 + defLines.length * 4.4);
+      ensureSpace(rowH + 2);
 
-      doc.setFontSize(8.5);
+      const isCritical = /critical|never do|warning/i.test(term);
+      doc.setFillColor(...(isCritical ? C.redBg : C.light));
+      doc.setDrawColor(...(isCritical ? C.redText : C.border));
+      doc.setLineWidth(0.25);
+      doc.roundedRect(M, y, CW, rowH, 1.5, 1.5, 'FD');
+
+      doc.setFillColor(...(isCritical ? C.redText : accent));
+      doc.roundedRect(M, y, 3, rowH, 1, 1, 'F');
+
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(220, 235, 255);
-      const termLines = doc.splitTextToSize(s(item.term), CW);
-      doc.text(termLines, M, y);
-      y += termLines.length * 5;
+      doc.setFontSize(7.8);
+      doc.setTextColor(...(isCritical ? C.redText : C.dark));
+      doc.text(term, M + 7, y + 5.2);
 
-      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(150, 165, 200);
-      const defLines = doc.splitTextToSize(s(item.definition), CW);
-      doc.text(defLines, M, y);
-      y += defLines.length * 5 + 5;
+      doc.setFontSize(7.4);
+      doc.setTextColor(...C.slate);
+      doc.text(defLines, M + 7, y + 10);
+      y += rowH + 2.4;
     });
+    y += 3;
+  };
 
-    y += 4;
-  });
+  // Cover page
+  newPage();
+  doc.setFillColor(...C.light);
+  doc.roundedRect(M, y, CW, 54, 3, 3, 'F');
+  doc.setDrawColor(...C.border);
+  doc.roundedRect(M, y, CW, 54, 3, 3, 'S');
+  doc.setFillColor(...accent);
+  doc.roundedRect(M, y, 4, 54, 2, 2, 'F');
 
-  addPageFooter();
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(...C.dark);
+  doc.text(s(title), M + 9, y + 17);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...C.muted);
+  doc.text(s(subtitle), M + 9, y + 27);
+
+  doc.setFillColor(...accent);
+  doc.roundedRect(M + 9, y + 35, 48, 8, 4, 4, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...C.white);
+  doc.text(`PASSING SCORE: ${passingScore}%`, M + 33, y + 40.4, { align: 'center' });
+
+  doc.setFillColor(...C.amberBg);
+  doc.setDrawColor(...C.amberBorder);
+  doc.roundedRect(M, y + 64, CW, 24, 2, 2, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(146, 64, 14);
+  doc.text('Open-book reference', M + 5, y + 72);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.4);
+  doc.text(doc.splitTextToSize('Use this guide during the certification exam. The Fiber 101 exam now rotates 40 questions from a larger source-referenced question bank.', CW - 10), M + 5, y + 79);
+
+  y += 100;
+  sections.forEach((section, index) => drawSection(section, index));
+
+  drawFooter();
   return doc.output('arraybuffer');
 }
 
