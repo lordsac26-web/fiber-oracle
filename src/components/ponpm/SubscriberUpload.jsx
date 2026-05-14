@@ -114,11 +114,6 @@ export function parseSubscriberCSV(text) {
 }
 
 /**
- * Builds a lookup map from parsed subscriber records.
- * Primary key: "OLT|PORT|ONTID" (from DeviceName + LinkedPon + OntID)
- * Fallback key: serial number (ONTSerialNo)
- */
-/**
  * Normalizes a port path string for consistent matching.
  * Subscriber CSV may use "1/1/1" or "0/1/1" (with/without shelf prefix).
  * PM data uses "Shelf/Slot/Port" from the OLT.
@@ -130,21 +125,6 @@ function normalizePort(port) {
   // (e.g. "1/1/xp13") match PM data ports (e.g. "1/1/13"). Mirrors backend
   // syncSubscriberToOntRecords.js normalization.
   return (port || '').trim().replace(/\s+/g, '').replace(/\/xp(\d)/gi, '/$1');
-}
-
-// Vendor prefixes that appear in subscriber-export serial numbers but NOT in
-// PM-report serial numbers. Must mirror functions/syncSubscriberToOntRecords.js
-// so frontend live-enrichment matches what the backend sync would set.
-const VENDOR_PREFIXES = ['CXNK', 'ZNTS'];
-
-function normalizeSerial(serial) {
-  if (!serial || typeof serial !== 'string') return null;
-  let n = serial.trim().toUpperCase();
-  for (const prefix of VENDOR_PREFIXES) {
-    if (n.startsWith(prefix)) { n = n.substring(prefix.length); break; }
-  }
-  n = n.replace(/[^A-Z0-9]/g, '');
-  return n.length > 0 ? n : null;
 }
 
 // Normalize ONT ID for matching. The OLT may emit "1" while the subscriber CSV
@@ -161,6 +141,12 @@ function normalizeOntId(id) {
   }
   return s;
 }
+
+/**
+ * Builds a lookup map from parsed subscriber records.
+ * Primary key: "ONTID" (globally unique in this network)
+ * Maps OntID → full subscriber record for model + identity enrichment
+ */
 
 // Detect technology type from ONT model. Must stay in sync with the lists in
 // functions/parsePonPm.js (detectTechTypeFromModel) and functions/loadSavedReport.js
@@ -181,107 +167,36 @@ function detectTechTypeFromModel(model) {
 }
 
 export function buildSubscriberLookup(records) {
-  const byComposite = new Map(); // "OLT|PORT|ONTID" → record
-  const bySerial = new Map();    // "SERIAL" → record
-  // OntID-only → MODEL lookup. OntID is NOT globally unique (ONT 1 exists
-  // under every PON port), so we cannot use it to attribute full subscriber
-  // identity. BUT operationally, ONTs with the same OntID across the network
-  // usually run the same hardware family, so we can safely use it as a
-  // model-only fallback. To be extra safe we ONLY record the model when ALL
-  // subscriber rows sharing that OntID agree on it — if they disagree we
-  // mark the OntID ambiguous and skip the fallback for that ID entirely.
-  // Per ops feedback the OntID column is identical between the PON PM report
-  // and the subscriber CSV, which makes this a reliable bridge for the ~1000
-  // ONTs that don't resolve via composite or serial matching.
-  const ontIdToModel = new Map();      // "ONTID" → "MODEL"
-  const ontIdAmbiguous = new Set();    // OntIDs with conflicting models
+  const byOntId = new Map();  // "ONTID" → record (globally unique in this network)
 
   for (const rec of records) {
-    // Build composite key from DeviceName (OLT) + LinkedPon (port) + OntID.
-    // Note: OntID may be a number in some CSV exports — accept both string and
-    // number values rather than calling .trim() directly (which would crash on
-    // numerics) and use normalizeOntId() so "01" and "1" collide on the same key.
-    if (rec.DeviceName && rec.LinkedPon && (rec.OntID !== null && rec.OntID !== undefined && rec.OntID !== '')) {
-      const oltName = rec.DeviceName.trim().toUpperCase();
-      const linkedPon = normalizePort(rec.LinkedPon).toUpperCase();
+    if (rec.OntID !== null && rec.OntID !== undefined && rec.OntID !== '') {
       const ontId = normalizeOntId(rec.OntID);
       if (ontId !== null) {
-        // Primary key: exact match
-        byComposite.set(`${oltName}|${linkedPon}|${ontId}`, rec);
-        // Fallback key without OLT name (in case OLT names differ between systems)
-        byComposite.set(`|${linkedPon}|${ontId}`, rec);
+        byOntId.set(ontId, rec);
       }
-    }
-
-    // Track OntID → model with conflict detection (see note above the maps).
-    // We only commit a model when ALL subscriber rows sharing an OntID agree;
-    // any conflict marks the OntID ambiguous and drops it from the fallback.
-    const ontIdOnly = normalizeOntId(rec.OntID);
-    const subModel = (rec.ONTModel || '').trim();
-    if (ontIdOnly !== null && subModel && !ontIdAmbiguous.has(ontIdOnly)) {
-      const existing = ontIdToModel.get(ontIdOnly);
-      if (existing === undefined) {
-        ontIdToModel.set(ontIdOnly, subModel);
-      } else if (existing !== subModel) {
-        ontIdToModel.delete(ontIdOnly);
-        ontIdAmbiguous.add(ontIdOnly);
-      }
-    }
-
-    // Strip vendor prefix when storing so subscriber serials align with PM-report
-    // serials (which never carry a CXNK/ZNTS prefix).
-    const normSerial = normalizeSerial(rec.ONTSerialNo);
-    if (normSerial && !bySerial.has(normSerial)) {
-      bySerial.set(normSerial, rec);
     }
   }
 
-  return { byComposite, bySerial, ontIdToModel };
+  return { byOntId };
 }
 
 /**
  * Enriches ONT array in-place with subscriber data.
- * Match strategy:
- *   1) OLT name + port path + ONT ID (primary — most reliable, full subscriber)
- *   2) Serial number fallback (full subscriber)
- *   3) OntID-only MODEL fallback — does NOT attach subscriber identity, only
- *      overwrites ont.model + _techType so the GPON / XGS-PON chip counts and
- *      the ONT Model filter reflect the authoritative subscriber-CSV model.
- *      This catches ONTs the OLT reports without a vendor prefix (e.g. plain
- *      "1101X" instead of "GP1101X") so they classify correctly.
- * Returns count of ONTs that received full subscriber attribution (strategies
- * 1 + 2 only — strategy 3 is model-only and not counted here).
+ * Lookup strategy: OntID is globally unique in this network, so use it as the
+ * primary key to match ONTs with subscriber records. Enriches both full
+ * subscriber identity (name, address, account) and model information.
  */
 export function enrichOntsWithSubscriber(lookup, onts) {
   if (!lookup || !onts) return 0;
-  const { byComposite, bySerial, ontIdToModel } = lookup;
+  const { byOntId } = lookup;
   let matched = 0;
 
   for (const ont of onts) {
-    // Strategy 1: composite key (OLT + port + ONT ID) — IDs normalized so "01"
-    // matches "1" (leading-zero variants are the most common silent mismatch).
-    const oltName = (ont._oltName || ont.OLTName || '').trim().toUpperCase();
-    const port = normalizePort(ont['Shelf/Slot/Port'] || ont._port || '').toUpperCase();
     const ontId = normalizeOntId(ont.OntID);
+    if (!ontId) continue;
 
-    let sub = null;
-    if (oltName && port && ontId) {
-      sub = byComposite.get(`${oltName}|${port}|${ontId}`);
-    }
-
-    // Strategy 1b: port + ONT ID without OLT name (cross-system name mismatch)
-    if (!sub && port && ontId) {
-      sub = byComposite.get(`|${port}|${ontId}`);
-    }
-
-    // Strategy 2: serial fallback — normalize both sides identically.
-    // Run this BEFORE giving up so vendor-prefix and formatting differences
-    // (CXNK/ZNTS, dashes, spaces) don't block a legitimate match.
-    if (!sub && ont.SerialNumber) {
-      const normSn = normalizeSerial(ont.SerialNumber);
-      if (normSn) sub = bySerial.get(normSn);
-    }
-
+    const sub = byOntId.get(ontId);
     if (sub) {
       // Build full address: "123 Main St, Springfield, MA, 01103"
       // State is included between city and zip so the geocoder can
@@ -305,29 +220,14 @@ export function enrichOntsWithSubscriber(lookup, onts) {
       };
       // Always prefer the specific subscriber model over the OLT-reported model
       // (e.g. subscriber CSV has "5222XG" while OLT reports generic "DZS 522x XG").
-      // Also recompute _techType from the corrected model — otherwise the GPON/
-      // XGS-PON KPI chips undercount, since _techType was originally derived
-      // from a missing/generic model at ingest time and never refreshed.
+      // Recompute _techType from the corrected model so the GPON/XGS-PON KPI chips
+      // reflect the accurate technology classification.
       if (sub.ONTModel) {
         ont.model = sub.ONTModel;
         const newTech = detectTechTypeFromModel(sub.ONTModel);
-        // Only overwrite when we resolved a known tech — preserve the
-        // existing combo-port fallback (e.g. "XGS-PON (combo odd)") otherwise.
         if (newTech) ont._techType = newTech;
       }
       matched++;
-    } else if (ontIdToModel && ontId) {
-      // Strategy 3: OntID-only model fallback. The ONT didn't match a single
-      // subscriber row (composite + serial both failed), but the OntID maps
-      // unambiguously to a model in the subscriber CSV. Set ont.model and
-      // _techType only — no identity, no address — so the model filter and
-      // GPON / XGS-PON chips classify this ONT correctly.
-      const fallbackModel = ontIdToModel.get(ontId);
-      if (fallbackModel) {
-        ont.model = fallbackModel;
-        const newTech = detectTechTypeFromModel(fallbackModel);
-        if (newTech) ont._techType = newTech;
-      }
     }
   }
 
