@@ -99,6 +99,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
       g.totalOnts = g.splitters.reduce((s, r) => s + r.count, 0);
       g.totalCapacity = g.totalSplitters * SPLITTER_CAP;
       g.totalRemaining = g.totalCapacity - g.totalOnts;
+      g.utilizationPct = g.totalCapacity > 0 ? (g.totalOnts / g.totalCapacity) * 100 : 0;
       g.fullCount = g.splitters.filter(r => r.status === 'full').length;
       g.criticalCount = g.splitters.filter(r => r.status === 'critical').length;
       g.warningCount = g.splitters.filter(r => r.status === 'warning').length;
@@ -151,6 +152,10 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
         if (sortField === 'lcp') {
           const cmp = a.lcp.localeCompare(b.lcp, undefined, { numeric: true });
           return sortDir === 'asc' ? cmp : -cmp;
+        }
+        if (sortField === 'utilization') {
+          const diff = a.utilizationPct - b.utilizationPct;
+          return sortDir === 'asc' ? diff : -diff;
         }
         if (sortField === 'onts') {
           return sortDir === 'asc' ? a.totalOnts - b.totalOnts : b.totalOnts - a.totalOnts;
@@ -241,6 +246,29 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
             <SelectItem value="available">Available (11+)</SelectItem>
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-1 rounded-md border bg-white dark:bg-gray-900 px-1 py-1">
+          <span className="px-2 text-xs font-medium text-gray-500">Sort</span>
+          <Button
+            type="button"
+            variant={sortField === 'utilization' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => toggleSort('utilization')}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1" />
+            % Utilized {sortField === 'utilization' ? (sortDir === 'asc' ? 'Asc' : 'Desc') : ''}
+          </Button>
+          <Button
+            type="button"
+            variant={sortField === 'lcp' ? 'default' : 'ghost'}
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => toggleSort('lcp')}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1" />
+            LCP/CLCP {sortField === 'lcp' ? (sortDir === 'asc' ? 'Asc' : 'Desc') : ''}
+          </Button>
+        </div>
         <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
           <input
             type="checkbox"
@@ -268,7 +296,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
       <div className="space-y-2">
         {filteredGroups.map(group => {
           const isExpanded = expandedLcps.includes(group.lcp);
-          const pct = group.totalCapacity > 0 ? Math.round((group.totalOnts / group.totalCapacity) * 100) : 0;
+          const pct = Math.round(group.utilizationPct || 0);
           const filteredSplitters = statusFilter === 'all'
             ? group.splitters
             : group.splitters.filter(s => s.status === statusFilter);
