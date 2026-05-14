@@ -328,6 +328,35 @@ function tableRow(doc, y, cols, isEven) {
   return y + 6;
 }
 
+function miniTableHeader(doc, x, y, w, cols, color = C.navy) {
+  doc.setFillColor(...color);
+  doc.roundedRect(x, y + 1.5, w, 6.5, 1, 1, 'F');
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...C.white);
+  cols.forEach(col => {
+    const opts = col.align === 'right' ? { align: 'right' } : undefined;
+    doc.text(s(col.label), x + col.x, y + 5.5, opts);
+  });
+  return y + 9.5;
+}
+
+function miniTableRow(doc, x, y, w, cols, isEven) {
+  if (isEven) {
+    doc.setFillColor(...C.lightBg);
+    doc.rect(x, y - 0.5, w, 6, 'F');
+  }
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'normal');
+  cols.forEach(col => {
+    doc.setTextColor(...(col.color || C.dark));
+    const txt = fitText(doc, col.value, col.maxW || 30);
+    const opts = col.align === 'right' ? { align: 'right' } : undefined;
+    doc.text(txt, x + col.x, y + 4, opts);
+  });
+  return y + 6;
+}
+
 // Force the next section to start on a fresh page (compact header).
 function startSectionPage(doc, customerName) {
   doc.addPage();
@@ -933,6 +962,30 @@ Deno.serve(async (req) => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 20);
 
+    // ── Top 20 utilized LCP / CLCP locations ────────────────────────────────
+    const lcpUtilMap = new Map();
+    for (const r of currentRecs) {
+      const lcp = (r.lcp_number || '').trim();
+      if (!lcp) continue;
+      if (!lcpUtilMap.has(lcp)) lcpUtilMap.set(lcp, { lcp, totalOnts: 0, splitters: new Set() });
+      const item = lcpUtilMap.get(lcp);
+      item.totalOnts++;
+      const splitter = (r.splitter_number || '').trim();
+      if (splitter) item.splitters.add(splitter);
+    }
+    const topLcpUtilization = [...lcpUtilMap.values()]
+      .map(item => {
+        const splitterCount = item.splitters.size || 1;
+        return {
+          lcp: item.lcp,
+          totalOnts: item.totalOnts,
+          splitterCount,
+          ontsPerSplitter: item.totalOnts / splitterCount,
+        };
+      })
+      .sort((a, b) => b.ontsPerSplitter - a.ontsPerSplitter || b.totalOnts - a.totalOnts)
+      .slice(0, 20);
+
     // ── Customer branding ───────────────────────────────────────────────────
     const userPrefs = user?.preferences || {};
     let appSettings = {};
@@ -1023,12 +1076,12 @@ Deno.serve(async (req) => {
       y = sectionTitle(doc, `OLT Breakdown  (${oltRows.length} chassis)`, y, C.indigo);
       const cols = [
         { label: 'OLT / Chassis', x: M + 5  },
-        { label: 'ONTs',          x: M + 60 },
-        { label: 'Critical',      x: M + 82 },
-        { label: 'Warning',       x: M + 106 },
-        { label: 'Offline',       x: M + 130 },
-        { label: 'Avg Rx',        x: M + 152 },
-        { label: 'Health %',      x: M + 172 },
+        { label: 'ONTs',          x: M + 65,  align: 'right' },
+        { label: 'Critical',      x: M + 92,  align: 'right' },
+        { label: 'Warning',       x: M + 120, align: 'right' },
+        { label: 'Offline',       x: M + 146, align: 'right' },
+        { label: 'Avg Rx',        x: M + 166, align: 'right' },
+        { label: 'Health %',      x: M + CW - 4, align: 'right' },
       ];
       y = tableHeader(doc, y, cols);
       for (let i = 0; i < oltRows.length; i++) {
@@ -1037,13 +1090,13 @@ Deno.serve(async (req) => {
         const hpct = parseFloat(r.healthPct);
         const hColor = hpct >= 90 ? C.green : hpct >= 70 ? C.amber : C.red;
         y = tableRow(doc, y, [
-          { value: r.olt,                x: M + 5,   maxW: 52 },
-          { value: String(r.total),      x: M + 60,  maxW: 20 },
-          { value: String(r.critical),   x: M + 82,  maxW: 22, color: r.critical > 0 ? C.red : C.dark },
-          { value: String(r.warning),    x: M + 106, maxW: 22, color: r.warning > 0 ? C.amber : C.dark },
-          { value: String(r.offline),    x: M + 130, maxW: 20, color: r.offline > 0 ? C.slate : C.dark },
-          { value: r.avgRx,              x: M + 152, maxW: 18 },
-          { value: `${r.healthPct}%`,    x: M + 172, maxW: 18, color: hColor },
+          { value: r.olt,                x: M + 5,   maxW: 54 },
+          { value: String(r.total),      x: M + 65,  maxW: 18, align: 'right' },
+          { value: String(r.critical),   x: M + 92,  maxW: 20, align: 'right', color: r.critical > 0 ? C.red : C.dark },
+          { value: String(r.warning),    x: M + 120, maxW: 20, align: 'right', color: r.warning > 0 ? C.amber : C.dark },
+          { value: String(r.offline),    x: M + 146, maxW: 18, align: 'right', color: r.offline > 0 ? C.slate : C.dark },
+          { value: r.avgRx,              x: M + 166, maxW: 18, align: 'right' },
+          { value: `${r.healthPct}%`,    x: M + CW - 4, maxW: 18, align: 'right', color: hColor },
         ], i % 2 === 0);
       }
       y += 4;
@@ -1059,10 +1112,10 @@ Deno.serve(async (req) => {
     } else {
       const cols = [
         { label: 'City',         x: M + 5   },
-        { label: 'Total ONTs',   x: M + 80  },
-        { label: 'Critical',     x: M + 115 },
-        { label: 'Warning',      x: M + 140 },
-        { label: '% of Network', x: M + 165 },
+        { label: 'Total ONTs',   x: M + 98,  align: 'right' },
+        { label: 'Critical',     x: M + 125, align: 'right' },
+        { label: 'Warning',      x: M + 150, align: 'right' },
+        { label: '% of Network', x: M + CW - 4, align: 'right' },
       ];
       y = tableHeader(doc, y, cols);
       for (let i = 0; i < cityRows.length; i++) {
@@ -1070,68 +1123,75 @@ Deno.serve(async (req) => {
         const r = cityRows[i];
         const pct = currentAgg.total > 0 ? ((r.total / currentAgg.total) * 100).toFixed(1) : '0.0';
         y = tableRow(doc, y, [
-          { value: r.city,                 x: M + 5,   maxW: 70 },
-          { value: r.total.toLocaleString(), x: M + 80,  maxW: 32 },
-          { value: String(r.critical),     x: M + 115, maxW: 22, color: r.critical > 0 ? C.red : C.dark },
-          { value: String(r.warning),      x: M + 140, maxW: 22, color: r.warning > 0 ? C.amber : C.dark },
-          { value: `${pct}%`,              x: M + 165, maxW: 22 },
+          { value: r.city,                   x: M + 5,      maxW: 86 },
+          { value: r.total.toLocaleString(), x: M + 98,     maxW: 24, align: 'right' },
+          { value: String(r.critical),       x: M + 125,    maxW: 20, align: 'right', color: r.critical > 0 ? C.red : C.dark },
+          { value: String(r.warning),        x: M + 150,    maxW: 20, align: 'right', color: r.warning > 0 ? C.amber : C.dark },
+          { value: `${pct}%`,                x: M + CW - 4, maxW: 24, align: 'right' },
         ], i % 2 === 0);
       }
       y += 4;
     }
 
-    // ─── ONT Model Summary ─── starts on its own page
+    // ─── Model Summaries ─── combined on one page with a clear separator
     y = startSectionPage(doc, customerName);
-    y = sectionTitle(doc, `ONT Model Summary  (${ontModelRows.length} models)`, y, C.teal);
+    y = sectionTitle(doc, 'Model Summaries', y, C.teal);
+    const halfGap = 8;
+    const halfW = (CW - halfGap) / 2;
+    const leftX = M + 1.5;
+    const rightX = leftX + halfW + halfGap;
+    const modelTop = y;
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.dark);
+    doc.text(`ONT Model Summary (${ontModelRows.length} models)`, leftX, modelTop);
+    doc.text(`Eero Model Summary (${eeroModelRows.length} models)`, rightX, modelTop);
+    y = modelTop + 2;
+
+    let ontY = miniTableHeader(doc, leftX, y, halfW, [
+      { label: 'Model', x: 3 },
+      { label: 'Count', x: halfW - 28, align: 'right' },
+      { label: '%', x: halfW - 4, align: 'right' },
+    ], C.teal);
+    ontModelRows.slice(0, 28).forEach((r, i) => {
+      const pct = currentAgg.total > 0 ? ((r.count / currentAgg.total) * 100).toFixed(1) : '0.0';
+      ontY = miniTableRow(doc, leftX, ontY, halfW, [
+        { value: r.model, x: 3, maxW: halfW - 36 },
+        { value: r.count.toLocaleString(), x: halfW - 28, maxW: 20, align: 'right' },
+        { value: `${pct}%`, x: halfW - 4, maxW: 18, align: 'right' },
+      ], i % 2 === 0);
+    });
     if (ontModelRows.length === 0) {
-      doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
-      doc.text('No ONT model data available.', M + 4, y + 2);
-      y += 8;
-    } else {
-      // Full-width table (chart removed — caused overlap when many models).
-      // Wider Model column so long names (e.g. "DZS 522x XG") display in full.
-      const cols = [
-        { label: 'Model',        x: M + 5   },
-        { label: 'Count',        x: M + 110 },
-        { label: '% of Network', x: M + 150 },
-      ];
-      y = tableHeader(doc, y, cols);
-      for (let i = 0; i < ontModelRows.length; i++) {
-        y = maybeNewPage(doc, y, 8, customerName);
-        const r = ontModelRows[i];
-        const pct = currentAgg.total > 0 ? ((r.count / currentAgg.total) * 100).toFixed(1) : '0.0';
-        y = tableRow(doc, y, [
-          { value: r.model,                  x: M + 5,   maxW: 100 },
-          { value: r.count.toLocaleString(), x: M + 110, maxW: 35 },
-          { value: `${pct}%`,                x: M + 150, maxW: 30 },
-        ], i % 2 === 0);
-      }
-      y += 4;
+      doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
+      doc.text('No ONT model data available.', leftX + 3, ontY + 4);
+      ontY += 8;
     }
 
-    // ─── Eero Model Summary ─── starts on its own page
-    if (eeroModelRows.length > 0) {
-      y = startSectionPage(doc, customerName);
-      y = sectionTitle(doc, `Eero Model Summary  (${eeroModelRows.length} models)`, y, C.green);
-      const cols = [
-        { label: 'Eero Model', x: M + 5   },
-        { label: 'Count',      x: M + 110 },
-        { label: '% of Eeros', x: M + 150 },
-      ];
-      y = tableHeader(doc, y, cols);
-      const totalEero = currentAgg.eeroCount || 1;
-      for (let i = 0; i < eeroModelRows.length; i++) {
-        y = maybeNewPage(doc, y, 8, customerName);
-        const r = eeroModelRows[i];
-        const pct = ((r.count / totalEero) * 100).toFixed(1);
-        y = tableRow(doc, y, [
-          { value: r.model,                  x: M + 5,   maxW: 100 },
-          { value: r.count.toLocaleString(), x: M + 110, maxW: 35 },
-          { value: `${pct}%`,                x: M + 150, maxW: 30 },
-        ], i % 2 === 0);
-      }
-      y += 4;
+    doc.setDrawColor(...C.border);
+    doc.setLineWidth(0.5);
+    doc.line(rightX - halfGap / 2, modelTop + 2, rightX - halfGap / 2, BODY_BOT - 8);
+
+    let eeroY = miniTableHeader(doc, rightX, y, halfW, [
+      { label: 'Eero Model', x: 3 },
+      { label: 'Count', x: halfW - 28, align: 'right' },
+      { label: '%', x: halfW - 4, align: 'right' },
+    ], C.green);
+    const totalEero = currentAgg.eeroCount || 1;
+    eeroModelRows.slice(0, 28).forEach((r, i) => {
+      const pct = ((r.count / totalEero) * 100).toFixed(1);
+      eeroY = miniTableRow(doc, rightX, eeroY, halfW, [
+        { value: r.model, x: 3, maxW: halfW - 36 },
+        { value: r.count.toLocaleString(), x: halfW - 28, maxW: 20, align: 'right' },
+        { value: `${pct}%`, x: halfW - 4, maxW: 18, align: 'right' },
+      ], i % 2 === 0);
+    });
+    if (eeroModelRows.length === 0) {
+      doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
+      doc.text('No eero model data available.', rightX + 3, eeroY + 4);
+      eeroY += 8;
     }
+    y = Math.max(ontY, eeroY) + 4;
 
     // ─── Top 20 Critical ONTs ─── starts on its own page
     if (topCritical.length > 0) {
@@ -1139,25 +1199,25 @@ Deno.serve(async (req) => {
       y = sectionTitle(doc, `Top ${topCritical.length} Critical ONTs`, y, C.red);
       const cols = [
         { label: 'OLT',      x: M + 5   },
-        { label: 'Port',     x: M + 50  },
-        { label: 'ONT ID',   x: M + 88  },
-        { label: 'Serial',   x: M + 108 },
-        { label: 'ONT Rx',   x: M + 144 },
-        { label: 'US BIP',   x: M + 160 },
-        { label: 'DS BIP',   x: M + 175 },
+        { label: 'Port',     x: M + 42  },
+        { label: 'ONT ID',   x: M + 75  },
+        { label: 'Serial',   x: M + 96  },
+        { label: 'ONT Rx',   x: M + 138, align: 'right' },
+        { label: 'US BIP',   x: M + 164, align: 'right' },
+        { label: 'DS BIP',   x: M + CW - 4, align: 'right' },
       ];
       y = tableHeader(doc, y, cols);
       for (let i = 0; i < topCritical.length; i++) {
         y = maybeNewPage(doc, y, 8, customerName);
         const r = topCritical[i];
         y = tableRow(doc, y, [
-          { value: r.olt_name || '',        x: M + 5,   maxW: 42 },
-          { value: r.shelf_slot_port || '', x: M + 50,  maxW: 35 },
-          { value: String(r.ont_id || ''),  x: M + 88,  maxW: 18 },
-          { value: r.serial_number || '',   x: M + 108, maxW: 34 },
-          { value: r.ont_rx_power != null ? String(r.ont_rx_power) : '—', x: M + 144, maxW: 14, color: C.red },
-          { value: String(r.us_bip_errors || 0), x: M + 160, maxW: 14 },
-          { value: String(r.ds_bip_errors || 0), x: M + 175, maxW: 14 },
+          { value: r.olt_name || '',        x: M + 5,      maxW: 34 },
+          { value: r.shelf_slot_port || '', x: M + 42,     maxW: 30 },
+          { value: String(r.ont_id || ''),  x: M + 75,     maxW: 18 },
+          { value: r.serial_number || '',   x: M + 96,     maxW: 38 },
+          { value: r.ont_rx_power != null ? String(r.ont_rx_power) : '—', x: M + 138, maxW: 16, align: 'right', color: C.red },
+          { value: String(r.us_bip_errors || 0), x: M + 164, maxW: 22, align: 'right' },
+          { value: String(r.ds_bip_errors || 0), x: M + CW - 4, maxW: 22, align: 'right' },
         ], i % 2 === 0);
       }
       y += 4;
@@ -1184,6 +1244,36 @@ Deno.serve(async (req) => {
           { value: p.port,                   x: M + 60,    maxW: 85 },
           { value: p.total.toLocaleString(), x: M + 150,   maxW: 38, align: 'right' },
           { value: String(p.ontCount),       x: M + CW - 4, maxW: 22, align: 'right' },
+        ], i % 2 === 0);
+      }
+      y += 4;
+    }
+
+    // ─── Top 20 utilized LCP / CLCP information — final report section ───
+    y = startSectionPage(doc, customerName);
+    y = sectionTitle(doc, `Top ${topLcpUtilization.length} Utilized LCP / CLCP Locations`, y, C.purple);
+    if (topLcpUtilization.length === 0) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(...C.muted);
+      doc.text('No LCP / CLCP utilization data available for the current report.', M + 4, y + 2, { maxWidth: CW - 8 });
+      y += 10;
+    } else {
+      const cols = [
+        { label: 'LCP / CLCP',       x: M + 5 },
+        { label: 'Total ONTs',       x: M + 92, align: 'right' },
+        { label: 'Splitter Count',   x: M + 132, align: 'right' },
+        { label: 'ONTs / Splitter',  x: M + CW - 4, align: 'right' },
+      ];
+      y = tableHeader(doc, y, cols);
+      for (let i = 0; i < topLcpUtilization.length; i++) {
+        y = maybeNewPage(doc, y, 8, customerName);
+        const r = topLcpUtilization[i];
+        y = tableRow(doc, y, [
+          { value: r.lcp, x: M + 5, maxW: 80 },
+          { value: r.totalOnts.toLocaleString(), x: M + 92, maxW: 28, align: 'right' },
+          { value: r.splitterCount.toLocaleString(), x: M + 132, maxW: 28, align: 'right' },
+          { value: r.ontsPerSplitter.toFixed(1), x: M + CW - 4, maxW: 30, align: 'right' },
         ], i % 2 === 0);
       }
       y += 4;
