@@ -152,96 +152,130 @@ const STUDY_GUIDES = {
     passingScore: 75,
     sections: [
       {
-        title: 'GPON Deep Dive (ITU-T G.984)',
+        title: 'Reference Sources Used',
         content: [
-          { term: 'Downstream', definition: '2.488 Gbps at 1490nm' },
-          { term: 'Upstream', definition: '1.244 Gbps at 1310nm' },
-          { term: 'Class B+', definition: '28 dB budget, OLT Tx: +1.5 to +5 dBm' },
-          { term: 'Class C+', definition: '32 dB budget, OLT Tx: +3 to +7 dBm' },
-          { term: 'TDMA', definition: 'Time Division Multiple Access - allows multiple ONTs to share upstream wavelength' },
+          { term: 'Primary References', definition: 'FOA fiber optic testing, OTDR, and loss budget references; public GPON/XGS-PON wavelength and optical budget references including ITU-T G.984/G.9807 summaries.' },
+          { term: 'Practice Alignment', definition: 'The added Fiber102 questions are original rewritten questions built from concepts in public technical references, not copied practice-exam text.' },
+          { term: 'Exam Rotation', definition: 'Fiber102 now uses a larger bank than the 40-question exam, so each attempt rotates a different mix of PON design, XGS-PON, loss budget, OTDR, and troubleshooting questions.' },
         ]
       },
       {
-        title: 'XGS-PON (ITU-T G.9807)',
+        title: 'GPON Deep Dive (ITU-T G.984)',
         content: [
-          { term: 'Downstream', definition: '9.953 Gbps at 1577nm' },
-          { term: 'Upstream', definition: '9.953 Gbps at 1270nm (symmetric!)' },
-          { term: 'N1 Class', definition: '29 dB budget (standard)' },
-          { term: 'N2 Class', definition: '31 dB budget (extended)' },
-          { term: 'Coexistence', definition: 'Different wavelengths allow GPON and XGS-PON on same fiber (combo PON)' },
+          { term: 'Downstream', definition: 'GPON downstream is 2.488 Gbps at 1490nm.' },
+          { term: 'Upstream', definition: 'GPON upstream is 1.244 Gbps at 1310nm.' },
+          { term: 'TDMA Upstream', definition: 'The OLT assigns upstream time slots so multiple ONTs sharing the same PON do not transmit over each other.' },
+          { term: 'Class B+', definition: 'Common GPON budget class around 28 dB; often used for standard FTTH deployments.' },
+          { term: 'Class C+', definition: 'Higher GPON budget class around 32 dB for longer reach, higher split, or more margin.' },
+          { term: 'Split Ratio', definition: 'GPON can support high split ratios, but practical design must preserve power budget and operating margin.' },
+        ]
+      },
+      {
+        title: 'XGS-PON (ITU-T G.9807.1)',
+        content: [
+          { term: 'Meaning of XGS', definition: 'XGS-PON is a 10-Gigabit-capable symmetric PON system: approximately 10 Gbps downstream and upstream.' },
+          { term: 'Downstream', definition: 'XGS-PON downstream uses approximately 1577nm.' },
+          { term: 'Upstream', definition: 'XGS-PON upstream uses approximately 1270nm.' },
+          { term: 'N1 / N2 Budgets', definition: 'Common planning references list N1 around 29 dB and N2 around 31 dB optical budget.' },
+          { term: 'Coexistence', definition: 'XGS-PON can coexist with GPON on the same fiber because GPON and XGS-PON use separate wavelength bands.' },
+          { term: 'Migration Note', definition: 'Combo PON or coexistence elements allow operators to migrate customers gradually without immediately replacing every GPON subscriber.' },
         ]
       },
       {
         title: 'PON Wavelength Plan',
         content: [
-          { term: '1270nm', definition: 'XGS-PON Upstream' },
-          { term: '1310nm', definition: 'GPON Upstream, also OTDR testing' },
-          { term: '1490nm', definition: 'GPON Downstream' },
-          { term: '1550nm', definition: 'RF Video Overlay, OTDR testing' },
-          { term: '1577nm', definition: 'XGS-PON Downstream' },
+          { term: '1270nm', definition: 'XGS-PON upstream.' },
+          { term: '1310nm', definition: 'GPON upstream and a common single-mode testing wavelength.' },
+          { term: '1490nm', definition: 'GPON downstream.' },
+          { term: '1550nm', definition: 'Often used for RF video overlay and testing; more bend-sensitive than 1310nm.' },
+          { term: '1577nm', definition: 'XGS-PON downstream; longer wavelengths are generally more sensitive to macrobending.' },
         ]
       },
       {
         title: 'Loss Budget Calculation',
         content: [
-          { term: 'Formula', definition: 'Total Loss = Fiber + Connectors + Splices + Splitters' },
-          { term: 'Fiber Loss', definition: '0.35 dB/km @1310nm, 0.25 dB/km @1550nm' },
-          { term: 'Connector Loss', definition: '0.15-0.50 dB each (field grade ~0.30 dB)' },
-          { term: 'Fusion Splice', definition: '~0.10 dB each' },
-          { term: '1:32 Splitter', definition: '~17.5 dB insertion loss' },
-          { term: 'Margin Rule', definition: 'Always leave 3-6 dB margin for aging and repairs' },
+          { term: 'Power Budget', definition: 'The maximum optical loss a transmitter-receiver pair can tolerate and still operate properly.' },
+          { term: 'Passive Loss Formula', definition: 'Total passive loss = fiber attenuation + connector loss + splice loss + splitter loss.' },
+          { term: 'Receiver Estimate', definition: 'Expected receiver power = transmitter power - passive loss - planned reserve margin.' },
+          { term: 'Fiber Loss', definition: 'Planning values often use about 0.35 dB/km at 1310nm and 0.25 dB/km at 1550nm for single-mode fiber.' },
+          { term: 'Connector Loss', definition: 'Field planning often uses about 0.3 dB per connector unless project standards specify otherwise.' },
+          { term: 'Fusion Splice', definition: 'Often planned around 0.1 dB or less per splice.' },
+          { term: 'Margin Rule', definition: 'Leave operating margin for aging, repairs, temperature, testing uncertainty, and dirty or disturbed connections.' },
         ]
       },
       {
         title: 'Splitter Loss Values',
         content: [
-          { term: '1:2', definition: '3.8 dB' },
-          { term: '1:4', definition: '7.4 dB' },
-          { term: '1:8', definition: '10.7 dB' },
-          { term: '1:16', definition: '14.1 dB' },
-          { term: '1:32', definition: '17.5 dB' },
-          { term: '1:64', definition: '20.9 dB' },
-          { term: 'Cascade Example', definition: '1:4 + 1:8 = 7.4 + 10.7 = 18.1 dB (vs 17.5 dB for single 1:32)' },
+          { term: '1:2', definition: 'Approximately 3.8 dB.' },
+          { term: '1:4', definition: 'Approximately 7.4 dB.' },
+          { term: '1:8', definition: 'Approximately 10.7 dB.' },
+          { term: '1:16', definition: 'Approximately 14.1 dB.' },
+          { term: '1:32', definition: 'Approximately 17.5 dB.' },
+          { term: '1:64', definition: 'Approximately 20.9 dB.' },
+          { term: 'Cascade Rule', definition: 'Cascaded splitters add in dB. Example: 1:4 + 1:8 = 7.4 + 10.7 = 18.1 dB.' },
+        ]
+      },
+      {
+        title: 'Fiber Acceptance Testing',
+        content: [
+          { term: 'Continuity and Polarity', definition: 'Verify fibers are continuous and transmit/receive paths are connected correctly before final acceptance.' },
+          { term: 'OLTS / LSPM', definition: 'Source and power meter or OLTS testing directly measures end-to-end insertion loss and is the normal acceptance test against the loss budget.' },
+          { term: 'Reference Test Cords', definition: 'Use known-good reference cords and adapters that match the cable plant under test.' },
+          { term: 'Documentation', definition: 'Bring layouts, expected loss budgets, and test sheets. Save test results for acceptance records and future troubleshooting.' },
+          { term: 'Safety Check', definition: 'Check optical power before looking at or inspecting connectors because telecom wavelengths may be invisible.' },
         ]
       },
       {
         title: 'OTDR Event Identification',
         content: [
-          { term: 'Connector', definition: 'Reflective spike + loss (reflection + insertion loss)' },
-          { term: 'Fusion Splice', definition: 'Non-reflective loss only (small dip)' },
-          { term: 'Mechanical Splice', definition: 'Reflective + loss (higher than fusion)' },
-          { term: 'Splitter', definition: 'Large non-reflective loss event (17+ dB)' },
-          { term: 'End of Fiber', definition: 'High reflective spike, then noise floor' },
-          { term: 'Break/Fault', definition: 'Sudden drop to noise floor with possible reflection' },
+          { term: 'How OTDR Works', definition: 'An OTDR sends high-power optical pulses and measures backscatter and reflected light versus time to estimate distance and events.' },
+          { term: 'Trace Slope', definition: 'The slope of the trace represents fiber attenuation in dB/km.' },
+          { term: 'Connector', definition: 'Reflective event plus insertion loss.' },
+          { term: 'Fusion Splice', definition: 'Usually a small non-reflective loss event; very good splices may be hard to see.' },
+          { term: 'Mechanical Splice', definition: 'May show both loss and reflection.' },
+          { term: 'Splitter', definition: 'Large non-reflective loss event because optical power is divided among outputs.' },
+          { term: 'Fiber End / Break', definition: 'End reflections or sudden drops to the noise floor help identify cable end or fault conditions.' },
+        ]
+      },
+      {
+        title: 'OTDR Setup and Best Practices',
+        content: [
+          { term: 'Launch Cable', definition: 'Connected between the OTDR and link under test to overcome the near-end dead zone and measure the first connector.' },
+          { term: 'Receive Cable', definition: 'Connected at the far end so the final connector can be measured beyond the end reflection/dead zone.' },
+          { term: 'Pulse Width', definition: 'Short pulse widths improve resolution for close events; longer pulse widths increase range but reduce resolution.' },
+          { term: 'Dead Zone', definition: 'A region after a strong reflective event where the OTDR receiver is recovering and nearby events can be hidden.' },
+          { term: 'LSA', definition: 'Least Squares Analysis fits a best-fit line to noisy trace sections for more stable loss/attenuation estimates.' },
+          { term: 'Baseline Trace', definition: 'Save the original installation trace so later troubleshooting traces can be compared to it.' },
         ]
       },
       {
         title: 'PON Error Types',
         content: [
-          { term: 'BIP Errors', definition: 'Bit Interleaved Parity - indicates bit errors. Threshold: <10/15min acceptable' },
-          { term: 'FEC Corrected', definition: 'Errors fixed by Forward Error Correction. Watch for increasing trends' },
-          { term: 'FEC Uncorrectable', definition: 'Too severe for FEC. Should be 0 - causes packet loss' },
-          { term: 'HEC/GEM Errors', definition: 'Header errors, often timing/collision issues' },
+          { term: 'BIP Errors', definition: 'Bit Interleaved Parity errors indicate bit-level transmission problems and should be monitored for rate and trend.' },
+          { term: 'FEC Corrected', definition: 'Errors repaired by Forward Error Correction. Some corrected errors can occur, but increasing trends suggest degradation.' },
+          { term: 'FEC Uncorrectable', definition: 'Errors too severe for FEC to repair. These should be zero in a healthy link because they can cause packet loss.' },
+          { term: 'HEC / GEM Errors', definition: 'Header or framing-related errors can indicate timing, ranging, synchronization, or transmission quality issues.' },
         ]
       },
       {
         title: 'ONT Power Analysis',
         content: [
-          { term: 'Too Low', definition: 'Below -27 dBm - signal problems' },
-          { term: 'Marginal', definition: '-27 to -25 dBm - monitor closely' },
-          { term: 'Good Range', definition: '-25 to -10 dBm' },
-          { term: 'Ideal Target', definition: '-15 to -22 dBm (good margin)' },
-          { term: 'Too High', definition: 'Above -8 dBm - may need attenuator' },
+          { term: 'Too Low', definition: 'Very low receive power near the sensitivity limit can cause drops, errors, or registration problems.' },
+          { term: 'Marginal', definition: 'A link that works with little margin may fail after temperature changes, repairs, dirty connectors, or aging.' },
+          { term: 'Good Range', definition: 'Healthy design keeps receive power inside the equipment window with practical reserve margin.' },
+          { term: 'Too High', definition: 'Too much receive power can saturate a receiver; an optical attenuator may be needed.' },
+          { term: 'Trend Matters', definition: 'Stable readings are better than fluctuating readings. Sudden or periodic changes point to mechanical, thermal, or connector issues.' },
         ]
       },
       {
         title: 'Systematic Troubleshooting',
         content: [
-          { term: 'Step 1', definition: 'Check ONT Status - PON light solid green?' },
-          { term: 'Step 2', definition: 'Measure Rx Power - within spec?' },
-          { term: 'Step 3', definition: 'Inspect & Clean - start at ONT, work back' },
-          { term: 'Step 4', definition: 'Check Splitter - verify correct port' },
-          { term: 'Step 5', definition: 'OTDR If Needed - locate fault distance' },
+          { term: 'Step 1', definition: 'Confirm symptoms, service scope, affected customers, and whether the issue is single-customer or shared PON.' },
+          { term: 'Step 2', definition: 'Check OLT/ONT status, alarms, optical power, and error counters before touching the plant.' },
+          { term: 'Step 3', definition: 'Inspect and clean accessible connectors before deeper testing.' },
+          { term: 'Step 4', definition: 'If insertion loss fails, use OTDR with launch/receive cable to locate excess loss or reflections.' },
+          { term: 'Step 5', definition: 'Compare results to documentation and baseline traces; isolate feeder, splitter, distribution, or drop sections.' },
+          { term: 'Step 6', definition: 'Document root cause, before/after readings, trace files, photos, and corrective action.' },
         ]
       },
     ]
@@ -435,7 +469,7 @@ export default function StudyGuide({ courseId }) {
             <div>
               <h4 className="font-semibold text-emerald-900 dark:text-emerald-100">Open Book Exam · Expanded Question Pool</h4>
               <p className="text-sm text-emerald-800/80 dark:text-emerald-200/80">
-                You may reference this refreshed guide during the certification exam. Fiber 101 now rotates questions from a larger source-referenced bank.
+                You may reference this refreshed guide during the certification exam. This course now rotates questions from a larger source-referenced bank.
               </p>
             </div>
           </div>
