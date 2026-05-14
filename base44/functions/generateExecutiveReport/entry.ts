@@ -1436,28 +1436,40 @@ Deno.serve(async (req) => {
       y = startSectionPage(doc, customerName);
       y = sectionTitle(doc, `Top ${topCritical.length} Critical ONTs`, y, C.red);
       const cols = [
-        { label: 'OLT',              x: M + 5   },
-        { label: 'Port',             x: M + 39  },
-        { label: 'ONT ID',           x: M + 72  },
-        { label: 'Serial',           x: M + 92  },
-        { label: 'Critical Columns', x: M + 124 },
-        { label: 'Full Critical Values', x: M + CW - 4, align: 'right' },
+        { label: 'OLT',      x: M + 5   },
+        { label: 'Port',     x: M + 42  },
+        { label: 'ONT ID',   x: M + 75  },
+        { label: 'Serial',   x: M + 96  },
+        { label: 'ONT Rx',   x: M + 138, align: 'right' },
+        { label: 'US BIP',   x: M + 164, align: 'right' },
+        { label: 'DS BIP',   x: M + CW - 4, align: 'right' },
       ];
       y = tableHeader(doc, y, cols);
       for (let i = 0; i < topCritical.length; i++) {
-        y = maybeNewPage(doc, y, 8, customerName);
+        y = maybeNewPage(doc, y, 12, customerName);
         const r = topCritical[i];
         const triggers = r.criticalTriggers.length > 0
           ? r.criticalTriggers
           : [{ label: 'Stored Critical', value: 'See source report', threshold: '' }];
         y = tableRow(doc, y, [
-          { value: r.olt_name || '',        x: M + 5,      maxW: 31 },
-          { value: r.shelf_slot_port || '', x: M + 39,     maxW: 30 },
-          { value: String(r.ont_id || ''),  x: M + 72,     maxW: 17 },
-          { value: r.serial_number || '',   x: M + 92,     maxW: 29 },
-          { value: triggers.map(t => t.label).join(', '), x: M + 124, maxW: 42, color: C.red },
-          { value: triggers.map(t => `${t.value} (${t.threshold})`).join('; '), x: M + CW - 4, maxW: 43, align: 'right', color: C.red },
+          { value: r.olt_name || '',        x: M + 5,      maxW: 34 },
+          { value: r.shelf_slot_port || '', x: M + 42,     maxW: 30 },
+          { value: String(r.ont_id || ''),  x: M + 75,     maxW: 18 },
+          { value: r.serial_number || '',   x: M + 96,     maxW: 38 },
+          { value: r.ont_rx_power != null ? String(r.ont_rx_power) : '—', x: M + 138, maxW: 16, align: 'right', color: C.red },
+          { value: String(r.us_bip_errors || 0), x: M + 164, maxW: 22, align: 'right' },
+          { value: String(r.ds_bip_errors || 0), x: M + CW - 4, maxW: 22, align: 'right' },
         ], i % 2 === 0);
+
+        doc.setFontSize(5.8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...C.red);
+        doc.text(
+          fitText(doc, `Critical: ${triggers.map(t => `${t.label} ${t.value} (${t.threshold})`).join('; ')}`, CW - 12),
+          M + 6,
+          y + 2
+        );
+        y += 4;
       }
       y += 4;
     }
