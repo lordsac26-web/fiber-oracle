@@ -99,6 +99,25 @@ function classifyTech(record, liveSubModel) {
   );
 }
 
+function normalizeOpticType(entry) {
+  const raw = `${entry?.optic_type || ''} ${entry?.optic_model || ''}`.toUpperCase();
+  if (raw.includes('COMBO-EXT') || raw.includes('COMBO EXT') || raw.includes('100-05929')) return 'XGS-COMBO-EXT';
+  if (raw.includes('COMBO') || raw.includes('100-05674')) return 'XGS-COMBO';
+  if (raw.includes('XGS-DD') || raw.includes('XGSDD') || raw.includes('XGS-ONLY') || raw.includes('100-05730')) return 'XGS-DD';
+  return null;
+}
+
+function cleanInventoryValue(value) {
+  const str = String(value || '').trim();
+  return str || 'Unknown';
+}
+
+function lcpSplitterKey(lcp, splitter) {
+  const l = String(lcp || '').trim().toUpperCase();
+  const sNum = String(splitter || '').trim().toUpperCase();
+  return l && sNum ? `${l}|${sNum}` : null;
+}
+
 // ─── Address parser (zip from LAST comma segment only) ────────────────────────
 function parseAddress(addr) {
   if (!addr) return { city: 'Unknown', zip: 'Unknown' };
@@ -962,6 +981,80 @@ Deno.serve(async (req) => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 20);
 
+    // ── XGS optic port inventory by shelf ───────────────────────────────────
+    const XGS_OPTIC_TYPES = ['XGS-DD', 'XGS-COMBO', 'XGS-COMBO-EXT'];
+    const ontByLcpSplitter = new Map();
+    for (const r of currentRecs) {
+      const key = lcpSplitterKey(r.lcp_number, r.splitter_number);
+      if (key) ontByLcpSplitter.set(key, (ontByLcpSplitter.get(key) || 0) + 1);
+    }
+
+    const lcpEntries = await fetchAllFiltered('LCPEntry', {}, 'id');
+    const opticPortMap = new Map();
+    for (const entry of lcpEntries) {
+      const opticType = normalizeOpticType(entry);
+      if (!opticType || !XGS_OPTIC_TYPES.includes(opticType)) continue;
+
+      const olt = cleanInventoryValue(entry.olt_name);
+      const shelf = cleanInventoryValue(entry.olt_shelf);
+      const slot = cleanInventoryValue(entry.olt_slot);
+      const port = cleanInventoryValue(entry.olt_port);
+      const portKey = `${olt}|${shelf}|${slot}|${port}|${opticType}`;
+
+      if (!opticPortMap.has(portKey)) {
+        opticPortMap.set(portKey, {
+          olt,
+          shelf,
+          slot,
+          port,
+          opticType,
+          ontCount: 0,
+          splitterKeys: new Set(),
+        });
+      }
+
+      const row = opticPortMap.get(portKey);
+      const splitKey = lcpSplitterKey(entry.lcp_number, entry.splitter_number);
+      if (splitKey && !row.splitterKeys.has(splitKey)) {
+        row.splitterKeys.add(splitKey);
+        row.ontCount += ontByLcpSplitter.get(splitKey) || 0;
+      }
+    }
+
+    const opticPortRows = [...opticPortMap.values()]
+      .map(({ splitterKeys, ...row }) => row)
+      .sort((a, b) =>
+        a.olt.localeCompare(b.olt, undefined, { numeric: true }) ||
+        a.shelf.localeCompare(b.shelf, undefined, { numeric: true }) ||
+        a.slot.localeCompare(b.slot, undefined, { numeric: true }) ||
+        a.port.localeCompare(b.port, undefined, { numeric: true }) ||
+        a.opticType.localeCompare(b.opticType)
+      );
+
+    const opticShelfMap = new Map();
+    for (const row of opticPortRows) {
+      const shelfKey = `${row.olt}|${row.shelf}`;
+      if (!opticShelfMap.has(shelfKey)) {
+        opticShelfMap.set(shelfKey, {
+          olt: row.olt,
+          shelf: row.shelf,
+          types: Object.fromEntries(XGS_OPTIC_TYPES.map(t => [t, { ports: 0, onts: 0 }])),
+          totalPorts: 0,
+          totalOnts: 0,
+        });
+      }
+      const shelfRow = opticShelfMap.get(shelfKey);
+      shelfRow.types[row.opticType].ports++;
+      shelfRow.types[row.opticType].onts += row.ontCount;
+      shelfRow.totalPorts++;
+      shelfRow.totalOnts += row.ontCount;
+    }
+    const opticShelfRows = [...opticShelfMap.values()]
+      .sort((a, b) =>
+        a.olt.localeCompare(b.olt, undefined, { numeric: true }) ||
+        a.shelf.localeCompare(b.shelf, undefined, { numeric: true })
+      );
+
     // ── Top 20 utilized LCP / CLCP locations ────────────────────────────────
     const SPLITTER_CAP = 32;
     const getSplitterStatus = (remaining) => {
@@ -1128,6 +1221,77 @@ Deno.serve(async (req) => {
           { value: String(r.offline),    x: M + 146, maxW: 18, align: 'right', color: r.offline > 0 ? C.slate : C.dark },
           { value: r.avgRx,              x: M + 166, maxW: 18, align: 'right' },
           { value: `${r.healthPct}%`,    x: M + CW - 4, maxW: 18, align: 'right', color: hColor },
+        ], i % 2 === 0);
+      }
+      y += 4;
+    }
+
+    // ─── XGS Optic Port Inventory by Shelf ─── starts on its own page
+    y = startSectionPage(doc, customerName);
+    y = sectionTitle(doc, `XGS Optic Port Inventory by Shelf  (${opticPortRows.length} ports)`, y, C.teal);
+    if (opticShelfRows.length === 0) {
+      doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
+      doc.text('No XGS optic inventory data available from LCP records.', M + 4, y + 2, { maxWidth: CW - 8 });
+      y += 10;
+    } else {
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...C.muted);
+      doc.text('Port counts come from LCP inventory; ONT counts come from the current PON PM report matched by LCP and splitter.', M + 4, y - 1, { maxWidth: CW - 8 });
+      y += 4;
+
+      const shelfCols = [
+        { label: 'OLT / Shelf',  x: M + 5 },
+        { label: 'DD Ports',     x: M + 52,  align: 'right' },
+        { label: 'DD ONTs',      x: M + 73,  align: 'right' },
+        { label: 'Combo Ports',  x: M + 100, align: 'right' },
+        { label: 'Combo ONTs',   x: M + 124, align: 'right' },
+        { label: 'Ext Ports',    x: M + 149, align: 'right' },
+        { label: 'Ext ONTs',     x: M + 169, align: 'right' },
+        { label: 'Total ONTs',   x: M + CW - 4, align: 'right' },
+      ];
+      y = tableHeader(doc, y, shelfCols);
+      for (let i = 0; i < opticShelfRows.length; i++) {
+        const before = y;
+        y = maybeNewPage(doc, y, 8, customerName);
+        if (y < before) y = tableHeader(doc, y, shelfCols);
+        const r = opticShelfRows[i];
+        y = tableRow(doc, y, [
+          { value: `${r.olt} / Shelf ${r.shelf}`, x: M + 5, maxW: 42 },
+          { value: String(r.types['XGS-DD'].ports), x: M + 52, maxW: 16, align: 'right' },
+          { value: r.types['XGS-DD'].onts.toLocaleString(), x: M + 73, maxW: 18, align: 'right' },
+          { value: String(r.types['XGS-COMBO'].ports), x: M + 100, maxW: 18, align: 'right' },
+          { value: r.types['XGS-COMBO'].onts.toLocaleString(), x: M + 124, maxW: 18, align: 'right' },
+          { value: String(r.types['XGS-COMBO-EXT'].ports), x: M + 149, maxW: 18, align: 'right' },
+          { value: r.types['XGS-COMBO-EXT'].onts.toLocaleString(), x: M + 169, maxW: 18, align: 'right' },
+          { value: r.totalOnts.toLocaleString(), x: M + CW - 4, maxW: 22, align: 'right', color: r.totalOnts > 0 ? C.dark : C.muted },
+        ], i % 2 === 0);
+      }
+
+      y += 6;
+      y = maybeNewPage(doc, y, 16, customerName);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...C.dark);
+      doc.text('Port-Level ONT Counts', M + 4, y);
+      y += 2;
+      const portCols = [
+        { label: 'OLT / Shelf', x: M + 5 },
+        { label: 'Slot / Port', x: M + 62 },
+        { label: 'Optic Type',  x: M + 100 },
+        { label: 'ONTs on Port', x: M + CW - 4, align: 'right' },
+      ];
+      y = tableHeader(doc, y, portCols);
+      for (let i = 0; i < opticPortRows.length; i++) {
+        const before = y;
+        y = maybeNewPage(doc, y, 8, customerName);
+        if (y < before) y = tableHeader(doc, y, portCols);
+        const r = opticPortRows[i];
+        y = tableRow(doc, y, [
+          { value: `${r.olt} / Shelf ${r.shelf}`, x: M + 5, maxW: 54 },
+          { value: `Slot ${r.slot} / Port ${r.port}`, x: M + 62, maxW: 35 },
+          { value: r.opticType, x: M + 100, maxW: 48, color: r.opticType === 'XGS-COMBO-EXT' ? C.purple : r.opticType === 'XGS-COMBO' ? C.indigo : C.teal },
+          { value: r.ontCount.toLocaleString(), x: M + CW - 4, maxW: 28, align: 'right', color: r.ontCount > 0 ? C.dark : C.muted },
         ], i % 2 === 0);
       }
       y += 4;
