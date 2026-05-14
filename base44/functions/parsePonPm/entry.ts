@@ -21,40 +21,27 @@ const DEFAULT_THRESHOLDS = {
 // Previously this was module-level mutable state shared across all requests.
 
 // Detect technology type based on ONT model
+// Must stay in sync with SubscriberUpload.jsx detectTechTypeFromModel
 function detectTechTypeFromModel(model) {
   if (!model) return null;
   
-  const modelUpper = model.toUpperCase().trim();
+  const m = String(model).toUpperCase().trim();
+  if (!m) return null;
   
-  // XGS-PON models — exact match list (case-insensitive)
-  // Any model containing "DZS" is XGS-PON (all DZS ONTs are XGS)
-  if (modelUpper.includes('DZS')) return 'XGS-PON';
-  const xgsModels = [
-    'GP1101X', 'GP4201X', 'GP4201XH',
-    '5222XG', '5228XG'
-  ];
+  // Any model containing "DZS" is XGS-PON
+  if (m.replace(/\s/g, '').includes('DZS')) return 'XGS-PON';
   
-  // GPON models — exact match list (case-insensitive)
-  const gponModels = [
-    '711GE', '717GE', '725G', '725GE', '725',
-    '812G-1', '844G-1', '844GE-1', '803G'
-  ];
+  const xgsModels = ['GP1101X', 'GP4201X', 'GP4201XH', '5222XG', '5228XG'];
+  const gponModels = ['711GE', '717GE', '725G', '725GE', '725', '812G-1', '844G-1', '844GE-1', '803G'];
   
-  // Check for XGS-PON — use exact match against the full model string
-  for (const xgsModel of xgsModels) {
-    if (modelUpper === xgsModel.toUpperCase()) return 'XGS-PON';
-  }
-  // Also check substring for models that may have suffix variants
-  for (const xgsModel of xgsModels) {
-    if (modelUpper.includes(xgsModel.toUpperCase())) return 'XGS-PON';
+  // Check XGS-PON models
+  for (const x of xgsModels) {
+    if (m.includes(x)) return 'XGS-PON';
   }
   
-  // Check for GPON
-  for (const gponModel of gponModels) {
-    if (modelUpper === gponModel.toUpperCase()) return 'GPON';
-  }
-  for (const gponModel of gponModels) {
-    if (modelUpper.includes(gponModel.toUpperCase())) return 'GPON';
+  // Check GPON models
+  for (const g of gponModels) {
+    if (m.includes(g)) return 'GPON';
   }
   
   return null;
@@ -587,8 +574,8 @@ Deno.serve(async (req) => {
     });
 
     // Summary statistics
-    const gponCount = analyzedOnts.filter(o => o._techType?.includes('GPON')).length;
-    const xgsCount  = analyzedOnts.filter(o => o._techType?.includes('XGS')).length;
+    const gponCount = analyzedOnts.filter(o => o._techType === 'GPON').length;
+    const xgsCount  = analyzedOnts.filter(o => o._techType === 'XGS-PON' || o._techType?.includes('XGS')).length;
     const summary = {
       totalOnts: analyzedOnts.length,
       criticalCount: analyzedOnts.filter(o => o._analysis.status === 'critical').length,
