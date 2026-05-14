@@ -1033,6 +1033,7 @@ Deno.serve(async (req) => {
     }
 
     const opticPortRows = [...opticPortMap.values()]
+      .filter(row => row.ontCount > 0)
       .sort((a, b) =>
         b.ontCount - a.ontCount ||
         a.olt.localeCompare(b.olt, undefined, { numeric: true }) ||
