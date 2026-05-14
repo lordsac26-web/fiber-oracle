@@ -14,7 +14,7 @@
  *   4. City / Zip Saturation — top 20 cities and top 10 zips by ONT count.
  *   5. ONT Model Summary — count of each model in service.
  *   6. Eero Model Summary — count of each eero model in service.
- *   7. Top 20 Critical ONTs — quick triage list.
+ *   7. Top 30 Critical ONTs — quick triage list.
  *   8. Top 20 OLT Ports by Corrected FEC.
  *   9. Trend Deltas — current report vs ~7-day-old report vs ~30-day-old
  *      report, picked by closest PONPMReport.upload_date to those targets
@@ -185,6 +185,39 @@ const C = {
 };
 
 const PAGE_W = 210, PAGE_H = 297, M = 14, CW = PAGE_W - M * 2;
+
+const CRITICAL_THRESHOLDS = {
+  ont_rx_power: { label: 'ONT Rx', value: -27, op: '<', unit: ' dBm' },
+  olt_rx_power: { label: 'OLT Rx', value: -30, op: '<', unit: ' dBm' },
+  us_bip_errors: { label: 'US BIP', value: 1000, op: '>=' },
+  ds_bip_errors: { label: 'DS BIP', value: 1000, op: '>=' },
+  us_missed_bursts: { label: 'Missed Bursts', value: 100, op: '>=' },
+  us_gem_hec_errors: { label: 'GEM HEC', value: 100, op: '>=' },
+  us_fec_uncorrected: { label: 'US FEC Uncorr', value: 10, op: '>=' },
+  ds_fec_uncorrected: { label: 'DS FEC Uncorr', value: 10, op: '>=' },
+};
+
+function formatCriticalValue(value, unit = '') {
+  if (value === null || value === undefined || value === '') return '—';
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(value);
+  return `${Math.abs(num) >= 1000 ? num.toLocaleString() : String(num)}${unit}`;
+}
+
+function getCriticalTriggers(record) {
+  return Object.entries(CRITICAL_THRESHOLDS)
+    .filter(([field, cfg]) => {
+      const value = Number(record[field]);
+      if (!Number.isFinite(value)) return false;
+      return cfg.op === '<' ? value < cfg.value : value >= cfg.value;
+    })
+    .map(([field, cfg]) => ({
+      label: cfg.label,
+      value: formatCriticalValue(record[field], cfg.unit || ''),
+      threshold: `${cfg.op} ${formatCriticalValue(cfg.value, cfg.unit || '')}`,
+    }));
+}
+
 // Larger branded header — fits a prominent logo + company name as the first
 // thing the reader sees. Expanded so the logo plate and company name have
 // stronger visual presence without crowding the cover KPIs.
@@ -968,17 +1001,19 @@ Deno.serve(async (req) => {
       .map(([model, count]) => ({ model, count }))
       .sort((a, b) => b.count - a.count);
 
-    // ── Top 20 Critical ONTs ────────────────────────────────────────────────
+    // ── Top 30 Critical ONTs ────────────────────────────────────────────────
     const topCritical = currentRecs
       .filter(r => r.status === 'critical')
-      // Worst-first: lowest Rx (most negative), then highest US BIP
+      .map(r => ({ ...r, criticalTriggers: getCriticalTriggers(r) }))
+      // Worst-first: most triggered critical fields, lowest Rx, then highest US BIP
       .sort((a, b) => {
+        if (b.criticalTriggers.length !== a.criticalTriggers.length) return b.criticalTriggers.length - a.criticalTriggers.length;
         const ra = parseFloat(a.ont_rx_power); const rb = parseFloat(b.ont_rx_power);
         const va = isNaN(ra) ? 0 : ra; const vb = isNaN(rb) ? 0 : rb;
         if (va !== vb) return va - vb;
         return (b.us_bip_errors || 0) - (a.us_bip_errors || 0);
       })
-      .slice(0, 20);
+      .slice(0, 30);
 
     // ── Top 20 OLT Ports by Corrected FEC (us + ds) ─────────────────────────
     const portFec = new Map();
@@ -1396,31 +1431,32 @@ Deno.serve(async (req) => {
     }
     y = Math.max(ontY, eeroY) + 4;
 
-    // ─── Top 20 Critical ONTs ─── starts on its own page
+    // ─── Top 30 Critical ONTs ─── starts on its own page
     if (topCritical.length > 0) {
       y = startSectionPage(doc, customerName);
       y = sectionTitle(doc, `Top ${topCritical.length} Critical ONTs`, y, C.red);
       const cols = [
-        { label: 'OLT',      x: M + 5   },
-        { label: 'Port',     x: M + 42  },
-        { label: 'ONT ID',   x: M + 75  },
-        { label: 'Serial',   x: M + 96  },
-        { label: 'ONT Rx',   x: M + 138, align: 'right' },
-        { label: 'US BIP',   x: M + 164, align: 'right' },
-        { label: 'DS BIP',   x: M + CW - 4, align: 'right' },
+        { label: 'OLT',              x: M + 5   },
+        { label: 'Port',             x: M + 39  },
+        { label: 'ONT ID',           x: M + 72  },
+        { label: 'Serial',           x: M + 92  },
+        { label: 'Critical Columns', x: M + 124 },
+        { label: 'Full Critical Values', x: M + CW - 4, align: 'right' },
       ];
       y = tableHeader(doc, y, cols);
       for (let i = 0; i < topCritical.length; i++) {
         y = maybeNewPage(doc, y, 8, customerName);
         const r = topCritical[i];
+        const triggers = r.criticalTriggers.length > 0
+          ? r.criticalTriggers
+          : [{ label: 'Stored Critical', value: 'See source report', threshold: '' }];
         y = tableRow(doc, y, [
-          { value: r.olt_name || '',        x: M + 5,      maxW: 34 },
-          { value: r.shelf_slot_port || '', x: M + 42,     maxW: 30 },
-          { value: String(r.ont_id || ''),  x: M + 75,     maxW: 18 },
-          { value: r.serial_number || '',   x: M + 96,     maxW: 38 },
-          { value: r.ont_rx_power != null ? String(r.ont_rx_power) : '—', x: M + 138, maxW: 16, align: 'right', color: C.red },
-          { value: String(r.us_bip_errors || 0), x: M + 164, maxW: 22, align: 'right' },
-          { value: String(r.ds_bip_errors || 0), x: M + CW - 4, maxW: 22, align: 'right' },
+          { value: r.olt_name || '',        x: M + 5,      maxW: 31 },
+          { value: r.shelf_slot_port || '', x: M + 39,     maxW: 30 },
+          { value: String(r.ont_id || ''),  x: M + 72,     maxW: 17 },
+          { value: r.serial_number || '',   x: M + 92,     maxW: 29 },
+          { value: triggers.map(t => t.label).join(', '), x: M + 124, maxW: 42, color: C.red },
+          { value: triggers.map(t => `${t.value} (${t.threshold})`).join('; '), x: M + CW - 4, maxW: 43, align: 'right', color: C.red },
         ], i % 2 === 0);
       }
       y += 4;
