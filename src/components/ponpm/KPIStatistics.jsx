@@ -132,21 +132,36 @@ function RxPowerBar({ value, min = -35, max = -5, label }) {
   );
 }
 
-export default function KPIStatistics({ result, filteredOnts, previousReport }) {
+export default function KPIStatistics({ result, filteredOnts, previousReport, subscriberRecords = [] }) {
   const [techFilter, setTechFilter] = useState('All');
 
-  // Counts for each tech — derive from the same model field GlobalFilterBar
-  // uses so the chip counts and the model filter counts always agree.
+  // Displayed technology inventory counts come from the active subscriber CSV,
+  // which is the authoritative source for GPON/XGS-PON totals. If subscriber
+  // records are not loaded yet, fall back to the currently loaded PON PM rows.
   const techCounts = useMemo(() => {
-    if (!filteredOnts) return { GPON: 0, 'XGS-PON': 0, unknown: 0 };
     let gpon = 0, xgs = 0;
+
+    if (subscriberRecords?.length > 0) {
+      for (const sub of subscriberRecords) {
+        const rangedRaw = String(sub.ONTRanged ?? '').trim().toLowerCase();
+        const isRanged = rangedRaw === 'true' || rangedRaw === 'yes' || rangedRaw === '1';
+        if (!isRanged) continue;
+
+        const t = resolveTech({ model: sub.ONTModel });
+        if (t === 'GPON') gpon++;
+        else if (t === 'XGS-PON') xgs++;
+      }
+      return { GPON: gpon, 'XGS-PON': xgs, unknown: 0 };
+    }
+
+    if (!filteredOnts) return { GPON: 0, 'XGS-PON': 0, unknown: 0 };
     for (const o of filteredOnts) {
       const t = resolveTech(o);
       if (t === 'GPON') gpon++;
       else if (t === 'XGS-PON') xgs++;
     }
     return { GPON: gpon, 'XGS-PON': xgs, unknown: filteredOnts.length - gpon - xgs };
-  }, [filteredOnts]);
+  }, [filteredOnts, subscriberRecords]);
 
   // Stats for selected tech
   const stats = useMemo(() => {

@@ -970,7 +970,7 @@ export default function PONPMAnalysis() {
             />
 
             {/* KPI Statistics */}
-            <KPIStatistics result={result} filteredOnts={filteredOnts} previousReport={(() => {
+            <KPIStatistics result={result} filteredOnts={filteredOnts} subscriberRecords={subscriberRecords} previousReport={(() => {
               if (!savedReports || savedReports.length < 2) return null;
               const ci = selectedReportId ? savedReports.findIndex(r => r.id === selectedReportId) : 0;
               const prev = savedReports[ci >= 0 ? ci + 1 : 1];
