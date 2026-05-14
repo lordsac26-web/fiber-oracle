@@ -152,14 +152,14 @@ const C = {
 
 const PAGE_W = 210, PAGE_H = 297, M = 14, CW = PAGE_W - M * 2;
 // Larger branded header — fits a prominent logo + company name as the first
-// thing the reader sees. Increased from 34mm so the logo plate can grow to
-// 30mm square and the company name can render at 22pt without crowding.
-const HDR_H = 44, FTR_H = 12;
+// thing the reader sees. Expanded so the logo plate and company name have
+// stronger visual presence without crowding the cover KPIs.
+const HDR_H = 52, FTR_H = 12;
 const BODY_TOP = HDR_H + 6, BODY_BOT = PAGE_H - FTR_H - 4;
 
 // ─── Branded Header (page 1 only — full size) ──────────────────────────────────
 // Sized to make the company logo + name the visual anchor of the cover page.
-// Logo plate is a 32mm square; company name renders at 22pt bold.
+// Logo plate is a 38mm square; company name renders at 26pt bold.
 function drawHeaderFull(doc, logo, customerName, generatedAtStr) {
   doc.setFillColor(...C.navy);
   doc.rect(0, 0, PAGE_W, HDR_H, 'F');
@@ -167,7 +167,7 @@ function drawHeaderFull(doc, logo, customerName, generatedAtStr) {
   doc.rect(0, HDR_H, PAGE_W, 1.5, 'F');
 
   // Logo on white plate — larger, centered vertically within the header band
-  const plate = 32;
+  const plate = 38;
   const plateY = (HDR_H - plate) / 2;
   let cx = M;
   if (logo) {
@@ -190,21 +190,21 @@ function drawHeaderFull(doc, logo, customerName, generatedAtStr) {
   // Company name (prominent) + report label + generation timestamp
   doc.setTextColor(...C.white);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.text(s(customerName || 'FIBER ORACLE'), cx, plateY + 11);
+  doc.setFontSize(26);
+  doc.text(s(customerName || 'FIBER ORACLE'), cx, plateY + 13);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setTextColor(...C.accent);
-  doc.text('COMPREHENSIVE SYSTEM REPORT', cx, plateY + 19);
+  doc.text('COMPREHENSIVE SYSTEM REPORT', cx, plateY + 22);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   doc.setTextColor(...C.subText);
-  doc.text(s(`Generated ${generatedAtStr}`), cx, plateY + 25);
+  doc.text(s(`Generated ${generatedAtStr}`), cx, plateY + 29);
   doc.text(
     'Weekly/monthly management review — KPIs, per-OLT health, saturation, model inventory, and historical deltas.',
-    cx, plateY + 30,
+    cx, plateY + 35,
     { maxWidth: PAGE_W - cx - M, lineHeightFactor: 1.15 }
   );
 }
@@ -381,6 +381,162 @@ function maybeNewPage(doc, y, needed, customerName) {
     return 18;
   }
   return y;
+}
+
+function drawTrendComparisonSection(doc, y, {
+  customerName,
+  tz,
+  curLabel,
+  weekLabel,
+  monthLabel,
+  week1Report,
+  month1Report,
+  currentAgg,
+  week1Agg,
+  month1Agg,
+  ontTrendPoints,
+}) {
+  y = sectionTitle(doc, 'Trend Comparison', y, C.purple);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...C.muted);
+  doc.text(
+    `Current report: ${curLabel}    |    ~7 days ago: ${weekLabel}    |    ~30 days ago: ${monthLabel}`,
+    M + 4, y - 1, { maxWidth: CW - 8 }
+  );
+  y += 5;
+
+  if (!week1Report && !month1Report) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(...C.muted);
+    doc.text(
+      'No prior reports found in the database. Trend comparison will populate as more reports are uploaded.',
+      M + 4, y + 2, { maxWidth: CW - 8 }
+    );
+    return y + 12;
+  }
+
+  const metrics = [
+    { metric: 'Total ONTs',     cur: currentAgg.total,    w: week1Agg.total,    m: month1Agg.total,    good: true  },
+    { metric: 'Critical',       cur: currentAgg.critical, w: week1Agg.critical, m: month1Agg.critical, good: false },
+    { metric: 'Warning',        cur: currentAgg.warning,  w: week1Agg.warning,  m: month1Agg.warning,  good: false },
+    { metric: 'Healthy',        cur: currentAgg.ok,       w: week1Agg.ok,       m: month1Agg.ok,       good: true  },
+    { metric: 'Offline',        cur: currentAgg.offline,  w: week1Agg.offline,  m: month1Agg.offline,  good: false },
+    { metric: 'GPON ONTs',      cur: currentAgg.gpon,     w: week1Agg.gpon,     m: month1Agg.gpon,     good: true  },
+    { metric: 'XGS-PON ONTs',   cur: currentAgg.xgs,      w: week1Agg.xgs,      m: month1Agg.xgs,      good: true  },
+    { metric: 'ONTs w/ Eero',   cur: currentAgg.eeroCount,w: week1Agg.eeroCount,m: month1Agg.eeroCount,good: true  },
+  ];
+  const cols = [
+    { label: 'Metric',      x: M + 5                       },
+    { label: curLabel,      x: M + 80,    align: 'right'   },
+    { label: weekLabel,     x: M + 108,   align: 'right'   },
+    { label: 'Δ 7d',        x: M + 135,   align: 'right'   },
+    { label: monthLabel,    x: M + 158,   align: 'right'   },
+    { label: 'Δ 30d',       x: M + CW - 4, align: 'right'  },
+  ];
+  y = tableHeader(doc, y, cols);
+
+  const deltaColor = (delta, isGood) => {
+    if (delta === 0 || delta === null) return C.muted;
+    if (isGood) return delta > 0 ? C.green : C.red;
+    return delta > 0 ? C.red : C.green;
+  };
+
+  for (let i = 0; i < metrics.length; i++) {
+    y = maybeNewPage(doc, y, 8, customerName);
+    const r = metrics[i];
+    const dw = week1Report ? r.cur - r.w : null;
+    const dm = month1Report ? r.cur - r.m : null;
+    const fmtDelta = (d) => d === null ? '—' : `${d > 0 ? '+' : ''}${d}`;
+    y = tableRow(doc, y, [
+      { value: r.metric,                                  x: M + 5,      maxW: 70 },
+      { value: r.cur.toLocaleString(),                    x: M + 80,     align: 'right', maxW: 26 },
+      { value: week1Report ? r.w.toLocaleString() : '—',  x: M + 108,    align: 'right', maxW: 26 },
+      { value: fmtDelta(dw),                              x: M + 135,    align: 'right', maxW: 22, color: deltaColor(dw, r.good) },
+      { value: month1Report ? r.m.toLocaleString() : '—', x: M + 158,    align: 'right', maxW: 26 },
+      { value: fmtDelta(dm),                              x: M + CW - 4, align: 'right', maxW: 22, color: deltaColor(dm, r.good) },
+    ], i % 2 === 0);
+  }
+  y += 4;
+
+  y = maybeNewPage(doc, y, 60, customerName);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...C.dark);
+  doc.text(`Total ONT Count Over Time  (${ontTrendPoints.length} samples)`, M + 4, y);
+  y += 4;
+
+  const chartY = y;
+  const chartH = 44;
+  const chartW = CW - 8;
+  const chartX = M + 4;
+  doc.setDrawColor(...C.border);
+  doc.setLineWidth(0.3);
+  doc.rect(chartX, chartY, chartW, chartH);
+
+  if (ontTrendPoints.length < 2) {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7);
+    doc.setTextColor(...C.muted);
+    doc.text('Need at least two reports to plot a trend. Upload more reports over time to populate this chart.', chartX + 4, chartY + chartH / 2, { maxWidth: chartW - 8 });
+    return chartY + chartH + 8;
+  }
+
+  const counts = ontTrendPoints.map(p => p.count);
+  const maxV = Math.max(...counts, 1);
+  const minV = Math.min(...counts, 0);
+  const range = Math.max(1, maxV - minV);
+  const yPad = range * 0.1;
+  const yMax = maxV + yPad;
+  const yMin = Math.max(0, minV - yPad);
+  const plotX0 = chartX + 10;
+  const plotX1 = chartX + chartW - 6;
+  const plotY0 = chartY + 5;
+  const plotY1 = chartY + chartH - 8;
+
+  doc.setDrawColor(...C.border);
+  doc.setLineWidth(0.2);
+  doc.setFontSize(5.5);
+  doc.setTextColor(...C.muted);
+  doc.setFont('helvetica', 'normal');
+  [0, 0.5, 1].forEach(frac => {
+    const gy = plotY1 - frac * (plotY1 - plotY0);
+    doc.line(plotX0, gy, plotX1, gy);
+    const val = Math.round(yMin + frac * (yMax - yMin));
+    doc.text(val.toLocaleString(), plotX0 - 2, gy + 1.2, { align: 'right' });
+  });
+
+  const n = ontTrendPoints.length;
+  const xs = ontTrendPoints.map((_, i) => plotX0 + (n === 1 ? (plotX1 - plotX0) / 2 : (i * (plotX1 - plotX0)) / (n - 1)));
+  const ys = ontTrendPoints.map(p => plotY1 - ((p.count - yMin) / (yMax - yMin)) * (plotY1 - plotY0));
+
+  doc.setDrawColor(...C.accent);
+  doc.setLineWidth(0.9);
+  for (let i = 1; i < n; i++) doc.line(xs[i - 1], ys[i - 1], xs[i], ys[i]);
+
+  doc.setFillColor(...C.accent);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6);
+  doc.setTextColor(...C.dark);
+  for (let i = 0; i < n; i++) {
+    doc.circle(xs[i], ys[i], 1.2, 'F');
+    const labelY = ys[i] < plotY0 + 5 ? ys[i] + 5 : ys[i] - 2;
+    doc.text(ontTrendPoints[i].count.toLocaleString(), xs[i], labelY, { align: 'center' });
+  }
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
+  doc.setTextColor(...C.muted);
+  const compactDate = (iso) => {
+    try {
+      return new Date(iso).toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: '2-digit' });
+    } catch { return ''; }
+  };
+  const axisIdxs = n >= 5 ? [0, Math.floor(n / 2), n - 1] : [0, n - 1];
+  axisIdxs.forEach(i => doc.text(compactDate(ontTrendPoints[i].label), xs[i], plotY1 + 4, { align: 'center' }));
+
+  return chartY + chartH + 8;
 }
 
 // ─── Closest-report picker for trend deltas ────────────────────────────────────
@@ -808,6 +964,9 @@ Deno.serve(async (req) => {
       timeZone: tz, year: 'numeric', month: 'long', day: 'numeric',
     });
     const generatedAtStr = new Date().toLocaleString('en-US', { timeZone: tz });
+    const curLabel   = fmtDate(currentReport.upload_date);
+    const weekLabel  = week1Report  ? fmtDate(week1Report.upload_date)  : 'N/A';
+    const monthLabel = month1Report ? fmtDate(month1Report.upload_date) : 'N/A';
 
     // ── PDF BUILD ────────────────────────────────────────────────────────────
     const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
@@ -843,6 +1002,20 @@ Deno.serve(async (req) => {
         tileW, tileH, k.value, k.label, k.vc, k.ac);
     });
     y += 2 * tileH + tileGap + 6;
+
+    y = drawTrendComparisonSection(doc, y, {
+      customerName,
+      tz,
+      curLabel,
+      weekLabel,
+      monthLabel,
+      week1Report,
+      month1Report,
+      currentAgg,
+      week1Agg,
+      month1Agg,
+      ontTrendPoints,
+    });
 
     // OLT Breakdown — starts on its own page
     if (oltRows.length > 0) {
@@ -1014,166 +1187,6 @@ Deno.serve(async (req) => {
         ], i % 2 === 0);
       }
       y += 4;
-    }
-
-    // ─── Trend Deltas (Current vs ~7d vs ~30d) ─── starts on its own page
-    y = startSectionPage(doc, customerName);
-    y = sectionTitle(doc, 'Trend Comparison', y, C.purple);
-
-    const curLabel   = fmtDate(currentReport.upload_date);
-    const weekLabel  = week1Report  ? fmtDate(week1Report.upload_date)  : 'N/A';
-    const monthLabel = month1Report ? fmtDate(month1Report.upload_date) : 'N/A';
-
-    doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.muted);
-    doc.text(
-      `Current report: ${curLabel}    |    ~7 days ago: ${weekLabel}    |    ~30 days ago: ${monthLabel}`,
-      M + 4, y - 1, { maxWidth: CW - 8 }
-    );
-    y += 5;
-
-    if (!week1Report && !month1Report) {
-      doc.setFontSize(8); doc.setFont('helvetica', 'italic'); doc.setTextColor(...C.muted);
-      doc.text(
-        'No prior reports found in the database. Trend comparison will populate as more reports are uploaded.',
-        M + 4, y + 2, { maxWidth: CW - 8 }
-      );
-      y += 12;
-    } else {
-      const metrics = [
-        { metric: 'Total ONTs',     cur: currentAgg.total,    w: week1Agg.total,    m: month1Agg.total,    good: true  },
-        { metric: 'Critical',       cur: currentAgg.critical, w: week1Agg.critical, m: month1Agg.critical, good: false },
-        { metric: 'Warning',        cur: currentAgg.warning,  w: week1Agg.warning,  m: month1Agg.warning,  good: false },
-        { metric: 'Healthy',        cur: currentAgg.ok,       w: week1Agg.ok,       m: month1Agg.ok,       good: true  },
-        { metric: 'Offline',        cur: currentAgg.offline,  w: week1Agg.offline,  m: month1Agg.offline,  good: false },
-        { metric: 'GPON ONTs',      cur: currentAgg.gpon,     w: week1Agg.gpon,     m: month1Agg.gpon,     good: true  },
-        { metric: 'XGS-PON ONTs',   cur: currentAgg.xgs,      w: week1Agg.xgs,      m: month1Agg.xgs,      good: true  },
-        { metric: 'ONTs w/ Eero',   cur: currentAgg.eeroCount,w: week1Agg.eeroCount,m: month1Agg.eeroCount,good: true  },
-      ];
-      // Numeric columns are right-aligned so the rightmost label ("Δ 30d")
-      // never spills past the table border.
-      const cols = [
-        { label: 'Metric',      x: M + 5                       },
-        { label: curLabel,      x: M + 80,    align: 'right'   },
-        { label: weekLabel,     x: M + 108,   align: 'right'   },
-        { label: 'Δ 7d',        x: M + 135,   align: 'right'   },
-        { label: monthLabel,    x: M + 158,   align: 'right'   },
-        { label: 'Δ 30d',       x: M + CW - 4, align: 'right'  },
-      ];
-      y = tableHeader(doc, y, cols);
-
-      const deltaColor = (delta, isGood) => {
-        if (delta === 0 || delta === null) return C.muted;
-        if (isGood) return delta > 0 ? C.green : C.red;
-        return delta > 0 ? C.red : C.green;
-      };
-
-      for (let i = 0; i < metrics.length; i++) {
-        y = maybeNewPage(doc, y, 8, customerName);
-        const r = metrics[i];
-        const dw = week1Report ? r.cur - r.w : null;
-        const dm = month1Report ? r.cur - r.m : null;
-        const fmtDelta = (d) => d === null ? '—' : `${d > 0 ? '+' : ''}${d}`;
-        y = tableRow(doc, y, [
-          { value: r.metric,                                 x: M + 5,                                maxW: 70 },
-          { value: r.cur.toLocaleString(),                   x: M + 80,    align: 'right',            maxW: 26 },
-          { value: week1Report ? r.w.toLocaleString() : '—', x: M + 108,   align: 'right',            maxW: 26 },
-          { value: fmtDelta(dw),                             x: M + 135,   align: 'right',            maxW: 22, color: deltaColor(dw, r.good) },
-          { value: month1Report ? r.m.toLocaleString() : '—',x: M + 158,   align: 'right',            maxW: 26 },
-          { value: fmtDelta(dm),                             x: M + CW - 4, align: 'right',           maxW: 22, color: deltaColor(dm, r.good) },
-        ], i % 2 === 0);
-      }
-      y += 4;
-
-      // ── Total ONT Count Over Time ──────────────────────────────────────
-      // 10 evenly-spaced data points sampled between the first-ever report
-      // and the current report. Shows network growth at a glance and replaces
-      // the older critical/warning snapshot comparison.
-      y = maybeNewPage(doc, y, 60, customerName);
-      doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
-      doc.text(`Total ONT Count Over Time  (${ontTrendPoints.length} samples)`, M + 4, y);
-      y += 4;
-
-      const chartY = y;
-      const chartH = 44;
-      const chartW = CW - 8;
-      const chartX = M + 4;
-      // Frame
-      doc.setDrawColor(...C.border); doc.setLineWidth(0.3);
-      doc.rect(chartX, chartY, chartW, chartH);
-
-      if (ontTrendPoints.length < 2) {
-        doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(...C.muted);
-        doc.text(
-          'Need at least two reports to plot a trend. Upload more reports over time to populate this chart.',
-          chartX + 4, chartY + chartH / 2, { maxWidth: chartW - 8 }
-        );
-      } else {
-        const counts = ontTrendPoints.map(p => p.count);
-        const maxV = Math.max(...counts, 1);
-        const minV = Math.min(...counts, 0);
-        // Pad the y-range slightly so the line never hugs the chart edges
-        const range = Math.max(1, maxV - minV);
-        const yPad = range * 0.1;
-        const yMax = maxV + yPad;
-        const yMin = Math.max(0, minV - yPad);
-
-        const plotX0 = chartX + 10;
-        const plotX1 = chartX + chartW - 6;
-        const plotY0 = chartY + 5;
-        const plotY1 = chartY + chartH - 8;
-
-        // Gridlines + y-axis labels (min, mid, max)
-        doc.setDrawColor(...C.border); doc.setLineWidth(0.2);
-        doc.setFontSize(5.5); doc.setTextColor(...C.muted); doc.setFont('helvetica', 'normal');
-        [0, 0.5, 1].forEach(frac => {
-          const gy = plotY1 - frac * (plotY1 - plotY0);
-          doc.line(plotX0, gy, plotX1, gy);
-          const val = Math.round(yMin + frac * (yMax - yMin));
-          doc.text(val.toLocaleString(), plotX0 - 2, gy + 1.2, { align: 'right' });
-        });
-
-        // Compute X positions evenly across the plot area
-        const n = ontTrendPoints.length;
-        const xs = ontTrendPoints.map((_, i) =>
-          plotX0 + (n === 1 ? (plotX1 - plotX0) / 2 : (i * (plotX1 - plotX0)) / (n - 1))
-        );
-        const ys = ontTrendPoints.map(p =>
-          plotY1 - ((p.count - yMin) / (yMax - yMin)) * (plotY1 - plotY0)
-        );
-
-        // Line
-        doc.setDrawColor(...C.accent); doc.setLineWidth(0.9);
-        for (let i = 1; i < n; i++) {
-          doc.line(xs[i - 1], ys[i - 1], xs[i], ys[i]);
-        }
-
-        // Points + values
-        doc.setFillColor(...C.accent);
-        for (let i = 0; i < n; i++) {
-          doc.circle(xs[i], ys[i], 1.2, 'F');
-        }
-        // Show first, last, and (if room) middle value labels to avoid clutter
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(6); doc.setTextColor(...C.dark);
-        const labelIdxs = new Set([0, n - 1]);
-        if (n >= 5) labelIdxs.add(Math.floor(n / 2));
-        labelIdxs.forEach(i => {
-          doc.text(ontTrendPoints[i].count.toLocaleString(), xs[i], ys[i] - 2, { align: 'center' });
-        });
-
-        // X-axis date labels — first, last, and a middle sample (compact dates)
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(5.5); doc.setTextColor(...C.muted);
-        const compactDate = (iso) => {
-          try {
-            return new Date(iso).toLocaleDateString('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: '2-digit' });
-          } catch { return ''; }
-        };
-        const axisIdxs = n >= 5 ? [0, Math.floor(n / 2), n - 1] : [0, n - 1];
-        axisIdxs.forEach(i => {
-          doc.text(compactDate(ontTrendPoints[i].label), xs[i], plotY1 + 4, { align: 'center' });
-        });
-      }
-
-      y = chartY + chartH + 8;
     }
 
     // ─── Stamp footer on every page ──────────────────────────────────────
