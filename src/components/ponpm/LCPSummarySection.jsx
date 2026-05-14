@@ -565,7 +565,11 @@ export default function LCPSummarySection({ result, onPortClick }) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {selectedLCP.splitters.map((splitter, idx) => {
+                  {[...selectedLCP.splitters].sort((a, b) => {
+                    const aNum = parseInt(String(a.splitterNumber).replace(/\D/g, ''), 10) || 0;
+                    const bNum = parseInt(String(b.splitterNumber).replace(/\D/g, ''), 10) || 0;
+                    return aNum - bNum;
+                  }).map((splitter, idx) => {
                     const color = SPLITTER_COLORS[idx % SPLITTER_COLORS.length];
                     const ratio = splitter.splitterRatio || selectedLCP.splitter_ratio || `1:${splitter.capacity}`;
                     return (
