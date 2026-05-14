@@ -1,134 +1,224 @@
 /**
  * syncSubscriberToOntRecords
  *
- * Background function that enriches all existing ONTPerformanceRecords with
- * subscriber fields (account_name, address, model) from the current active
- * SubscriberRecord dataset.
+ * Canonical subscriber → ONTPerformanceRecord synchronization path.
  *
- * Matching strategy (same as frontend SubscriberUpload):
- *   PRIMARY:   normalized OLT name + shelf/slot/port + ONT ID  → composite key
- *   SECONDARY: normalized serial number (FSAN)
- *              Vendor prefixes (CXNK = Calix, ZNTS = DZS) are stripped from
- *              subscriber serials before matching so both datasets share a
- *              consistent raw-hex serial format.
- *
- * Designed to be called:
- *   A) Via entity automation when a new SubscriberUploadMeta record is created
- *   B) Manually from the admin UI
- *
- * Pagination: processes ONTPerformanceRecords in pages of 2000 to avoid
- * memory pressure. Updates are batched (parallel chunks of 50) for throughput.
+ * Purpose:
+ * - Uses ONLY the currently-active SubscriberUploadMeta generation.
+ * - Reads both subscriber and ONT records with stable `id` pagination.
+ * - Applies one normalized matching strategy everywhere.
+ * - Updates subscriber display fields, authoritative model, and persisted technology_type.
+ * - Optionally auto-continues in slices to avoid long single invocations.
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-// Known vendor prefixes that appear in subscriber export serial numbers but NOT
-// in the PONPM report serial numbers. Strip these before building lookup keys.
 const VENDOR_PREFIXES = ['CXNK', 'ZNTS'];
+const XGS_MODELS = ['GP1101X', 'GP4201X', 'GP4201XH', '5222XG', '5228XG'];
+const GPON_MODELS = ['711GE', '717GE', '725G', '725GE', '725', '812G-1', '844G-1', '844GE-1', '803G'];
 
-// ─── Key normalization (must mirror SubscriberUpload.buildSubscriberLookup) ──
-function normalizeOltPort(oltName, linkedPon) {
-  if (!oltName) return null;
-  const base = oltName.trim().toUpperCase();
-  if (!linkedPon) return base;
-  // Strip "xp" prefix from port segment for uniform matching
-  const normalized = linkedPon.trim().toUpperCase().replace(/\/XP(\d)/g, '/$1');
-  return `${base}|${normalized}`;
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function normalizeSerial(serial) {
-  if (!serial || typeof serial !== 'string') return null;
-  let n = serial.trim().toUpperCase();
+function normalizeOntId(value) {
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim().toUpperCase();
+  if (!s) return null;
+  return /^\d+$/.test(s) ? (s.replace(/^0+/, '') || '0') : s;
+}
 
-  // Strip known vendor prefixes so subscriber serials (e.g. "CXNK1A2B3C4D")
-  // align with PONPM serials (e.g. "1A2B3C4D") which never carry a prefix.
+function normalizePort(value) {
+  if (!value) return null;
+  return String(value).trim().toUpperCase().replace(/\s+/g, '').replace(/\/XP(\d)/g, '/$1');
+}
+
+function normalizeSerial(value) {
+  if (!value || typeof value !== 'string') return null;
+  let normalized = value.trim().toUpperCase();
   for (const prefix of VENDOR_PREFIXES) {
-    if (n.startsWith(prefix)) {
-      n = n.substring(prefix.length);
-      break; // only one prefix can match
+    if (normalized.startsWith(prefix)) {
+      normalized = normalized.slice(prefix.length);
+      break;
     }
   }
-
-  n = n.replace(/[^A-Z0-9]/g, '');
-  return n.length > 0 ? n : null;
+  normalized = normalized.replace(/[^A-Z0-9]/g, '');
+  return normalized || null;
 }
 
-function normalizeOntId(ontId) {
-  if (ontId === null || ontId === undefined) return null;
-  return String(ontId).trim();
+function detectTechnologyType(model) {
+  if (!model) return 'unknown';
+  const normalized = String(model).toUpperCase().trim().replace(/\s/g, '');
+  if (!normalized) return 'unknown';
+  if (normalized.includes('DZS')) return 'XGS-PON';
+  for (const modelName of XGS_MODELS) if (normalized.includes(modelName)) return 'XGS-PON';
+  for (const modelName of GPON_MODELS) if (normalized.includes(modelName)) return 'GPON';
+  return 'unknown';
 }
 
-/**
- * Build two lookup maps from SubscriberRecord rows:
- *   compositeMap: "OLTNAME|SHELF/SLOT/PORT|ONTID" → subscriber fields
- *   serialMap:    "SERIALNUMBER" → subscriber fields
- */
-function buildLookups(subscriberRecords) {
-  const compositeMap = new Map();
-  const serialMap = new Map();
+function buildFullAddress(record) {
+  return [record.Address, record.City, record.State, record.Zip]
+    .filter((part) => part && String(part).trim())
+    .map((part) => String(part).trim())
+    .join(', ');
+}
 
-  for (const rec of subscriberRecords) {
-    // Build a full address string: "123 Main St, Springfield, MA, 01103"
-    // State is included between city and zip so the geocoder can
-    // disambiguate towns with shared names across states.
-    const addrParts = [rec.Address, rec.City, rec.State, rec.Zip].filter(p => p && p.trim());
-    const fullAddress = addrParts.join(', ');
+function buildSubscriberLookups(records) {
+  const byOntId = new Map();
+  const byComposite = new Map();
+  const byPortOntId = new Map();
+  const bySerial = new Map();
 
+  for (const record of records) {
+    const ontId = normalizeOntId(record.OntID);
+    if (!ontId) continue;
+
+    const model = String(record.ONTModel || '').trim();
     const fields = {
-      subscriber_account_name: rec.AccountName || '',
-      subscriber_address:      fullAddress || rec.Address || '',
-      subscriber_model:        rec.ONTModel      || '',
+      subscriber_account_name: record.AccountName || '',
+      subscriber_address: buildFullAddress(record) || record.Address || '',
+      subscriber_model: model,
+      model,
+      technology_type: detectTechnologyType(model),
     };
 
-    // Composite key: OLT + PON port + ONT ID
-    const portKey = normalizeOltPort(rec.DeviceName, rec.LinkedPon);
-    const ontId   = normalizeOntId(rec.OntID);
-    if (portKey && ontId !== null) {
-      compositeMap.set(`${portKey}|${ontId}`, fields);
-    }
+    if (!byOntId.has(ontId)) byOntId.set(ontId, fields);
 
-    // Serial number fallback — vendor prefix stripped by normalizeSerial
-    const serial = normalizeSerial(rec.ONTSerialNo);
-    if (serial && !serialMap.has(serial)) {
-      serialMap.set(serial, fields);
-    }
+    const olt = record.DeviceName ? String(record.DeviceName).trim().toUpperCase() : null;
+    const port = normalizePort(record.LinkedPon);
+    if (olt && port) byComposite.set(`${olt}|${port}|${ontId}`, fields);
+    if (port) byPortOntId.set(`${port}|${ontId}`, fields);
+
+    const serial = normalizeSerial(record.ONTSerialNo);
+    if (serial && !bySerial.has(serial)) bySerial.set(serial, fields);
   }
 
-  console.log(`[syncSubscriber] Lookup built: ${compositeMap.size} composite keys, ${serialMap.size} serial keys`);
-  return { compositeMap, serialMap };
+  console.log(`[syncSubscriber] Lookup built: ${byOntId.size} ONT IDs, ${byComposite.size} composite, ${byPortOntId.size} port+ONT, ${bySerial.size} serial`);
+  return { byOntId, byComposite, byPortOntId, bySerial };
 }
 
-/**
- * Resolve subscriber fields for a single ONTPerformanceRecord.
- * Returns null if no match found.
- */
-function matchSubscriber(record, compositeMap, serialMap) {
-  // Primary: composite key
-  const oltNorm = record.olt_name ? record.olt_name.trim().toUpperCase() : null;
-  const ssp     = record.shelf_slot_port
-    ? record.shelf_slot_port.trim().toUpperCase().replace(/\/XP(\d)/g, '/$1')
-    : null;
-  const ontId   = normalizeOntId(record.ont_id);
+function matchSubscriber(record, lookups) {
+  const ontId = normalizeOntId(record.ont_id);
+  const olt = record.olt_name ? String(record.olt_name).trim().toUpperCase() : null;
+  const port = normalizePort(record.shelf_slot_port);
 
-  if (oltNorm && ssp && ontId !== null) {
-    const key = `${oltNorm}|${ssp}|${ontId}`;
-    if (compositeMap.has(key)) return compositeMap.get(key);
+  if (olt && port && ontId) {
+    const composite = lookups.byComposite.get(`${olt}|${port}|${ontId}`);
+    if (composite) return composite;
   }
 
-  // Secondary: serial number — PONPM serials have no prefix so normalizeSerial
-  // passes them through unchanged; subscriber serials get their prefix stripped.
+  if (port && ontId) {
+    const portMatch = lookups.byPortOntId.get(`${port}|${ontId}`);
+    if (portMatch) return portMatch;
+  }
+
+  if (ontId) {
+    const ontIdMatch = lookups.byOntId.get(ontId);
+    if (ontIdMatch) return ontIdMatch;
+  }
+
   const serial = normalizeSerial(record.serial_number);
-  if (serial && serialMap.has(serial)) return serialMap.get(serial);
-
-  return null;
+  return serial ? lookups.bySerial.get(serial) || null : null;
 }
 
-// ─── Main Handler ─────────────────────────────────────────────────────────────
+async function loadActiveSubscribers(base44) {
+  const metas = await base44.asServiceRole.entities.SubscriberUploadMeta.filter({ status: 'active' }, '-created_date', 1);
+  const activeMeta = metas?.[0] || null;
+  if (!activeMeta?.id) return { activeMeta: null, records: [] };
+
+  const records = [];
+  const pageSize = 5000;
+  let offset = 0;
+  while (true) {
+    const page = await base44.asServiceRole.entities.SubscriberRecord.filter(
+      { upload_id: activeMeta.id },
+      'id',
+      pageSize,
+      offset
+    );
+    if (!page || page.length === 0) break;
+    records.push(...page);
+    if (page.length < pageSize) break;
+    offset += page.length;
+    await sleep(150);
+  }
+
+  return { activeMeta, records };
+}
+
+async function updateRecordWithRetry(base44, id, fields) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      await base44.asServiceRole.entities.ONTPerformanceRecord.update(id, fields);
+      return;
+    } catch (error) {
+      const isRateLimit = error?.status === 429 || /rate limit/i.test(error?.message || '');
+      if (!isRateLimit || attempt === 4) throw error;
+      await sleep(500 * attempt);
+    }
+  }
+}
+
+async function recalculateReportSummaries(base44) {
+  const countsByReport = new Map();
+  const pageSize = 5000;
+  let offset = 0;
+
+  while (true) {
+    const records = await base44.asServiceRole.entities.ONTPerformanceRecord.list('id', pageSize, offset);
+    if (!records || records.length === 0) break;
+
+    for (const record of records) {
+      if (!record.report_id) continue;
+      if (!countsByReport.has(record.report_id)) {
+        countsByReport.set(record.report_id, {
+          total: 0,
+          critical: 0,
+          warning: 0,
+          ok: 0,
+          gpon: 0,
+          xgs: 0,
+        });
+      }
+
+      const counts = countsByReport.get(record.report_id);
+      counts.total++;
+      if (record.status === 'critical') counts.critical++;
+      else if (record.status === 'warning') counts.warning++;
+      else if (record.status !== 'offline') counts.ok++;
+
+      const tech = record.technology_type && record.technology_type !== 'unknown'
+        ? record.technology_type
+        : detectTechnologyType(record.subscriber_model || record.model);
+      if (tech === 'GPON') counts.gpon++;
+      else if (tech === 'XGS-PON') counts.xgs++;
+    }
+
+    if (records.length < pageSize) break;
+    offset += records.length;
+    await sleep(150);
+  }
+
+  let updatedReports = 0;
+  for (const [reportId, counts] of countsByReport.entries()) {
+    await base44.asServiceRole.entities.PONPMReport.update(reportId, {
+      ont_count: counts.total,
+      critical_count: counts.critical,
+      warning_count: counts.warning,
+      ok_count: counts.ok,
+      gpon_count: counts.gpon,
+      xgs_count: counts.xgs,
+    });
+    updatedReports++;
+    await sleep(80);
+  }
+
+  return updatedReports;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-
-    // Accept both: direct admin call and entity automation payload
     const body = await req.json().catch(() => ({}));
     const isAutomation = !!body.event;
 
@@ -138,134 +228,120 @@ Deno.serve(async (req) => {
       if (user.role !== 'admin') return Response.json({ error: 'Forbidden: admin only' }, { status: 403 });
     }
 
-    console.log('[syncSubscriber] Starting subscriber → ONT sync...');
     const startTime = Date.now();
+    const startOffset = Number.isFinite(body.start_offset) ? body.start_offset : 0;
+    const maxBatches = Number.isFinite(body.max_batches) ? body.max_batches : Infinity;
+    const timeBudgetMs = Number.isFinite(body.time_budget_ms) ? body.time_budget_ms : 24000;
+    const autoContinue = body.auto_continue !== false;
 
-    // Optional resumable-job parameters (called repeatedly from admin UI):
-    //   start_offset — where to begin in the ONT records list (default 0)
-    //   max_batches  — how many ONT pages to process this invocation (default unlimited)
-    //   time_budget_ms — soft budget; stop after this many ms even if more work remains
-    // Returns: next_offset (or null when complete) so the caller can resume.
-    const startOffset  = Number.isFinite(body.start_offset) ? body.start_offset : 0;
-    const maxBatches   = Number.isFinite(body.max_batches)  ? body.max_batches  : Infinity;
-    const timeBudgetMs = Number.isFinite(body.time_budget_ms) ? body.time_budget_ms : 22000;
+    console.log(`[syncSubscriber] Starting at ONT offset ${startOffset}`);
 
-    // ── 1. Load all active SubscriberRecords (paginated, no implicit cap) ──
-    // The platform caps list() at 5000 per call regardless of the requested
-    // page size, so we MUST loop until a short page is returned. The previous
-    // code requested 10000 and assumed only one extra page was needed if the
-    // first came back full — that silently truncated datasets > 5000 rows.
-    const PAGE = 5000;
-    let allSubscribers = [];
-    let subOffset = 0;
-    while (true) {
-      const batch = await base44.asServiceRole.entities.SubscriberRecord.list(
-        '-created_date', PAGE, subOffset
-      );
-      if (!batch || batch.length === 0) break;
-      allSubscribers = allSubscribers.concat(batch);
-      if (batch.length < PAGE) break;
-      subOffset += batch.length;
-      // Brief pause to avoid the platform's per-second read rate limit.
-      await new Promise(r => setTimeout(r, 500));
+    const { activeMeta, records: subscriberRecords } = await loadActiveSubscribers(base44);
+    if (!activeMeta) {
+      return Response.json({ success: true, message: 'No active subscriber upload found', updated: 0, complete: true });
+    }
+    if (subscriberRecords.length === 0) {
+      return Response.json({ success: true, message: 'Active subscriber upload has no records', updated: 0, complete: true });
     }
 
-    if (allSubscribers.length === 0) {
-      return Response.json({ success: true, message: 'No subscriber records found — nothing to sync', updated: 0 });
-    }
+    console.log(`[syncSubscriber] Loaded ${subscriberRecords.length} active subscriber records from upload ${activeMeta.id}`);
+    const lookups = buildSubscriberLookups(subscriberRecords);
 
-    console.log(`[syncSubscriber] Loaded ${allSubscribers.length} subscriber records`);
-
-    // ── 2. Build lookup maps ───────────────────────────────────────────────
-    const { compositeMap, serialMap } = buildLookups(allSubscribers);
-
-    // ── 3. Iterate ONTPerformanceRecords in pages & update matches ─────────
-    // Stable sort by id so resumable offsets are deterministic across calls.
-    const ONT_PAGE = 1000;
+    const requestedPageSize = Number.isFinite(body.ont_page_size) ? body.ont_page_size : 150;
+    const pageSize = Math.max(25, Math.min(200, requestedPageSize));
     let offset = startOffset;
-    let totalUpdated = 0;
-    let totalSkipped = 0;
-    let totalNoMatch = 0;
+    let updated = 0;
+    let skipped = 0;
+    let noMatch = 0;
     let batchesProcessed = 0;
     let exhausted = false;
 
     while (true) {
-      // Stop conditions before fetching the next page
       if (batchesProcessed >= maxBatches) break;
-      if ((Date.now() - startTime) > timeBudgetMs) break;
+      if (Date.now() - startTime > timeBudgetMs) break;
 
-      const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.list(
-        'id', ONT_PAGE, offset
-      );
+      const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.list('id', pageSize, offset);
+      if (!batch || batch.length === 0) {
+        exhausted = true;
+        break;
+      }
 
-      if (!batch || batch.length === 0) { exhausted = true; break; }
-
-      // Find records that need updating
-      const toUpdate = [];
       for (const record of batch) {
-        const match = matchSubscriber(record, compositeMap, serialMap);
+        const match = matchSubscriber(record, lookups);
         if (!match) {
-          totalNoMatch++;
+          noMatch++;
           continue;
         }
 
-        // Only update if any field has actually changed (avoid unnecessary writes)
+        const nextModel = match.model || record.model || '';
+        const nextTech = match.technology_type !== 'unknown'
+          ? match.technology_type
+          : detectTechnologyType(nextModel);
+
+        const fields = {
+          subscriber_account_name: match.subscriber_account_name,
+          subscriber_address: match.subscriber_address,
+          subscriber_model: match.subscriber_model,
+          ...(match.model && { model: match.model }),
+          technology_type: nextTech,
+        };
+
         const changed =
-          (record.subscriber_account_name || '') !== match.subscriber_account_name ||
-          (record.subscriber_address      || '') !== match.subscriber_address      ||
-          (record.subscriber_model        || '') !== match.subscriber_model;
+          (record.subscriber_account_name || '') !== (fields.subscriber_account_name || '') ||
+          (record.subscriber_address || '') !== (fields.subscriber_address || '') ||
+          (record.subscriber_model || '') !== (fields.subscriber_model || '') ||
+          (match.model && (record.model || '') !== match.model) ||
+          (record.technology_type || 'unknown') !== nextTech;
 
-        if (changed) {
-          toUpdate.push({ id: record.id, fields: match });
-        } else {
-          totalSkipped++;
+        if (!changed) {
+          skipped++;
+          continue;
         }
+
+        await updateRecordWithRetry(base44, record.id, fields);
+        updated++;
+        await sleep(120);
       }
 
-      // Sequential updates with a small delay — keeps us under the platform's
-      // strict per-second write rate limit. Slower than batched parallelism
-      // but reliable. Use the resumable start_offset/max_batches parameters
-      // to chunk the work across multiple invocations for very large datasets.
-      for (const { id, fields } of toUpdate) {
-        let attempt = 0;
-        while (true) {
-          try {
-            await base44.asServiceRole.entities.ONTPerformanceRecord.update(id, fields);
-            break;
-          } catch (err) {
-            attempt++;
-            const isRateLimit = err?.status === 429 || /rate limit/i.test(err?.message || '');
-            if (!isRateLimit || attempt >= 3) throw err;
-            await new Promise(r => setTimeout(r, attempt * 500 + 500));
-          }
-        }
-        await new Promise(r => setTimeout(r, 60)); // ~16 writes/sec
-      }
-
-      totalUpdated += toUpdate.length;
       offset += batch.length;
       batchesProcessed++;
+      console.log(`[syncSubscriber] Processed to offset ${offset}; updated=${updated}, skipped=${skipped}, noMatch=${noMatch}`);
 
-      console.log(`[syncSubscriber] Processed up to offset ${offset} — updated: ${totalUpdated}, skipped: ${totalSkipped}, no-match: ${totalNoMatch}`);
-
-      if (batch.length < ONT_PAGE) { exhausted = true; break; }
+      if (batch.length < pageSize) {
+        exhausted = true;
+        break;
+      }
     }
 
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     const nextOffset = exhausted ? null : offset;
-    console.log(`[syncSubscriber] Slice done in ${elapsed}s — updated: ${totalUpdated}, skipped: ${totalSkipped}, no-match: ${totalNoMatch}, next_offset: ${nextOffset}`);
+    let updatedReports = 0;
+    if (exhausted) {
+      updatedReports = await recalculateReportSummaries(base44);
+      console.log(`[syncSubscriber] Complete. Recalculated ${updatedReports} report summaries.`);
+    } else if (autoContinue) {
+      base44.functions.invoke('syncSubscriberToOntRecords', {
+        start_offset: nextOffset,
+        time_budget_ms: timeBudgetMs,
+        ont_page_size: pageSize,
+        auto_continue: true,
+      }).catch((error) => {
+        console.error('[syncSubscriber] Auto-continue failed:', error.message);
+      });
+    }
 
     return Response.json({
       success: true,
-      updated: totalUpdated,
-      skipped_unchanged: totalSkipped,
-      no_match: totalNoMatch,
-      elapsed_seconds: parseFloat(elapsed),
+      active_upload_id: activeMeta.id,
+      updated,
+      skipped_unchanged: skipped,
+      no_match: noMatch,
       start_offset: startOffset,
       next_offset: nextOffset,
       complete: exhausted,
+      auto_continue_started: !exhausted && autoContinue,
+      updated_report_summaries: updatedReports,
+      elapsed_seconds: Number(((Date.now() - startTime) / 1000).toFixed(1)),
     });
-
   } catch (error) {
     console.error('[syncSubscriber] Error:', error);
     return Response.json({ error: error.message }, { status: 500 });

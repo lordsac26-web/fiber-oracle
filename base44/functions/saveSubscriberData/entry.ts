@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       while (true) {
         const batch = await base44.asServiceRole.entities.SubscriberRecord.filter(
           { upload_id: meta_id },
-          'created_date',
+          'id',
           pageSize,
           offset
         );
@@ -94,13 +94,10 @@ Deno.serve(async (req) => {
         offset += pageSize;
       }
 
-      // Fire-and-forget background tasks
-      base44.functions.invoke('enrichPonPmFromSubscriber', {
-        subscriberRecords: allSubscriberRecords,
-      }).catch((err) => {
-        console.error('[saveSubscriberData] Enrichment failed to start:', err.message);
-      });
-      base44.functions.invoke('syncSubscriberToOntRecords', {}).catch((err) => {
+      // Fire-and-forget canonical subscriber → ONT sync.
+      // This replaces the older competing enrichPonPmFromSubscriber path so all
+      // persisted ONT model/technology counts use one normalization strategy.
+      base44.functions.invoke('syncSubscriberToOntRecords', { auto_continue: true }).catch((err) => {
         console.error('[saveSubscriberData] Background sync failed to start:', err.message);
       });
       base44.functions.invoke('purgeOrphanSubscriberRecords', {}).catch((err) => {
@@ -159,11 +156,6 @@ Deno.serve(async (req) => {
       offset += pageSize;
     }
 
-    base44.functions.invoke('enrichPonPmFromSubscriber', {
-      subscriberRecords: allSubscriberRecords,
-    }).catch((err) => {
-      console.error('[saveSubscriberData] Enrichment failed to start:', err.message);
-    });
     base44.functions.invoke('syncSubscriberToOntRecords', {}).catch((err) => {
       console.error('[saveSubscriberData] Background sync failed to start:', err.message);
     });

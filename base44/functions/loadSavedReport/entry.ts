@@ -121,7 +121,10 @@ function recordToOnt(rec) {
   // Override the re-derived status with the authoritative stored value
   analysis.status = storedStatus;
 
-  const modelTech = detectTechType(rec.model);
+  const authoritativeModel = rec.subscriber_model || rec.model || '';
+  const modelTech = rec.technology_type && rec.technology_type !== 'unknown'
+    ? rec.technology_type
+    : detectTechType(authoritativeModel);
   const comboInfo = detectComboPort(rec.shelf_slot_port);
 
   // Lean ONT shape — only include fields actually consumed by the frontend.
@@ -138,7 +141,7 @@ function recordToOnt(rec) {
     'Shelf/Slot/Port': rec.shelf_slot_port || '',
     OntID:            rec.ont_id || '',
     SerialNumber:     rec.serial_number || '',
-    model:            rec.model || '',
+    model:            authoritativeModel,
     OntRxOptPwr:      rec.ont_rx_power != null  ? String(rec.ont_rx_power)  : null,
     OLTRXOptPwr:      rec.olt_rx_power != null  ? String(rec.olt_rx_power)  : null,
     OntTxPwr:         rec.ont_tx_power != null  ? String(rec.ont_tx_power)  : null,
@@ -208,7 +211,7 @@ Deno.serve(async (req) => {
     while (true) {
       const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
         { report_id },
-        'shelf_slot_port',
+        'id',
         PAGE_SIZE,
         page * PAGE_SIZE
       );

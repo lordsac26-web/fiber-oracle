@@ -32,7 +32,7 @@ const THRESHOLDS = {
 };
 
 const FIELDS = [
-  'OLTName', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'model',
+  'OLTName', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'ONTModel', 'model',
   'OntRxOptPwr', 'OntTxPwr', 'OLTRXOptPwr',
   'UsSdberRate', 'DsSdberRate',
   'UpstreamBipErrors', 'UpstreamMissedBursts', 'UpstreamGemHecErrors',
@@ -264,17 +264,24 @@ Deno.serve(async (req) => {
     const subCompositeMap = new Map();
     const subSerialMap = new Map();
     try {
-      const PAGE = 10000;
-      const subPage1 = await base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, 0);
-      let allSubs = [...subPage1];
-      if (subPage1.length === PAGE) {
-        const [s2, s3, s4, s5] = await Promise.all([
-          base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE),
-          base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE * 2),
-          base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE * 3),
-          base44.asServiceRole.entities.SubscriberRecord.list('-created_date', PAGE, PAGE * 4),
-        ]);
-        allSubs = [...allSubs, ...s2, ...s3, ...s4, ...s5];
+      const activeMetas = await base44.asServiceRole.entities.SubscriberUploadMeta.filter({ status: 'active' }, '-created_date', 1);
+      const activeMeta = activeMetas?.[0] || null;
+      let allSubs = [];
+      if (activeMeta?.id) {
+        const PAGE = 5000;
+        let offset = 0;
+        while (true) {
+          const batch = await base44.asServiceRole.entities.SubscriberRecord.filter(
+            { upload_id: activeMeta.id },
+            'id',
+            PAGE,
+            offset
+          );
+          if (!batch || batch.length === 0) break;
+          allSubs = allSubs.concat(batch);
+          if (batch.length < PAGE) break;
+          offset += batch.length;
+        }
       }
       // Normalize ONT IDs identically on both sides so "01" matches "1".
       // Purely-numeric IDs have leading zeros stripped; alphanumeric IDs are
@@ -370,9 +377,9 @@ Deno.serve(async (req) => {
         // Normalize serial number
         const serial = normalizeSerial(ont.SerialNumber);
 
-        // No FSAN-prefix model fallback — subscriber enrichment below provides
-        // the authoritative model (e.g. 5222XG vs 5228XG) when available.
-        const model = ont.model;
+        // SMx exports commonly use ONTModel; older exports may use model.
+        // Subscriber enrichment below remains authoritative when available.
+        const model = ont.ONTModel || ont.model || '';
 
         // LCP lookup using robust Map-based matcher
         const oltName = ont.OLTName || '';
@@ -407,6 +414,7 @@ Deno.serve(async (req) => {
         // it over the OLT-reported model. This is the same precedence used in
         // the frontend enrichOntsWithSubscriber() — keeps DB rows consistent.
         const resolvedModel = subFields?.subscriber_model || model || '';
+        const resolvedTechnology = detectTechType(resolvedModel) || 'unknown';
 
         // Analyse
         const analysis = analyzeOnt(ont);
@@ -419,6 +427,7 @@ Deno.serve(async (req) => {
           olt_name: oltName,
           shelf_slot_port: shelfSlotPort,
           model: resolvedModel,
+          technology_type: resolvedTechnology,
           ont_rx_power: parseNumeric(ont.OntRxOptPwr),
           olt_rx_power: parseNumeric(ont.OLTRXOptPwr),
           ont_tx_power: parseNumeric(ont.OntTxPwr),
@@ -456,7 +465,7 @@ Deno.serve(async (req) => {
 
     // Tally final status counts from what was actually saved — these become the
     // authoritative numbers shown in the report list card and must match loadSavedReport.
-    let finalCritical = 0, finalWarning = 0, finalOk = 0, finalOffline = 0;
+    let finalCritical = 0, finalWarning = 0, finalOk = 0, finalOffline = 0, finalGpon = 0, finalXgs = 0;
     // We already computed analysis per record; tally from the batch results above
     // by re-reading the counts we tracked. Since we can't re-iterate the already-mapped
     // records array (it's out of scope per batch), do a lightweight DB count scan.
@@ -465,7 +474,7 @@ Deno.serve(async (req) => {
       let countPage = 0;
       while (true) {
         const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-          { report_id: reportId }, 'status', 2000, countPage * 2000
+          { report_id: reportId }, 'id', 2000, countPage * 2000
         );
         if (!batch || batch.length === 0) break;
         for (const r of batch) {
@@ -473,11 +482,13 @@ Deno.serve(async (req) => {
           else if (r.status === 'warning') finalWarning++;
           else if (r.status === 'offline') finalOffline++;
           else finalOk++;
+          if (r.technology_type === 'GPON') finalGpon++;
+          else if (r.technology_type === 'XGS-PON') finalXgs++;
         }
         if (batch.length < 2000) break;
         countPage++;
       }
-      console.log(`[processPonPmRecords] Final counts — critical: ${finalCritical}, warning: ${finalWarning}, ok: ${finalOk}, offline: ${finalOffline}`);
+      console.log(`[processPonPmRecords] Final counts — critical: ${finalCritical}, warning: ${finalWarning}, ok: ${finalOk}, offline: ${finalOffline}, GPON: ${finalGpon}, XGS-PON: ${finalXgs}`);
     } catch (countErr) {
       console.log(`[processPonPmRecords] Count scan failed (non-fatal): ${countErr.message}`);
     }
@@ -492,6 +503,8 @@ Deno.serve(async (req) => {
       critical_count: finalCritical,
       warning_count:  finalWarning,
       ok_count:       finalOk,
+      gpon_count:     finalGpon,
+      xgs_count:      finalXgs,
     });
 
     console.log(`[processPonPmRecords] Done — saved ${savedCount} records (LCP matched: ${lcpMatched}, unmatched: ${lcpUnmatched})`);
