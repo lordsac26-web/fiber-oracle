@@ -963,27 +963,58 @@ Deno.serve(async (req) => {
       .slice(0, 20);
 
     // ── Top 20 utilized LCP / CLCP locations ────────────────────────────────
+    const SPLITTER_CAP = 32;
+    const getSplitterStatus = (remaining) => {
+      if (remaining <= 0) return 'full';
+      if (remaining <= 4) return 'critical';
+      if (remaining <= 10) return 'warning';
+      return 'available';
+    };
     const lcpUtilMap = new Map();
     for (const r of currentRecs) {
-      const lcp = (r.lcp_number || '').trim();
+      const lcp = (r.lcp_number || '').trim().toUpperCase();
       if (!lcp) continue;
-      if (!lcpUtilMap.has(lcp)) lcpUtilMap.set(lcp, { lcp, totalOnts: 0, splitters: new Set() });
+      const splitter = (r.splitter_number || '').trim().toUpperCase() || 'UNKNOWN';
+      if (!lcpUtilMap.has(lcp)) {
+        lcpUtilMap.set(lcp, { lcp, splitters: new Map(), location: '', oltName: '' });
+      }
       const item = lcpUtilMap.get(lcp);
-      item.totalOnts++;
-      const splitter = (r.splitter_number || '').trim();
-      if (splitter) item.splitters.add(splitter);
+      item.splitters.set(splitter, (item.splitters.get(splitter) || 0) + 1);
+      if (!item.oltName && r.olt_name) item.oltName = r.olt_name;
     }
     const topLcpUtilization = [...lcpUtilMap.values()]
       .map(item => {
-        const splitterCount = item.splitters.size || 1;
+        const splitterRows = [...item.splitters.entries()].map(([splitter, count]) => {
+          const remaining = Math.max(0, SPLITTER_CAP - count);
+          return {
+            splitter,
+            count,
+            remaining,
+            utilizationPct: Math.min(100, (count / SPLITTER_CAP) * 100),
+            status: getSplitterStatus(remaining),
+          };
+        }).sort((a, b) => a.remaining - b.remaining || b.count - a.count);
+        const totalSplitters = splitterRows.length || 1;
+        const totalOnts = splitterRows.reduce((sum, row) => sum + row.count, 0);
+        const totalCapacity = totalSplitters * SPLITTER_CAP;
+        const totalRemaining = Math.max(0, totalCapacity - totalOnts);
+        const utilizationPct = totalCapacity > 0 ? (totalOnts / totalCapacity) * 100 : 0;
         return {
           lcp: item.lcp,
-          totalOnts: item.totalOnts,
-          splitterCount,
-          ontsPerSplitter: item.totalOnts / splitterCount,
+          oltName: item.oltName,
+          splitterRows,
+          totalSplitters,
+          totalOnts,
+          totalCapacity,
+          totalRemaining,
+          utilizationPct,
+          fullCount: splitterRows.filter(r => r.status === 'full').length,
+          criticalCount: splitterRows.filter(r => r.status === 'critical').length,
+          warningCount: splitterRows.filter(r => r.status === 'warning').length,
+          availableCount: splitterRows.filter(r => r.status === 'available').length,
         };
       })
-      .sort((a, b) => b.ontsPerSplitter - a.ontsPerSplitter || b.totalOnts - a.totalOnts)
+      .sort((a, b) => b.utilizationPct - a.utilizationPct || b.totalOnts - a.totalOnts)
       .slice(0, 20);
 
     // ── Customer branding ───────────────────────────────────────────────────
@@ -1249,7 +1280,7 @@ Deno.serve(async (req) => {
       y += 4;
     }
 
-    // ─── Top 20 utilized LCP / CLCP information — final report section ───
+    // ─── Top utilized LCP / CLCP information — compact capacity-planning style ───
     y = startSectionPage(doc, customerName);
     y = sectionTitle(doc, `Top ${topLcpUtilization.length} Utilized LCP / CLCP Locations`, y, C.purple);
     if (topLcpUtilization.length === 0) {
@@ -1259,24 +1290,133 @@ Deno.serve(async (req) => {
       doc.text('No LCP / CLCP utilization data available for the current report.', M + 4, y + 2, { maxWidth: CW - 8 });
       y += 10;
     } else {
-      const cols = [
-        { label: 'LCP / CLCP',       x: M + 5 },
-        { label: 'Total ONTs',       x: M + 92, align: 'right' },
-        { label: 'Splitter Count',   x: M + 132, align: 'right' },
-        { label: 'ONTs / Splitter',  x: M + CW - 4, align: 'right' },
-      ];
-      y = tableHeader(doc, y, cols);
+      const summaryStats = topLcpUtilization.reduce((acc, g) => {
+        acc.lcps++;
+        acc.splitters += g.totalSplitters;
+        acc.onts += g.totalOnts;
+        acc.full += g.fullCount;
+        acc.critical += g.criticalCount;
+        acc.warning += g.warningCount;
+        acc.available += g.availableCount;
+        return acc;
+      }, { lcps: 0, splitters: 0, onts: 0, full: 0, critical: 0, warning: 0, available: 0 });
+
+      const statW = (CW - 12) / 5;
+      [
+        { label: 'LCP/CLCPs', value: summaryStats.lcps, color: C.dark },
+        { label: 'Splitters', value: summaryStats.splitters, color: C.dark },
+        { label: 'Full', value: summaryStats.full, color: C.red },
+        { label: 'Critical', value: summaryStats.critical, color: C.amber },
+        { label: 'Warning', value: summaryStats.warning, color: C.amber },
+      ].forEach((stat, i) => {
+        const x = M + i * (statW + 3);
+        doc.setFillColor(...C.white);
+        doc.setDrawColor(...C.border);
+        doc.roundedRect(x, y, statW, 17, 2, 2, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(...stat.color);
+        doc.text(String(stat.value), x + statW / 2, y + 8, { align: 'center' });
+        doc.setFontSize(5.8);
+        doc.setTextColor(...C.muted);
+        doc.text(stat.label.toUpperCase(), x + statW / 2, y + 13.5, { align: 'center' });
+      });
+      y += 22;
+
+      const drawUtilBar = (x, yy, w, h, pct) => {
+        const color = pct >= 100 ? C.red : pct >= 87.5 ? C.amber : pct >= 68.75 ? [234, 179, 8] : C.green;
+        doc.setFillColor(226, 232, 240);
+        doc.roundedRect(x, yy, w, h, h / 2, h / 2, 'F');
+        doc.setFillColor(...color);
+        doc.roundedRect(x, yy, Math.max(1.2, Math.min(w, (pct / 100) * w)), h, h / 2, h / 2, 'F');
+      };
+
       for (let i = 0; i < topLcpUtilization.length; i++) {
-        y = maybeNewPage(doc, y, 8, customerName);
-        const r = topLcpUtilization[i];
-        y = tableRow(doc, y, [
-          { value: r.lcp, x: M + 5, maxW: 80 },
-          { value: r.totalOnts.toLocaleString(), x: M + 92, maxW: 28, align: 'right' },
-          { value: r.splitterCount.toLocaleString(), x: M + 132, maxW: 28, align: 'right' },
-          { value: r.ontsPerSplitter.toFixed(1), x: M + CW - 4, maxW: 30, align: 'right' },
-        ], i % 2 === 0);
+        const g = topLcpUtilization[i];
+        const cardH = 16 + Math.min(3, g.splitterRows.length) * 7;
+        y = maybeNewPage(doc, y, cardH + 4, customerName);
+        const pct = Math.round(g.utilizationPct || 0);
+        const x = M + 1.5;
+        const w = CW - 3;
+        const ringColor = g.fullCount > 0 ? C.red : g.criticalCount > 0 ? C.amber : g.warningCount > 0 ? [234, 179, 8] : C.green;
+
+        doc.setFillColor(...C.white);
+        doc.setDrawColor(...ringColor);
+        doc.setLineWidth(0.45);
+        doc.roundedRect(x, y, w, cardH, 2, 2, 'FD');
+
+        doc.setFillColor(...C.indigo);
+        doc.roundedRect(x + 3, y + 3, 26, 6, 1.5, 1.5, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(...C.white);
+        doc.text(fitText(doc, g.lcp, 21), x + 16, y + 7.2, { align: 'center' });
+
+        doc.setTextColor(...C.dark);
+        doc.setFontSize(7.2);
+        doc.text(`${g.totalSplitters} splitter${g.totalSplitters !== 1 ? 's' : ''} · ${g.totalOnts} ONTs · ${pct}% utilized`, x + 33, y + 6.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.8);
+        doc.setTextColor(...C.muted);
+        const subline = `${g.totalRemaining} remaining · ${g.totalCapacity} total capacity${g.oltName ? ` · ${g.oltName}` : ''}`;
+        doc.text(fitText(doc, subline, 78), x + 33, y + 11.5);
+
+        const badgeY = y + 3.2;
+        let badgeX = x + 104;
+        const badges = [
+          { label: `${g.fullCount} full`, value: g.fullCount, color: C.red },
+          { label: `${g.criticalCount} critical`, value: g.criticalCount, color: C.amber },
+          { label: `${g.warningCount} warn`, value: g.warningCount, color: [234, 179, 8] },
+        ].filter(b => b.value > 0);
+        if (badges.length === 0) badges.push({ label: 'All OK', value: 1, color: C.green });
+        badges.forEach(b => {
+          const bw = Math.max(16, doc.getTextWidth(b.label) + 5);
+          doc.setFillColor(...b.color);
+          doc.roundedRect(badgeX, badgeY, bw, 5.5, 1.4, 1.4, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.5);
+          doc.setTextColor(...C.white);
+          doc.text(b.label, badgeX + bw / 2, badgeY + 3.8, { align: 'center' });
+          badgeX += bw + 2;
+        });
+
+        drawUtilBar(x + w - 42, y + 10, 28, 2.8, pct);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.8);
+        doc.setTextColor(...C.dark);
+        doc.text(`${pct}%`, x + w - 7, y + 12.7, { align: 'right' });
+
+        let sy = y + 17;
+        g.splitterRows.slice(0, 3).forEach(row => {
+          const spPct = Math.round(row.utilizationPct || 0);
+          const statusColor = row.status === 'full' ? C.red : row.status === 'critical' ? C.amber : row.status === 'warning' ? [234, 179, 8] : C.green;
+          doc.setFillColor(...C.lightBg);
+          doc.rect(x + 4, sy - 3.7, w - 8, 5.7, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(5.8);
+          doc.setTextColor(...statusColor);
+          doc.text(row.status.toUpperCase(), x + 7, sy);
+          doc.setTextColor(...C.dark);
+          doc.text(`Splitter ${row.splitter}`, x + 35, sy);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`${row.count} ONTs`, x + 76, sy);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(...statusColor);
+          doc.text(`${row.remaining} left`, x + 100, sy);
+          drawUtilBar(x + 123, sy - 2.4, 30, 2.4, spPct);
+          doc.setTextColor(...C.muted);
+          doc.text(`${spPct}%`, x + w - 7, sy, { align: 'right' });
+          sy += 7;
+        });
+
+        if (g.splitterRows.length > 3) {
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(5.5);
+          doc.setTextColor(...C.muted);
+          doc.text(`+${g.splitterRows.length - 3} additional splitter${g.splitterRows.length - 3 !== 1 ? 's' : ''}`, x + 7, sy - 1.5);
+        }
+        y += cardH + 3;
       }
-      y += 4;
     }
 
     // ─── Stamp footer on every page ──────────────────────────────────────
