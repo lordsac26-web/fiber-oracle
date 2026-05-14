@@ -1446,6 +1446,13 @@ Deno.serve(async (req) => {
       ];
       y = tableHeader(doc, y, cols);
       for (let i = 0; i < topCritical.length; i++) {
+        if (i === 15) {
+          doc.addPage();
+          drawHeaderCompact(doc, customerName);
+          y = 18;
+          y = sectionTitle(doc, `Top ${topCritical.length} Critical ONTs (continued)`, y, C.red);
+          y = tableHeader(doc, y, cols);
+        }
         y = maybeNewPage(doc, y, 12, customerName);
         const r = topCritical[i];
         const triggers = r.criticalTriggers.length > 0
