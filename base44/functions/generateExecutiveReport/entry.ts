@@ -1431,7 +1431,7 @@ Deno.serve(async (req) => {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename=FiberOracle-System-Report-${dateStr}.pdf`,
+        'Content-Disposition': `attachment; filename=FiberOracle-Comprehensive-Report-${dateStr}.pdf`,
         'Cache-Control': 'no-store',
       },
     });
