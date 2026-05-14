@@ -296,7 +296,14 @@ Deno.serve(async (req) => {
     const okCount       = allRecords.filter(r => r.status === 'ok').length;
     const offlineCount  = allRecords.filter(r => r.status === 'offline').length;
 
+    // Recalculate GPON/XGS-PON counts from loaded ONT objects (which have refreshed _techType
+    // after subscriber enrichment). Do NOT use the stale gpon_count/xgs_count from PONPMReport,
+    // which were computed at original ingest before subscriber data was uploaded.
+    const gponCount = onts.filter(o => o._techType === 'GPON').length;
+    const xgsCount  = onts.filter(o => o._techType === 'XGS-PON' || o._techType?.includes('XGS')).length;
+
     console.log(`[loadSavedReport] Counts from stored status — total: ${allRecords.length}, critical: ${criticalCount}, warning: ${warningCount}, ok: ${okCount}, offline: ${offlineCount}`);
+    console.log(`[loadSavedReport] Technology counts — GPON: ${gponCount}, XGS-PON: ${xgsCount}`);
 
     const summary = {
       totalOnts:     allRecords.length,
@@ -306,6 +313,8 @@ Deno.serve(async (req) => {
       offlineCount,
       oltCount:      Object.keys(olts).length,
       portCount:     Object.values(olts).reduce((s, o) => s + Object.keys(o.ports).length, 0),
+      gponCount,
+      xgsCount,
     };
 
     return Response.json({ success: true, summary, olts, onts, source: 'database' });
