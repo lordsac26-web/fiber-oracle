@@ -6,7 +6,7 @@ export const EXAM_QUESTIONS = {
   fiber101: {
     title: 'Fiber 101 Certification Exam',
     subtitle: 'Foundations of Fiber Optics & FTTH',
-    passingScore: 70,
+    passingScore: 80,
     timeLimit: 45, // minutes
     totalQuestions: 40,
     questions: [
@@ -704,7 +704,7 @@ export const EXAM_QUESTIONS = {
   fiber102: {
     title: 'Fiber 102 Certification Exam',
     subtitle: 'Intermediate PON & FTTH',
-    passingScore: 75,
+    passingScore: 80,
     timeLimit: 60,
     totalQuestions: 40,
     questions: [
