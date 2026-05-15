@@ -2,17 +2,89 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Router, Wifi, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Router, Wifi, AlertTriangle, CheckCircle2, ExternalLink, Download } from 'lucide-react';
 
 const MODEL_RANGES = [
-  { vendor: 'Calix', model: 'GP1100X / 700GE class', tech: 'GPON', ontRx: '-8 to -27 dBm', target: '-14 to -23 dBm', ontTx: '+0.5 to +5 dBm', note: 'Investigate below -25 dBm if FEC/BIP is rising.' },
-  { vendor: 'Calix', model: 'GigaSpire GPON ONT', tech: 'GPON', ontRx: '-8 to -27 dBm', target: '-15 to -22 dBm', ontTx: '+0.5 to +5 dBm', note: 'Stable residential target range for most deployments.' },
-  { vendor: 'Calix', model: 'GigaPoint / XGS ONT', tech: 'XGS-PON', ontRx: '-9 to -26 dBm', target: '-14 to -22 dBm', ontTx: '+2 to +7 dBm', note: 'Watch corrected FEC if Rx is worse than -24 dBm.' },
-  { vendor: 'Adtran', model: 'SDX GPON ONT', tech: 'GPON', ontRx: '-8 to -27 dBm', target: '-14 to -23 dBm', ontTx: '+0.5 to +5 dBm', note: 'Treat repeated ranging events as marginal even if Rx passes.' },
-  { vendor: 'Adtran', model: 'SDX XGS-PON ONT', tech: 'XGS-PON', ontRx: '-9 to -26 dBm', target: '-14 to -22 dBm', ontTx: '+2 to +7 dBm', note: 'Prefer 4 dB+ receiver margin for 10G stability.' },
-  { vendor: 'Nokia', model: '7368 GPON ONT', tech: 'GPON', ontRx: '-8 to -27 dBm', target: '-15 to -23 dBm', ontTx: '+0.5 to +5 dBm', note: 'Escalate if GEM/HEC appears with clean power levels.' },
-  { vendor: 'Nokia', model: 'XS-010X-Q / XS class', tech: 'XGS-PON', ontRx: '-9 to -26 dBm', target: '-14 to -22 dBm', ontTx: '+2 to +7 dBm', note: 'Check coexistence optics if many XGS ONTs degrade together.' },
-  { vendor: 'Zyxel / Dasan', model: 'Generic GPON SFU/HGU', tech: 'GPON', ontRx: '-8 to -27 dBm', target: '-14 to -23 dBm', ontTx: '+0.5 to +5 dBm', note: 'Confirm model datasheet before accepting edge values.' },
+  {
+    vendor: 'Calix',
+    model: '812G GigaHub',
+    tech: 'GPON',
+    ontRx: '-8 to -27 dBm',
+    target: '-14 to -23 dBm',
+    ontTx: '+0.5 to +5 dBm',
+    note: 'Residential GPON gateway. Investigate below -25 dBm if FEC/BIP is rising.',
+    datasheets: [{ label: '812G ANSI', url: 'https://media.base44.com/files/public/6927bc307b96037b8506c608/5ccbc1bcf_812G-GH-ANSI.pdf' }],
+  },
+  {
+    vendor: 'Calix',
+    model: '812G / 813G GigaHub',
+    tech: 'GPON',
+    ontRx: '-8 to -27 dBm',
+    target: '-14 to -23 dBm',
+    ontTx: '+0.5 to +5 dBm',
+    note: 'GPON gateway family; 813G adds integrated 2.4 GHz Wi-Fi.',
+    datasheets: [{ label: '812G/813G V2', url: 'https://media.base44.com/files/public/6927bc307b96037b8506c608/321f79180_812G-V2.pdf' }],
+  },
+  {
+    vendor: 'Calix',
+    model: '700GE Series',
+    tech: 'GPON',
+    ontRx: '-8 to -27 dBm',
+    target: '-14 to -23 dBm',
+    ontTx: '+0.5 to +5 dBm',
+    note: 'Includes GPON/AE ONTs; verify exact model and optics before accepting edge values.',
+    datasheets: [{ label: '700GE Series', url: 'https://media.base44.com/files/public/6927bc307b96037b8506c608/a714e7f2a_P700-SERIES.pdf' }],
+  },
+  {
+    vendor: 'Calix',
+    model: 'GP1101X GigaPoint',
+    tech: 'XGS-PON',
+    ontRx: '-9 to -26 dBm',
+    target: '-14 to -22 dBm',
+    ontTx: '+2 to +7 dBm',
+    note: 'Small-form XGS-PON demarc. Watch corrected FEC if Rx is worse than -24 dBm.',
+    datasheets: [{ label: 'GP1101X', url: 'https://media.base44.com/files/public/6927bc307b96037b8506c608/580c6c0f7_GP1101X.pdf' }],
+  },
+  {
+    vendor: 'Calix',
+    model: 'GP4201X',
+    tech: 'XGS-PON',
+    ontRx: '-9 to -26 dBm',
+    target: '-14 to -22 dBm',
+    ontTx: '+2 to +7 dBm',
+    note: 'Indoor XGS-PON terminal with 10GE and multiple GE interfaces.',
+    datasheets: [{ label: 'GP4201X', url: 'https://media.base44.com/files/public/6927bc307b96037b8506c608/6e3a4ca48_GP4201X.pdf' }],
+  },
+  {
+    vendor: 'Calix',
+    model: 'GP4201XH',
+    tech: 'XGS-PON',
+    ontRx: '-9 to -26 dBm',
+    target: '-14 to -22 dBm',
+    ontTx: '+2 to +7 dBm',
+    note: 'Outdoor hardened XGS-PON ONT; consider temperature/enclosure conditions during triage.',
+    datasheets: [{ label: 'GP4201XH', url: 'https://media.base44.com/files/public/6927bc307b96037b8506c608/fa241b236_GP4201XH.pdf' }],
+  },
+  {
+    vendor: 'Zhone',
+    model: '5222XG',
+    tech: 'XGS-PON',
+    ontRx: '-9 to -26 dBm',
+    target: '-14 to -22 dBm',
+    ontTx: '+2 to +7 dBm',
+    note: 'XGS-PON ONT with 10GBase-T and voice interfaces.',
+    datasheets: [{ label: '5222XG', url: 'https://media.base44.com/files/public/6927bc307b96037b8506c608/13a95b1ea_5222XG-DATASHEET.pdf' }],
+  },
+  {
+    vendor: 'Zhone',
+    model: '5228XG',
+    tech: 'XGS-PON',
+    ontRx: '-9 to -26 dBm',
+    target: '-14 to -22 dBm',
+    ontTx: '+2 to +7 dBm',
+    note: 'XGS-PON Wi-Fi 6 ONT; compare optical counters separately from Wi-Fi symptoms.',
+    datasheets: [{ label: '5228XG', url: 'https://media.base44.com/files/public/6927bc307b96037b8506c608/84f2d2573_5228XG-DATASHEET.pdf' }],
+  },
 ];
 
 const statusGuidance = [
@@ -43,6 +115,7 @@ export default function VendorModelRanges() {
                   <TableHead>Spec Rx</TableHead>
                   <TableHead>Preferred Target</TableHead>
                   <TableHead>ONT Tx</TableHead>
+                  <TableHead>Datasheet</TableHead>
                   <TableHead>NOC Note</TableHead>
                 </TableRow>
               </TableHeader>
@@ -55,6 +128,31 @@ export default function VendorModelRanges() {
                     <TableCell className="font-mono text-sm">{row.ontRx}</TableCell>
                     <TableCell className="font-mono text-sm text-emerald-700">{row.target}</TableCell>
                     <TableCell className="font-mono text-sm">{row.ontTx}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        {row.datasheets?.map((sheet) => (
+                          <div key={sheet.url} className="flex items-center gap-2 text-xs">
+                            <a
+                              href={sheet.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              View {sheet.label}
+                            </a>
+                            <a
+                              href={sheet.url}
+                              download
+                              className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-800 hover:underline"
+                            >
+                              <Download className="h-3 w-3" />
+                              Download
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm text-gray-600 dark:text-gray-400">{row.note}</TableCell>
                   </TableRow>
                 ))}
