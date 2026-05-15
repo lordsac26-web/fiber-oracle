@@ -15,8 +15,8 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 
 // Study guide content for each module
 const STUDY_GUIDES = {
@@ -405,34 +405,24 @@ export default function StudyGuide({ courseId }) {
     );
   }
 
-  const handleDownloadPDF = async (saveOffline = false) => {
+  const handleDownloadPDF = async () => {
     setIsDownloading(true);
     try {
-      const response = await base44.functions.invoke('generatePDF', { 
-         type: 'studyGuide',
-         data: {
-           courseId,
-           title: guide.title,
-           subtitle: guide.subtitle,
-           passingScore: guide.passingScore,
-           sections: guide.sections
-         }
-       }, { responseType: 'arraybuffer' });
+      await downloadPdfFromFunction('generatePDF', {
+        type: 'studyGuide',
+        data: {
+          courseId,
+          title: guide.title,
+          subtitle: guide.subtitle,
+          passingScore: guide.passingScore,
+          sections: guide.sections,
+        },
+      }, `${guide.title.replace(/\s+/g, '-')}.pdf`);
 
-       toast.success('Study guide generated successfully');
-
-       const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${guide.title.replace(/\s+/g, '-')}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
+      toast.success('Study guide generated successfully');
     } catch (error) {
       console.error('PDF generation failed:', error);
-      toast.error('Failed to generate PDF');
+      toast.error(error.message || 'Failed to generate PDF');
     } finally {
       setIsDownloading(false);
     }

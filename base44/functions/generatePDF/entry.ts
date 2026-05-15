@@ -137,15 +137,18 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
 
-    // Admin-only: generates PDFs that may embed sensitive subscriber data,
-    // job report details, and customer branding fetched from user preferences.
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    if (user.role !== 'admin') {
+
+    const { type, data } = await req.json();
+
+    // Study guides contain public course material and should be downloadable by any signed-in learner.
+    // PDFs that can include subscriber/job data or administrative branding remain admin-only.
+    const adminOnlyTypes = new Set(['jobReport']);
+    if (adminOnlyTypes.has(type) && user.role !== 'admin') {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
-    const { type, data } = await req.json();
-    const branding = await resolveBranding(user);
+    const branding = type === 'jobReport' ? await resolveBranding(user) : {};
     let pdfBytes;
 
     switch (type) {
@@ -685,33 +688,33 @@ function generateBrochurePDF() {
 //  STUDY GUIDE PDF — clean professional document
 // ═══════════════════════════════════════════════════════════════════════════════
 function generateStudyGuidePDF(data) {
-  const { courseId, title, subtitle, passingScore, sections } = data;
+  const { courseId, title, subtitle, passingScore, sections = [] } = data;
   const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 16;
   const CW = W - 2 * M;
-  const HEADER_H = 24;
-  const FOOTER_H = 12;
-  const BODY_TOP = HEADER_H + 10;
+  const HEADER_H = 22;
+  const FOOTER_H = 11;
+  const BODY_TOP = HEADER_H + 12;
   const BODY_BOTTOM = H - FOOTER_H - 10;
 
   const courseColors = {
     fiber101: [16, 185, 129],
-    fiber102: [59, 130, 246],
-    fiber103: [168, 85, 247],
+    fiber102: [37, 99, 235],
+    fiber103: [124, 58, 237],
   };
   const accent = courseColors[courseId] || courseColors.fiber101;
   const C = {
-    header: [15, 23, 42],
+    ink: [15, 23, 42],
     dark: [30, 41, 59],
     slate: [71, 85, 105],
     muted: [100, 116, 139],
     border: [226, 232, 240],
-    light: [248, 250, 252],
+    soft: [248, 250, 252],
     white: [255, 255, 255],
     amberBg: [255, 251, 235],
-    amberBorder: [245, 158, 11],
+    amberText: [146, 64, 14],
     redBg: [254, 242, 242],
     redText: [185, 28, 28],
   };
@@ -721,42 +724,42 @@ function generateStudyGuidePDF(data) {
 
   const drawHeader = () => {
     pageNumber += 1;
-    doc.setFillColor(...C.header);
+    doc.setFillColor(...C.ink);
     doc.rect(0, 0, W, HEADER_H, 'F');
     doc.setFillColor(...accent);
-    doc.rect(0, HEADER_H, W, 1.4, 'F');
+    doc.rect(0, HEADER_H, W, 1.2, 'F');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(10.5);
     doc.setTextColor(...C.white);
-    doc.text('FIBER ORACLE', M, 10);
-    doc.setFontSize(7);
-    doc.setTextColor(203, 213, 225);
-    doc.text('Education Center', M, 16.5);
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...C.white);
-    doc.text(s(title), W - M, 10, { align: 'right' });
+    doc.text('FIBER ORACLE', M, 9);
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
     doc.setTextColor(203, 213, 225);
-    doc.text(s(subtitle), W - M, 16.5, { align: 'right' });
+    doc.text('Professional Certification Study Guide', M, 15.2);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.6);
+    doc.setTextColor(...C.white);
+    doc.text(s(title), W - M, 9, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.setTextColor(203, 213, 225);
+    doc.text(s(subtitle), W - M, 15.2, { align: 'right' });
   };
 
   const drawFooter = () => {
-    doc.setFillColor(...C.header);
+    doc.setFillColor(...C.ink);
     doc.rect(0, H - FOOTER_H, W, FOOTER_H, 'F');
-    doc.setFillColor(...accent);
-    doc.rect(0, H - FOOTER_H, W, 0.6, 'F');
+    doc.setTextColor(148, 163, 184);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
-    doc.setTextColor(148, 163, 184);
-    doc.text('fiberoracle.com', M, H - 4.5);
-    doc.text(`Page ${pageNumber}`, W / 2, H - 4.5, { align: 'center' });
-    doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), W - M, H - 4.5, { align: 'right' });
+    doc.text('fiberoracle.com', M, H - 4.2);
+    doc.text(`Page ${pageNumber}`, W / 2, H - 4.2, { align: 'center' });
+    doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), W - M, H - 4.2, { align: 'right' });
   };
 
-  const newPage = () => {
+  const addPage = () => {
     if (pageNumber > 0) {
       drawFooter();
       doc.addPage();
@@ -765,87 +768,127 @@ function generateStudyGuidePDF(data) {
     y = BODY_TOP;
   };
 
-  const ensureSpace = (needed) => {
-    if (y + needed > BODY_BOTTOM) newPage();
+  const ensureSpace = (height) => {
+    if (y + height > BODY_BOTTOM) addPage();
+  };
+
+  const drawSmallCaps = (text, x, yy, color = C.muted) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(...color);
+    doc.text(s(text).toUpperCase(), x, yy);
   };
 
   const drawSection = (section, index) => {
     ensureSpace(18);
-    doc.setFillColor(...accent);
-    doc.roundedRect(M, y, CW, 8.5, 1.5, 1.5, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(...C.white);
-    doc.text(`${index + 1}. ${s(section.title).toUpperCase()}`, M + 4, y + 5.8);
-    y += 12;
+    doc.setDrawColor(...C.border);
+    doc.setLineWidth(0.3);
+    doc.line(M, y, M + CW, y);
+    y += 6;
 
-    section.content.forEach((item) => {
+    doc.setFillColor(...accent);
+    doc.roundedRect(M, y - 3.8, 8, 8, 2, 2, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(...C.white);
+    doc.text(String(index + 1).padStart(2, '0'), M + 4, y + 1.3, { align: 'center' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(...C.dark);
+    doc.text(s(section.title), M + 12, y + 1.5);
+    y += 10;
+
+    (section.content || []).forEach((item) => {
       const term = s(item.term);
       const definition = s(item.definition);
-      const defLines = doc.splitTextToSize(definition, CW - 14);
-      const rowH = Math.max(13, 7 + defLines.length * 4.4);
-      ensureSpace(rowH + 2);
-
       const isCritical = /critical|never do|warning/i.test(term);
-      doc.setFillColor(...(isCritical ? C.redBg : C.light));
+      const defLines = doc.splitTextToSize(definition, CW - 18);
+      const rowH = Math.max(14, 8 + defLines.length * 4.3);
+      ensureSpace(rowH + 2.5);
+
+      doc.setFillColor(...(isCritical ? C.redBg : C.soft));
       doc.setDrawColor(...(isCritical ? C.redText : C.border));
       doc.setLineWidth(0.25);
-      doc.roundedRect(M, y, CW, rowH, 1.5, 1.5, 'FD');
+      doc.roundedRect(M, y, CW, rowH, 2, 2, 'FD');
 
       doc.setFillColor(...(isCritical ? C.redText : accent));
-      doc.roundedRect(M, y, 3, rowH, 1, 1, 'F');
+      doc.roundedRect(M, y, 3.5, rowH, 1.2, 1.2, 'F');
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.8);
+      doc.setFontSize(8.2);
       doc.setTextColor(...(isCritical ? C.redText : C.dark));
-      doc.text(term, M + 7, y + 5.2);
+      doc.text(term, M + 7, y + 5.3);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.4);
       doc.setTextColor(...C.slate);
-      doc.text(defLines, M + 7, y + 10);
-      y += rowH + 2.4;
+      doc.text(defLines, M + 7, y + 10.3);
+      y += rowH + 2.5;
     });
+
     y += 3;
   };
 
-  // Cover page
-  newPage();
-  doc.setFillColor(...C.light);
-  doc.roundedRect(M, y, CW, 54, 3, 3, 'F');
+  addPage();
+
+  // Professional cover card
+  doc.setFillColor(...C.soft);
+  doc.roundedRect(M, y, CW, 62, 4, 4, 'F');
   doc.setDrawColor(...C.border);
-  doc.roundedRect(M, y, CW, 54, 3, 3, 'S');
+  doc.roundedRect(M, y, CW, 62, 4, 4, 'S');
   doc.setFillColor(...accent);
-  doc.roundedRect(M, y, 4, 54, 2, 2, 'F');
+  doc.roundedRect(M, y, 5, 62, 2, 2, 'F');
 
+  drawSmallCaps('Certification Reference', M + 12, y + 12, accent);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.setTextColor(...C.dark);
-  doc.text(s(title), M + 9, y + 17);
+  doc.setFontSize(24);
+  doc.setTextColor(...C.ink);
+  doc.text(s(title), M + 12, y + 25);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(...C.muted);
-  doc.text(s(subtitle), M + 9, y + 27);
+  doc.setFontSize(10.5);
+  doc.setTextColor(...C.slate);
+  doc.text(s(subtitle), M + 12, y + 34);
 
   doc.setFillColor(...accent);
-  doc.roundedRect(M + 9, y + 35, 48, 8, 4, 4, 'F');
+  doc.roundedRect(M + 12, y + 44, 46, 8.5, 4.2, 4.2, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
   doc.setTextColor(...C.white);
-  doc.text(`PASSING SCORE: ${passingScore}%`, M + 33, y + 40.4, { align: 'center' });
+  doc.text(`PASSING SCORE ${passingScore}%`, M + 35, y + 49.6, { align: 'center' });
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.2);
+  doc.setTextColor(...C.muted);
+  doc.text('Prepared for field technicians, installers, and certification candidates.', M + 64, y + 49.6);
+
+  y += 72;
 
   doc.setFillColor(...C.amberBg);
-  doc.setDrawColor(...C.amberBorder);
-  doc.roundedRect(M, y + 64, CW, 24, 2, 2, 'FD');
+  doc.setDrawColor(245, 158, 11);
+  doc.roundedRect(M, y, CW, 22, 2, 2, 'FD');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(146, 64, 14);
-  doc.text('Open-book reference', M + 5, y + 72);
+  doc.setFontSize(8.2);
+  doc.setTextColor(...C.amberText);
+  doc.text('Open-book exam reference', M + 5, y + 7.5);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.4);
-  doc.text(doc.splitTextToSize('Use this guide during the certification exam. The Fiber 101 exam now rotates 40 questions from a larger source-referenced question bank.', CW - 10), M + 5, y + 79);
+  doc.setFontSize(7.3);
+  doc.text(doc.splitTextToSize('Use this guide during the certification exam. Questions rotate from an expanded source-aligned bank, so focus on understanding concepts rather than memorizing answers.', CW - 10), M + 5, y + 14);
+  y += 32;
 
-  y += 100;
+  // Table of contents
+  ensureSpace(20 + sections.length * 5);
+  drawSmallCaps('Guide Contents', M, y, accent);
+  y += 5;
+  sections.forEach((section, index) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.3);
+    doc.setTextColor(...C.slate);
+    doc.text(`${String(index + 1).padStart(2, '0')}  ${s(section.title)}`, M, y);
+    y += 4.6;
+  });
+  y += 7;
+
   sections.forEach((section, index) => drawSection(section, index));
 
   drawFooter();
