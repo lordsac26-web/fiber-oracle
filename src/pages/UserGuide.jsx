@@ -206,7 +206,7 @@ export default function UserGuide() {
         <p>Use the Search function to search by keyword, document title, or topic. Browse by category from the home page. Categories include Installation, Troubleshooting, Maintenance, Safety, Specifications, Training, and custom categories.</p>
 
         <h3>Fiber 101/102/103 Courses</h3>
-        <p>Structured training with slide-based lessons, downloadable study guides, progress tracking, certification exams, and downloadable certificates. Passing scores are Fiber 101: 70%, Fiber 102: 75%, and Fiber 103: 80%.</p>
+        <p>Structured training with slide-based lessons, downloadable study guides, progress tracking, certification exams, and downloadable certificates. Passing scores for Fiber 101, Fiber 102, and Fiber 103 are 80%.</p>
 
         <h3>NOC Level 2 References</h3>
         <p>Reference Tables now include vendor/model known-good optical ranges and a Rogue ONT / multiple-ONT impact guide for escalation triage. Use these with PON PM analysis to compare ONTs on the same splitter, PON port, or OLT card.</p>
