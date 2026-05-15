@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { BookOpen, Search, Zap, Cable, Scissors, Radio, Palette, Plug, X, GraduationCap, ChevronDown, ChevronUp, Network, ArrowRightLeft, RotateCcw, Minus, Lightbulb, Layers } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import GlossaryDiagrams from '@/components/reference/GlossaryDiagrams';
+import VendorModelRanges from '@/components/reference/VendorModelRanges';
+import RogueOntGuide from '@/components/reference/RogueOntGuide';
 import { 
   FIBER_ATTENUATION, 
   CONNECTOR_LOSS, 
@@ -453,6 +455,12 @@ export default function ReferenceTables() {
             <Radio className="h-4 w-4 mr-2" />
             Standards
           </TabsTrigger>
+          <TabsTrigger value="vendor-ranges" className="rounded-lg data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
+            Vendor Ranges
+          </TabsTrigger>
+          <TabsTrigger value="rogue-ont" className="rounded-lg data-[state=active]:bg-red-100 data-[state=active]:text-red-700">
+            Rogue ONT
+          </TabsTrigger>
           <TabsTrigger value="otdr" className="rounded-lg data-[state=active]:bg-pink-100 data-[state=active]:text-pink-700">
             OTDR Events
           </TabsTrigger>
@@ -814,6 +822,14 @@ export default function ReferenceTables() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="vendor-ranges">
+          <VendorModelRanges />
+        </TabsContent>
+
+        <TabsContent value="rogue-ont">
+          <RogueOntGuide />
         </TabsContent>
 
         {/* OTDR Events Table */}

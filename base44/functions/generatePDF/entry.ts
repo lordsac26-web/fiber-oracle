@@ -156,6 +156,10 @@ Deno.serve(async (req) => {
       case 'studyGuide':  pdfBytes = generateStudyGuidePDF(data); break;
       case 'jobReport':   pdfBytes = generateJobReportPDF(data, branding); break;
       case 'certificate': pdfBytes = generateCertificatePDF(data); break;
+      case 'user_manual':
+      case 'quick_reference':
+      case 'changelog':
+      case 'app_overview': pdfBytes = generateManualPDF(type); break;
       default: return Response.json({ error: 'Invalid PDF type' }, { status: 400 });
     }
 
@@ -1185,6 +1189,143 @@ function generateJobReportPDF(data, branding = {}) {
   doc.text(footerLeftText, M, H - 4);
   doc.text(`Generated: ${new Date().toLocaleString()}`, W - M, H - 4, { align: 'right' });
 
+  return doc.output('arraybuffer');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  USER MANUAL / QUICK REFERENCE PDF — professional support documents
+// ═══════════════════════════════════════════════════════════════════════════════
+function generateManualPDF(type) {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 16;
+  const CW = W - 2 * M;
+  const C = {
+    ink: [15, 23, 42],
+    accent: [79, 70, 229],
+    blue: [37, 99, 235],
+    emerald: [16, 185, 129],
+    amber: [245, 158, 11],
+    red: [220, 38, 38],
+    slate: [71, 85, 105],
+    soft: [248, 250, 252],
+    border: [226, 232, 240],
+    white: [255, 255, 255],
+  };
+
+  const titles = {
+    user_manual: 'User Manual v2.1.0',
+    quick_reference: 'Quick Reference Guide',
+    changelog: 'v2.1.0 Changelog',
+    app_overview: 'App Overview & Features',
+  };
+
+  const sectionsByType = {
+    user_manual: [
+      { title: 'Home Navigation', items: ['Modules are grouped into Calculate, Test, Troubleshoot, Reference, and Learn.', 'Use Customize Modules to hide tools you do not need.', 'Use Settings to manage visibility, branding, and administrative tools.'] },
+      { title: 'NOC / Network Analysis', items: ['Calix SMx ONT Analysis parses PON PM files and classifies ONTs by status.', 'Use LCP summaries, port summaries, FEC corrected analysis, maps, and historical trends to isolate shared issues.', 'Use export options for issue reports, LCP utilization, and executive summaries.'] },
+      { title: 'Calculators', items: ['Optical Calculator includes link loss, PON power, dB conversion, and FEC/error impact estimation.', 'Splitter Loss, Bend Radius, and Power Level tools support fast field checks.', 'FEC Impact estimates customer impact and priority from corrected FEC, uncorrected FEC, BIP, GEM/XGEM, and HEC counters.'] },
+      { title: 'References', items: ['Reference Tables include attenuation, connectors, splices, splitters, standards, OTDR events, fiber colors, Ethernet, diagrams, and glossary.', 'Vendor/model known-good ranges help compare GPON/XGS-PON optical levels against common operational targets.', 'Rogue ONT guide supports Level 2 escalation for multiple ONTs impacted on the same PON.'] },
+      { title: 'Education & Certifications', items: ['Fiber 101, 102, and 103 provide progressive training from foundations to advanced troubleshooting.', 'Passing scores: Fiber 101 = 70%, Fiber 102 = 75%, Fiber 103 = 80%.', 'Learners can download study guides, take exams, view the certification dashboard, and download certificates.'] },
+    ],
+    quick_reference: [
+      { title: 'Good Optical Targets', items: ['GPON preferred ONT Rx target: approximately -14 to -23 dBm.', 'XGS-PON preferred ONT Rx target: approximately -14 to -22 dBm.', 'Treat values near sensitivity as marginal when paired with FEC/BIP or unstable uptime.'] },
+      { title: 'Error Counter Rules', items: ['FEC corrected: low values can be normal; rising/high values indicate marginal signal.', 'FEC uncorrected, GEM/XGEM, or HEC: customer-impacting until proven otherwise.', 'BIP should normally be zero; sustained BIP errors point to physical-layer degradation.'] },
+      { title: 'Multiple ONTs Impact', items: ['Single ONT: check drop, connector, provisioning, and ONT hardware.', 'Same splitter branch: suspect NAP, distribution fiber, splitter output, or enclosure.', 'Same PON port: suspect rogue ONT, feeder, splitter input, OLT optic, or OLT port/card.'] },
+    ],
+    changelog: [
+      { title: 'Latest Updates', items: ['Fixed stale manual navigation from Education Center.', 'Added professional certificate PDF download flow.', 'Added Certification Dashboard with progress, trends, domain performance, and roadmap.', 'Added vendor/model known-good ranges.', 'Added Rogue ONT / multiple-ONT escalation guide.', 'Added FEC/error impact estimator to Optical Calculator.'] },
+      { title: 'Document Updates', items: ['User Guide now reflects current certification scores and new NOC Level 2 tools.', 'PDF generator now supports manual, quick reference, changelog, and app overview downloads.'] },
+    ],
+    app_overview: [
+      { title: 'Core Purpose', items: ['Fiber Oracle is a field and NOC toolkit for fiber troubleshooting, PON analysis, references, calculators, and training.', 'The app supports desktop and mobile usage with offline-friendly reference workflows.'] },
+      { title: 'Primary Modules', items: ['Calculators: optical loss, PON power, dB conversions, splitters, bend radius, FEC impact.', 'Testing: OLTS, OTDR, cleaning, PON PM analysis, reports.', 'Troubleshooting: Fiber Doctor, AI OTDR analysis, impairment library.', 'References: tables, standards, vendor/model ranges, rogue ONT guide, diagrams, glossary.', 'Learning: Fiber 101/102/103, study guides, exams, certifications.'] },
+    ],
+  };
+
+  const title = titles[type] || 'Fiber Oracle Manual';
+  const sections = sectionsByType[type] || sectionsByType.user_manual;
+  let page = 1;
+  let y = 34;
+
+  const header = () => {
+    doc.setFillColor(...C.ink);
+    doc.rect(0, 0, W, 24, 'F');
+    doc.setFillColor(...C.accent);
+    doc.rect(0, 24, W, 1.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(...C.white);
+    doc.text('FIBER ORACLE', M, 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(s(title), M, 17);
+    doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), W - M, 14, { align: 'right' });
+  };
+
+  const footer = () => {
+    doc.setFillColor(...C.ink);
+    doc.rect(0, H - 11, W, 11, 'F');
+    doc.setFontSize(6.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text('fiberoracle.com', M, H - 4);
+    doc.text(`Page ${page}`, W / 2, H - 4, { align: 'center' });
+    doc.text('Professional Fiber Reference', W - M, H - 4, { align: 'right' });
+  };
+
+  const addPageIfNeeded = (height) => {
+    if (y + height <= H - 18) return;
+    footer();
+    doc.addPage();
+    page += 1;
+    header();
+    y = 34;
+  };
+
+  header();
+  doc.setFillColor(...C.soft);
+  doc.roundedRect(M, y, CW, 36, 3, 3, 'F');
+  doc.setDrawColor(...C.border);
+  doc.roundedRect(M, y, CW, 36, 3, 3, 'S');
+  doc.setFillColor(...C.accent);
+  doc.roundedRect(M, y, 4, 36, 1, 1, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(19);
+  doc.setTextColor(...C.ink);
+  doc.text(s(title), M + 9, y + 14);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...C.slate);
+  doc.text('Updated professional guide for NOC, field, reference, calculator, and certification workflows.', M + 9, y + 24);
+  y += 48;
+
+  sections.forEach((section, index) => {
+    addPageIfNeeded(28);
+    doc.setFillColor(index % 2 === 0 ? C.blue[0] : C.emerald[0], index % 2 === 0 ? C.blue[1] : C.emerald[1], index % 2 === 0 ? C.blue[2] : C.emerald[2]);
+    doc.roundedRect(M, y, CW, 8, 1, 1, 'F');
+    doc.setTextColor(...C.white);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text(s(section.title).toUpperCase(), M + 4, y + 5.5);
+    y += 12;
+
+    section.items.forEach((item) => {
+      const lines = doc.splitTextToSize(s(item), CW - 12);
+      addPageIfNeeded(lines.length * 4.5 + 7);
+      doc.setFillColor(...C.soft);
+      doc.roundedRect(M, y, CW, lines.length * 4.5 + 6, 2, 2, 'F');
+      doc.setTextColor(...C.slate);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.text('*', M + 4, y + 5);
+      doc.text(lines, M + 9, y + 5);
+      y += lines.length * 4.5 + 8;
+    });
+    y += 3;
+  });
+
+  footer();
   return doc.output('arraybuffer');
 }
 

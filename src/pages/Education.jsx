@@ -317,7 +317,7 @@ export default function Education() {
 
         {/* Quick Links */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Link to={createPageUrl('Manual')}>
+          <Link to={createPageUrl('UserGuide')}>
             <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer h-full">
               <CardContent className="p-4 text-center">
                 <BookOpen className="h-8 w-8 mx-auto mb-2 text-gray-600" />

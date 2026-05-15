@@ -206,7 +206,13 @@ export default function UserGuide() {
         <p>Use the Search function to search by keyword, document title, or topic. Browse by category from the home page. Categories include Installation, Troubleshooting, Maintenance, Safety, Specifications, Training, and custom categories.</p>
 
         <h3>Fiber 101/102/103 Courses</h3>
-        <p>Structured training with 10-15 modules per course, embedded calculations, practice questions, and a final certification exam. Score 80% or higher to pass and receive a professional certificate.</p>
+        <p>Structured training with slide-based lessons, downloadable study guides, progress tracking, certification exams, and downloadable certificates. Passing scores are Fiber 101: 70%, Fiber 102: 75%, and Fiber 103: 80%.</p>
+
+        <h3>NOC Level 2 References</h3>
+        <p>Reference Tables now include vendor/model known-good optical ranges and a Rogue ONT / multiple-ONT impact guide for escalation triage. Use these with PON PM analysis to compare ONTs on the same splitter, PON port, or OLT card.</p>
+
+        <h3>FEC/Error Impact Estimator</h3>
+        <p>The Optical Calculator includes a FEC Impact tab. Enter FEC corrected, FEC uncorrected, BIP, GEM/XGEM, and HEC counters to estimate likely customer impact and recommended priority.</p>
 
         <h3>Submitting Documents</h3>
         <p>Upload PDFs, link Google Drive files, or paste web URLs. Add title, category, and description. Check "Request Addition to Master List" if appropriate. Admin reviews submissions within 1-2 business days.</p>

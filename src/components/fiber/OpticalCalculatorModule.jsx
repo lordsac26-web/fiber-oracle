@@ -783,6 +783,7 @@ function PowerConverter() {
 
 import { useUserPreferences } from '@/components/UserPreferencesContext';
 import HiddenContentBanner from '@/components/HiddenContentBanner';
+import FecImpactEstimator from '@/components/tools/FecImpactEstimator';
 
 export default function OpticalCalculatorModule() {
   const { preferences, updatePreferences } = useUserPreferences();
@@ -792,6 +793,7 @@ export default function OpticalCalculatorModule() {
     { id: 'linkloss', name: 'Link Loss', icon: Cable },
     { id: 'ponpower', name: 'PON Power', icon: Zap },
     { id: 'converter', name: 'dB Converter', icon: ArrowRightLeft },
+    { id: 'fecimpact', name: 'FEC Impact', icon: Activity },
   ];
 
   const visibleSections = sections.filter(s => !hiddenSections.includes(s.id));
@@ -853,6 +855,12 @@ export default function OpticalCalculatorModule() {
                   dB Converter
                 </TabsTrigger>
               )}
+              {!hiddenSections.includes('fecimpact') && (
+                <TabsTrigger value="fecimpact" className="rounded-lg">
+                  <Activity className="h-4 w-4 mr-2" />
+                  FEC Impact
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {!hiddenSections.includes('linkloss') && (
@@ -870,6 +878,12 @@ export default function OpticalCalculatorModule() {
             {!hiddenSections.includes('converter') && (
               <TabsContent value="converter">
                 <PowerConverter />
+              </TabsContent>
+            )}
+
+            {!hiddenSections.includes('fecimpact') && (
+              <TabsContent value="fecimpact">
+                <FecImpactEstimator />
               </TabsContent>
             )}
           </Tabs>
