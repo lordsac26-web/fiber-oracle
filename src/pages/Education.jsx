@@ -230,12 +230,20 @@ export default function Education() {
                     <p className="text-sm text-gray-500">Study guides, exams, and certificates</p>
                   </div>
                 </div>
-                <Link to={createPageUrl('Certifications')}>
-                  <Button variant="outline" className="gap-2">
-                    <Trophy className="h-4 w-4" />
-                    My Certifications
-                  </Button>
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  <Link to={createPageUrl('CertificationDashboard')}>
+                    <Button className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-600">
+                      <Target className="h-4 w-4" />
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Link to={createPageUrl('Certifications')}>
+                    <Button variant="outline" className="gap-2">
+                      <Trophy className="h-4 w-4" />
+                      My Certifications
+                    </Button>
+                  </Link>
+                </div>
               </div>
               <div className="grid md:grid-cols-3 gap-4">
                 {COURSES.map(course => (
