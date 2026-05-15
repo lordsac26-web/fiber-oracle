@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { createPageUrl } from '@/utils';
 import { getBestCertification, getCourseAttempts, getCourseProgressPercent, isCourseUnlocked } from './dashboardData';
+import CertificateDownloadButton from './CertificateDownloadButton';
 
 const colorClasses = {
   emerald: 'from-emerald-500 to-green-600',
@@ -63,18 +64,27 @@ export default function CertificationProgressCards({ courses, certifications, pr
                 <span className="text-xs text-slate-500">Pass: {course.passingScore}%</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Link to={createPageUrl(course.coursePage)}>
-                  <Button variant="outline" size="sm" className="w-full gap-2" disabled={!unlocked}>
-                    <BookOpen className="h-4 w-4" /> Study
-                  </Button>
-                </Link>
-                <Link to={createPageUrl(course.examPage)}>
-                  <Button size="sm" className="w-full gap-2" disabled={!unlocked}>
-                    <RotateCcw className="h-4 w-4" /> Exam
-                  </Button>
-                </Link>
-              </div>
+              {certified ? (
+                <CertificateDownloadButton
+                  certification={best}
+                  courseInfo={course}
+                  size="sm"
+                  className="w-full bg-gradient-to-r from-indigo-500 to-purple-600"
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  <Link to={createPageUrl(course.coursePage)}>
+                    <Button variant="outline" size="sm" className="w-full gap-2" disabled={!unlocked}>
+                      <BookOpen className="h-4 w-4" /> Study
+                    </Button>
+                  </Link>
+                  <Link to={createPageUrl(course.examPage)}>
+                    <Button size="sm" className="w-full gap-2" disabled={!unlocked}>
+                      <RotateCcw className="h-4 w-4" /> Exam
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </CardContent>
           </Card>
         );

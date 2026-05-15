@@ -18,6 +18,7 @@ import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import PDFPreviewModal from '@/components/PDFPreviewModal';
+import CertificateDownloadButton from '@/components/certifications/CertificateDownloadButton';
 
 const COURSE_INFO = {
   fiber101: { title: 'Fiber 101', subtitle: 'Foundations of Fiber Optics', color: 'from-green-500 to-emerald-600' },
@@ -141,13 +142,29 @@ export default function Certifications() {
                       </div>
                     </div>
                     
-                    <Button 
-                      onClick={() => openCertPreview(cert)}
-                      className="w-full bg-gradient-to-r from-indigo-500 to-purple-600"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Preview &amp; Download Certificate
-                    </Button>
+                    {cert.passed ? (
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <Button 
+                          onClick={() => openCertPreview(cert)}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Preview Certificate
+                        </Button>
+                        <CertificateDownloadButton
+                          certification={cert}
+                          courseInfo={courseInfo}
+                          className="w-full bg-gradient-to-r from-indigo-500 to-purple-600"
+                        />
+                      </div>
+                    ) : (
+                      <Link to={createPageUrl(`CertificationExam?course=${cert.course_id}`)}>
+                        <Button variant="outline" className="w-full">
+                          Retake Exam to Earn Certificate
+                        </Button>
+                      </Link>
+                    )}
                   </CardContent>
                 </Card>
               );
