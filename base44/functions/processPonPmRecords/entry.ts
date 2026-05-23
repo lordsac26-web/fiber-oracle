@@ -73,7 +73,7 @@ function detectTechType(model) {
   return null;
 }
 
-function analyzeOnt(ont) {
+function analyzeOnt(ont, segmentStats) {
   const issues = [];
   const warnings = [];
   const ontRx = parseNumeric(ont.OntRxOptPwr);
@@ -85,6 +85,13 @@ function analyzeOnt(ont) {
   if (ontRx !== null) {
     if (ontRx < THRESHOLDS.OntRxOptPwr.low) issues.push('OntRxOptPwr');
     else if (ontRx < THRESHOLDS.OntRxOptPwr.marginal) warnings.push('OntRxOptPwr');
+    else if (ontRx > THRESHOLDS.OntRxOptPwr.high) warnings.push('OntRxOptPwr');
+
+    // Must match parsePonPm: a large drop below the same-port average is a warning.
+    if (segmentStats?.avgOntRxOptPwr !== null && segmentStats?.avgOntRxOptPwr !== undefined) {
+      const diff = ontRx - segmentStats.avgOntRxOptPwr;
+      if (diff < -3) warnings.push('OntRxOptPwrSegmentAverage');
+    }
   }
   if (oltRx !== null) {
     if (oltRx < THRESHOLDS.OLTRXOptPwr.low) issues.push('OLTRXOptPwr');
@@ -121,6 +128,29 @@ function analyzeOnt(ont) {
     issues,
     warnings,
   };
+}
+
+function calculatePortStats(records) {
+  const stats = new Map();
+
+  for (const row of records) {
+    const oltName = row.OLTName || row.oltname || row.OLTNAME || 'Unknown OLT';
+    const portKey = row['Shelf/Slot/Port'] || row['shelf/slot/port'] || row['SHELF/SLOT/PORT'] || 'Unknown';
+    const key = `${oltName}|${portKey}`;
+    const ontRx = parseNumeric(row.OntRxOptPwr ?? row.ontrxoptpwr ?? row.ONTRXOPTPWR);
+
+    if (!stats.has(key)) stats.set(key, { values: [], avgOntRxOptPwr: null });
+    if (ontRx !== null && ontRx !== 0) stats.get(key).values.push(ontRx);
+  }
+
+  for (const port of stats.values()) {
+    port.avgOntRxOptPwr = port.values.length > 0
+      ? port.values.reduce((sum, value) => sum + value, 0) / port.values.length
+      : null;
+    delete port.values;
+  }
+
+  return stats;
 }
 
 // ─── LCP Lookup Builder (robust version) ─────────────────────────────────────
@@ -356,6 +386,7 @@ Deno.serve(async (req) => {
     if (!rawRecords || rawRecords.length === 0) throw new Error('CSV is empty or unreadable');
 
     const total = rawRecords.length;
+    const portStats = calculatePortStats(rawRecords);
     let lcpMatched = 0;
     let lcpUnmatched = 0;
     console.log(`[processPonPmRecords] Report ${reportId}: processing ${total} ONT rows`);
@@ -416,8 +447,8 @@ Deno.serve(async (req) => {
         const resolvedModel = subFields?.subscriber_model || model || '';
         const resolvedTechnology = detectTechType(resolvedModel) || 'unknown';
 
-        // Analyse
-        const analysis = analyzeOnt(ont);
+        // Analyse using the same port peer-average rule as parsePonPm.
+        const analysis = analyzeOnt(ont, portStats.get(`${oltName}|${shelfSlotPort}`));
 
         return {
           report_id: reportId,
