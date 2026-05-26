@@ -102,6 +102,20 @@
       ],
       "description": "Analysis status \u2014 computed at ingest time, treat as authoritative"
     },
+    "analysis_issues": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Detailed critical issue records computed at ingest time"
+    },
+    "analysis_warnings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Detailed warning records computed at ingest time"
+    },
     "lcp_number": {
       "type": "string",
       "description": "Associated LCP number resolved from LCPEntry"

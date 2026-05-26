@@ -73,7 +73,22 @@ function detectTechType(model) {
   return null;
 }
 
-function analyzeOnt(ont, segmentStats) {
+function buildThresholds(customThresholds) {
+  const thresholds = structuredClone(THRESHOLDS);
+  if (!customThresholds || typeof customThresholds !== 'object') return thresholds;
+
+  for (const [field, values] of Object.entries(customThresholds)) {
+    if (!thresholds[field] || !values || typeof values !== 'object') continue;
+    for (const [key, value] of Object.entries(values)) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        thresholds[field][key] = value;
+      }
+    }
+  }
+  return thresholds;
+}
+
+function analyzeOnt(ont, segmentStats, thresholds = THRESHOLDS) {
   const issues = [];
   const warnings = [];
   const ontRx = parseNumeric(ont.OntRxOptPwr);
@@ -83,26 +98,38 @@ function analyzeOnt(ont, segmentStats) {
   if (isOffline) return { status: 'offline', issues, warnings };
 
   if (ontRx !== null) {
-    if (ontRx < THRESHOLDS.OntRxOptPwr.low) issues.push('OntRxOptPwr');
-    else if (ontRx < THRESHOLDS.OntRxOptPwr.marginal) warnings.push('OntRxOptPwr');
-    else if (ontRx > THRESHOLDS.OntRxOptPwr.high) warnings.push('OntRxOptPwr');
+    if (ontRx < thresholds.OntRxOptPwr.low) {
+      issues.push({ field: 'OntRxOptPwr', severity: 'critical', value: `${ontRx} dBm`, threshold: `< ${thresholds.OntRxOptPwr.low} dBm`, message: 'ONT Rx power critically low' });
+    } else if (ontRx < thresholds.OntRxOptPwr.marginal) {
+      warnings.push({ field: 'OntRxOptPwr', severity: 'warning', value: `${ontRx} dBm`, threshold: `< ${thresholds.OntRxOptPwr.marginal} dBm`, message: 'ONT Rx power marginal' });
+    } else if (ontRx > thresholds.OntRxOptPwr.high) {
+      warnings.push({ field: 'OntRxOptPwr', severity: 'warning', value: `${ontRx} dBm`, threshold: `> ${thresholds.OntRxOptPwr.high} dBm`, message: 'ONT Rx power too high (may need attenuator)' });
+    }
 
-    // Must match parsePonPm: a large drop below the same-port average is a warning.
     if (segmentStats?.avgOntRxOptPwr !== null && segmentStats?.avgOntRxOptPwr !== undefined) {
       const diff = ontRx - segmentStats.avgOntRxOptPwr;
-      if (diff < -3) warnings.push('OntRxOptPwrSegmentAverage');
+      if (diff < -3) {
+        warnings.push({ field: 'OntRxOptPwr', severity: 'info', value: `${ontRx} dBm`, threshold: `Avg: ${segmentStats.avgOntRxOptPwr.toFixed(1)} dBm`, message: `${Math.abs(diff).toFixed(1)} dB below segment average` });
+      }
     }
   }
+
   if (oltRx !== null) {
-    if (oltRx < THRESHOLDS.OLTRXOptPwr.low) issues.push('OLTRXOptPwr');
-    else if (oltRx < THRESHOLDS.OLTRXOptPwr.marginal) warnings.push('OLTRXOptPwr');
+    if (oltRx < thresholds.OLTRXOptPwr.low) {
+      issues.push({ field: 'OLTRXOptPwr', severity: 'critical', value: `${oltRx} dBm`, threshold: `< ${thresholds.OLTRXOptPwr.low} dBm`, message: 'OLT Rx power critically low' });
+    } else if (oltRx < thresholds.OLTRXOptPwr.marginal) {
+      warnings.push({ field: 'OLTRXOptPwr', severity: 'warning', value: `${oltRx} dBm`, threshold: `< ${thresholds.OLTRXOptPwr.marginal} dBm`, message: 'OLT Rx power marginal' });
+    }
   }
 
   const checkErr = (field, val) => {
     const n = parseNumeric(val);
-    if (n !== null && THRESHOLDS[field]) {
-      if (n >= THRESHOLDS[field].critical) issues.push(field);
-      else if (n >= THRESHOLDS[field].warning) warnings.push(field);
+    if (n !== null && thresholds[field]) {
+      if (n >= thresholds[field].critical) {
+        issues.push({ field, severity: 'critical', value: n.toLocaleString(), threshold: `≥ ${thresholds[field].critical.toLocaleString()}`, message: 'High error count' });
+      } else if (n >= thresholds[field].warning) {
+        warnings.push({ field, severity: 'warning', value: n.toLocaleString(), threshold: `≥ ${thresholds[field].warning.toLocaleString()}`, message: 'Elevated error count' });
+      }
     }
   };
   checkErr('UpstreamBipErrors', ont.UpstreamBipErrors);
@@ -114,13 +141,20 @@ function analyzeOnt(ont, segmentStats) {
 
   const usBer = parseNumeric(ont.UsSdberRate);
   if (usBer !== null && usBer > 0) {
-    if (usBer >= THRESHOLDS.UsSdberRate.critical) issues.push('UsSdberRate');
-    else if (usBer >= THRESHOLDS.UsSdberRate.warning) warnings.push('UsSdberRate');
+    if (usBer >= thresholds.UsSdberRate.critical) {
+      issues.push({ field: 'UsSdberRate', severity: 'critical', value: usBer.toExponential(2), threshold: `≥ ${thresholds.UsSdberRate.critical.toExponential(0)}`, message: 'Critical upstream BER' });
+    } else if (usBer >= thresholds.UsSdberRate.warning) {
+      warnings.push({ field: 'UsSdberRate', severity: 'warning', value: usBer.toExponential(2), threshold: `≥ ${thresholds.UsSdberRate.warning.toExponential(0)}`, message: 'Elevated upstream BER' });
+    }
   }
+
   const dsBer = parseNumeric(ont.DsSdberRate);
   if (dsBer !== null && dsBer > 0) {
-    if (dsBer >= THRESHOLDS.DsSdberRate.critical) issues.push('DsSdberRate');
-    else if (dsBer >= THRESHOLDS.DsSdberRate.warning) warnings.push('DsSdberRate');
+    if (dsBer >= thresholds.DsSdberRate.critical) {
+      issues.push({ field: 'DsSdberRate', severity: 'critical', value: dsBer.toExponential(2), threshold: `≥ ${thresholds.DsSdberRate.critical.toExponential(0)}`, message: 'Critical downstream BER' });
+    } else if (dsBer >= thresholds.DsSdberRate.warning) {
+      warnings.push({ field: 'DsSdberRate', severity: 'warning', value: dsBer.toExponential(2), threshold: `≥ ${thresholds.DsSdberRate.warning.toExponential(0)}`, message: 'Elevated downstream BER' });
+    }
   }
 
   return {
@@ -176,6 +210,7 @@ function buildLcpLookup(lcpEntries) {
       location:        lcp.location        || '',
       address:         lcp.address         || '',
       optic_type:      lcp.optic_type      || '',
+      optic_model:     lcp.optic_model     || '',
     };
 
     // Handle port ranges like "1-4"
@@ -237,6 +272,7 @@ Deno.serve(async (req) => {
     //   B) Manually from the UI by an admin user
     // We accept both — just require the report_id in the body.
     const body = await req.json();
+    const reportThresholds = buildThresholds(body.thresholds || body.data?.thresholds_used);
     const isAutomation = !!body.event;
     const user = !isAutomation ? await base44.auth.me().catch(() => null) : null;
 
@@ -448,7 +484,7 @@ Deno.serve(async (req) => {
         const resolvedTechnology = detectTechType(resolvedModel) || 'unknown';
 
         // Analyse using the same port peer-average rule as parsePonPm.
-        const analysis = analyzeOnt(ont, portStats.get(`${oltName}|${shelfSlotPort}`));
+        const analysis = analyzeOnt(ont, portStats.get(`${oltName}|${shelfSlotPort}`), reportThresholds);
 
         return {
           report_id: reportId,
@@ -472,8 +508,11 @@ Deno.serve(async (req) => {
           us_missed_bursts: parseInt(ont.UpstreamMissedBursts) || 0,
           ont_uptime: ont.upTime || null,
           status: analysis.status,
+          analysis_issues: analysis.issues,
+          analysis_warnings: analysis.warnings,
           lcp_number: lcpData?.lcp_number || '',
           splitter_number: lcpData?.splitter_number || '',
+          optic_model: lcpData?.optic_model || '',
           // Subscriber fields — empty string if no match (keeps field consistent)
           subscriber_account_name: subFields?.subscriber_account_name || '',
           subscriber_address:      subFields?.subscriber_address      || '',

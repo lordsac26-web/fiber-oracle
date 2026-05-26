@@ -55,7 +55,14 @@ const STATUS_COLORS = {
   offline: 'bg-purple-100 text-purple-800 border-purple-300',
 };
 
-export default function ONTDetailView({ ont, onClose, allOnts }) {
+const DEFAULT_THRESHOLDS = {
+  OntRxOptPwr: { low: -27, marginal: -25, high: -8 },
+  OLTRXOptPwr: { low: -30, marginal: -28, high: -8 },
+  UpstreamMissedBursts: { warning: 10 },
+  UpstreamGemHecErrors: { warning: 10 },
+};
+
+export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFAULT_THRESHOLDS }) {
   const [historicalData, setHistoricalData] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
@@ -264,8 +271,8 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                   <div>
                     <div className="text-xs text-gray-500">ONT Rx Power</div>
                     <div className={`text-lg font-bold font-mono ${
-                      parseFloat(ont.OntRxOptPwr) < -27 ? 'text-red-600' :
-                      parseFloat(ont.OntRxOptPwr) < -25 ? 'text-amber-600' :
+                      parseFloat(ont.OntRxOptPwr) < (thresholds.OntRxOptPwr?.low ?? DEFAULT_THRESHOLDS.OntRxOptPwr.low) ? 'text-red-600' :
+                      parseFloat(ont.OntRxOptPwr) < (thresholds.OntRxOptPwr?.marginal ?? DEFAULT_THRESHOLDS.OntRxOptPwr.marginal) ? 'text-amber-600' :
                       'text-green-600'
                     }`}>
                       {ont.OntRxOptPwr || 'N/A'} dBm
@@ -646,14 +653,14 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                       </div>
                       <div className="p-3 bg-gray-50 rounded-lg">
                         <div className="text-xs text-gray-500">Missed Bursts (US)</div>
-                        <div className={`text-lg font-bold font-mono flex items-baseline ${parseInt(ont.UpstreamMissedBursts) >= 10 ? 'text-amber-600' : ''}`}>
+                        <div className={`text-lg font-bold font-mono flex items-baseline ${parseInt(ont.UpstreamMissedBursts) >= (thresholds.UpstreamMissedBursts?.warning ?? DEFAULT_THRESHOLDS.UpstreamMissedBursts.warning) ? 'text-amber-600' : ''}`}>
                           {ont.UpstreamMissedBursts || 0}
                           <DeltaBadge value={delta(ont.UpstreamMissedBursts, comparisonRecord?.us_missed_bursts)} />
                         </div>
                       </div>
                       <div className="p-3 bg-gray-50 rounded-lg">
                         <div className="text-xs text-gray-500">GEM HEC Errors (US)</div>
-                        <div className={`text-lg font-bold font-mono flex items-baseline ${parseInt(ont.UpstreamGemHecErrors) >= 10 ? 'text-amber-600' : ''}`}>
+                        <div className={`text-lg font-bold font-mono flex items-baseline ${parseInt(ont.UpstreamGemHecErrors) >= (thresholds.UpstreamGemHecErrors?.warning ?? DEFAULT_THRESHOLDS.UpstreamGemHecErrors.warning) ? 'text-amber-600' : ''}`}>
                           {ont.UpstreamGemHecErrors || 0}
                           <DeltaBadge value={delta(ont.UpstreamGemHecErrors, comparisonRecord?.us_gem_hec_errors)} />
                         </div>

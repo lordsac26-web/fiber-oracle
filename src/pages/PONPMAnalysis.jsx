@@ -283,6 +283,7 @@ export default function PONPMAnalysis() {
         report_name: reportData.report_name,
         upload_date: reportData.upload_date,
         file_url: reportData.file_url,
+        thresholds_used: reportData.thresholds_used,
         ont_count: reportData.ont_count,
         critical_count: reportData.critical_count,
         warning_count: reportData.warning_count,
@@ -328,7 +329,7 @@ export default function PONPMAnalysis() {
     try {
       const response = await base44.functions.invoke('loadSavedReport', { report_id: report.id });
       if (response.data?.success && response.data?.onts && response.data?.summary) {
-        setResult({ ...response.data, reportDate: report.upload_date, source: report.id });
+      setResult({ ...response.data, thresholds_used: response.data.thresholds_used || report.thresholds_used || null, reportDate: report.upload_date, source: report.id });
         setSelectedReportId(report.id);
         setExpandedOlts([]);
         setExpandedPorts([]);
@@ -465,6 +466,7 @@ export default function PONPMAnalysis() {
           avg_ont_rx: avgRx, min_ont_rx: minRx, max_ont_rx: maxRx,
           gpon_count: response.data.summary.gponCount ?? 0,
           xgs_count: response.data.summary.xgsCount ?? 0,
+          thresholds_used: customThresholds,
           onts: response.data.onts,
         });
       } else {
@@ -1302,6 +1304,7 @@ export default function PONPMAnalysis() {
           ont={selectedOntDetail} 
           onClose={() => setSelectedOntDetail(null)}
           allOnts={result?.onts}
+          thresholds={result?.thresholds_used || customThresholds}
         />
       )}
 

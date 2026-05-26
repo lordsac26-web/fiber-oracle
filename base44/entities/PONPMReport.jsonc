@@ -15,6 +15,10 @@
       "type": "string",
       "description": "URL to the uploaded CSV file"
     },
+    "thresholds_used": {
+      "type": "object",
+      "description": "Threshold configuration used when this report was parsed and indexed"
+    },
     "ont_count": {
       "type": "number",
       "description": "Total number of ONTs in report"

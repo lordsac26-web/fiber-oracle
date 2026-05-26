@@ -117,8 +117,14 @@ function recordToOnt(rec) {
   // because we don't store BER columns and can't apply segment-peer comparison.
   // Build a minimal analysis object that matches the shape the UI expects.
   const storedStatus = rec.status || 'ok';
-  const analysis = deriveAnalysis(rec); // still used for issue detail messages in the UI
-  // Override the re-derived status with the authoritative stored value
+  const hasPersistedAnalysis = Array.isArray(rec.analysis_issues) || Array.isArray(rec.analysis_warnings);
+  const analysis = hasPersistedAnalysis
+    ? {
+        issues: Array.isArray(rec.analysis_issues) ? rec.analysis_issues : [],
+        warnings: Array.isArray(rec.analysis_warnings) ? rec.analysis_warnings : [],
+        status: storedStatus,
+      }
+    : deriveAnalysis(rec);
   analysis.status = storedStatus;
 
   const authoritativeModel = rec.subscriber_model || rec.model || '';
@@ -320,7 +326,7 @@ Deno.serve(async (req) => {
       xgsCount,
     };
 
-    return Response.json({ success: true, summary, olts, onts, source: 'database' });
+    return Response.json({ success: true, summary, olts, onts, source: 'database', thresholds_used: report.thresholds_used || null });
 
   } catch (error) {
     console.error('[loadSavedReport] Error:', error);
