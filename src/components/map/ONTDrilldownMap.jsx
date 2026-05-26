@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import FitBoundsHelper from './FitBoundsHelper';
 import DraggableOntMarker from './DraggableOntMarker';
+import ManualOntPinDropper from './ManualOntPinDropper';
 import { createLcpHealthIcon, getHealthColor, createOntPinIcon } from './lcpMapUtils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +55,7 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
   const [geocoding, setGeocoding] = useState(false);
   const [localRecords, setLocalRecords] = useState(ontRecords);
   const [showSelection, setShowSelection] = useState(false);
+  const [manualPlacementRecordId, setManualPlacementRecordId] = useState(null);
 
   // Keep local state in sync if the parent refetches (e.g. after a new report load).
   // Without this, switching LCPs leaves stale records in view.
@@ -106,6 +108,15 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
       if (r.gps_manual) return false;
       return buildFullAddress(r).length >= 5;
     });
+  }, [localRecords, selectedIds]);
+
+  // Selected customers that still do not have a usable map position. These may
+  // be failed geocodes, incomplete addresses, or brand-new subscriber records.
+  const recordsWithoutPositions = useMemo(() => {
+    return localRecords.filter(r =>
+      r.id && selectedIds.has(r.id) &&
+      (!r.gps_lat || !r.gps_lng || !isFinite(r.gps_lat) || !isFinite(r.gps_lng))
+    );
   }, [localRecords, selectedIds]);
 
   // Build positions for FitBounds
@@ -169,23 +180,37 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
     }
   }, [recordsNeedingGeocode]);
 
+  const saveManualPosition = useCallback(async (recordId, newLat, newLng, successMessage) => {
+    await base44.functions.invoke('saveOntGpsPosition', {
+      recordId,
+      lat: newLat,
+      lng: newLng,
+    });
+
+    setLocalRecords(prev => prev.map(r =>
+      r.id === recordId ? { ...r, gps_lat: newLat, gps_lng: newLng, gps_manual: true } : r
+    ));
+    setSelectedIds(prev => new Set([...prev, recordId]));
+    toast.success(successMessage);
+  }, []);
+
   // Handle pin drag
   const handleDragEnd = useCallback(async (recordId, newLat, newLng) => {
     try {
-      await base44.functions.invoke('saveOntGpsPosition', {
-        recordId,
-        lat: newLat,
-        lng: newLng,
-      });
-      // Update local state
-      setLocalRecords(prev => prev.map(r =>
-        r.id === recordId ? { ...r, gps_lat: newLat, gps_lng: newLng, gps_manual: true } : r
-      ));
-      toast.success('Pin position saved');
+      await saveManualPosition(recordId, newLat, newLng, 'Pin position saved');
     } catch (err) {
       toast.error('Failed to save position: ' + err.message);
     }
-  }, []);
+  }, [saveManualPosition]);
+
+  const handleManualPlace = useCallback(async (recordId, newLat, newLng) => {
+    try {
+      await saveManualPosition(recordId, newLat, newLng, 'Manual pin position saved');
+      setManualPlacementRecordId(null);
+    } catch (err) {
+      toast.error('Failed to save manual position: ' + err.message);
+    }
+  }, [saveManualPosition]);
 
   // LCP center pin
   const lcpIcon = useMemo(() => {
@@ -247,7 +272,43 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-600 inline-block border border-white" />Critical</span>
         <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-slate-600 inline-block border border-white" />Offline</span>
         <span className="text-blue-600">| Drag any pin to reposition</span>
+        {manualPlacementRecordId && <span className="text-indigo-600 font-medium">| Click the map to place the selected customer</span>}
       </div>
+
+      {recordsWithoutPositions.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <div className="font-semibold">{recordsWithoutPositions.length} selected customer{recordsWithoutPositions.length > 1 ? 's' : ''} need manual map placement</div>
+              <div className="text-amber-700">If geocoding cannot validate an address, choose a customer below, then click the correct spot on the map.</div>
+            </div>
+            {manualPlacementRecordId && (
+              <Button size="sm" variant="outline" onClick={() => setManualPlacementRecordId(null)}>
+                Cancel Placement
+              </Button>
+            )}
+          </div>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {recordsWithoutPositions.slice(0, 8).map(record => {
+              const label = record.subscriber_account_name || record._subscriber?.name || record.serial_number || record.SerialNumber || `ONT ${record.ont_id || record.OntID || record.id}`;
+              return (
+                <div key={record.id} className={`flex items-center justify-between gap-2 rounded border bg-white p-2 ${manualPlacementRecordId === record.id ? 'border-indigo-400 ring-1 ring-indigo-300' : 'border-amber-100'}`}>
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{label}</div>
+                    <div className="text-[11px] text-gray-500 truncate">{buildFullAddress(record) || 'No validated address'}</div>
+                  </div>
+                  <Button size="sm" variant={manualPlacementRecordId === record.id ? 'default' : 'outline'} onClick={() => setManualPlacementRecordId(record.id)}>
+                    Place Pin
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+          {recordsWithoutPositions.length > 8 && (
+            <div className="mt-2 text-[11px] text-amber-700">Showing first 8 unplotted customers. Use Select ONTs to narrow the list.</div>
+          )}
+        </div>
+      )}
 
       {/* Map */}
       <div className="rounded-lg overflow-hidden border" style={{ height }}>
@@ -257,6 +318,7 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
             attribution='&copy; OSM &copy; CARTO'
           />
           {positions.length > 0 && <FitBoundsHelper positions={positions} />}
+          <ManualOntPinDropper activeRecordId={manualPlacementRecordId} onPlace={handleManualPlace} />
 
           {/* LCP center marker */}
           {lcpGroup.gps_lat && lcpGroup.gps_lng && (
