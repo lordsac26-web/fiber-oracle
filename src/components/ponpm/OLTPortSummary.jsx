@@ -43,6 +43,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import TopIssuePortsPanel from '@/components/ponpm/TopIssuePortsPanel';
 
 
 // Compute aggregate error totals from a list of ONTs
@@ -387,83 +388,86 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         </div>
       </div>
 
-      {/* ═══ TIER 1: OLT-level table ═══ */}
-      <Card className="border shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-100 dark:bg-gray-800">
-                <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">OLT Name</TableHead>
-                <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Ports</TableHead>
-                <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">ONTs</TableHead>
-                <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Status</TableHead>
-                <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Avg ONT Rx</TableHead>
-                <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Rx Range</TableHead>
-                <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Errors</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOlts.map((olt, idx) => (
-                <TableRow 
-                  key={idx} 
-                  className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${olt.hasCorrelatedIssue ? 'bg-orange-50/50 dark:bg-orange-900/10' : ''}`}
-                  onClick={() => { setSelectedOlt(olt); setSelectedPort(null); }}
-                >
-                  <TableCell>
-                    <div className="font-medium text-sm text-gray-900 dark:text-white">{olt.name}</div>
-                  </TableCell>
-                  <TableCell className="text-center font-mono text-gray-900 dark:text-white">{olt.portCount}</TableCell>
-                  <TableCell className="text-center font-mono text-gray-900 dark:text-white">{olt.ontCount}</TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      {olt.criticalCount > 0 && (
-                        <Badge className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5">
-                          {olt.criticalCount}
-                        </Badge>
-                      )}
-                      {olt.warningCount > 0 && (
-                        <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5">
-                          {olt.warningCount}
-                        </Badge>
-                      )}
-                      {olt.offlineCount > 0 && (
-                        <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs px-1.5">
-                          {olt.offlineCount}
-                        </Badge>
-                      )}
-                      {olt.criticalCount === 0 && olt.warningCount === 0 && (olt.offlineCount || 0) === 0 && (
-                        <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
-                          <CheckCircle2 className="h-3 w-3" />
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    <span className={
-                      olt.avgOntRx < -27 ? 'text-red-600 font-bold' :
-                      olt.avgOntRx < -25 ? 'text-amber-600' : 'text-green-600'
-                    }>
-                      {olt.avgOntRx?.toFixed(1) || '-'} dBm
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs text-gray-600 dark:text-gray-400">
-                    {olt.minOntRx?.toFixed(1)} ~ {olt.maxOntRx?.toFixed(1)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <ErrorMetricsBadges errors={olt.errors} compact />
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+      {/* ═══ TIER 1: OLT-level profile + top issue ports ═══ */}
+      <div className="grid xl:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+        <Card className="border shadow-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-gray-100 dark:bg-gray-800">
+                  <TableHead className="text-gray-700 dark:text-gray-200 font-semibold">OLT Name</TableHead>
+                  <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Ports</TableHead>
+                  <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">ONTs</TableHead>
+                  <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Status</TableHead>
+                  <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Avg ONT Rx</TableHead>
+                  <TableHead className="text-right text-gray-700 dark:text-gray-200 font-semibold">Rx Range</TableHead>
+                  <TableHead className="text-center text-gray-700 dark:text-gray-200 font-semibold">Errors</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {filteredOlts.map((olt, idx) => (
+                  <TableRow 
+                    key={idx} 
+                    className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${olt.hasCorrelatedIssue ? 'bg-orange-50/50 dark:bg-orange-900/10' : ''}`}
+                    onClick={() => { setSelectedOlt(olt); setSelectedPort(null); }}
+                  >
+                    <TableCell>
+                      <div className="font-medium text-sm text-gray-900 dark:text-white">{olt.name}</div>
+                    </TableCell>
+                    <TableCell className="text-center font-mono text-gray-900 dark:text-white">{olt.portCount}</TableCell>
+                    <TableCell className="text-center font-mono text-gray-900 dark:text-white">{olt.ontCount}</TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        {olt.criticalCount > 0 && (
+                          <Badge className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5">
+                            {olt.criticalCount}
+                          </Badge>
+                        )}
+                        {olt.warningCount > 0 && (
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5">
+                            {olt.warningCount}
+                          </Badge>
+                        )}
+                        {olt.offlineCount > 0 && (
+                          <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs px-1.5">
+                            {olt.offlineCount}
+                          </Badge>
+                        )}
+                        {olt.criticalCount === 0 && olt.warningCount === 0 && (olt.offlineCount || 0) === 0 && (
+                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">
+                            <CheckCircle2 className="h-3 w-3" />
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      <span className={
+                        olt.avgOntRx < -27 ? 'text-red-600 font-bold' :
+                        olt.avgOntRx < -25 ? 'text-amber-600' : 'text-green-600'
+                      }>
+                        {olt.avgOntRx?.toFixed(1) || '-'} dBm
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-xs text-gray-600 dark:text-gray-400">
+                      {olt.minOntRx?.toFixed(1)} ~ {olt.maxOntRx?.toFixed(1)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <ErrorMetricsBadges errors={olt.errors} compact />
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+        <TopIssuePortsPanel onts={result?.onts || []} onPortClick={handlePortClick} />
+      </div>
 
       {/* ═══ TIER 2: OLT → Ports Dialog ═══ */}
       <Dialog open={!!selectedOlt && !selectedPort} onOpenChange={() => setSelectedOlt(null)}>

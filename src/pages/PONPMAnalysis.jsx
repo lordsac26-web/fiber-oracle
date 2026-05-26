@@ -70,7 +70,6 @@ import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
 import SummaryCardsRow from '@/components/ponpm/SummaryCardsRow';
 import IssueDetailPanel from '@/components/ponpm/IssueDetailPanel';
 import NetworkHealthBar from '@/components/ponpm/NetworkHealthBar';
-import TopIssuePortsPanel from '@/components/ponpm/TopIssuePortsPanel';
 import AdvancedFiltersBar from '@/components/ponpm/AdvancedFiltersBar';
 import { readFiltersFromUrl, useFilterUrlSync } from '@/hooks/useFilterUrlSync';
 import { useNewReportToast } from '@/hooks/useNewReportToast';
@@ -932,23 +931,11 @@ export default function PONPMAnalysis() {
             />
 
             {/* Health Overview */}
-            <div className="grid lg:grid-cols-2 gap-4">
-              <NetworkHealthBar
-                summary={result.summary}
-                ontsWithTrendsCount={ontsWithTrendsCount}
-                ontsDegradingCount={ontsDegradingCount}
-              />
-              <TopIssuePortsPanel
-                onts={filteredOnts}
-                onPortClick={(oltName, portKey) => {
-                  setViewMode('hierarchy');
-                  setOltFilter(oltName);
-                  setPortFilter(portKey);
-                  setExpandedOlts([oltName]);
-                  setExpandedPorts([`${oltName}|${portKey}`]);
-                }}
-              />
-            </div>
+            <NetworkHealthBar
+              summary={result.summary}
+              ontsWithTrendsCount={ontsWithTrendsCount}
+              ontsDegradingCount={ontsDegradingCount}
+            />
 
             {/* Global Filter Bar — applies to ALL charts, KPIs, hierarchy, and LCP summary */}
             <GlobalFilterBar
