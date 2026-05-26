@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,9 @@ import {
   ChevronDown,
   ChevronRight,
   Archive,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
@@ -57,6 +60,7 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   const [peerData, setPeerData] = useState({ onts: [], avgMetrics: null });
+  const [peerSort, setPeerSort] = useState({ key: 'serial', direction: 'asc' });
   const [showPeerComparison, setShowPeerComparison] = useState(false);
 
   // History "Data Points" table — collapsed by default so the dialog opens
@@ -157,6 +161,57 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
     }
 
     return null;
+  };
+
+  const getPeerSortValue = (row, key) => {
+    switch (key) {
+      case 'serial': return row.SerialNumber || '';
+      case 'ontRx': return toNumber(row.OntRxOptPwr);
+      case 'oltRx': return toNumber(row.OLTRXOptPwr);
+      case 'usBip': return parseInt(row.UpstreamBipErrors, 10) || 0;
+      case 'dsBip': return parseInt(row.DownstreamBipErrors, 10) || 0;
+      case 'status': return row._analysis?.status || '';
+      default: return '';
+    }
+  };
+
+  const sortedPeerOnts = useMemo(() => {
+    const direction = peerSort.direction === 'asc' ? 1 : -1;
+    return [...peerData.onts].sort((a, b) => {
+      const aVal = getPeerSortValue(a, peerSort.key);
+      const bVal = getPeerSortValue(b, peerSort.key);
+
+      if (aVal === null && bVal === null) return 0;
+      if (aVal === null) return 1;
+      if (bVal === null) return -1;
+      if (typeof aVal === 'number' && typeof bVal === 'number') return (aVal - bVal) * direction;
+      return String(aVal).localeCompare(String(bVal), undefined, { numeric: true, sensitivity: 'base' }) * direction;
+    });
+  }, [peerData.onts, peerSort]);
+
+  const handlePeerSort = (key) => {
+    setPeerSort(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const SortablePeerHeader = ({ sortKey, children, className = '' }) => {
+    const active = peerSort.key === sortKey;
+    const Icon = !active ? ArrowUpDown : peerSort.direction === 'asc' ? ArrowUp : ArrowDown;
+
+    return (
+      <TableHead className={className}>
+        <button
+          type="button"
+          onClick={() => handlePeerSort(sortKey)}
+          className={`inline-flex items-center gap-1 hover:text-blue-700 ${className.includes('text-right') ? 'justify-end w-full' : ''}`}
+        >
+          {children}
+          <Icon className="h-3 w-3" />
+        </button>
+      </TableHead>
+    );
   };
 
   return (
@@ -710,19 +765,19 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                   <CardContent>
                     <div className="max-h-96 overflow-y-auto">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 z-30 bg-white shadow-sm">
                           <TableRow>
-                            <TableHead>Serial Number</TableHead>
-                            <TableHead className="text-right">ONT Rx</TableHead>
-                            <TableHead className="text-right">OLT Rx</TableHead>
-                            <TableHead className="text-right">US BIP</TableHead>
-                            <TableHead className="text-right">DS BIP</TableHead>
-                            <TableHead>Status</TableHead>
+                            <SortablePeerHeader sortKey="serial">Serial Number</SortablePeerHeader>
+                            <SortablePeerHeader sortKey="ontRx" className="text-right">ONT Rx</SortablePeerHeader>
+                            <SortablePeerHeader sortKey="oltRx" className="text-right">OLT Rx</SortablePeerHeader>
+                            <SortablePeerHeader sortKey="usBip" className="text-right">US BIP</SortablePeerHeader>
+                            <SortablePeerHeader sortKey="dsBip" className="text-right">DS BIP</SortablePeerHeader>
+                            <SortablePeerHeader sortKey="status">Status</SortablePeerHeader>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {/* Current ONT */}
-                          <TableRow className="bg-blue-50 border-l-4 border-blue-500">
+                          <TableRow className="sticky top-10 z-20 bg-blue-50 border-l-4 border-blue-500 shadow-sm">
                             <TableCell className="font-bold">{ont.SerialNumber} (This ONT)</TableCell>
                             <TableCell className="text-right font-mono">{ont.OntRxOptPwr}</TableCell>
                             <TableCell className="text-right font-mono">{ont.OLTRXOptPwr}</TableCell>
@@ -735,7 +790,7 @@ export default function ONTDetailView({ ont, onClose, allOnts }) {
                             </TableCell>
                           </TableRow>
                           {/* Peer ONTs */}
-                          {peerData.onts.map((peer, idx) => (
+                          {sortedPeerOnts.map((peer, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="font-mono text-xs">{peer.SerialNumber}</TableCell>
                               <TableCell className="text-right font-mono text-xs">{peer.OntRxOptPwr}</TableCell>
