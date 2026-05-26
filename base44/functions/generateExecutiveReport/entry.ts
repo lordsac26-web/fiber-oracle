@@ -1015,6 +1015,39 @@ Deno.serve(async (req) => {
       })
       .slice(0, 30);
 
+    // ── Top 10 ports with operational issues ────────────────────────────────
+    const portIssueMap = new Map();
+    for (const r of currentRecs) {
+      const key = `${r.olt_name || 'Unknown'}|${r.shelf_slot_port || 'Unknown'}`;
+      if (!portIssueMap.has(key)) {
+        portIssueMap.set(key, {
+          olt: r.olt_name || 'Unknown',
+          port: r.shelf_slot_port || 'Unknown',
+          critical: 0,
+          warning: 0,
+          offline: 0,
+          totalIssues: 0,
+          ontCount: 0,
+        });
+      }
+      const p = portIssueMap.get(key);
+      p.ontCount++;
+      if (r.status === 'critical' || r.status === 'warning' || r.status === 'offline') {
+        p[r.status]++;
+        p.totalIssues++;
+      }
+    }
+    const topIssuePorts = [...portIssueMap.values()]
+      .filter(p => p.totalIssues > 0)
+      .sort((a, b) =>
+        b.critical - a.critical ||
+        b.warning - a.warning ||
+        b.offline - a.offline ||
+        b.totalIssues - a.totalIssues ||
+        b.ontCount - a.ontCount
+      )
+      .slice(0, 10);
+
     // ── Top 20 OLT Ports by Corrected FEC (us + ds) ─────────────────────────
     const portFec = new Map();
     for (const r of currentRecs) {
@@ -1268,6 +1301,34 @@ Deno.serve(async (req) => {
           { value: String(r.offline),    x: M + 146, maxW: 18, align: 'right', color: r.offline > 0 ? C.slate : C.dark },
           { value: r.avgRx,              x: M + 166, maxW: 18, align: 'right' },
           { value: `${r.healthPct}%`,    x: M + CW - 4, maxW: 18, align: 'right', color: hColor },
+        ], i % 2 === 0);
+      }
+      y += 4;
+    }
+
+    // Top 10 Ports with Issues — placed near the OLT health profile section
+    if (topIssuePorts.length > 0) {
+      y = maybeNewPage(doc, y, 84, customerName);
+      y = sectionTitle(doc, `Top ${topIssuePorts.length} Ports with Issues`, y, C.red);
+      const cols = [
+        { label: 'OLT',          x: M + 5 },
+        { label: 'Port',         x: M + 52 },
+        { label: 'Critical',     x: M + 110, align: 'right' },
+        { label: 'Warning',      x: M + 135, align: 'right' },
+        { label: 'Offline',      x: M + 158, align: 'right' },
+        { label: 'ONTs',         x: M + CW - 4, align: 'right' },
+      ];
+      y = tableHeader(doc, y, cols);
+      for (let i = 0; i < topIssuePorts.length; i++) {
+        y = maybeNewPage(doc, y, 8, customerName);
+        const p = topIssuePorts[i];
+        y = tableRow(doc, y, [
+          { value: p.olt,              x: M + 5,      maxW: 44 },
+          { value: p.port,             x: M + 52,     maxW: 54 },
+          { value: String(p.critical), x: M + 110,    maxW: 20, align: 'right', color: p.critical > 0 ? C.red : C.dark },
+          { value: String(p.warning),  x: M + 135,    maxW: 20, align: 'right', color: p.warning > 0 ? C.amber : C.dark },
+          { value: String(p.offline),  x: M + 158,    maxW: 18, align: 'right', color: p.offline > 0 ? C.slate : C.dark },
+          { value: String(p.ontCount), x: M + CW - 4, maxW: 18, align: 'right' },
         ], i % 2 === 0);
       }
       y += 4;
