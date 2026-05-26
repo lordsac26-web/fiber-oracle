@@ -763,6 +763,7 @@ export default function PONPMAnalysis() {
                   lcpOntCounts={lcpOntCounts}
                   subscriberRecords={subscriberRecords}
                   eeroRecordsLoaded={eeroRecordsLoaded}
+                  savedReports={savedReports}
                 />
               </div>
             )}

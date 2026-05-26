@@ -96,6 +96,7 @@ export default function UnifiedExportMenu({
   lcpOntCounts = {},
   subscriberRecords,
   eeroRecordsLoaded,
+  savedReports = [],
 }) {
   const [showLcpPicker, setShowLcpPicker] = useState(false);
   const [selectedLcps, setSelectedLcps] = useState([]);
@@ -277,7 +278,7 @@ export default function UnifiedExportMenu({
             <Server className="h-4 w-4 mr-2 text-cyan-600" />
             OLT Data — Select OLT(s) (CSV)
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => exportOfflineCSV(onts)} disabled={!onts}>
+          <DropdownMenuItem onClick={() => exportOfflineCSV(onts, savedReports, result?.source)} disabled={!onts}>
             <Router className="h-4 w-4 mr-2 text-purple-500" />
             Offline ONTs (CSV)
           </DropdownMenuItem>

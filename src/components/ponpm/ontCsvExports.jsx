@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { base44 } from '@/api/base44Client';
 
 /**
  * Extracted CSV export helpers from PONPMAnalysis to keep that page under
@@ -17,8 +18,8 @@ function downloadCsv(rows, filename) {
   URL.revokeObjectURL(url);
 }
 
-/** Offline-only ONTs export — sorted by OLT then port (numeric) */
-export function exportOfflineCSV(onts) {
+/** Offline-only ONTs export — sorted by OLT then port (numeric), with historical offline checks */
+export async function exportOfflineCSV(onts, savedReports = [], currentReportId = null) {
   if (!onts) return;
   const offlineOnts = onts
     .filter(ont => ont._analysis?.status === 'offline')
@@ -33,21 +34,76 @@ export function exportOfflineCSV(onts) {
     return;
   }
 
-  const headers = ['OLT', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'Model', 'LCP', 'Splitter', 'Location', 'Address'];
-  const rows = offlineOnts.map(ont => [
-    ont._oltName || '',
-    ont['Shelf/Slot/Port'] || '',
-    ont.OntID || '',
-    ont.SerialNumber || '',
-    ont.model || '',
-    ont._lcpNumber || '',
-    ont._splitterNumber || '',
-    ont._lcpLocation || '',
-    ont._lcpAddress || '',
+  toast.loading('Checking offline history...', { id: 'offline-export' });
+
+  const currentReport = currentReportId
+    ? savedReports.find(r => r.id === currentReportId)
+    : savedReports[0];
+  const currentTime = currentReport?.upload_date ? new Date(currentReport.upload_date).getTime() : Date.now();
+  const previousReports = savedReports
+    .filter(r => r.id !== currentReport?.id && r.upload_date)
+    .sort((a, b) => new Date(b.upload_date) - new Date(a.upload_date));
+
+  const closestReport = (targetTime, excludeIds = new Set()) => {
+    let best = null;
+    let bestDiff = Infinity;
+    for (const report of previousReports) {
+      if (excludeIds.has(report.id)) continue;
+      const diff = Math.abs(new Date(report.upload_date).getTime() - targetTime);
+      if (diff < bestDiff) {
+        best = report;
+        bestDiff = diff;
+      }
+    }
+    return best;
+  };
+
+  const lastReport = previousReports[0] || null;
+  const usedIds = new Set(lastReport ? [lastReport.id] : []);
+  const weekReport = closestReport(currentTime - 7 * 24 * 60 * 60 * 1000, usedIds);
+  if (weekReport) usedIds.add(weekReport.id);
+  const monthReport = closestReport(currentTime - 30 * 24 * 60 * 60 * 1000, usedIds);
+
+  const normalizeSerial = (value) => String(value || '').trim().toUpperCase();
+  const offlineSerialsForReport = async (report) => {
+    if (!report?.id) return new Set();
+    const records = await base44.entities.ONTPerformanceRecord.filter({ report_id: report.id, status: 'offline' }, 'id', 5000);
+    return new Set(records.map(r => normalizeSerial(r.serial_number)).filter(Boolean));
+  };
+
+  const [lastOffline, weekOffline, monthOffline] = await Promise.all([
+    offlineSerialsForReport(lastReport),
+    offlineSerialsForReport(weekReport),
+    offlineSerialsForReport(monthReport),
   ]);
 
+  const formatDate = (report) => report?.upload_date ? new Date(report.upload_date).toLocaleDateString() : 'No report';
+  const headers = [
+    'OLT', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'Model', 'LCP', 'Splitter', 'Location', 'Address',
+    `Offline Last Report (${formatDate(lastReport)})`,
+    `Offline ~7 Days (${formatDate(weekReport)})`,
+    `Offline ~30 Days (${formatDate(monthReport)})`,
+  ];
+  const rows = offlineOnts.map(ont => {
+    const serial = normalizeSerial(ont.SerialNumber);
+    return [
+      ont._oltName || '',
+      ont['Shelf/Slot/Port'] || '',
+      ont.OntID || '',
+      ont.SerialNumber || '',
+      ont.model || '',
+      ont._lcpNumber || '',
+      ont._splitterNumber || '',
+      ont._lcpLocation || '',
+      ont._lcpAddress || '',
+      lastReport ? (lastOffline.has(serial) ? 'Yes' : 'No') : 'No report',
+      weekReport ? (weekOffline.has(serial) ? 'Yes' : 'No') : 'No report',
+      monthReport ? (monthOffline.has(serial) ? 'Yes' : 'No') : 'No report',
+    ];
+  });
+
   downloadCsv([headers, ...rows], `offline-onts-${new Date().toISOString().slice(0, 10)}.csv`);
-  toast.success(`Exported ${offlineOnts.length} offline ONTs`);
+  toast.success(`Exported ${offlineOnts.length} offline ONTs with history`, { id: 'offline-export' });
 }
 
 /** All / critical / warning / issues ONT export */
