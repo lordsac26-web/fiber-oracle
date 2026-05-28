@@ -19,27 +19,26 @@ export function exportMultiOltCSV(onts, selectedOlts) {
   let totalRows = 0;
 
   const columns = [
-    'Status', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'Model',
+    'STATUS', 'OLT/CHASSIS', 'SHELF/SLOT/PORT', 'ONTID', 'Serial Number', 'Model',
     'ONT Rx', 'OLT Rx', 'ONT Tx',
     'US BIP', 'DS BIP',
-    'US FEC Unc', 'DS FEC Unc',
-    'US FEC Corr', 'DS FEC Corr',
-    'LCP', 'Splitter', 'Subscriber', 'Address',
+    'US UNC FEC', 'DS UNC FEC',
+    'US COR FEC', 'DS COR FEC',
+    'LCP', 'SPLITTER', 'Subscriber', 'Address',
   ];
 
-  selectedOlts.forEach((olt, idx) => {
+  lines.push(columns.map(esc).join(','));
+
+  selectedOlts.forEach((olt) => {
     const oltOnts = onts
       .filter(o => o._oltName === olt)
       .sort((a, b) => (a['Shelf/Slot/Port'] || '').localeCompare(b['Shelf/Slot/Port'] || '', undefined, { numeric: true }));
-
-    if (idx > 0) lines.push('');
-    lines.push([`=== OLT: ${olt} (${oltOnts.length} ONTs) ===`].map(esc).join(','));
-    lines.push(columns.map(esc).join(','));
 
     oltOnts.forEach(o => {
       const sub = o._subscriber || {};
       lines.push([
         o._analysis?.status?.toUpperCase() || '',
+        o._oltName || olt || '',
         o['Shelf/Slot/Port'] || '',
         o.OntID || '',
         o.SerialNumber || '',
