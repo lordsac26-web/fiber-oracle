@@ -27,10 +27,10 @@ Deno.serve(async (req) => {
     // New format: frontend sends id + address directly — no DB fetch needed
     workItems = payload.items
       .filter(item => item.id && item.address && item.address.trim().length >= 5)
-      .slice(0, 50);
+      .slice(0, 10);
   } else if (Array.isArray(payload.ontRecordIds) && payload.ontRecordIds.length > 0) {
     // Legacy: fetch each record from DB (slow path, kept for backward compat)
-    const ids = payload.ontRecordIds.slice(0, 50);
+    const ids = payload.ontRecordIds.slice(0, 10);
     for (const id of ids) {
       try {
         const records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(

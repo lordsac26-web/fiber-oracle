@@ -53,6 +53,7 @@ function buildFullAddress(record) {
  */
 export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '500px', onBack, onOntSelect }) {
   const [geocoding, setGeocoding] = useState(false);
+  const [geocodeProgress, setGeocodeProgress] = useState(null);
   const [localRecords, setLocalRecords] = useState(ontRecords);
   const [showSelection, setShowSelection] = useState(false);
   const [manualPlacementRecordId, setManualPlacementRecordId] = useState(null);
@@ -140,43 +141,48 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
     }
 
     setGeocoding(true);
-    const batchSize = 50;
+    const batchSize = 10;
     let totalGeocoded = 0;
-    // Collect every coord update across batches and apply them in a single
-    // setLocalRecords pass at the end — avoids the broken re-query path that
-    // previously tried to filter by lcp_number (often empty in the DB).
+    let totalFailed = 0;
     const allUpdates = [];
+    const batches = [];
+
+    for (let i = 0; i < recordsNeedingGeocode.length; i += batchSize) {
+      const items = recordsNeedingGeocode
+        .slice(i, i + batchSize)
+        .filter(r => r.id)
+        .map(r => ({ id: r.id, address: buildFullAddress(r) }))
+        .filter(it => it.address.length >= 5);
+      if (items.length > 0) batches.push(items);
+    }
 
     try {
-      for (let i = 0; i < recordsNeedingGeocode.length; i += batchSize) {
-        const batch = recordsNeedingGeocode.slice(i, i + batchSize);
-        const items = batch
-          .filter(r => r.id)
-          .map(r => ({ id: r.id, address: buildFullAddress(r) }))
-          .filter(it => it.address.length >= 5);
-        if (items.length === 0) continue;
-        toast.loading(`Geocoding batch ${Math.floor(i / batchSize) + 1}...`, { id: 'geocode' });
-        const res = await base44.functions.invoke('geocodeAddresses', { items });
+      for (let i = 0; i < batches.length; i += 1) {
+        const processed = Math.min(i * batchSize, recordsNeedingGeocode.length);
+        setGeocodeProgress({ processed, total: recordsNeedingGeocode.length, geocoded: totalGeocoded, failed: totalFailed });
+        toast.loading(`Geocoding ${processed + 1}-${Math.min(processed + batches[i].length, recordsNeedingGeocode.length)} of ${recordsNeedingGeocode.length}...`, { id: 'geocode' });
+
+        const res = await base44.functions.invoke('geocodeAddresses', { items: batches[i] });
         totalGeocoded += res.data.geocoded || 0;
+        totalFailed += res.data.failed || 0;
         if (Array.isArray(res.data.updated)) allUpdates.push(...res.data.updated);
+
+        if (allUpdates.length > 0) {
+          const updatesById = new Map(allUpdates.map(u => [u.id, u]));
+          setLocalRecords(prev => prev.map(r => {
+            const u = r.id && updatesById.get(r.id);
+            return u ? { ...r, gps_lat: u.gps_lat, gps_lng: u.gps_lng, gps_manual: false } : r;
+          }));
+        }
       }
 
-      toast.success(`Geocoded ${totalGeocoded} ONT addresses`, { id: 'geocode' });
-
-      // Merge the freshly-geocoded coords back into local state in a single
-      // pass. `geocodeAddresses` returns the canonical {id, gps_lat, gps_lng}
-      // it just wrote to the DB, so we don't need a second roundtrip.
-      if (allUpdates.length > 0) {
-        const updatesById = new Map(allUpdates.map(u => [u.id, u]));
-        setLocalRecords(prev => prev.map(r => {
-          const u = r.id && updatesById.get(r.id);
-          return u ? { ...r, gps_lat: u.gps_lat, gps_lng: u.gps_lng, gps_manual: false } : r;
-        }));
-      }
+      setGeocodeProgress({ processed: recordsNeedingGeocode.length, total: recordsNeedingGeocode.length, geocoded: totalGeocoded, failed: totalFailed });
+      toast.success(`Geocoded ${totalGeocoded} ONTs${totalFailed ? `; ${totalFailed} need manual placement` : ''}`, { id: 'geocode' });
     } catch (err) {
-      toast.error('Geocoding failed: ' + err.message, { id: 'geocode' });
+      toast.error('Geocoding stopped: ' + err.message + '. Unplotted ONTs can be placed manually.', { id: 'geocode' });
     } finally {
       setGeocoding(false);
+      setTimeout(() => setGeocodeProgress(null), 4000);
     }
   }, [recordsNeedingGeocode]);
 
@@ -274,6 +280,21 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
         <span className="text-blue-600">| Drag any pin to reposition</span>
         {manualPlacementRecordId && <span className="text-indigo-600 font-medium">| Click the map to place the selected customer</span>}
       </div>
+
+      {geocodeProgress && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+          <div className="font-semibold">Geocoding in progress</div>
+          <div className="mt-1">
+            Processed {geocodeProgress.processed} of {geocodeProgress.total} selected addresses • {geocodeProgress.geocoded} placed • {geocodeProgress.failed} need manual placement
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100">
+            <div
+              className="h-full rounded-full bg-blue-600 transition-all"
+              style={{ width: `${geocodeProgress.total ? Math.min(100, Math.round((geocodeProgress.processed / geocodeProgress.total) * 100)) : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {recordsWithoutPositions.length > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
