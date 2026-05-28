@@ -25,7 +25,7 @@ L.Icon.Default.mergeOptions({
  *   onLcpClick: (lcpGroup) => void — called when user clicks "Drill Down"
  *   onLcpHover: optional
  */
-export default function LCPHealthMap({ lcpGroups = [], height = '400px', onLcpClick }) {
+export default function LCPHealthMap({ lcpGroups = [], height = '400px', desktopHeight = height, onLcpClick }) {
   const gpsGroups = useMemo(
     () => lcpGroups.filter(g => g.gps_lat && g.gps_lng && isFinite(g.gps_lat) && isFinite(g.gps_lng)),
     [lcpGroups]
@@ -40,7 +40,10 @@ export default function LCPHealthMap({ lcpGroups = [], height = '400px', onLcpCl
 
   if (gpsGroups.length === 0) {
     return (
-      <div className="flex items-center justify-center border rounded-lg bg-gray-50 dark:bg-gray-800" style={{ height }}>
+      <div
+        className="flex items-center justify-center border rounded-lg bg-gray-50 dark:bg-gray-800 h-[var(--map-height)] md:h-[var(--map-height-desktop)]"
+        style={{ '--map-height': height, '--map-height-desktop': desktopHeight }}
+      >
         <div className="text-center text-gray-500">
           <MapPin className="h-10 w-10 mx-auto mb-2 opacity-30" />
           <p className="text-sm">No LCPs with GPS coordinates</p>
@@ -50,7 +53,10 @@ export default function LCPHealthMap({ lcpGroups = [], height = '400px', onLcpCl
   }
 
   return (
-    <div className="rounded-lg overflow-hidden border" style={{ height }}>
+    <div
+      className="rounded-lg overflow-hidden border h-[var(--map-height)] md:h-[var(--map-height-desktop)]"
+      style={{ '--map-height': height, '--map-height-desktop': desktopHeight }}
+    >
       <MapContainer center={defaultCenter} zoom={10} style={{ height: '100%', width: '100%' }} className="z-0">
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"

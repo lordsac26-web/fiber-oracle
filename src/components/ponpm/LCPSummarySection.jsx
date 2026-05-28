@@ -107,6 +107,7 @@ function ONTDrilldownMapWrapper({ lcpGroup, onBack }) {
       lcpGroup={lcpGroup}
       ontRecords={mergedRecords}
       height="500px"
+      desktopHeight="625px"
       onBack={onBack}
     />
   );
@@ -385,6 +386,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
             <LCPHealthMap
               lcpGroups={filteredLCPs}
               height="420px"
+              desktopHeight="525px"
               onLcpClick={(group) => setDrilldownLcp(group)}
             />
           )}
@@ -801,6 +803,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
                 <LCPHealthMap
                   lcpGroups={[selectedLCP]}
                   height="300px"
+                  desktopHeight="375px"
                   onLcpClick={(g) => {
                     setSelectedLCP(null);
                     setDrilldownLcp(g);

@@ -51,7 +51,7 @@ function buildFullAddress(record) {
  *   onBack: () => void
  *   onOntSelect: (ont) => void — optional, for further drill-down
  */
-export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '500px', onBack, onOntSelect }) {
+export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '500px', desktopHeight = height, onBack, onOntSelect }) {
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeProgress, setGeocodeProgress] = useState(null);
   const [localRecords, setLocalRecords] = useState(ontRecords);
@@ -332,7 +332,10 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
       )}
 
       {/* Map */}
-      <div className="rounded-lg overflow-hidden border" style={{ height }}>
+      <div
+        className="rounded-lg overflow-hidden border h-[var(--map-height)] md:h-[var(--map-height-desktop)]"
+        style={{ '--map-height': height, '--map-height-desktop': desktopHeight }}
+      >
         <MapContainer center={center} zoom={14} style={{ height: '100%', width: '100%' }} className="z-0">
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
