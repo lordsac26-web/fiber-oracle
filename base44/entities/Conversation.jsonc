@@ -1,33 +1,44 @@
 {
-  "name": "SubscriberUploadMeta",
+  "name": "Conversation",
   "type": "object",
   "properties": {
-    "file_name": {
+    "agent_id": {
       "type": "string",
-      "description": "Original uploaded file name"
+      "description": "Agent conversation ID from the agent system",
+      "index": true
     },
-    "record_count": {
+    "agent_name": {
+      "type": "string",
+      "description": "Name of the agent"
+    },
+    "title": {
+      "type": "string",
+      "description": "Conversation title"
+    },
+    "message_count": {
       "type": "number",
-      "description": "Number of subscriber records in this upload"
+      "description": "Number of messages in conversation"
     },
-    "upload_date": {
+    "is_archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether conversation is archived",
+      "index": true
+    },
+    "archive_date": {
       "type": "string",
       "format": "date-time",
-      "description": "When the subscriber data was uploaded"
+      "description": "Date when conversation will be permanently deleted"
     },
-    "status": {
+    "archived_at": {
       "type": "string",
-      "enum": [
-        "active",
-        "replaced"
-      ],
-      "default": "active",
-      "description": "Whether this is the current active dataset"
+      "format": "date-time",
+      "description": "When the conversation was archived"
     }
   },
   "required": [
-    "file_name",
-    "record_count"
+    "agent_id",
+    "agent_name"
   ],
   "rls": {
     "create": {

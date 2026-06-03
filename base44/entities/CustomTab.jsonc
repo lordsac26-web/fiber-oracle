@@ -1,0 +1,59 @@
+{
+  "name": "CustomTab",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Tab display name"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Lucide icon name"
+    },
+    "content_type": {
+      "type": "string",
+      "enum": [
+        "markdown",
+        "checklist",
+        "calculator",
+        "pdf_link"
+      ],
+      "description": "Type of content in this tab"
+    },
+    "content": {
+      "type": "string",
+      "description": "Markdown content or JSON config"
+    },
+    "order": {
+      "type": "number",
+      "description": "Display order"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether tab is visible"
+    }
+  },
+  "required": [
+    "title",
+    "content_type"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

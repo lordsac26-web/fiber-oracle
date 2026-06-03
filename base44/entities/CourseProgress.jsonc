@@ -1,33 +1,43 @@
 {
-  "name": "SubscriberUploadMeta",
+  "name": "CourseProgress",
   "type": "object",
   "properties": {
-    "file_name": {
-      "type": "string",
-      "description": "Original uploaded file name"
-    },
-    "record_count": {
-      "type": "number",
-      "description": "Number of subscriber records in this upload"
-    },
-    "upload_date": {
-      "type": "string",
-      "format": "date-time",
-      "description": "When the subscriber data was uploaded"
-    },
-    "status": {
+    "course_id": {
       "type": "string",
       "enum": [
-        "active",
-        "replaced"
+        "fiber101",
+        "fiber102",
+        "fiber103"
       ],
-      "default": "active",
-      "description": "Whether this is the current active dataset"
+      "description": "Course identifier"
+    },
+    "current_slide": {
+      "type": "number",
+      "default": 0,
+      "description": "Current slide index"
+    },
+    "total_slides": {
+      "type": "number",
+      "description": "Total number of slides in course"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether course is completed"
+    },
+    "completion_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of completion"
+    },
+    "last_accessed": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time user accessed this course"
     }
   },
   "required": [
-    "file_name",
-    "record_count"
+    "course_id"
   ],
   "rls": {
     "create": {
@@ -67,16 +77,9 @@
       ]
     },
     "delete": {
-      "$or": [
-        {
-          "created_by": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "user_condition": {
+        "role": "admin"
+      }
     }
   }
 }

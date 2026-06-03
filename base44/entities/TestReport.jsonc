@@ -1,0 +1,125 @@
+{
+  "name": "TestReport",
+  "type": "object",
+  "properties": {
+    "report_type": {
+      "type": "string",
+      "enum": [
+        "loss_budget",
+        "otdr",
+        "olts",
+        "cleaning",
+        "inspection"
+      ],
+      "description": "Type of test report"
+    },
+    "job_number": {
+      "type": "string",
+      "description": "Job or work order number"
+    },
+    "technician_name": {
+      "type": "string",
+      "description": "Name of technician performing test"
+    },
+    "location": {
+      "type": "string",
+      "description": "Job site location"
+    },
+    "cable_id": {
+      "type": "string",
+      "description": "Cable or fiber ID"
+    },
+    "fiber_type": {
+      "type": "string",
+      "enum": [
+        "OS2 SMF",
+        "OM3",
+        "OM4",
+        "OM5",
+        "G.657.A1",
+        "G.657.A2",
+        "G.657.B3"
+      ],
+      "description": "Fiber type tested"
+    },
+    "wavelength": {
+      "type": "string",
+      "description": "Test wavelength(s)"
+    },
+    "test_data": {
+      "type": "object",
+      "description": "JSON object containing test-specific data"
+    },
+    "photos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "URLs of attached photos"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Additional notes or observations"
+    },
+    "pass_fail": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "marginal"
+      ],
+      "description": "Overall test result"
+    },
+    "gps_coordinates": {
+      "type": "string",
+      "description": "GPS location of test"
+    }
+  },
+  "required": [
+    "report_type",
+    "technician_name"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

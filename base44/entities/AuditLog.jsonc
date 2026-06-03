@@ -1,0 +1,86 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "query",
+        "response",
+        "pdf_upload",
+        "document_reference",
+        "tool_invocation",
+        "conversation_start",
+        "conversation_load"
+      ],
+      "description": "Type of event being logged"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "Email of user who triggered the event",
+      "index": true
+    },
+    "conversation_id": {
+      "type": "string",
+      "description": "Associated conversation ID",
+      "index": true
+    },
+    "content": {
+      "type": "string",
+      "description": "The actual content (query text, response text, etc.)"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context (document IDs, tool names, file names, etc.)"
+    },
+    "duration_ms": {
+      "type": "number",
+      "description": "Time taken for the operation in milliseconds"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "error",
+        "pending"
+      ],
+      "default": "success",
+      "description": "Status of the operation"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error details if status is error"
+    }
+  },
+  "required": [
+    "event_type",
+    "user_email"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

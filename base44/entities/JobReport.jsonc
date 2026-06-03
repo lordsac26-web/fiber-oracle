@@ -1,0 +1,140 @@
+{
+  "name": "JobReport",
+  "type": "object",
+  "properties": {
+    "job_number": {
+      "type": "string",
+      "description": "Unique job or work order number"
+    },
+    "technician_name": {
+      "type": "string",
+      "description": "Name of technician performing the job"
+    },
+    "location": {
+      "type": "string",
+      "description": "Job site location/address"
+    },
+    "start_power_level": {
+      "type": "number",
+      "description": "Initial power level reading in dBm"
+    },
+    "end_power_level": {
+      "type": "number",
+      "description": "Post-fix power level reading in dBm"
+    },
+    "power_improvement": {
+      "type": "number",
+      "description": "Calculated improvement in dB"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "in_progress",
+        "completed",
+        "needs_followup"
+      ],
+      "default": "in_progress",
+      "description": "Current job status"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Technician notes and observations"
+    },
+    "photo_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "URLs of uploaded job photos"
+    },
+    "diagnosis_used": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether Fiber Doctor was used"
+    },
+    "diagnosis_result": {
+      "type": "string",
+      "description": "Diagnosis outcome from Fiber Doctor"
+    },
+    "diagnosis_steps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Steps taken during diagnosis"
+    },
+    "equipment_used": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of equipment/tools used"
+    },
+    "fiber_info": {
+      "type": "object",
+      "description": "Fiber details (type, cable ID, etc.)"
+    },
+    "gps_coordinates": {
+      "type": "string",
+      "description": "GPS location of job site"
+    },
+    "completion_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Date/time job was completed"
+    }
+  },
+  "required": [
+    "job_number"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

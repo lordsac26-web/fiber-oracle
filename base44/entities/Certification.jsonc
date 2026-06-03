@@ -1,0 +1,106 @@
+{
+  "name": "Certification",
+  "type": "object",
+  "properties": {
+    "course_id": {
+      "type": "string",
+      "enum": [
+        "fiber101",
+        "fiber102",
+        "fiber103"
+      ],
+      "description": "Course identifier"
+    },
+    "course_title": {
+      "type": "string",
+      "description": "Full course title"
+    },
+    "learner_name": {
+      "type": "string",
+      "description": "Name as it appears on certificate"
+    },
+    "score": {
+      "type": "number",
+      "description": "Exam score percentage"
+    },
+    "passed": {
+      "type": "boolean",
+      "description": "Whether the exam was passed"
+    },
+    "certificate_id": {
+      "type": "string",
+      "description": "Unique certificate identifier"
+    },
+    "completion_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of completion"
+    },
+    "domain_scores": {
+      "type": "object",
+      "description": "Scores by domain/topic area"
+    },
+    "attempts": {
+      "type": "number",
+      "default": 1,
+      "description": "Number of attempts taken"
+    }
+  },
+  "required": [
+    "course_id",
+    "learner_name",
+    "score",
+    "passed",
+    "certificate_id"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

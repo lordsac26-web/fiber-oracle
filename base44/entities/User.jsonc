@@ -1,0 +1,60 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "admin_role": {
+      "type": "string",
+      "enum": [
+        "super_admin",
+        "moderator",
+        "viewer"
+      ],
+      "description": "Granular admin role for permission control"
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "can_manage_documents": {
+          "type": "boolean",
+          "default": false
+        },
+        "can_manage_users": {
+          "type": "boolean",
+          "default": false
+        },
+        "can_delete_conversations": {
+          "type": "boolean",
+          "default": false
+        },
+        "can_view_analytics": {
+          "type": "boolean",
+          "default": false
+        },
+        "can_approve_submissions": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "last_active": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last activity timestamp"
+    },
+    "admin_tour_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether user has completed admin onboarding tour"
+    },
+    "ai_centric_mode_enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether AI-centric mode is enabled for this user"
+    }
+  },
+  "required": [
+    "admin_role",
+    "permissions",
+    "last_active"
+  ]
+}

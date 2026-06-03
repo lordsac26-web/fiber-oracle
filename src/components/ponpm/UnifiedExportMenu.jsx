@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Download, FileSpreadsheet, FileText, ChevronDown, AlertCircle, Router,
-  Wifi, Cable, Database, Search, Server, BarChart3, AlertTriangle,
+  Wifi, Cable, Database, Search, Server, BarChart3, AlertTriangle, Split,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { exportOfflineCSV } from './ontCsvExports';
@@ -21,6 +21,7 @@ import { exportCriticalIssuesCSV } from './exportCriticalCsv';
 import { exportFullIssueReportCSV } from './exportFullIssueReport';
 import { exportAllIssuesCSV } from './exportAllIssuesCsv';
 import { exportMultiOltCSV } from './exportMultiOltCsv';
+import { exportComboGponReport } from './exportComboGponReport';
 import MultiOltPickerDialog from './MultiOltPickerDialog';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 import { buildSubscriberLookup } from './SubscriberUpload';
@@ -281,6 +282,13 @@ export default function UnifiedExportMenu({
           <DropdownMenuItem onClick={() => exportOfflineCSV(onts, savedReports, result?.source)} disabled={!onts}>
             <Router className="h-4 w-4 mr-2 text-purple-500" />
             Offline ONTs (CSV)
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => exportComboGponReport(lcpEntries, onts, subscriberRecords, savedReports)}
+            disabled={!onts || !lcpEntries.length}
+          >
+            <Split className="h-4 w-4 mr-2 text-teal-600" />
+            COMBO GPON Port Report (CSV)
           </DropdownMenuItem>
 
           {/* ─── Eero Reports ─── */}
