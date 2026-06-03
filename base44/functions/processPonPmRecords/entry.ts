@@ -431,6 +431,11 @@ Deno.serve(async (req) => {
     const BATCH_SIZE = 500;
     let savedCount = 0;
 
+    // Accumulate authoritative status/tech tallies during the insert loop itself.
+    // This avoids a second full-table DB scan after all inserts complete — the
+    // analysis status and technology type are already computed per record below.
+    let finalCritical = 0, finalWarning = 0, finalOk = 0, finalOffline = 0, finalGpon = 0, finalXgs = 0;
+
     for (let i = 0; i < total; i += BATCH_SIZE) {
       const chunk = rawRecords.slice(i, i + BATCH_SIZE);
 
@@ -523,6 +528,16 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.ONTPerformanceRecord.bulkCreate(records);
       savedCount += chunk.length;
 
+      // Tally status/tech counts from this batch's already-analysed records.
+      for (const r of records) {
+        if (r.status === 'critical') finalCritical++;
+        else if (r.status === 'warning') finalWarning++;
+        else if (r.status === 'offline') finalOffline++;
+        else finalOk++;
+        if (r.technology_type === 'GPON') finalGpon++;
+        else if (r.technology_type === 'XGS-PON') finalXgs++;
+      }
+
       const progress = Math.round((savedCount / total) * 100);
       console.log(`[processPonPmRecords] ${savedCount}/${total} (${progress}%)`);
 
@@ -533,35 +548,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Tally final status counts from what was actually saved — these become the
-    // authoritative numbers shown in the report list card and must match loadSavedReport.
-    let finalCritical = 0, finalWarning = 0, finalOk = 0, finalOffline = 0, finalGpon = 0, finalXgs = 0;
-    // We already computed analysis per record; tally from the batch results above
-    // by re-reading the counts we tracked. Since we can't re-iterate the already-mapped
-    // records array (it's out of scope per batch), do a lightweight DB count scan.
-    // For large datasets this is a single paginated read of just the status field.
-    try {
-      let countPage = 0;
-      while (true) {
-        const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-          { report_id: reportId }, 'id', 2000, countPage * 2000
-        );
-        if (!batch || batch.length === 0) break;
-        for (const r of batch) {
-          if (r.status === 'critical') finalCritical++;
-          else if (r.status === 'warning') finalWarning++;
-          else if (r.status === 'offline') finalOffline++;
-          else finalOk++;
-          if (r.technology_type === 'GPON') finalGpon++;
-          else if (r.technology_type === 'XGS-PON') finalXgs++;
-        }
-        if (batch.length < 2000) break;
-        countPage++;
-      }
-      console.log(`[processPonPmRecords] Final counts — critical: ${finalCritical}, warning: ${finalWarning}, ok: ${finalOk}, offline: ${finalOffline}, GPON: ${finalGpon}, XGS-PON: ${finalXgs}`);
-    } catch (countErr) {
-      console.log(`[processPonPmRecords] Count scan failed (non-fatal): ${countErr.message}`);
-    }
+    // Counts were accumulated during the insert loop above (no extra DB scan).
+    console.log(`[processPonPmRecords] Final counts — critical: ${finalCritical}, warning: ${finalWarning}, ok: ${finalOk}, offline: ${finalOffline}, GPON: ${finalGpon}, XGS-PON: ${finalXgs}`);
 
     // Mark completed and write accurate summary counts back to the report record
     await base44.asServiceRole.entities.PONPMReport.update(reportId, {

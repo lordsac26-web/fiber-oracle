@@ -5,8 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   Calculator, Stethoscope, Sparkles, ImageIcon, BookOpen, Activity, Zap,
   Settings, ChevronRight, Wifi, WifiOff, Moon, Sun, Cable, GraduationCap,
-  FileText, LayoutGrid, Eye, EyeOff, X, Check, FileSearch, FlaskConical,
-  Info, HelpCircle
+  LayoutGrid, Eye, EyeOff, FileSearch, HelpCircle
 } from 'lucide-react';
 import OnboardingTour from '@/components/OnboardingTour';
 import { Link } from 'react-router-dom';
@@ -183,7 +182,7 @@ export default function Home() {
                 alt="Fiber Oracle"
                 width="56"
                 height="56"
-                fetchPriority="high"
+                fetchpriority="high"
                 className="rounded-xl w-14 h-14 object-cover shadow-[0_0_14px_rgba(0,240,255,0.25)]"
               />
               <div>
