@@ -8,7 +8,7 @@ import { formatUptime } from '@/components/ponpm/formatUptime';
 
 const STATUS_COLORS = { critical: 'bg-red-500', warning: 'bg-amber-500', ok: 'bg-green-500', offline: 'bg-purple-500' };
 
-export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, hasSparklines, onSelectDetail }) {
+export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, onSelectDetail }) {
   const cellCls = "px-1.5 py-1 text-[10px]";
   const monoCls = `${cellCls} font-mono`;
   const rightMono = `${monoCls} text-right`;
