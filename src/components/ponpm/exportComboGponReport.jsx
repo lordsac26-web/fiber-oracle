@@ -226,12 +226,16 @@ export async function exportComboGponReport(lcpEntries, onts, subscriberRecords 
         deviceName: oltName,
         shelfSlotPort: ssp,
         opticType: entry.optic_type || entry.optic_model || '',
-        lcpNumber: entry.lcp_number || '',
+        lcpNumbers: new Set(),
+        splitterNumbers: new Set(),
         currentCount: 0,
         weekKey: mapKey,
       });
     }
-    portSummary.get(mapKey).currentCount++;
+    const summary = portSummary.get(mapKey);
+    if (entry.lcp_number) summary.lcpNumbers.add(entry.lcp_number);
+    if (entry.splitter_number) summary.splitterNumbers.add(entry.splitter_number);
+    summary.currentCount++;
   }
 
   const weekReportLabel = weekReport?.upload_date
@@ -244,7 +248,7 @@ export async function exportComboGponReport(lcpEntries, onts, subscriberRecords 
   const summaryRows = [
     [`COMBO/EXT-COMBO GPON Port Summary — Generated ${new Date().toLocaleDateString()}`],
     [],
-    [`DeviceName`, `Shelf/Slot/Port (GPON Even Port)`, `Optic Type`, `# GPON ONTs`, `7-Day Delta (vs ${weekReportLabel})`],
+    [`DeviceName`, `LCP/CLCP`, `SP #`, `Shelf/Slot/Port (GPON Even Port)`, `Optic Type`, `# GPON ONTs`, `7-Day Delta (vs ${weekReportLabel})`],
     ...[...portSummary.values()]
       .sort((a, b) => {
         const c = a.deviceName.localeCompare(b.deviceName, undefined, { numeric: true });
@@ -257,7 +261,15 @@ export async function exportComboGponReport(lcpEntries, onts, subscriberRecords 
           : p.currentCount - weekCount === 0
           ? '0 (no change)'
           : `${p.currentCount - weekCount > 0 ? '+' : ''}${p.currentCount - weekCount}`;
-        return [p.deviceName, p.shelfSlotPort, p.opticType, p.currentCount, delta];
+        return [
+          p.deviceName,
+          [...p.lcpNumbers].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join('; '),
+          [...p.splitterNumbers].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join('; '),
+          p.shelfSlotPort,
+          p.opticType,
+          p.currentCount,
+          delta,
+        ];
       }),
     [],
     [], // blank separator between summary and detail
