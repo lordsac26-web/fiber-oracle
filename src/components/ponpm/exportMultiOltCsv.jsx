@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { escapeCsv as esc, downloadCsv } from './csvExportUtils';
 
 /**
  * Multi-OLT CSV export — one combined CSV with all ONTs from the selected
@@ -14,7 +15,6 @@ export function exportMultiOltCSV(onts, selectedOlts) {
     return;
   }
 
-  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const lines = [];
   let totalRows = 0;
 
@@ -61,13 +61,6 @@ export function exportMultiOltCSV(onts, selectedOlts) {
     });
   });
 
-  const csv = lines.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `olt-data-${selectedOlts.length}-olts-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadCsv(lines.join('\n'), `olt-data-${selectedOlts.length}-olts-${new Date().toISOString().slice(0, 10)}.csv`);
   toast.success(`Exported ${totalRows} ONTs across ${selectedOlts.length} OLT(s)`);
 }

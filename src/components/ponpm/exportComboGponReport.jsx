@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
+import { buildCsv, downloadCsv } from './csvExportUtils';
 
 /**
  * COMBO / EXT-COMBO GPON Side Report
@@ -16,24 +17,6 @@ import { base44 } from '@/api/base44Client';
  */
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function esc(v) {
-  return `"${String(v ?? '').replace(/"/g, '""')}"`;
-}
-
-function buildCsv(rows) {
-  return rows.map(r => r.map(esc).join(',')).join('\n');
-}
-
-function downloadCsv(csv, filename) {
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 /**
  * Returns true only for the explicit COMBO / EXT-COMBO optic model numbers.

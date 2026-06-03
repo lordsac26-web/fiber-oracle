@@ -25,21 +25,13 @@ import { exportComboGponReport } from './exportComboGponReport';
 import MultiOltPickerDialog from './MultiOltPickerDialog';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 import { buildSubscriberLookup } from './SubscriberUpload';
+import { buildCsv, downloadCsv as downloadCSV } from './csvExportUtils';
 
 // ─── CSV Helpers ────────────────────────────────────────────────────────────
+// Thin wrapper around the shared buildCsv so the (headers, rows) call shape
+// used throughout this file stays intact. Headers are now escaped too.
 function buildCSV(headers, rows) {
-  return [
-    headers.join(','),
-    ...rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
-  ].join('\n');
-}
-
-function downloadCSV(csv, filename) {
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  return buildCsv([headers, ...rows]);
 }
 
 // ─── LCP Export Functions (unchanged structure, kept inline) ────────────────

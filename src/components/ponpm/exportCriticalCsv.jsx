@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { downloadCsv } from './csvExportUtils';
 
 /**
  * Critical Issues (CSV) — every ONT classified as critical, one row each.
@@ -59,16 +60,6 @@ export function exportCriticalIssuesCSV(onts) {
     ];
   });
 
-  const csv = [headers, ...rows]
-    .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `critical-issues-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadCsv([headers, ...rows], `critical-issues-${new Date().toISOString().slice(0, 10)}.csv`);
   toast.success(`Exported ${critical.length} critical ONTs`);
 }

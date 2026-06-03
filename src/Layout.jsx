@@ -1,14 +1,9 @@
 import React from 'react';
 import { Toaster } from 'sonner';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserPreferencesProvider, useUserPreferences } from '@/components/UserPreferencesContext';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { Shield } from 'lucide-react';
-
-const queryClient = new QueryClient();
 
 function LayoutContent({ children, currentPageName }) {
   const { isAuthenticated } = useUserPreferences();
@@ -44,11 +39,11 @@ function LayoutContent({ children, currentPageName }) {
 }
 
 export default function Layout({ children, currentPageName }) {
+  // NOTE: QueryClientProvider is provided once at the app root (App.jsx).
+  // Do not add a second one here — nested clients break shared query cache.
   return (
-    <QueryClientProvider client={queryClient}>
-      <UserPreferencesProvider>
-        <LayoutContent children={children} currentPageName={currentPageName} />
-      </UserPreferencesProvider>
-    </QueryClientProvider>
+    <UserPreferencesProvider>
+      <LayoutContent children={children} currentPageName={currentPageName} />
+    </UserPreferencesProvider>
   );
 }

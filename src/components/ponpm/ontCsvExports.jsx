@@ -1,22 +1,12 @@
 import { toast } from 'sonner';
 import { base44 } from '@/api/base44Client';
+import { downloadCsv } from './csvExportUtils';
 
 /**
  * Extracted CSV export helpers from PONPMAnalysis to keep that page under
  * the platform's 2000-line edit limit. Pure functions — they take ONT
  * arrays in and trigger a browser download. No side effects beyond toast.
  */
-
-function downloadCsv(rows, filename) {
-  const csv = rows.map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 /** Offline-only ONTs export — sorted by OLT then port (numeric), with historical offline checks */
 export async function exportOfflineCSV(onts, savedReports = [], currentReportId = null) {

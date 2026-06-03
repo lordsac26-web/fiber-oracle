@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import { escapeCsv, downloadCsv } from './csvExportUtils';
 
 /**
  * Full Issue Report (CSV)
@@ -18,8 +19,7 @@ export function exportFullIssueReportCSV(onts) {
   }
 
   const lines = [];
-  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const row = (arr) => lines.push(arr.map(esc).join(','));
+  const row = (arr) => lines.push(arr.map(escapeCsv).join(','));
   const blank = () => lines.push('');
   const section = (title) => {
     blank();
@@ -105,13 +105,6 @@ export function exportFullIssueReportCSV(onts) {
   });
 
   // ─── Download ────────────────────────────────────────────────────────
-  const csv = lines.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `full-issue-report-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  downloadCsv(lines.join('\n'), `full-issue-report-${new Date().toISOString().slice(0, 10)}.csv`);
   toast.success(`Exported full issue report (${critical.length} critical, ${warnings.length} top warnings, ${topFecPorts.length} FEC ports)`);
 }
