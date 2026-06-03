@@ -36,27 +36,26 @@ function downloadCsv(csv, filename) {
 }
 
 /**
- * Returns true if the optic_type or optic_model indicates a COMBO or EXT-COMBO port.
+ * Returns true only for the explicit COMBO / EXT-COMBO optic model numbers.
  */
 function isComboOptic(lcpEntry) {
-  const t = (lcpEntry.optic_type || '').toUpperCase();
-  const m = (lcpEntry.optic_model || '').toUpperCase();
-  return (
-    t.includes('COMBO') ||
-    m.includes('COMBO') ||
-    // Cisco/Calix model numbers associated with COMBO optics
-    m.includes('100-05674') || // XGS-COMBO
-    m.includes('100-05929')    // XGS-COMBO-EXT
-  );
+  const model = String(lcpEntry.optic_model || '').trim();
+  return model === '100-05674' || model === '100-05929';
 }
 
 /**
- * Returns true if the port number (numeric) is even — i.e. the GPON side.
+ * Extract the GPON side from a COMBO port alias.
+ * Examples:
+ *  - xp11-12 → 12
+ *  - 11-12   → 12
+ *  - xp2     → 2
+ * Returns null if no even port exists in the alias.
  */
-function isEvenPort(portValue) {
+function getComboGponPort(portValue) {
   const raw = String(portValue || '').replace(/^xp/i, '').trim();
-  const n = parseInt(raw, 10);
-  return !isNaN(n) && n % 2 === 0;
+  const numbers = raw.match(/\d+/g)?.map(n => parseInt(n, 10)).filter(n => !isNaN(n)) || [];
+  const evenPort = numbers.find(n => n % 2 === 0);
+  return evenPort ? String(evenPort) : null;
 }
 
 /**
@@ -91,7 +90,7 @@ export async function exportComboGponReport(lcpEntries, onts, subscriberRecords 
   toast.loading('Building COMBO GPON report…', { id: 'combo-report' });
 
   // ── 1. Identify COMBO / EXT-COMBO LCP entries with EVEN ports (GPON side) ─
-  const comboGponEntries = lcpEntries.filter(e => isComboOptic(e) && isEvenPort(e.olt_port));
+  const comboGponEntries = lcpEntries.filter(e => isComboOptic(e) && getComboGponPort(e.olt_port));
 
   if (comboGponEntries.length === 0) {
     toast.warning('No COMBO/EXT-COMBO GPON ports found in LCP database', { id: 'combo-report' });
@@ -103,7 +102,8 @@ export async function exportComboGponReport(lcpEntries, onts, subscriberRecords 
   const entryByPortKey = new Map();
   for (const e of comboGponEntries) {
     const oltKey = (e.olt_name || '').toLowerCase().trim();
-    const portNum = String(e.olt_port || '').replace(/^xp/i, '').trim();
+    const portNum = getComboGponPort(e.olt_port);
+    if (!portNum) continue;
     const key = `${oltKey}|${e.olt_shelf}/${e.olt_slot}/${portNum}`;
     const keyXp = `${oltKey}|${e.olt_shelf}/${e.olt_slot}/xp${portNum}`;
     if (!entryByPortKey.has(key)) entryByPortKey.set(key, e);
