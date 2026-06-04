@@ -55,6 +55,14 @@ export async function exportOfflineCSV(onts, savedReports = [], currentReportId 
   const monthReport = closestReport(currentTime - 30 * 24 * 60 * 60 * 1000, usedIds);
 
   const normalizeSerial = (value) => String(value || '').trim().toUpperCase();
+  // Vendor prefix: serials beginning with 050/051/053 are ZTE (ZNTS),
+  // everything else is Calix (CXNK). Prefix is prepended to the raw serial.
+  const withVendorPrefix = (value) => {
+    const serial = String(value || '').trim();
+    if (!serial) return '';
+    const prefix = /^05[013]/.test(serial) ? 'ZNTS' : 'CXNK';
+    return `${prefix}${serial}`;
+  };
   const offlineSerialsForReport = async (report) => {
     if (!report?.id) return new Set();
     const records = await base44.entities.ONTPerformanceRecord.filter({ report_id: report.id, status: 'offline' }, 'id', 5000);
@@ -80,7 +88,7 @@ export async function exportOfflineCSV(onts, savedReports = [], currentReportId 
       ont._oltName || '',
       ont['Shelf/Slot/Port'] || '',
       ont.OntID || '',
-      ont.SerialNumber || '',
+      withVendorPrefix(ont.SerialNumber),
       ont.model || '',
       ont._lcpNumber || '',
       ont._splitterNumber || '',
