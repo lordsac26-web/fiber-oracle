@@ -74,7 +74,8 @@ export default function ReportForm({
   const passFail = formData.fiber_info?.pass_fail || '';
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
+    <form onSubmit={onSubmit} className="flex flex-col max-h-[70vh]">
+    <div className="flex-1 overflow-y-auto space-y-5 pr-1 pb-2">
       {/* ── Job Info ── */}
       <fieldset className="space-y-3">
         <legend className="text-xs font-semibold uppercase tracking-wide text-gray-500">Job Info</legend>
@@ -286,7 +287,9 @@ export default function ReportForm({
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-2 border-t">
+    </div>
+
+      <div className="flex justify-end gap-2 pt-3 border-t mt-2 flex-shrink-0">
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? 'Saving...' : isEditing ? 'Update Report' : 'Submit Report'}

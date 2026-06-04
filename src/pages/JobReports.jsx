@@ -250,8 +250,8 @@ export default function JobReports() {
                     New Report
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg">
-                          <DialogHeader>
+                <DialogContent className="max-w-lg flex flex-col max-h-[90vh]">
+                          <DialogHeader className="flex-shrink-0">
                             <DialogTitle>Create Job Report</DialogTitle>
                           </DialogHeader>
                           <ReportForm 
@@ -473,8 +473,8 @@ export default function JobReports() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingReport} onOpenChange={(open) => !open && setEditingReport(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh]">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Edit Job Report</DialogTitle>
           </DialogHeader>
           <ReportForm 
@@ -500,12 +500,12 @@ export default function JobReports() {
 
       {/* View Details Dialog */}
       <Dialog open={!!viewingReport} onOpenChange={(open) => !open && setViewingReport(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh]">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Job Report Details</DialogTitle>
           </DialogHeader>
           {viewingReport && (
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-gray-500">Job Number</Label>
