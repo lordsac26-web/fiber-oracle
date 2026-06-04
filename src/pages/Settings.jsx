@@ -31,16 +31,17 @@ import {
   HelpCircle,
   RotateCcw,
   Eye,
-  EyeOff,
   Database,
   Trash2,
   AlertTriangle,
   Loader2,
   Download,
   FileUp,
-  Zap
+  Zap,
+  LayoutDashboard
 } from 'lucide-react';
 import ModuleVisibilitySettings from '@/components/ModuleVisibilitySettings';
+import CustomTabsManager from '@/components/settings/CustomTabsManager';
 
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
@@ -61,6 +62,8 @@ import { useQuery } from '@tanstack/react-query';
 
 export default function Settings() {
     const { preferences, updatePreferences, isSaving, isAuthenticated, user } = useUserPreferences();
+    const autoSaveTimer = useRef(null);
+    const isFirstLoad = useRef(true);
     const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
     const [purgeType, setPurgeType] = useState(null);
     const [isPurging, setIsPurging] = useState(false);
@@ -91,7 +94,9 @@ export default function Settings() {
     defaultSortBy: 'created_date',
   });
 
+  // Sync from preferences (on initial load / external update) without triggering auto-save
   useEffect(() => {
+    isFirstLoad.current = true;
     setSettings({
       companyName: preferences.companyName || 'Fiber Oracle',
       logoUrl: preferences.logoUrl || '',
@@ -107,6 +112,30 @@ export default function Settings() {
       defaultSortBy: preferences.defaultSortBy || 'created_date',
     });
   }, [preferences]);
+
+  // Auto-save: debounce 1.5s after any settings change
+  useEffect(() => {
+    // Skip the first render that fires right after syncing from preferences
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      return;
+    }
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      try {
+        await updatePreferences({
+          ...settings,
+          customConnectorLoss: settings.customConnectorLoss ? parseFloat(settings.customConnectorLoss) : null,
+          customSpliceLoss: settings.customSpliceLoss ? parseFloat(settings.customSpliceLoss) : null,
+          customAttenuation: settings.customAttenuation ? parseFloat(settings.customAttenuation) : null,
+        });
+        toast.success('Settings saved', { id: 'auto-save' });
+      } catch {
+        toast.error('Failed to save settings', { id: 'auto-save' });
+      }
+    }, 1500);
+    return () => clearTimeout(autoSaveTimer.current);
+  }, [settings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async () => {
     try {
@@ -342,6 +371,10 @@ export default function Settings() {
             <TabsTrigger value="data" className="rounded-lg">
               <Database className="h-4 w-4 mr-2" />
               Stored Data
+            </TabsTrigger>
+            <TabsTrigger value="custom_tabs" className="rounded-lg">
+              <LayoutDashboard className="h-4 w-4 mr-2" />
+              Custom Tabs
             </TabsTrigger>
           </TabsList>
 
@@ -905,6 +938,11 @@ export default function Settings() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Custom Tabs Tab */}
+          <TabsContent value="custom_tabs" className="space-y-6">
+            <CustomTabsManager />
           </TabsContent>
         </Tabs>
 
