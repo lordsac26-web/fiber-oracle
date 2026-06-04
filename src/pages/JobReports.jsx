@@ -75,6 +75,8 @@ const EMPTY_REPORT = {
   equipment_used: [],
   diagnosis_used: false,
   diagnosis_result: '',
+  fiber_info: {},
+  photo_urls: [],
 };
 
 export default function JobReports() {
@@ -207,6 +209,8 @@ export default function JobReports() {
       equipment_used: report.equipment_used || [],
       diagnosis_used: report.diagnosis_used || false,
       diagnosis_result: report.diagnosis_result || '',
+      fiber_info: report.fiber_info || {},
+      photo_urls: report.photo_urls || [],
     });
     setEditingReport(report);
   };
@@ -542,8 +546,42 @@ export default function JobReports() {
                   <p className="font-medium">{moment(viewingReport.created_date).format('MMM D, YYYY h:mm A')}</p>
                 </div>
               </div>
-              {viewingReport.notes && (
+              {viewingReport.fiber_info?.test_type && (
                 <div>
+                  <Label className="text-gray-500">Test Type</Label>
+                  <p className="font-medium capitalize">{viewingReport.fiber_info.test_type.replace('_', ' ')}</p>
+                </div>
+              )}
+              {viewingReport.fiber_info?.fiber_type && (
+                <div>
+                  <Label className="text-gray-500">Fiber Type</Label>
+                  <p className="font-medium">{viewingReport.fiber_info.fiber_type}</p>
+                </div>
+              )}
+              {viewingReport.fiber_info?.pass_fail && (
+                <div>
+                  <Label className="text-gray-500">Result</Label>
+                  <Badge className={
+                    viewingReport.fiber_info.pass_fail === 'pass' ? 'bg-green-100 text-green-800' :
+                    viewingReport.fiber_info.pass_fail === 'fail' ? 'bg-red-100 text-red-800' :
+                    'bg-amber-100 text-amber-800'
+                  }>
+                    {viewingReport.fiber_info.pass_fail.toUpperCase()}
+                  </Badge>
+                </div>
+              )}
+              {viewingReport.equipment_used?.length > 0 && (
+                <div className="col-span-2">
+                  <Label className="text-gray-500">Equipment Used</Label>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {viewingReport.equipment_used.map(e => (
+                      <Badge key={e} variant="outline" className="text-xs">{e}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {viewingReport.notes && (
+                <div className="col-span-2">
                   <Label className="text-gray-500">Notes</Label>
                   <p className="mt-1 p-3 bg-gray-50 rounded-lg text-sm">{viewingReport.notes}</p>
                 </div>
