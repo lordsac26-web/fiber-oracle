@@ -74,8 +74,8 @@ export default function ReportForm({
   const passFail = formData.fiber_info?.pass_fail || '';
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col max-h-[70vh]">
-    <div className="flex-1 overflow-y-auto space-y-5 pr-1 pb-2">
+    <form onSubmit={onSubmit} className="flex flex-col overflow-hidden flex-1 min-h-0">
+    <div className="flex-1 min-h-0 overflow-y-auto space-y-5 pr-1 pb-2">
       {/* ── Job Info ── */}
       <fieldset className="space-y-3">
         <legend className="text-xs font-semibold uppercase tracking-wide text-gray-500">Job Info</legend>

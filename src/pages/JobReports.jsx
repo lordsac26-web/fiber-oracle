@@ -250,7 +250,7 @@ export default function JobReports() {
                     New Report
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg flex flex-col max-h-[90vh]">
+                <DialogContent className="max-w-lg flex flex-col max-h-[90vh] overflow-hidden">
                           <DialogHeader className="flex-shrink-0">
                             <DialogTitle>Create Job Report</DialogTitle>
                           </DialogHeader>
@@ -473,7 +473,7 @@ export default function JobReports() {
 
       {/* Edit Dialog */}
       <Dialog open={!!editingReport} onOpenChange={(open) => !open && setEditingReport(null)}>
-        <DialogContent className="max-w-lg flex flex-col max-h-[90vh]">
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh] overflow-hidden">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>Edit Job Report</DialogTitle>
           </DialogHeader>
