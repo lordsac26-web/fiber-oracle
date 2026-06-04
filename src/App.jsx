@@ -12,6 +12,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import AppErrorBoundary from '@/components/AppErrorBoundary';
 import AlertThresholds from './pages/AlertThresholds';
 import CertificationDashboard from './pages/CertificationDashboard';
+import JobReports from './pages/JobReports';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -65,6 +66,7 @@ const AuthenticatedApp = () => {
       ))}
       <Route path="/AlertThresholds" element={<LayoutWrapper currentPageName="AlertThresholds"><AlertThresholds /></LayoutWrapper>} />
       <Route path="/CertificationDashboard" element={<LayoutWrapper currentPageName="CertificationDashboard"><CertificationDashboard /></LayoutWrapper>} />
+      <Route path="/JobReports" element={<LayoutWrapper currentPageName="JobReports"><JobReports /></LayoutWrapper>} />
 
       <Route path="*" element={<PageNotFound />} />
     </Routes>
