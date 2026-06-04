@@ -130,7 +130,7 @@ export default function LCPEntryForm({
               <Select value={formData.splitterRatio || ''} onValueChange={(value) => setFormData({ ...formData, splitterRatio: value })}>
                 <SelectTrigger><SelectValue placeholder="Select ratio..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={null}>Unknown</SelectItem>
+                  <SelectItem value="unknown">Unknown</SelectItem>
                   <SelectItem value="1:32">1:32</SelectItem>
                   <SelectItem value="1:64">1:64</SelectItem>
                   <SelectItem value="1:16">1:16</SelectItem>

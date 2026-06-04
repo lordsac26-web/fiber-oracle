@@ -119,8 +119,7 @@ export default function LCPInfo() {
   // --- Validation helpers ---
   const validateField = (value, label, required = false) => {
     if (!value || !value.trim()) return required ? `${label} is required` : null;
-    const pattern = /^[A-Z0-9][A-Z0-9\-_\s]{0,30}$/i;
-    if (!pattern.test(value.trim())) return `${label} format invalid`;
+    if (value.trim().length > 64) return `${label} is too long (max 64 characters)`;
     return null;
   };
 
@@ -155,7 +154,7 @@ export default function LCPInfo() {
       olt_slot: formData.oltSlot?.trim() || '', olt_port: formData.oltPort?.trim() || '',
       optic_make: formData.opticMake?.trim() || '', optic_model: formData.opticModel?.trim() || '',
       optic_serial: formData.opticSerial?.trim() || '', notes: formData.notes?.trim() || '',
-      splitter_ratio: formData.splitterRatio?.trim() || '',
+      splitter_ratio: (formData.splitterRatio === 'unknown' ? '' : formData.splitterRatio?.trim()) || '',
     };
     editingId ? updateMutation.mutate({ id: editingId, data: entryData }) : createMutation.mutate(entryData);
   };
