@@ -69,13 +69,22 @@ export default function LCPInfo() {
   const createMutation = useMutation({
     mutationFn: (data) => base44.entities.LCPEntry.create(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['lcpEntries'] }); toast.success('LCP entry added'); resetForm(); setShowAddDialog(false); },
-    onError: () => toast.error('Failed to save entry'),
+    onError: (err) => {
+      const status = err?.response?.status;
+      if (status === 403) toast.error('Permission denied — you do not have access to create entries.');
+      else toast.error(`Failed to save entry: ${err?.message || 'unknown error'}`);
+    },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => base44.entities.LCPEntry.update(id, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['lcpEntries'] }); toast.success('LCP entry updated'); resetForm(); setShowAddDialog(false); },
-    onError: () => toast.error('Failed to update entry'),
+    onError: (err) => {
+      const status = err?.response?.status;
+      if (status === 403) toast.error('Permission denied — only the original creator or an admin can update this entry.');
+      else if (status === 404) toast.error('Entry not found — it may have been deleted.');
+      else toast.error(`Failed to update entry: ${err?.message || 'unknown error'}`);
+    },
   });
 
   const deleteMutation = useMutation({
