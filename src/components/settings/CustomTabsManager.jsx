@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
-const EMPTY_FORM = { title: '', icon: 'Info', content_type: 'markdown', content: '', order: 0, is_active: true };
+const EMPTY_FORM = { title: '', icon: '', content_type: 'markdown', content: '', order: 0, is_active: true };
 
 function TabForm({ value, onChange }) {
   return (
