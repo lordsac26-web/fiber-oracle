@@ -66,6 +66,9 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
   const [historicalData, setHistoricalData] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
+  // Weather correlation: map of 'YYYY-MM-DD' -> { high, low } for this ONT's zip.
+  const [weatherByDate, setWeatherByDate] = useState({});
+
   const [peerData, setPeerData] = useState({ onts: [], avgMetrics: null });
   const [peerSort, setPeerSort] = useState({ key: 'serial', direction: 'asc' });
   const [showPeerComparison, setShowPeerComparison] = useState(false);
@@ -103,6 +106,25 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
 
       // Peer data (sync — no API call)
       if (!cancelled) loadPeerData();
+
+      // Weather history for this ONT's zip (for temperature correlation).
+      const zip = (ont._subscriber?.zip || '').toString().trim().slice(0, 5);
+      if (/^\d{5}$/.test(zip)) {
+        try {
+          const rows = await base44.entities.WeatherHistory.filter({ zip_code: zip }, '-weather_date', 500);
+          if (!cancelled) {
+            const map = {};
+            for (const r of rows) {
+              map[r.weather_date] = { high: r.high_temp_f, low: r.low_temp_f };
+            }
+            setWeatherByDate(map);
+          }
+        } catch (error) {
+          console.error('Failed to load weather history:', error);
+        }
+      } else if (!cancelled) {
+        setWeatherByDate({});
+      }
     };
 
     loadAll();
@@ -891,6 +913,7 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                     historicalData={recent}
                     title={`${ont.SerialNumber} - Performance Trends`}
                     serialNumber={ont.SerialNumber}
+                    weatherByDate={weatherByDate}
                   />
                   {archived.length > 0 && (
                     <p className="text-xs text-gray-500 -mt-2 px-1">

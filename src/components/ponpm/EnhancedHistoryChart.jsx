@@ -42,13 +42,16 @@ const METRIC_CONFIGS = {
   'GEM HEC': { yAxisId: 'errors', color: '#dc2626', strokeWidth: 1, thresholds: { critical: 100, warning: 10 } },
 };
 
-export default function EnhancedHistoryChart({ historicalData, title, serialNumber }) {
+export default function EnhancedHistoryChart({ historicalData, title, serialNumber, weatherByDate = {} }) {
   const [selectedMetrics, setSelectedMetrics] = useState(['ONT Rx', 'OLT Rx', 'US FEC Unc', 'DS FEC Unc']);
   const [chartType, setChartType] = useState('line'); // 'line' or 'area'
   const [showThresholds, setShowThresholds] = useState(true);
   const [showAverages, setShowAverages] = useState(true);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [zoomEnabled, setZoomEnabled] = useState(false);
+
+  const hasWeather = Object.keys(weatherByDate).length > 0;
+  const [showTemperature, setShowTemperature] = useState(true);
 
   // Prepare chart data with date filtering
   const chartData = useMemo(() => {
@@ -59,9 +62,14 @@ export default function EnhancedHistoryChart({ historicalData, title, serialNumb
       return true;
     });
 
-    return filtered.map(d => ({
+    return filtered.map(d => {
+      const dayKey = moment(d.date).format('YYYY-MM-DD');
+      const w = weatherByDate[dayKey];
+      return {
       date: moment(d.date).format('MM/DD'),
       fullDate: moment(d.date).format('YYYY-MM-DD HH:mm'),
+      'High Temp': w && w.high != null ? w.high : null,
+      'Low Temp': w && w.low != null ? w.low : null,
       'ONT Rx': d.ont_rx_power,
       'OLT Rx': d.olt_rx_power,
       'ONT Tx': d.ont_tx_power,
@@ -72,8 +80,9 @@ export default function EnhancedHistoryChart({ historicalData, title, serialNumb
       'US FEC Cor': d.us_fec_corrected || 0,
       'DS FEC Cor': d.ds_fec_corrected || 0,
       'GEM HEC': d.us_gem_hec_errors || 0,
-    })).sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
-  }, [historicalData, dateRange]);
+    };
+    }).sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
+  }, [historicalData, dateRange, weatherByDate]);
 
   // Calculate averages
   const averages = useMemo(() => {
@@ -182,6 +191,16 @@ export default function EnhancedHistoryChart({ historicalData, title, serialNumb
           >
             Averages
           </Button>
+          {hasWeather && (
+            <Button
+              variant={showTemperature ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowTemperature(!showTemperature)}
+              className="h-8 text-xs"
+            >
+              Temperature
+            </Button>
+          )}
         </div>
 
         {/* Metric Selector */}
@@ -228,6 +247,16 @@ export default function EnhancedHistoryChart({ historicalData, title, serialNumb
                   orientation="right" 
                   tick={{ fontSize: 10 }} 
                   label={{ value: 'Errors', angle: 90, position: 'insideRight', fontSize: 10 }} 
+                />
+              )}
+              {hasWeather && showTemperature && (
+                <YAxis
+                  yAxisId="temp"
+                  orientation="right"
+                  domain={['auto', 'auto']}
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  width={36}
+                  label={{ value: '°F', angle: 90, position: 'insideRight', fontSize: 10, fill: '#94a3b8' }}
                 />
               )}
               <Tooltip 
@@ -305,6 +334,34 @@ export default function EnhancedHistoryChart({ historicalData, title, serialNumb
                   />
                 );
               })}
+
+              {/* Temperature overlay (high/low °F) — rendered as light dashed lines */}
+              {hasWeather && showTemperature && (
+                <Line
+                  yAxisId="temp"
+                  type="monotone"
+                  dataKey="High Temp"
+                  name="High °F"
+                  stroke="#f87171"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  dot={false}
+                  connectNulls
+                />
+              )}
+              {hasWeather && showTemperature && (
+                <Line
+                  yAxisId="temp"
+                  type="monotone"
+                  dataKey="Low Temp"
+                  name="Low °F"
+                  stroke="#60a5fa"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  dot={false}
+                  connectNulls
+                />
+              )}
 
               {/* Zoom brush */}
               {zoomEnabled && <Brush dataKey="date" height={30} stroke="#8884d8" />}
