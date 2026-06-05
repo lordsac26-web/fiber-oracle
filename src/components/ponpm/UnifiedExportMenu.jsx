@@ -24,7 +24,6 @@ import { exportMultiOltCSV } from './exportMultiOltCsv';
 import { exportComboGponReport } from './exportComboGponReport';
 import MultiOltPickerDialog from './MultiOltPickerDialog';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
-import { buildSubscriberLookup } from './SubscriberUpload';
 import { buildCsv, downloadCsv as downloadCSV } from './csvExportUtils';
 
 // ─── CSV Helpers ────────────────────────────────────────────────────────────
@@ -117,26 +116,6 @@ export default function UnifiedExportMenu({
     return uniqueLcps.filter(l => l.name.toLowerCase().includes(term));
   }, [uniqueLcps, lcpSearch]);
 
-  // Subscriber lookup for single/multi LCP export — kept for the existing
-  // implementation since LCP exports rely on the subscriber join.
-  const subscriberLookup = useMemo(
-    () => buildSubscriberLookup(subscriberRecords || []),
-    [subscriberRecords]
-  );
-
-  const getSubscribersForEntry = (entry) => {
-    if (!subscriberRecords?.length) return [];
-    const port = `${entry.olt_shelf || ''}/${entry.olt_slot || ''}/${entry.olt_port || ''}`.replace(/\s+/g, '');
-    const oltName = (entry.olt_name || '').trim().toUpperCase();
-    return (subscriberRecords || []).filter(rec => {
-      const recOlt = (rec.DeviceName || '').trim().toUpperCase();
-      const recPon = (rec.LinkedPon || '').trim().replace(/\s+/g, '');
-      if (oltName && recOlt === oltName && recPon === port) return true;
-      if (port && recPon === port && !recOlt) return true;
-      return false;
-    });
-  };
-
   const toggleLcp = (name) => {
     setSelectedLcps(prev =>
       prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
@@ -149,28 +128,46 @@ export default function UnifiedExportMenu({
   // OLT list pulled from the result object
   const oltNames = useMemo(() => result?.olts ? Object.keys(result.olts).sort() : [], [result?.olts]);
 
-  /** Single/Multi LCP Report CSV with subscriber data */
+  /** Single/Multi LCP Report CSV with per-customer ONT + optical data */
   const exportSelectedLcps = () => {
     if (selectedLcps.length === 0) { toast.error('Select at least one LCP'); return; }
     const entries = lcpEntries.filter(e => selectedLcps.includes(e.lcp_number));
     if (!entries.length) { toast.error('No entries found'); return; }
 
-    // Build a serial-number → ONT record lookup so each customer row can be
-    // enriched with the live optical readings (ONT Rx, OLT Rx, ONT Tx) from
-    // the loaded PON PM result. Serials are normalized to uppercase/trimmed.
-    const ontBySerial = {};
+    // ── Match customers to LCP entries via the loaded ONT records ──
+    // The previous subscriber port-string match was unreliable. Instead we
+    // drive off result.onts, which are already enriched with _subscriber
+    // (name/account/address) AND carry the live optical readings. We map each
+    // ONT to its LCP entry using OLT name + shelf/slot/port (same approach as
+    // the COMBO GPON report). This guarantees one row per attached customer.
+    const parseSsp = (ssp) => {
+      const m = String(ssp || '').match(/^(\d+)\/(\d+)\/(.+)$/);
+      return m ? { shelf: m[1], slot: m[2], port: m[3].replace(/^xp/i, '').trim() } : null;
+    };
+
+    // Build a lookup: "oltname_lower|shelf/slot/port" → list of ONTs on that port.
+    const ontsByPortKey = new Map();
     (onts || []).forEach(o => {
-      const sn = (o.SerialNumber || '').trim().toUpperCase();
-      if (sn) ontBySerial[sn] = o;
+      const oltKey = (o._oltName || o.OLTName || '').toLowerCase().trim();
+      const parsed = parseSsp(o._port || o['Shelf/Slot/Port'] || '');
+      if (!parsed) return;
+      const key = `${oltKey}|${parsed.shelf}/${parsed.slot}/${parsed.port}`;
+      if (!ontsByPortKey.has(key)) ontsByPortKey.set(key, []);
+      ontsByPortKey.get(key).push(o);
     });
-    const findOnt = (sub) =>
-      ontBySerial[(sub.ONTSerialNo || '').trim().toUpperCase()] || null;
+
+    const getOntsForEntry = (entry) => {
+      const oltKey = (entry.olt_name || '').toLowerCase().trim();
+      const portNum = String(entry.olt_port || '').replace(/^xp/i, '').trim();
+      const key = `${oltKey}|${entry.olt_shelf || ''}/${entry.olt_slot || ''}/${portNum}`;
+      return ontsByPortKey.get(key) || [];
+    };
 
     const headers = [
       'LCP/CLCP', 'Splitter', 'Location', 'OLT', 'Shelf/Slot/Port',
       'Optic Make', 'Optic Model', 'Optic Serial', 'Optic Type',
-      'Current ONT Count', 'Subscriber Name', 'Account', 'Address', 'City', 'Zip',
-      'ONT ID', 'ONT Serial', 'ONT Model', 'Software Version',
+      'Current ONT Count', 'Account', 'Subscriber Name', 'Address',
+      'ONT ID', 'ONT Serial', 'ONT Model',
       'ONT Rx', 'OLT Rx', 'ONT Tx',
     ];
     const rows = [];
@@ -178,28 +175,25 @@ export default function UnifiedExportMenu({
       const port = `${entry.olt_shelf || ''}/${entry.olt_slot || ''}/${entry.olt_port || ''}`;
       const key = `${entry.lcp_number.trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`;
       const ontCount = lcpOntCounts[key] || 0;
-      const subs = getSubscribersForEntry(entry);
-      if (subs.length > 0) {
-        subs.forEach(sub => {
-          const ont = findOnt(sub);
+      const entryOnts = getOntsForEntry(entry);
+      const base = [
+        entry.lcp_number, entry.splitter_number || '', entry.location || '',
+        entry.olt_name || '', port,
+        entry.optic_make || '', entry.optic_model || '', entry.optic_serial || '', entry.optic_type || '',
+        ontCount,
+      ];
+      if (entryOnts.length > 0) {
+        entryOnts.forEach(o => {
+          const sub = o._subscriber || {};
           rows.push([
-            entry.lcp_number, entry.splitter_number || '', entry.location || '',
-            entry.olt_name || '', port,
-            entry.optic_make || '', entry.optic_model || '', entry.optic_serial || '', entry.optic_type || '',
-            ontCount, sub.SubscriberName || '', sub.AccountName || '', sub.Address || '',
-            sub.City || '', sub.Zip || '', sub.OntID || '', sub.ONTSerialNo || '', sub.ONTModel || '',
-            sub.CurrentONTSoftwareVersion || '',
-            ont?.OntRxOptPwr ?? '', ont?.OLTRXOptPwr ?? '', ont?.OntTxPwr ?? '',
+            ...base,
+            sub.account || '', sub.name || '', sub.address || sub.streetAddress || '',
+            o.OntID || '', o.SerialNumber || '', o.model || sub.model || '',
+            o.OntRxOptPwr ?? '', o.OLTRXOptPwr ?? '', o.OntTxPwr ?? '',
           ]);
         });
       } else {
-        rows.push([
-          entry.lcp_number, entry.splitter_number || '', entry.location || '',
-          entry.olt_name || '', port,
-          entry.optic_make || '', entry.optic_model || '', entry.optic_serial || '', entry.optic_type || '',
-          ontCount, '', '', '', '', '', '', '', '', '',
-          '', '', '',
-        ]);
+        rows.push([...base, '', '', '', '', '', '', '', '', '']);
       }
     });
 
