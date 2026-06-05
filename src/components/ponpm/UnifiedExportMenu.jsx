@@ -155,11 +155,23 @@ export default function UnifiedExportMenu({
     const entries = lcpEntries.filter(e => selectedLcps.includes(e.lcp_number));
     if (!entries.length) { toast.error('No entries found'); return; }
 
+    // Build a serial-number → ONT record lookup so each customer row can be
+    // enriched with the live optical readings (ONT Rx, OLT Rx, ONT Tx) from
+    // the loaded PON PM result. Serials are normalized to uppercase/trimmed.
+    const ontBySerial = {};
+    (onts || []).forEach(o => {
+      const sn = (o.SerialNumber || '').trim().toUpperCase();
+      if (sn) ontBySerial[sn] = o;
+    });
+    const findOnt = (sub) =>
+      ontBySerial[(sub.ONTSerialNo || '').trim().toUpperCase()] || null;
+
     const headers = [
       'LCP/CLCP', 'Splitter', 'Location', 'OLT', 'Shelf/Slot/Port',
       'Optic Make', 'Optic Model', 'Optic Serial', 'Optic Type',
       'Current ONT Count', 'Subscriber Name', 'Account', 'Address', 'City', 'Zip',
-      'ONT ID', 'ONT Serial', 'ONT Model', 'Software Version'
+      'ONT ID', 'ONT Serial', 'ONT Model', 'Software Version',
+      'ONT Rx', 'OLT Rx', 'ONT Tx',
     ];
     const rows = [];
     entries.forEach(entry => {
@@ -169,6 +181,7 @@ export default function UnifiedExportMenu({
       const subs = getSubscribersForEntry(entry);
       if (subs.length > 0) {
         subs.forEach(sub => {
+          const ont = findOnt(sub);
           rows.push([
             entry.lcp_number, entry.splitter_number || '', entry.location || '',
             entry.olt_name || '', port,
@@ -176,6 +189,7 @@ export default function UnifiedExportMenu({
             ontCount, sub.SubscriberName || '', sub.AccountName || '', sub.Address || '',
             sub.City || '', sub.Zip || '', sub.OntID || '', sub.ONTSerialNo || '', sub.ONTModel || '',
             sub.CurrentONTSoftwareVersion || '',
+            ont?.OntRxOptPwr ?? '', ont?.OLTRXOptPwr ?? '', ont?.OntTxPwr ?? '',
           ]);
         });
       } else {
@@ -184,6 +198,7 @@ export default function UnifiedExportMenu({
           entry.olt_name || '', port,
           entry.optic_make || '', entry.optic_model || '', entry.optic_serial || '', entry.optic_type || '',
           ontCount, '', '', '', '', '', '', '', '', '',
+          '', '', '',
         ]);
       }
     });
