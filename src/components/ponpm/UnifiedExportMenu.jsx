@@ -149,106 +149,42 @@ export default function UnifiedExportMenu({
   // OLT list pulled from the result object
   const oltNames = useMemo(() => result?.olts ? Object.keys(result.olts).sort() : [], [result?.olts]);
 
-  /** Single/Multi LCP Report CSV — one row per ONT on each LCP's port,
-   *  with subscriber enrichment when available. Falls back to PON PM ONTs
-   *  for ports that have no subscriber data, and shows a header-only row
-   *  for LCP entries with zero ONTs loaded. */
+  /** Single/Multi LCP Report CSV with subscriber data */
   const exportSelectedLcps = () => {
     if (selectedLcps.length === 0) { toast.error('Select at least one LCP'); return; }
     const entries = lcpEntries.filter(e => selectedLcps.includes(e.lcp_number));
     if (!entries.length) { toast.error('No entries found'); return; }
 
-    // ONT serial → performance record (PON PM data)
-    const ontBySerial = new Map();
-    if (onts) {
-      onts.forEach(ont => {
-        const serial = (ont.SerialNumber || ont.serial_number || '').trim().toUpperCase();
-        if (serial) ontBySerial.set(serial, ont);
-      });
-    }
-
-    // Subscriber serial → subscriber record
-    const subBySerial = new Map();
-    if (subscriberRecords?.length) {
-      subscriberRecords.forEach(sub => {
-        const serial = (sub.ONTSerialNo || '').trim().toUpperCase();
-        if (serial) subBySerial.set(serial, sub);
-      });
-    }
-
-    // Helper: get all PON PM ONTs on a given OLT + shelf/slot/port
-    const getOntsForPort = (oltName, shelf, slot, port) => {
-      if (!onts) return [];
-      const normOlt = (oltName || '').trim().toUpperCase();
-      const portStr = `${shelf || ''}/${slot || ''}/${port || ''}`.replace(/\s+/g, '');
-      return onts.filter(ont => {
-        const ontOlt = (ont._oltName || ont.olt_name || '').trim().toUpperCase();
-        const ontPort = (ont._port || ont.shelf_slot_port || '').trim().replace(/\s+/g, '');
-        return ontOlt === normOlt && ontPort === portStr;
-      });
-    };
-
     const headers = [
       'LCP/CLCP', 'Splitter', 'Location', 'OLT', 'Shelf/Slot/Port',
       'Optic Make', 'Optic Model', 'Optic Serial', 'Optic Type',
-      'ONT Count on Port',
-      'Subscriber Name', 'Account', 'Address', 'City', 'Zip',
-      'ONT ID', 'ONT Serial', 'ONT Model', 'Status',
-      'ONT Rx (dBm)', 'OLT Rx (dBm)', 'ONT Tx (dBm)',
+      'Current ONT Count', 'Subscriber Name', 'Account', 'Address', 'City', 'Zip',
+      'ONT ID', 'ONT Serial', 'ONT Model', 'Software Version'
     ];
     const rows = [];
-
     entries.forEach(entry => {
       const port = `${entry.olt_shelf || ''}/${entry.olt_slot || ''}/${entry.olt_port || ''}`;
       const key = `${entry.lcp_number.trim().toUpperCase()}|${(entry.splitter_number || '').trim().toUpperCase()}`;
-      const portOnts = getOntsForPort(entry.olt_name, entry.olt_shelf, entry.olt_slot, entry.olt_port);
-      const ontCount = portOnts.length || (lcpOntCounts[key] || 0);
-
-      const lcpCols = [
-        entry.lcp_number, entry.splitter_number || '', entry.location || '',
-        entry.olt_name || '', port,
-        entry.optic_make || '', entry.optic_model || '', entry.optic_serial || '', entry.optic_type || '',
-        ontCount,
-      ];
-
-      if (portOnts.length > 0) {
-        // One row per ONT on this port
-        portOnts.forEach(ont => {
-          const serial = (ont.SerialNumber || ont.serial_number || '').trim().toUpperCase();
-          const sub = subBySerial.get(serial);
-          const status = ont._analysis?.status || ont.status || '';
+      const ontCount = lcpOntCounts[key] || 0;
+      const subs = getSubscribersForEntry(entry);
+      if (subs.length > 0) {
+        subs.forEach(sub => {
           rows.push([
-            ...lcpCols,
-            sub?.SubscriberName || '', sub?.AccountName || '', sub?.Address || '',
-            sub?.City || '', sub?.Zip || '',
-            ont.OntID || ont.ont_id || '', serial, ont.model || ont.Model || '', status,
-            ont.ont_rx_power ?? ont.OntRxPower ?? '',
-            ont.olt_rx_power ?? ont.OltRxPower ?? '',
-            ont.ont_tx_power ?? ont.OntTxPower ?? '',
+            entry.lcp_number, entry.splitter_number || '', entry.location || '',
+            entry.olt_name || '', port,
+            entry.optic_make || '', entry.optic_model || '', entry.optic_serial || '', entry.optic_type || '',
+            ontCount, sub.SubscriberName || '', sub.AccountName || '', sub.Address || '',
+            sub.City || '', sub.Zip || '', sub.OntID || '', sub.ONTSerialNo || '', sub.ONTModel || '',
+            sub.CurrentONTSoftwareVersion || '',
           ]);
         });
       } else {
-        // No PON PM ONTs matched — emit one row per subscriber if available,
-        // otherwise a single header-only row for this LCP entry.
-        const subs = getSubscribersForEntry(entry);
-        if (subs.length > 0) {
-          subs.forEach(sub => {
-            const serial = (sub.ONTSerialNo || '').trim().toUpperCase();
-            const perf = ontBySerial.get(serial);
-            rows.push([
-              ...lcpCols,
-              sub.SubscriberName || '', sub.AccountName || '', sub.Address || '',
-              sub.City || '', sub.Zip || '',
-              sub.OntID || '', sub.ONTSerialNo || '', sub.ONTModel || '',
-              perf?._analysis?.status || perf?.status || '',
-              perf?.ont_rx_power ?? perf?.OntRxPower ?? '',
-              perf?.olt_rx_power ?? perf?.OltRxPower ?? '',
-              perf?.ont_tx_power ?? perf?.OntTxPower ?? '',
-            ]);
-          });
-        } else {
-          rows.push([...lcpCols, '', '', '', '', '', '', '', '', '', '', '', '']);
-        }
+        rows.push([
+          entry.lcp_number, entry.splitter_number || '', entry.location || '',
+          entry.olt_name || '', port,
+          entry.optic_make || '', entry.optic_model || '', entry.optic_serial || '', entry.optic_type || '',
+          ontCount, '', '', '', '', '', '', '', '', '',
+        ]);
       }
     });
 
