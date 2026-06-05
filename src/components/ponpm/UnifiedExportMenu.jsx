@@ -149,17 +149,27 @@ export default function UnifiedExportMenu({
   // OLT list pulled from the result object
   const oltNames = useMemo(() => result?.olts ? Object.keys(result.olts).sort() : [], [result?.olts]);
 
-  /** Single/Multi LCP Report CSV with subscriber data */
+  /** Single/Multi LCP Report CSV with subscriber data + ONT optical readings */
   const exportSelectedLcps = () => {
     if (selectedLcps.length === 0) { toast.error('Select at least one LCP'); return; }
     const entries = lcpEntries.filter(e => selectedLcps.includes(e.lcp_number));
     if (!entries.length) { toast.error('No entries found'); return; }
 
+    // Build a lookup from ONT serial → ONT performance record for optical readings
+    const ontBySerial = new Map();
+    if (onts) {
+      onts.forEach(ont => {
+        const serial = (ont.SerialNumber || ont.serial_number || '').trim().toUpperCase();
+        if (serial) ontBySerial.set(serial, ont);
+      });
+    }
+
     const headers = [
       'LCP/CLCP', 'Splitter', 'Location', 'OLT', 'Shelf/Slot/Port',
       'Optic Make', 'Optic Model', 'Optic Serial', 'Optic Type',
       'Current ONT Count', 'Subscriber Name', 'Account', 'Address', 'City', 'Zip',
-      'ONT ID', 'ONT Serial', 'ONT Model', 'Software Version'
+      'ONT ID', 'ONT Serial', 'ONT Model', 'Software Version',
+      'ONT Rx (dBm)', 'OLT Rx (dBm)', 'ONT Tx (dBm)',
     ];
     const rows = [];
     entries.forEach(entry => {
@@ -169,6 +179,8 @@ export default function UnifiedExportMenu({
       const subs = getSubscribersForEntry(entry);
       if (subs.length > 0) {
         subs.forEach(sub => {
+          const serial = (sub.ONTSerialNo || '').trim().toUpperCase();
+          const perf = ontBySerial.get(serial);
           rows.push([
             entry.lcp_number, entry.splitter_number || '', entry.location || '',
             entry.olt_name || '', port,
@@ -176,6 +188,9 @@ export default function UnifiedExportMenu({
             ontCount, sub.SubscriberName || '', sub.AccountName || '', sub.Address || '',
             sub.City || '', sub.Zip || '', sub.OntID || '', sub.ONTSerialNo || '', sub.ONTModel || '',
             sub.CurrentONTSoftwareVersion || '',
+            perf?.ont_rx_power ?? perf?.OntRxPower ?? '',
+            perf?.olt_rx_power ?? perf?.OltRxPower ?? '',
+            perf?.ont_tx_power ?? perf?.OntTxPower ?? '',
           ]);
         });
       } else {
@@ -184,6 +199,7 @@ export default function UnifiedExportMenu({
           entry.olt_name || '', port,
           entry.optic_make || '', entry.optic_model || '', entry.optic_serial || '', entry.optic_type || '',
           ontCount, '', '', '', '', '', '', '', '', '',
+          '', '', '',
         ]);
       }
     });
