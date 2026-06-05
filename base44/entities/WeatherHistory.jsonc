@@ -1,0 +1,51 @@
+{
+  "name": "WeatherHistory",
+  "type": "object",
+  "properties": {
+    "zip_code": {
+      "type": "string",
+      "description": "5-digit US zip code this weather record applies to",
+      "index": true
+    },
+    "weather_date": {
+      "type": "string",
+      "description": "Date of the weather reading in YYYY-MM-DD format (local to the zip)",
+      "index": true
+    },
+    "high_temp_f": {
+      "type": "number",
+      "description": "Daily high temperature in Fahrenheit"
+    },
+    "low_temp_f": {
+      "type": "number",
+      "description": "Daily low temperature in Fahrenheit"
+    },
+    "source": {
+      "type": "string",
+      "default": "open-meteo",
+      "description": "Weather data provider"
+    }
+  },
+  "required": [
+    "zip_code",
+    "weather_date"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
