@@ -135,32 +135,26 @@ export default function UnifiedExportMenu({
     if (!entries.length) { toast.error('No entries found'); return; }
 
     // ── Match customers to LCP entries via the loaded ONT records ──
-    // The previous subscriber port-string match was unreliable. Instead we
-    // drive off result.onts, which are already enriched with _subscriber
-    // (name/account/address) AND carry the live optical readings. We map each
-    // ONT to its LCP entry using OLT name + shelf/slot/port (same approach as
-    // the COMBO GPON report). This guarantees one row per attached customer.
-    const parseSsp = (ssp) => {
-      const m = String(ssp || '').match(/^(\d+)\/(\d+)\/(.+)$/);
-      return m ? { shelf: m[1], slot: m[2], port: m[3].replace(/^xp/i, '').trim() } : null;
-    };
+    // result.onts are enriched at ingest (enrichOntLcpData) with their resolved
+    // _lcpNumber / _splitterNumber, AND carry the live optical readings + the
+    // _subscriber identity. Joining on the already-resolved LCP/splitter is far
+    // more reliable than re-deriving a port match — it also handles COMBO port
+    // ranges (e.g. "xp3-4") automatically, since enrichment already resolved them.
+    const norm = (v) => String(v ?? '').trim().toUpperCase();
 
-    // Build a lookup: "oltname_lower|shelf/slot/port" → list of ONTs on that port.
-    const ontsByPortKey = new Map();
+    // Build a lookup: "LCP|SPLITTER" → list of ONTs on that splitter.
+    const ontsByLcpKey = new Map();
     (onts || []).forEach(o => {
-      const oltKey = (o._oltName || o.OLTName || '').toLowerCase().trim();
-      const parsed = parseSsp(o._port || o['Shelf/Slot/Port'] || '');
-      if (!parsed) return;
-      const key = `${oltKey}|${parsed.shelf}/${parsed.slot}/${parsed.port}`;
-      if (!ontsByPortKey.has(key)) ontsByPortKey.set(key, []);
-      ontsByPortKey.get(key).push(o);
+      const lcp = norm(o._lcpNumber);
+      if (!lcp) return;
+      const key = `${lcp}|${norm(o._splitterNumber)}`;
+      if (!ontsByLcpKey.has(key)) ontsByLcpKey.set(key, []);
+      ontsByLcpKey.get(key).push(o);
     });
 
     const getOntsForEntry = (entry) => {
-      const oltKey = (entry.olt_name || '').toLowerCase().trim();
-      const portNum = String(entry.olt_port || '').replace(/^xp/i, '').trim();
-      const key = `${oltKey}|${entry.olt_shelf || ''}/${entry.olt_slot || ''}/${portNum}`;
-      return ontsByPortKey.get(key) || [];
+      const key = `${norm(entry.lcp_number)}|${norm(entry.splitter_number)}`;
+      return ontsByLcpKey.get(key) || [];
     };
 
     const headers = [
