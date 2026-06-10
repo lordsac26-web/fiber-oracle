@@ -13,9 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Award, Download, X } from 'lucide-react';
+import { Search, Award, Download, X, LayoutTemplate, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
+import CertificateLayoutEditor, { loadSectionOrder } from './CertificateLayoutEditor';
 
 const MAX_SELECTION = 32;
 
@@ -23,6 +24,8 @@ export default function OntBirthCertificatePicker({ open, onOpenChange, onts = [
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);   // array of serial strings
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('select'); // 'select' | 'layout'
+  const [sectionOrder, setSectionOrder] = useState(() => loadSectionOrder());
 
   // ── Build a de-duplicated candidate list from current-report ONTs +
   //    subscriber records, keyed by serial number (uppercase).
@@ -102,6 +105,7 @@ export default function OntBirthCertificatePicker({ open, onOpenChange, onts = [
   const handleClose = () => {
     setSearch('');
     setSelected([]);
+    setActiveTab('select');
     onOpenChange(false);
   };
 
@@ -112,7 +116,7 @@ export default function OntBirthCertificatePicker({ open, onOpenChange, onts = [
     try {
       await downloadPdfFromFunction(
         'generateOntBirthCertificate',
-        { serialNumbers: selected },
+        { serialNumbers: selected, sectionOrder },
         `FiberOracle-ONT-Certificates-${new Date().toISOString().slice(0, 10)}.pdf`
       );
       toast.success(`${selected.length} certificate${selected.length > 1 ? 's' : ''} exported`, { id: 'cert-pdf' });
@@ -133,87 +137,120 @@ export default function OntBirthCertificatePicker({ open, onOpenChange, onts = [
             ONT Birth Certificate Export
           </DialogTitle>
           <DialogDescription>
-            Search by subscriber name or serial number. Select up to {MAX_SELECTION} ONTs to generate a professional installation record PDF.
+            Select ONTs to export, or customize the PDF section layout.
           </DialogDescription>
         </DialogHeader>
 
-        {/* Search + controls */}
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-            <Input
-              placeholder="Search by name or serial…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-8 h-8 text-sm"
-              autoFocus
-            />
-            {search && (
-              <button
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
+        {/* Tab switcher */}
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg shrink-0">
+          <button
+            onClick={() => setActiveTab('select')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              activeTab === 'select' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <List className="h-3.5 w-3.5" /> Select ONTs
+            {selected.length > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold leading-none">
+                {selected.length}
+              </span>
             )}
-          </div>
-          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={selectAllVisible}
-            disabled={filtered.length === 0 || selected.length >= MAX_SELECTION}>
-            All Visible
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={clearAll}
-            disabled={selected.length === 0}>
-            Clear
-          </Button>
+          </button>
+          <button
+            onClick={() => setActiveTab('layout')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              activeTab === 'layout' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <LayoutTemplate className="h-3.5 w-3.5" /> PDF Layout
+          </button>
         </div>
 
-        {/* Selection count */}
-        <div className="flex items-center gap-2 min-h-[22px]">
-          {selected.length > 0 && (
-            <Badge variant="outline" className="text-xs bg-amber-50 border-amber-200 text-amber-700">
-              {selected.length} / {MAX_SELECTION} selected
-            </Badge>
-          )}
-          <span className="text-xs text-gray-400">
-            {filtered.length} result{filtered.length !== 1 ? 's' : ''}
-            {candidates.length !== filtered.length ? ` of ${candidates.length}` : ''}
-          </span>
-        </div>
-
-        {/* Candidate list */}
-        <div className="flex-1 overflow-y-auto border rounded-lg divide-y min-h-0">
-          {filtered.length === 0 ? (
-            <div className="p-6 text-center text-sm text-gray-400">
-              {candidates.length === 0
-                ? 'No subscriber or report data loaded'
-                : 'No matches found'}
-            </div>
-          ) : (
-            filtered.map(c => (
-              <label
-                key={c.serial}
-                className="flex items-start gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer"
-              >
-                <Checkbox
-                  checked={isSelected(c.serial)}
-                  onCheckedChange={() => toggle(c.serial)}
-                  className="mt-0.5 shrink-0"
+        {activeTab === 'select' ? (
+          <>
+            {/* Search + controls */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <Input
+                  placeholder="Search by name or serial…"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-8 h-8 text-sm"
+                  autoFocus
                 />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium truncate text-gray-900">
-                      {c.displayName || <span className="text-gray-400 italic">No name</span>}
-                    </span>
-                    <span className="text-xs text-gray-400 font-mono shrink-0">{c.serial}</span>
-                  </div>
-                  {c.address && (
-                    <p className="text-xs text-gray-400 truncate mt-0.5">{c.address}</p>
-                  )}
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={selectAllVisible}
+                disabled={filtered.length === 0 || selected.length >= MAX_SELECTION}>
+                All Visible
+              </Button>
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={clearAll}
+                disabled={selected.length === 0}>
+                Clear
+              </Button>
+            </div>
+
+            {/* Selection count */}
+            <div className="flex items-center gap-2 min-h-[22px]">
+              {selected.length > 0 && (
+                <Badge variant="outline" className="text-xs bg-amber-50 border-amber-200 text-amber-700">
+                  {selected.length} / {MAX_SELECTION} selected
+                </Badge>
+              )}
+              <span className="text-xs text-gray-400">
+                {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+                {candidates.length !== filtered.length ? ` of ${candidates.length}` : ''}
+              </span>
+            </div>
+
+            {/* Candidate list */}
+            <div className="flex-1 overflow-y-auto border rounded-lg divide-y min-h-0">
+              {filtered.length === 0 ? (
+                <div className="p-6 text-center text-sm text-gray-400">
+                  {candidates.length === 0
+                    ? 'No subscriber or report data loaded'
+                    : 'No matches found'}
                 </div>
-              </label>
-            ))
-          )}
-        </div>
+              ) : (
+                filtered.map(c => (
+                  <label
+                    key={c.serial}
+                    className="flex items-start gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={isSelected(c.serial)}
+                      onCheckedChange={() => toggle(c.serial)}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium truncate text-gray-900">
+                          {c.displayName || <span className="text-gray-400 italic">No name</span>}
+                        </span>
+                        <span className="text-xs text-gray-400 font-mono shrink-0">{c.serial}</span>
+                      </div>
+                      {c.address && (
+                        <p className="text-xs text-gray-400 truncate mt-0.5">{c.address}</p>
+                      )}
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 overflow-y-auto min-h-0 py-1">
+            <CertificateLayoutEditor order={sectionOrder} onChange={setSectionOrder} />
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={loading}>Cancel</Button>

@@ -254,7 +254,7 @@ function fillLine(doc, label, x, y, lineW) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN CERTIFICATE BUILDER — one page per ONT
 // ─────────────────────────────────────────────────────────────────────────────
-function drawCertificate(doc, serial, record, sub, weather, customerName, customerLogo, generatedDateTime, tz, pageNum, totalPages) {
+function drawCertificate(doc, serial, record, sub, weather, customerName, customerLogo, generatedDateTime, tz, pageNum, totalPages, sectionOrder) {
   drawHeader(doc, customerLogo, customerName);
   drawFooter(doc, pageNum, totalPages, generatedDateTime, customerName);
 
@@ -375,11 +375,9 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   y += 4;
   const innerX = M + 4;
   const innerW = CW - 8;
-  const hw = (innerW - 4) / 2; // half-width for two-column rows
+  const hw = (innerW - 4) / 2;
 
-  // ── SUBSCRIBER INFORMATION ────────────────────────────────────────────────
-  y = sectionHeader(doc, 'Subscriber Information', y);
-
+  // Pre-compute shared values used across sections
   const subName  = sub && sub.SubscriberName ? sub.SubscriberName : (record && record.subscriber_account_name ? record.subscriber_account_name : '');
   const acctName = sub && sub.AccountName    ? sub.AccountName    : (record && record.subscriber_account_name ? record.subscriber_account_name : '');
   const addrParts = [];
@@ -388,157 +386,149 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   if (cityState) addrParts.push(cityState);
   const fullAddr = addrParts.length ? addrParts.join(', ') : (record && record.subscriber_address ? record.subscriber_address : '');
 
-  labelValue(doc, 'Subscriber Name', subName,  innerX,          y, hw);
-  labelValue(doc, 'Account Name',    acctName,  innerX + hw + 4, y, hw);
-  y += 8;
-  labelValue(doc, 'Service Address', fullAddr,  innerX,          y, innerW);
-  y += 8;
-  y = divider(doc, y);
+  const DEFAULT_SECTION_ORDER_LOCAL = ['subscriber', 'device', 'optical', 'errors', 'dates', 'signoff'];
+  const order = Array.isArray(sectionOrder) && sectionOrder.length > 0 ? sectionOrder : DEFAULT_SECTION_ORDER_LOCAL;
 
-  // ── DEVICE IDENTIFICATION & NETWORK LOCATION (combined, 4-col) ───────────
-  y = sectionHeader(doc, 'Device Identification & Network Location', y);
-  const qw = (innerW - 6) / 4; // quarter-width for 4-column layout
-  const qg = 2;
+  // ── Section renderers (each mutates y via closure) ───────────────────────
+  const renderSection = (id) => {
+    if (id === 'subscriber') {
+      y = sectionHeader(doc, 'Subscriber Information', y);
+      labelValue(doc, 'Subscriber Name', subName,  innerX,          y, hw);
+      labelValue(doc, 'Account Name',    acctName,  innerX + hw + 4, y, hw);
+      y += 8;
+      labelValue(doc, 'Service Address', fullAddr,  innerX,          y, innerW);
+      y += 8;
+      y = divider(doc, y);
 
-  // Row 1: Serial | ONT ID | OLT | Port
-  labelValue(doc, 'Serial Number (FSAN)',    record && record.serial_number    ? record.serial_number    : serial,                        innerX,                 y, qw);
-  labelValue(doc, 'ONT ID',                 record && record.ont_id           ? record.ont_id           : '',                            innerX + (qw + qg),     y, qw);
-  labelValue(doc, 'OLT / Chassis',          record && record.olt_name         ? record.olt_name         : '',                            innerX + (qw + qg) * 2, y, qw);
-  labelValue(doc, 'Port (Shelf/Slot/Port)', record && record.shelf_slot_port  ? record.shelf_slot_port  : '',                            innerX + (qw + qg) * 3, y, qw);
-  y += 8;
+    } else if (id === 'device') {
+      y = sectionHeader(doc, 'Device Identification & Network Location', y);
+      const qw = (innerW - 6) / 4;
+      const qg = 2;
+      labelValue(doc, 'Serial Number (FSAN)',    record && record.serial_number    ? record.serial_number    : serial,                        innerX,                 y, qw);
+      labelValue(doc, 'ONT ID',                 record && record.ont_id           ? record.ont_id           : '',                            innerX + (qw + qg),     y, qw);
+      labelValue(doc, 'OLT / Chassis',          record && record.olt_name         ? record.olt_name         : '',                            innerX + (qw + qg) * 2, y, qw);
+      labelValue(doc, 'Port (Shelf/Slot/Port)', record && record.shelf_slot_port  ? record.shelf_slot_port  : '',                            innerX + (qw + qg) * 3, y, qw);
+      y += 8;
+      labelValue(doc, 'ONT Model',        record && record.model            ? record.model            : (sub && sub.ONTModel ? sub.ONTModel : ''), innerX,                 y, qw);
+      labelValue(doc, 'Software Version', sub   && sub.CurrentONTSoftwareVersion ? sub.CurrentONTSoftwareVersion : '',                            innerX + (qw + qg),     y, qw);
+      labelValue(doc, 'LCP',              record && record.lcp_number       ? record.lcp_number       : '',                                        innerX + (qw + qg) * 2, y, qw);
+      labelValue(doc, 'Splitter',         record && record.splitter_number  ? record.splitter_number  : '',                                        innerX + (qw + qg) * 3, y, qw);
+      y += 8;
+      y = divider(doc, y);
 
-  // Row 2: Model | Software Version | LCP | Splitter
-  labelValue(doc, 'ONT Model',        record && record.model            ? record.model            : (sub && sub.ONTModel ? sub.ONTModel : ''), innerX,                 y, qw);
-  labelValue(doc, 'Software Version', sub   && sub.CurrentONTSoftwareVersion ? sub.CurrentONTSoftwareVersion : '',                            innerX + (qw + qg),     y, qw);
-  labelValue(doc, 'LCP',              record && record.lcp_number       ? record.lcp_number       : '',                                        innerX + (qw + qg) * 2, y, qw);
-  labelValue(doc, 'Splitter',         record && record.splitter_number  ? record.splitter_number  : '',                                        innerX + (qw + qg) * 3, y, qw);
-  y += 8;
-  y = divider(doc, y);
+    } else if (id === 'optical') {
+      y = sectionHeader(doc, 'Optical Readings at First Report', y);
+      const tileGap = 3;
+      const tileW   = (innerW - tileGap * 2) / 3;
+      const tileH   = 14;
+      metricTile(doc, 'ONT Rx Power', record && record.ont_rx_power, 'dBm', innerX,                           y, tileW, tileH);
+      metricTile(doc, 'OLT Rx Power', record && record.olt_rx_power, 'dBm', innerX + tileW + tileGap,          y, tileW, tileH);
+      metricTile(doc, 'ONT Tx Power', record && record.ont_tx_power, 'dBm', innerX + (tileW + tileGap) * 2,    y, tileW, tileH);
+      y += tileH + 2;
+      y = divider(doc, y);
 
-  // ── OPTICAL READINGS ─────────────────────────────────────────────────────
-  y = sectionHeader(doc, 'Optical Readings at First Report', y);
-  const tileGap = 3;
-  const tileW   = (innerW - tileGap * 2) / 3;
-  const tileH   = 14;
-  metricTile(doc, 'ONT Rx Power', record && record.ont_rx_power, 'dBm', innerX,                           y, tileW, tileH);
-  metricTile(doc, 'OLT Rx Power', record && record.olt_rx_power, 'dBm', innerX + tileW + tileGap,          y, tileW, tileH);
-  metricTile(doc, 'ONT Tx Power', record && record.ont_tx_power, 'dBm', innerX + (tileW + tileGap) * 2,    y, tileW, tileH);
-  y += tileH + 2;
-  y = divider(doc, y);
+    } else if (id === 'errors') {
+      y = sectionHeader(doc, 'Error Metrics at First Report', y);
+      const errorFields = [
+        { label: 'US BIP Errors',      val: record && record.us_bip_errors },
+        { label: 'DS BIP Errors',      val: record && record.ds_bip_errors },
+        { label: 'US FEC Uncorrected', val: record && record.us_fec_uncorrected },
+        { label: 'DS FEC Uncorrected', val: record && record.ds_fec_uncorrected },
+        { label: 'US FEC Corrected',   val: record && record.us_fec_corrected },
+        { label: 'DS FEC Corrected',   val: record && record.ds_fec_corrected },
+        { label: 'US GEM HEC Errors',  val: record && record.us_gem_hec_errors },
+        { label: 'US Missed Bursts',   val: record && record.us_missed_bursts },
+      ];
+      const errGap = 2;
+      const errW   = (innerW - errGap * 3) / 4;
+      errorFields.forEach(({ label, val }, i) => {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        errorCell(doc, label, val, innerX + col * (errW + errGap), y + row * (11 + errGap), errW);
+      });
+      y += (11 + errGap) * 2 - errGap + 1;
 
-  // ── ERROR METRICS ─────────────────────────────────────────────────────────
-  y = sectionHeader(doc, 'Error Metrics at First Report', y);
+      if (record && record.status) {
+        const statusMap = {
+          ok:       { bg: [220, 252, 231], border: [74, 222, 128], text: [22, 163, 74],   label: 'OK'       },
+          warning:  { bg: [255, 247, 220], border: [251, 191, 36], text: [180, 110,   0], label: 'WARNING'  },
+          critical: { bg: [255, 228, 230], border: [252, 165, 165],text: [220,  38,  38], label: 'CRITICAL' },
+          offline:  { bg: [241, 245, 249], border: [203, 213, 225],text: [100, 116, 139], label: 'OFFLINE'  },
+        };
+        const sc = statusMap[record.status] || statusMap.offline;
+        const chipW = 32, chipH = 7;
+        doc.setFillColor(...sc.bg);
+        doc.setDrawColor(...sc.border);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(innerX, y, chipW, chipH, 2, 2, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6);
+        doc.setTextColor(...sc.text);
+        doc.text('Status: ' + sc.label, innerX + chipW / 2, y + 4.8, { align: 'center' });
+        y += chipH + 2;
+      }
+      y = divider(doc, y);
 
-  const errorFields = [
-    { label: 'US BIP Errors',      val: record && record.us_bip_errors },
-    { label: 'DS BIP Errors',      val: record && record.ds_bip_errors },
-    { label: 'US FEC Uncorrected', val: record && record.us_fec_uncorrected },
-    { label: 'DS FEC Uncorrected', val: record && record.ds_fec_uncorrected },
-    { label: 'US FEC Corrected',   val: record && record.us_fec_corrected },
-    { label: 'DS FEC Corrected',   val: record && record.ds_fec_corrected },
-    { label: 'US GEM HEC Errors',  val: record && record.us_gem_hec_errors },
-    { label: 'US Missed Bursts',   val: record && record.us_missed_bursts },
-  ];
+    } else if (id === 'dates') {
+      y = sectionHeader(doc, 'Installation Dates', y);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...C.slate);
+      doc.text('Date First Seen on Report:', innerX, y + 1);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...(birthDate ? C.ink : C.slateLight));
+      doc.text(s(birthDate || 'Not yet recorded'), innerX + 50, y + 1);
+      y += 7;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...C.slate);
+      doc.text('Actual Date of Installation:', innerX, y);
+      doc.setDrawColor(...C.borderDark);
+      doc.setLineWidth(0.4);
+      doc.line(innerX + 50, y + 1, innerX + 50 + 90, y + 1);
+      y += 5;
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(5.5);
+      doc.setTextColor(...C.slateLight);
+      doc.text('(Fill in if different from first report date above)', innerX, y);
+      y += 5.5;
+      y = divider(doc, y);
 
-  const errGap = 2;
-  const errW   = (innerW - errGap * 3) / 4;
-  errorFields.forEach(({ label, val }, i) => {
-    const col = i % 4;
-    const row = Math.floor(i / 4);
-    const ex  = innerX + col * (errW + errGap);
-    const ey  = y + row * (11 + errGap);
-    errorCell(doc, label, val, ex, ey, errW);
-  });
-  y += (11 + errGap) * 2 - errGap + 1;
+    } else if (id === 'signoff') {
+      y = sectionHeader(doc, 'Authorization & Sign-Off', y);
+      fillLine(doc, 'Technician / Installer:', innerX, y, 105);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...C.slate);
+      doc.text('Date:', innerX + 113, y);
+      doc.setDrawColor(...C.borderDark);
+      doc.setLineWidth(0.4);
+      doc.line(innerX + 123, y + 7.5, innerX + 123 + 44, y + 7.5);
+      y += 11;
+      fillLine(doc, 'Supervisor Signature:', innerX, y, 105);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...C.slate);
+      doc.text('Date:', innerX + 113, y);
+      doc.line(innerX + 123, y + 7.5, innerX + 123 + 44, y + 7.5);
+      y += 11;
+      fillLine(doc, 'Print Supervisor Name:', innerX, y, 148);
+      y += 11;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(...C.slate);
+      doc.text('Notes:', innerX, y);
+      doc.setDrawColor(...C.borderDark);
+      doc.setLineWidth(0.4);
+      doc.line(innerX + 16, y, innerX + 16 + 154, y);
+      y += 6;
+      doc.line(innerX, y, innerX + 170, y);
+    }
+  };
 
-  // Status chip — inline with small footprint
-  if (record && record.status) {
-    const statusMap = {
-      ok:       { bg: [220, 252, 231], border: [74, 222, 128], text: [22, 163, 74],   label: 'OK'       },
-      warning:  { bg: [255, 247, 220], border: [251, 191, 36], text: [180, 110,   0], label: 'WARNING'  },
-      critical: { bg: [255, 228, 230], border: [252, 165, 165],text: [220,  38,  38], label: 'CRITICAL' },
-      offline:  { bg: [241, 245, 249], border: [203, 213, 225],text: [100, 116, 139], label: 'OFFLINE'  },
-    };
-    const sc = statusMap[record.status] || statusMap.offline;
-    const chipW = 32, chipH = 7;
-    doc.setFillColor(...sc.bg);
-    doc.setDrawColor(...sc.border);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(innerX, y, chipW, chipH, 2, 2, 'FD');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6);
-    doc.setTextColor(...sc.text);
-    doc.text('Status: ' + sc.label, innerX + chipW / 2, y + 4.8, { align: 'center' });
-    y += chipH + 2;
-  }
-
-  y = divider(doc, y);
-
-  // ── INSTALLATION DATES ────────────────────────────────────────────────────
-  y = sectionHeader(doc, 'Installation Dates', y);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(...C.slate);
-  doc.text('Date First Seen on Report:', innerX, y + 1);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(...(birthDate ? C.ink : C.slateLight));
-  doc.text(s(birthDate || 'Not yet recorded'), innerX + 50, y + 1);
-  y += 7;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(...C.slate);
-  doc.text('Actual Date of Installation:', innerX, y);
-  doc.setDrawColor(...C.borderDark);
-  doc.setLineWidth(0.4);
-  doc.line(innerX + 50, y + 1, innerX + 50 + 90, y + 1);
-  y += 5;
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(5.5);
-  doc.setTextColor(...C.slateLight);
-  doc.text('(Fill in if different from first report date above)', innerX, y);
-  y += 5.5;
-  y = divider(doc, y);
-
-  // ── AUTHORIZATION & SIGN-OFF ──────────────────────────────────────────────
-  y = sectionHeader(doc, 'Authorization & Sign-Off', y);
-
-  // Two-column sign-off row: Technician | Date
-  fillLine(doc, 'Technician / Installer:', innerX, y, 105);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(...C.slate);
-  doc.text('Date:', innerX + 113, y);
-  doc.setDrawColor(...C.borderDark);
-  doc.setLineWidth(0.4);
-  doc.line(innerX + 123, y + 7.5, innerX + 123 + 44, y + 7.5);
-  y += 11;
-
-  // Supervisor row
-  fillLine(doc, 'Supervisor Signature:', innerX, y, 105);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(...C.slate);
-  doc.text('Date:', innerX + 113, y);
-  doc.line(innerX + 123, y + 7.5, innerX + 123 + 44, y + 7.5);
-  y += 11;
-
-  // Print name
-  fillLine(doc, 'Print Supervisor Name:', innerX, y, 148);
-  y += 11;
-
-  // Notes line
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(...C.slate);
-  doc.text('Notes:', innerX, y);
-  doc.setDrawColor(...C.borderDark);
-  doc.setLineWidth(0.4);
-  doc.line(innerX + 16, y, innerX + 16 + 154, y);
-  y += 6;
-  doc.line(innerX, y, innerX + 170, y);
+  // Render sections in the requested order
+  order.forEach(id => renderSection(id));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -558,6 +548,12 @@ Deno.serve(async (req) => {
     }
 
     const tz = body.timezone || 'America/New_York';
+
+    // Section order — defaults to standard order if not provided
+    const DEFAULT_SECTION_ORDER = ['subscriber', 'device', 'optical', 'errors', 'dates', 'signoff'];
+    const sectionOrder = Array.isArray(body.sectionOrder) && body.sectionOrder.length > 0
+      ? body.sectionOrder
+      : DEFAULT_SECTION_ORDER;
 
     // ── Customer branding ─────────────────────────────────────────────────────
     let customerName = null, customerLogoUrl = null;
@@ -652,7 +648,7 @@ Deno.serve(async (req) => {
       drawCertificate(
         doc, serial, record, sub, weather,
         customerName, customerLogo, generatedDateTime, tz,
-        idx + 1, birthData.length
+        idx + 1, birthData.length, sectionOrder
       );
     });
 
