@@ -144,7 +144,8 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
     const batchSize = 10;
     let totalGeocoded = 0;
     let totalFailed = 0;
-    const allUpdates = [];
+    let totalCached = 0;
+    let batchErrors = 0;
     const batches = [];
 
     for (let i = 0; i < recordsNeedingGeocode.length; i += batchSize) {
@@ -156,34 +157,51 @@ export default function ONTDrilldownMap({ lcpGroup, ontRecords = [], height = '5
       if (items.length > 0) batches.push(items);
     }
 
-    try {
-      for (let i = 0; i < batches.length; i += 1) {
-        const processed = Math.min(i * batchSize, recordsNeedingGeocode.length);
-        setGeocodeProgress({ processed, total: recordsNeedingGeocode.length, geocoded: totalGeocoded, failed: totalFailed });
-        toast.loading(`Geocoding ${processed + 1}-${Math.min(processed + batches[i].length, recordsNeedingGeocode.length)} of ${recordsNeedingGeocode.length}...`, { id: 'geocode' });
+    // Resilient loop: each batch is isolated. A slow or failed batch is caught
+    // and recorded, but never aborts the remaining batches — so one timeout no
+    // longer wipes out the whole run. Pins from successful batches paint in
+    // incrementally as we go.
+    for (let i = 0; i < batches.length; i += 1) {
+      const processed = Math.min(i * batchSize, recordsNeedingGeocode.length);
+      setGeocodeProgress({ processed, total: recordsNeedingGeocode.length, geocoded: totalGeocoded, failed: totalFailed });
+      toast.loading(`Geocoding ${processed + 1}-${Math.min(processed + batches[i].length, recordsNeedingGeocode.length)} of ${recordsNeedingGeocode.length}...`, { id: 'geocode' });
 
+      try {
         const res = await base44.functions.invoke('geocodeAddresses', { items: batches[i] });
         totalGeocoded += res.data.geocoded || 0;
         totalFailed += res.data.failed || 0;
-        if (Array.isArray(res.data.updated)) allUpdates.push(...res.data.updated);
+        totalCached += res.data.cached || 0;
 
-        if (allUpdates.length > 0) {
-          const updatesById = new Map(allUpdates.map(u => [u.id, u]));
+        // Apply ONLY this batch's updates (avoids re-mapping all records every loop).
+        const updates = Array.isArray(res.data.updated) ? res.data.updated : [];
+        if (updates.length > 0) {
+          const updatesById = new Map(updates.map(u => [u.id, u]));
           setLocalRecords(prev => prev.map(r => {
             const u = r.id && updatesById.get(r.id);
             return u ? { ...r, gps_lat: u.gps_lat, gps_lng: u.gps_lng, gps_manual: false } : r;
           }));
         }
+      } catch (err) {
+        // Treat the whole batch as unresolved; user can place those manually.
+        batchErrors += 1;
+        totalFailed += batches[i].length;
+        console.error('Geocode batch failed:', err.message);
       }
-
-      setGeocodeProgress({ processed: recordsNeedingGeocode.length, total: recordsNeedingGeocode.length, geocoded: totalGeocoded, failed: totalFailed });
-      toast.success(`Geocoded ${totalGeocoded} ONTs${totalFailed ? `; ${totalFailed} need manual placement` : ''}`, { id: 'geocode' });
-    } catch (err) {
-      toast.error('Geocoding stopped: ' + err.message + '. Unplotted ONTs can be placed manually.', { id: 'geocode' });
-    } finally {
-      setGeocoding(false);
-      setTimeout(() => setGeocodeProgress(null), 4000);
     }
+
+    setGeocodeProgress({ processed: recordsNeedingGeocode.length, total: recordsNeedingGeocode.length, geocoded: totalGeocoded, failed: totalFailed });
+
+    const cacheNote = totalCached > 0 ? ` (${totalCached} from cache)` : '';
+    if (totalGeocoded > 0) {
+      toast.success(`Geocoded ${totalGeocoded} ONTs${cacheNote}${totalFailed ? `; ${totalFailed} need manual placement` : ''}`, { id: 'geocode' });
+    } else if (batchErrors > 0) {
+      toast.error('Some geocoding requests timed out. Plotted what we could — remaining ONTs can be placed manually.', { id: 'geocode' });
+    } else {
+      toast.success(`No new ONTs placed${totalFailed ? `; ${totalFailed} need manual placement` : ''}`, { id: 'geocode' });
+    }
+
+    setGeocoding(false);
+    setTimeout(() => setGeocodeProgress(null), 4000);
   }, [recordsNeedingGeocode]);
 
   const saveManualPosition = useCallback(async (recordId, newLat, newLng, successMessage) => {

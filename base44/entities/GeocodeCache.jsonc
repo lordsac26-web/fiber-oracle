@@ -1,0 +1,59 @@
+{
+  "name": "GeocodeCache",
+  "type": "object",
+  "properties": {
+    "address_key": {
+      "type": "string",
+      "description": "Normalized address string used as the cache key (lowercased, single-spaced, trimmed). One row per unique address.",
+      "index": true
+    },
+    "gps_lat": {
+      "type": "number",
+      "description": "Resolved latitude (null when status is 'failed')"
+    },
+    "gps_lng": {
+      "type": "number",
+      "description": "Resolved longitude (null when status is 'failed')"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "resolved",
+        "failed"
+      ],
+      "default": "resolved",
+      "description": "Whether the address was successfully geocoded. Failed rows are cached too (with retry window) so dead addresses don't repeatedly burn the Nominatim rate limit."
+    },
+    "source": {
+      "type": "string",
+      "default": "nominatim",
+      "description": "Geocoding provider that produced this result"
+    },
+    "last_attempt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this address was last attempted \u2014 used to decide when a 'failed' entry is eligible for a re-try"
+    }
+  },
+  "required": [
+    "address_key"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
