@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Download, FileSpreadsheet, FileText, ChevronDown, AlertCircle, Router,
-  Wifi, Cable, Database, Search, Server, BarChart3, AlertTriangle, Split,
+  Wifi, Cable, Database, Search, Server, BarChart3, AlertTriangle, Split, Award,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { exportOfflineCSV } from './ontCsvExports';
@@ -23,6 +23,7 @@ import { exportAllIssuesCSV } from './exportAllIssuesCsv';
 import { exportMultiOltCSV } from './exportMultiOltCsv';
 import { exportComboGponReport } from './exportComboGponReport';
 import MultiOltPickerDialog from './MultiOltPickerDialog';
+import OntBirthCertificatePicker from './OntBirthCertificatePicker';
 import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 import { buildCsv, downloadCsv as downloadCSV } from './csvExportUtils';
 
@@ -94,6 +95,7 @@ export default function UnifiedExportMenu({
   const [selectedLcps, setSelectedLcps] = useState([]);
   const [lcpSearch, setLcpSearch] = useState('');
   const [showOltPicker, setShowOltPicker] = useState(false);
+  const [showBirthCertPicker, setShowBirthCertPicker] = useState(false);
 
   const onts = result?.onts;
 
@@ -310,6 +312,15 @@ export default function UnifiedExportMenu({
             <FileText className="h-4 w-4 mr-2 text-emerald-600" />
             Eero Saturation Report (PDF)
           </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          {/* ─── Subscriber Records ─── */}
+          <DropdownMenuLabel className="text-[10px] text-gray-400 uppercase tracking-wider">Subscriber Records</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => setShowBirthCertPicker(true)}>
+            <Award className="h-4 w-4 mr-2 text-amber-600" />
+            ONT Birth Certificate (PDF)
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -375,6 +386,14 @@ export default function UnifiedExportMenu({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ONT Birth Certificate picker */}
+      <OntBirthCertificatePicker
+        open={showBirthCertPicker}
+        onOpenChange={setShowBirthCertPicker}
+        onts={onts}
+        subscriberRecords={subscriberRecords}
+      />
 
       {/* Multi-OLT picker for OLT Data export */}
       <MultiOltPickerDialog
