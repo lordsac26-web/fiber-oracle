@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, AlertCircle, Loader2, RefreshCw, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Loader2, RefreshCw, ShieldAlert, CheckCircle2, Download } from 'lucide-react';
+import { downloadWatchlistCsv } from '@/components/watchlist/exportWatchlistCsv';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -67,6 +68,12 @@ export default function CriticalWatchlist() {
 
   const handleDrill = useCallback((o) => setDetailOnt(rowToOnt(o)), []);
 
+  const handleExport = useCallback(() => {
+    if (!onts.length) return;
+    const stamp = selectedReport ? format(new Date(selectedReport.upload_date), 'yyyy-MM-dd') : 'export';
+    downloadWatchlistCsv(onts, `critical-ont-watchlist-${stamp}.csv`);
+  }, [onts, selectedReport]);
+
   if (!checked) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500" /></div>;
   }
@@ -114,6 +121,9 @@ export default function CriticalWatchlist() {
                 ))}
               </SelectContent>
             </Select>
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={onts.length === 0}>
+              <Download className="h-4 w-4 mr-1" /> Export CSV
+            </Button>
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching || !reportId}>
               <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             </Button>
