@@ -15,6 +15,29 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
+// ── Vendor prefix resolver ────────────────────────────────────────────────────
+// ONTPerformanceRecord stores bare 8-char hex serials, but the official FSAN
+// includes a 4-char vendor prefix (carried on SubscriberRecord). When the serial
+// has no prefix, prepend the correct one based on the ONT model.
+//   Calix      (GP*, 812G*, 711GE, 717GE) → CXNK
+//   DZS/Zhone  (52xxXG)                    → ZNTS
+function vendorPrefixForModel(model) {
+  const m = String(model || '').toUpperCase();
+  if (/^GP|^81\dG|^71\dGE/.test(m)) return 'CXNK';
+  if (/^5\d{3}XG/.test(m)) return 'ZNTS';
+  return null;
+}
+
+// Returns the FSAN with the vendor prefix prepended if missing. If the serial
+// already carries a recognized prefix (length > 8), it's returned unchanged.
+function withVendorPrefix(serial, model) {
+  const sn = String(serial || '').trim();
+  if (!sn) return sn;
+  if (sn.length > 8) return sn; // already prefixed
+  const prefix = vendorPrefixForModel(model);
+  return prefix ? prefix + sn : sn;
+}
+
 // ── Text sanitizer — Latin-1 safe, preserves degree symbol ───────────────────
 function s(text) {
   if (text === null || text === undefined) return '';
@@ -404,7 +427,13 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
       y = sectionHeader(doc, 'Device Identification & Network Location', y);
       const qw = (innerW - 6) / 4;
       const qg = 2;
-      labelValue(doc, 'Serial Number (FSAN)',    record && record.serial_number    ? record.serial_number    : serial,                        innerX,                 y, qw);
+      // FSAN: prefer the subscriber's full serial (already prefixed); otherwise
+      // prepend the vendor prefix to the bare performance-record serial.
+      const rawFsan = (sub && sub.ONTSerialNo) ? sub.ONTSerialNo
+        : (record && record.serial_number ? record.serial_number : serial);
+      const fsanModel = (record && record.model) ? record.model : (sub && sub.ONTModel ? sub.ONTModel : '');
+      const displayFsan = withVendorPrefix(rawFsan, fsanModel);
+      labelValue(doc, 'Serial Number (FSAN)',    displayFsan,                                                                                   innerX,                 y, qw);
       labelValue(doc, 'ONT ID',                 record && record.ont_id           ? record.ont_id           : '',                            innerX + (qw + qg),     y, qw);
       labelValue(doc, 'OLT / Chassis',          record && record.olt_name         ? record.olt_name         : '',                            innerX + (qw + qg) * 2, y, qw);
       labelValue(doc, 'Port (Shelf/Slot/Port)', record && record.shelf_slot_port  ? record.shelf_slot_port  : '',                            innerX + (qw + qg) * 3, y, qw);
