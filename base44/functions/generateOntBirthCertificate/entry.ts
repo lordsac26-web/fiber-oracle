@@ -203,7 +203,7 @@ function fillLine(doc, label, x, y, lineW) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN CERTIFICATE BUILDER — one page per ONT
 // ─────────────────────────────────────────────────────────────────────────────
-function drawCertificate(doc, serial, record, sub, customerName, customerLogo, generatedDateTime, tz, pageNum, totalPages) {
+function drawCertificate(doc, serial, record, sub, weather, customerName, customerLogo, generatedDateTime, tz, pageNum, totalPages) {
   drawHeader(doc, customerLogo, customerName);
   drawFooter(doc, pageNum, totalPages, generatedDateTime, customerName);
 
@@ -242,7 +242,8 @@ function drawCertificate(doc, serial, record, sub, customerName, customerLogo, g
       })
     : null;
 
-  const bdBoxH = 17;
+  const hasWeather = weather && (weather.high_temp_f !== null || weather.low_temp_f !== null);
+  const bdBoxH = hasWeather ? 22 : 17;
   doc.setFillColor(...C.goldLight);
   doc.setDrawColor(...C.gold);
   doc.setLineWidth(0.5);
@@ -255,6 +256,13 @@ function drawCertificate(doc, serial, record, sub, customerName, customerLogo, g
   doc.setFontSize(birthDate ? 12 : 9);
   doc.setTextColor(...C.navy);
   doc.text(s(birthDate || 'Not Yet Recorded in Database'), PAGE_W / 2, y + 13, { align: 'center' });
+  if (hasWeather) {
+    const hiLo = `Ambient Temp: High ${weather.high_temp_f != null ? weather.high_temp_f + '\u00B0F' : 'N/A'}  \u2022  Low ${weather.low_temp_f != null ? weather.low_temp_f + '\u00B0F' : 'N/A'}`;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(...C.muted);
+    doc.text(s(hiLo), PAGE_W / 2, y + 19, { align: 'center' });
+  }
   y += bdBoxH + 4;
 
   // ── Outer certificate border box ──────────────────────────────────────────
@@ -553,17 +561,28 @@ Deno.serve(async (req) => {
         allRecords.sort((a, b) => new Date(a.report_date) - new Date(b.report_date));
         const record = allRecords[0] || null;
 
-        return { serial, record, sub };
+        // Fetch weather for the birth date if we have a zip and a record date
+        let weather = null;
+        const zip = sub && sub.Zip ? String(sub.Zip).trim().slice(0, 5) : null;
+        if (zip && record && record.report_date) {
+          const weatherDate = new Date(record.report_date).toISOString().slice(0, 10); // YYYY-MM-DD
+          const wRecords = await base44.asServiceRole.entities.WeatherHistory.filter(
+            { zip_code: zip, weather_date: weatherDate }, 'created_date', 1
+          );
+          if (wRecords.length > 0) weather = wRecords[0];
+        }
+
+        return { serial, record, sub, weather };
       })
     );
 
     const generatedDateTime = new Date().toLocaleString('en-US', { timeZone: tz });
     const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
 
-    birthData.forEach(({ serial, record, sub }, idx) => {
+    birthData.forEach(({ serial, record, sub, weather }, idx) => {
       if (idx > 0) doc.addPage();
       drawCertificate(
-        doc, serial, record, sub,
+        doc, serial, record, sub, weather,
         customerName, customerLogo, generatedDateTime, tz,
         idx + 1, birthData.length
       );
