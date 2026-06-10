@@ -259,7 +259,7 @@ function drawCertificate(doc, serial, record, sub, customerName, customerLogo, g
 
   // ── Outer certificate border box ──────────────────────────────────────────
   const boxTop = y;
-  const boxBot = PAGE_H - 12 - 4;
+  const boxBot = PAGE_H - 12 - 6; // stay above footer (12mm) with a 6mm gap
   doc.setDrawColor(...C.navy);
   doc.setLineWidth(0.9);
   doc.roundedRect(M, boxTop, CW, boxBot - boxTop, 2, 2, 'S');
@@ -294,7 +294,7 @@ function drawCertificate(doc, serial, record, sub, customerName, customerLogo, g
   labelValue(doc, 'ONT ID', s(record && record.ont_id ? record.ont_id : ''), M + 4 + hw + 4, y, hw);
   y += 10;
   labelValue(doc, 'ONT Model', s(record && record.model ? record.model : (sub && sub.ONTModel ? sub.ONTModel : '')), M + 4, y, hw);
-  labelValue(doc, 'Technology Type', s(record && record.technology_type ? record.technology_type : ''), M + 4 + hw + 4, y, hw);
+  labelValue(doc, 'Software Version', s(sub && sub.CurrentONTSoftwareVersion ? sub.CurrentONTSoftwareVersion : ''), M + 4 + hw + 4, y, hw);
   y += 10;
   y = divider(doc, y);
 
@@ -373,16 +373,6 @@ function drawCertificate(doc, serial, record, sub, customerName, customerLogo, g
     doc.setFontSize(8.5);
     doc.setTextColor(...sc);
     doc.text(s(record.status).toUpperCase(), M + 52, y);
-    if (record.ont_uptime) {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7);
-      doc.setTextColor(...C.muted);
-      doc.text('Uptime:', M + 90, y);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.5);
-      doc.setTextColor(...C.dark);
-      doc.text(s(record.ont_uptime), M + 108, y);
-    }
     y += 7;
     y = divider(doc, y);
   }
@@ -429,22 +419,22 @@ function drawCertificate(doc, serial, record, sub, customerName, customerLogo, g
   doc.setDrawColor(...C.borderDark);
   doc.setLineWidth(0.35);
   doc.line(M + 133, y + 7, M + 133 + 40, y + 7);
-  y += 12;
+  y += 11;
 
-  // Supervisor row
+  // Supervisor signature row
   fillLine(doc, 'Supervisor Signature:', M + 4, y, 110);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(...C.muted);
   doc.text('Date:', M + 122, y);
   doc.line(M + 133, y + 7, M + 133 + 40, y + 7);
-  y += 12;
+  y += 11;
 
-  // Print name
+  // Print name row
   fillLine(doc, 'Print Supervisor Name:', M + 4, y, 140);
-  y += 12;
+  y += 11;
 
-  // Notes
+  // Notes — single line to stay within page bounds
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(...C.muted);
@@ -452,7 +442,7 @@ function drawCertificate(doc, serial, record, sub, customerName, customerLogo, g
   doc.setDrawColor(...C.borderDark);
   doc.setLineWidth(0.35);
   doc.line(M + 18, y, M + 18 + 158, y);
-  y += 8;
+  y += 7;
   doc.line(M + 4, y, M + 4 + 172, y);
 }
 
