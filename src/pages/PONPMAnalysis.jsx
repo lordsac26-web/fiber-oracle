@@ -75,7 +75,7 @@ import { readFiltersFromUrl, useFilterUrlSync } from '@/hooks/useFilterUrlSync';
 import { useNewReportToast } from '@/hooks/useNewReportToast';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
 import FlagOntDialog from '@/components/alerts/FlagOntDialog';
-import { Flag, Bell, X } from 'lucide-react';
+import { Flag, Bell, X, ShieldAlert } from 'lucide-react';
 const useLcpQuery = () => useQuery({
   queryKey: ['lcp-entries'],
   queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
@@ -1071,6 +1071,14 @@ export default function PONPMAnalysis() {
                       <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
                         <Bell className="h-4 w-4 mr-1" />
                         Alerts
+                      </Button>
+                    </Link>
+                  )}
+                  {isAdmin && (
+                    <Link to="/CriticalWatchlist">
+                      <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
+                        <ShieldAlert className="h-4 w-4 mr-1" />
+                        Watchlist
                       </Button>
                     </Link>
                   )}
