@@ -220,23 +220,23 @@ function errorCell(doc, label, val, x, y, w) {
   doc.setFillColor(...C.lightBg);
   doc.setDrawColor(...C.border);
   doc.setLineWidth(0.2);
-  doc.roundedRect(x, y, w, 12.5, 1.5, 1.5, 'FD');
+  doc.roundedRect(x, y, w, 11, 1.5, 1.5, 'FD');
 
   // Label
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(5.5);
   doc.setTextColor(...C.slate);
-  doc.text(s(label), x + w / 2, y + 4.5, { align: 'center' });
+  doc.text(s(label), x + w / 2, y + 4, { align: 'center' });
 
   // Value
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   if (isWarning) {
     doc.setTextColor(...C.red);
   } else {
     doc.setTextColor(...(hasV ? C.ink : C.slateLight));
   }
-  doc.text(hasV ? numVal.toLocaleString() : '\u2014', x + w / 2, y + 10, { align: 'center' });
+  doc.text(hasV ? numVal.toLocaleString() : '\u2014', x + w / 2, y + 8.5, { align: 'center' });
 }
 
 
@@ -262,29 +262,28 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
 
   // ── Title block ──────────────────────────────────────────────────────────
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
+  doc.setFontSize(15);
   doc.setTextColor(...C.navy);
-  doc.text('CERTIFICATE OF INSTALLATION RECORD', PAGE_W / 2, y + 6, { align: 'center' });
+  doc.text('CERTIFICATE OF INSTALLATION RECORD', PAGE_W / 2, y + 5.5, { align: 'center' });
 
   // Gold ornamental rule — full line with centered circle accent
-  y += 13;
+  y += 11;
   doc.setDrawColor(...C.goldMid);
   doc.setLineWidth(0.6);
   doc.line(M + 6, y, PAGE_W - M - 6, y);
-  // Small filled circle at center
   doc.setFillColor(...C.goldMid);
-  doc.circle(PAGE_W / 2, y, 1.8, 'F');
+  doc.circle(PAGE_W / 2, y, 1.5, 'F');
 
   // Document number
-  y += 5;
+  y += 4;
   const year   = new Date().getFullYear();
   const safeSN = String(serial).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6).padStart(6, '0');
   const certNo = 'FO-' + year + '-' + safeSN;
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
+  doc.setFontSize(6);
   doc.setTextColor(...C.slate);
   doc.text('Document No. ' + certNo, PAGE_W / 2, y, { align: 'center' });
-  y += 4;
+  y += 3;
 
   // ── Birth date + weather combined row ────────────────────────────────────
   const birthDate = record && record.report_date
@@ -294,7 +293,7 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
     : null;
 
   const hasWeather = !!(weather && (weather.high_temp_f != null || weather.low_temp_f != null));
-  const bdBoxH = 20;
+  const bdBoxH = 17;
 
   if (hasWeather) {
     // Two side-by-side boxes: date (left 60%) | weather (right 40%)
@@ -313,11 +312,11 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6);
     doc.setTextColor(...C.amber);
-    doc.text('FIRST OBSERVED ON NETWORK', M + dateBoxW / 2, y + 5.5, { align: 'center' });
+    doc.text('FIRST OBSERVED ON NETWORK', M + dateBoxW / 2, y + 4.5, { align: 'center' });
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(birthDate ? 11 : 8);
+    doc.setFontSize(birthDate ? 10 : 8);
     doc.setTextColor(...C.navy);
-    doc.text(s(birthDate || 'Not Yet Recorded'), M + dateBoxW / 2, y + 14.5, { align: 'center' });
+    doc.text(s(birthDate || 'Not Yet Recorded'), M + dateBoxW / 2, y + 12.5, { align: 'center' });
 
     // Weather box (blue)
     const wx = M + dateBoxW + 3;
@@ -329,16 +328,16 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(5.5);
     doc.setTextColor(30, 80, 160);
-    doc.text('AMBIENT TEMP AT INSTALL', wx + wBoxW / 2, y + 5.5, { align: 'center' });
+    doc.text('AMBIENT TEMP AT INSTALL', wx + wBoxW / 2, y + 4.5, { align: 'center' });
 
     const hi = weather.high_temp_f != null ? Math.round(weather.high_temp_f) + '\u00B0F' : 'N/A';
     const lo = weather.low_temp_f  != null ? Math.round(weather.low_temp_f)  + '\u00B0F' : 'N/A';
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(15, 50, 120);
-    doc.text('High ' + s(hi), wx + wBoxW / 2, y + 12, { align: 'center' });
+    doc.text('High ' + s(hi), wx + wBoxW / 2, y + 10, { align: 'center' });
     doc.setFontSize(8);
-    doc.text('Low ' + s(lo), wx + wBoxW / 2, y + 17.5, { align: 'center' });
+    doc.text('Low ' + s(lo), wx + wBoxW / 2, y + 15, { align: 'center' });
 
   } else {
     // No weather — centered date box only
@@ -361,11 +360,11 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
     doc.text(s(birthDate || 'Not Yet Recorded in Database'), PAGE_W / 2, y + 14.5, { align: 'center' });
   }
 
-  y += bdBoxH + 3;
+  y += bdBoxH + 2;
 
   // ── Outer certificate border ──────────────────────────────────────────────
   const boxTop = y;
-  const boxBot = PAGE_H - 11 - 5; // above footer with gap
+  const boxBot = PAGE_H - 11 - 4; // above footer with gap
   doc.setDrawColor(...C.navy);
   doc.setLineWidth(1.0);
   doc.roundedRect(M, boxTop, CW, boxBot - boxTop, 2.5, 2.5, 'S');
@@ -373,7 +372,7 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   doc.setLineWidth(0.2);
   doc.roundedRect(M + 1.2, boxTop + 1.2, CW - 2.4, boxBot - boxTop - 2.4, 2, 2, 'S');
 
-  y += 5;
+  y += 4;
   const innerX = M + 4;
   const innerW = CW - 8;
   const hw = (innerW - 4) / 2; // half-width for two-column rows
@@ -391,9 +390,9 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
 
   labelValue(doc, 'Subscriber Name', subName,  innerX,          y, hw);
   labelValue(doc, 'Account Name',    acctName,  innerX + hw + 4, y, hw);
-  y += 9.5;
+  y += 8;
   labelValue(doc, 'Service Address', fullAddr,  innerX,          y, innerW);
-  y += 9.5;
+  y += 8;
   y = divider(doc, y);
 
   // ── DEVICE IDENTIFICATION & NETWORK LOCATION (combined, 4-col) ───────────
@@ -402,29 +401,29 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   const qg = 2;
 
   // Row 1: Serial | ONT ID | OLT | Port
-  labelValue(doc, 'Serial Number (FSAN)', record && record.serial_number ? record.serial_number : serial,             innerX,                    y, qw);
-  labelValue(doc, 'ONT ID',              record && record.ont_id         ? record.ont_id         : '',                 innerX + (qw + qg),        y, qw);
-  labelValue(doc, 'OLT / Chassis',       record && record.olt_name       ? record.olt_name       : '',                 innerX + (qw + qg) * 2,    y, qw);
-  labelValue(doc, 'Port (Shelf/Slot/Port)', record && record.shelf_slot_port ? record.shelf_slot_port : '',            innerX + (qw + qg) * 3,    y, qw);
-  y += 9.5;
+  labelValue(doc, 'Serial Number (FSAN)',    record && record.serial_number    ? record.serial_number    : serial,                        innerX,                 y, qw);
+  labelValue(doc, 'ONT ID',                 record && record.ont_id           ? record.ont_id           : '',                            innerX + (qw + qg),     y, qw);
+  labelValue(doc, 'OLT / Chassis',          record && record.olt_name         ? record.olt_name         : '',                            innerX + (qw + qg) * 2, y, qw);
+  labelValue(doc, 'Port (Shelf/Slot/Port)', record && record.shelf_slot_port  ? record.shelf_slot_port  : '',                            innerX + (qw + qg) * 3, y, qw);
+  y += 8;
 
   // Row 2: Model | Software Version | LCP | Splitter
-  labelValue(doc, 'ONT Model',        record && record.model ? record.model : (sub && sub.ONTModel ? sub.ONTModel : ''), innerX,                 y, qw);
-  labelValue(doc, 'Software Version', sub && sub.CurrentONTSoftwareVersion ? sub.CurrentONTSoftwareVersion : '',          innerX + (qw + qg),     y, qw);
-  labelValue(doc, 'LCP',              record && record.lcp_number      ? record.lcp_number      : '',                     innerX + (qw + qg) * 2, y, qw);
-  labelValue(doc, 'Splitter',         record && record.splitter_number ? record.splitter_number : '',                     innerX + (qw + qg) * 3, y, qw);
-  y += 9.5;
+  labelValue(doc, 'ONT Model',        record && record.model            ? record.model            : (sub && sub.ONTModel ? sub.ONTModel : ''), innerX,                 y, qw);
+  labelValue(doc, 'Software Version', sub   && sub.CurrentONTSoftwareVersion ? sub.CurrentONTSoftwareVersion : '',                            innerX + (qw + qg),     y, qw);
+  labelValue(doc, 'LCP',              record && record.lcp_number       ? record.lcp_number       : '',                                        innerX + (qw + qg) * 2, y, qw);
+  labelValue(doc, 'Splitter',         record && record.splitter_number  ? record.splitter_number  : '',                                        innerX + (qw + qg) * 3, y, qw);
+  y += 8;
   y = divider(doc, y);
 
   // ── OPTICAL READINGS ─────────────────────────────────────────────────────
   y = sectionHeader(doc, 'Optical Readings at First Report', y);
   const tileGap = 3;
   const tileW   = (innerW - tileGap * 2) / 3;
-  const tileH   = 16;
+  const tileH   = 14;
   metricTile(doc, 'ONT Rx Power', record && record.ont_rx_power, 'dBm', innerX,                           y, tileW, tileH);
   metricTile(doc, 'OLT Rx Power', record && record.olt_rx_power, 'dBm', innerX + tileW + tileGap,          y, tileW, tileH);
   metricTile(doc, 'ONT Tx Power', record && record.ont_tx_power, 'dBm', innerX + (tileW + tileGap) * 2,    y, tileW, tileH);
-  y += tileH + 3;
+  y += tileH + 2;
   y = divider(doc, y);
 
   // ── ERROR METRICS ─────────────────────────────────────────────────────────
@@ -441,36 +440,36 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
     { label: 'US Missed Bursts',   val: record && record.us_missed_bursts },
   ];
 
-  const errGap = 2.5;
+  const errGap = 2;
   const errW   = (innerW - errGap * 3) / 4;
   errorFields.forEach(({ label, val }, i) => {
     const col = i % 4;
     const row = Math.floor(i / 4);
     const ex  = innerX + col * (errW + errGap);
-    const ey  = y + row * (12.5 + errGap);
+    const ey  = y + row * (11 + errGap);
     errorCell(doc, label, val, ex, ey, errW);
   });
-  y += (12.5 + errGap) * 2 - errGap + 2;
+  y += (11 + errGap) * 2 - errGap + 1;
 
-  // Status chip
+  // Status chip — inline with small footprint
   if (record && record.status) {
     const statusMap = {
-      ok:       { bg: [220, 252, 231], border: [74, 222, 128], text: [22, 163, 74],  label: 'OK'       },
+      ok:       { bg: [220, 252, 231], border: [74, 222, 128], text: [22, 163, 74],   label: 'OK'       },
       warning:  { bg: [255, 247, 220], border: [251, 191, 36], text: [180, 110,   0], label: 'WARNING'  },
       critical: { bg: [255, 228, 230], border: [252, 165, 165],text: [220,  38,  38], label: 'CRITICAL' },
       offline:  { bg: [241, 245, 249], border: [203, 213, 225],text: [100, 116, 139], label: 'OFFLINE'  },
     };
     const sc = statusMap[record.status] || statusMap.offline;
-    const chipW = 36, chipH = 8;
+    const chipW = 32, chipH = 7;
     doc.setFillColor(...sc.bg);
     doc.setDrawColor(...sc.border);
     doc.setLineWidth(0.3);
     doc.roundedRect(innerX, y, chipW, chipH, 2, 2, 'FD');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
+    doc.setFontSize(6);
     doc.setTextColor(...sc.text);
-    doc.text('Status: ' + sc.label, innerX + chipW / 2, y + 5.5, { align: 'center' });
-    y += chipH + 3;
+    doc.text('Status: ' + sc.label, innerX + chipW / 2, y + 4.8, { align: 'center' });
+    y += chipH + 2;
   }
 
   y = divider(doc, y);
@@ -483,10 +482,10 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   doc.setTextColor(...C.slate);
   doc.text('Date First Seen on Report:', innerX, y + 1);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(...(birthDate ? C.ink : C.slateLight));
-  doc.text(s(birthDate || 'Not yet recorded'), innerX + 52, y + 1);
-  y += 8;
+  doc.text(s(birthDate || 'Not yet recorded'), innerX + 50, y + 1);
+  y += 7;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
@@ -494,13 +493,13 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   doc.text('Actual Date of Installation:', innerX, y);
   doc.setDrawColor(...C.borderDark);
   doc.setLineWidth(0.4);
-  doc.line(innerX + 52, y + 1, innerX + 52 + 90, y + 1);
-  y += 6;
+  doc.line(innerX + 50, y + 1, innerX + 50 + 90, y + 1);
+  y += 5;
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(5.5);
   doc.setTextColor(...C.slateLight);
   doc.text('(Fill in if different from first report date above)', innerX, y);
-  y += 6.5;
+  y += 5.5;
   y = divider(doc, y);
 
   // ── AUTHORIZATION & SIGN-OFF ──────────────────────────────────────────────
@@ -514,8 +513,8 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   doc.text('Date:', innerX + 113, y);
   doc.setDrawColor(...C.borderDark);
   doc.setLineWidth(0.4);
-  doc.line(innerX + 125, y + 7.5, innerX + 125 + 42, y + 7.5);
-  y += 13;
+  doc.line(innerX + 123, y + 7.5, innerX + 123 + 44, y + 7.5);
+  y += 11;
 
   // Supervisor row
   fillLine(doc, 'Supervisor Signature:', innerX, y, 105);
@@ -523,12 +522,12 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   doc.setFontSize(6.5);
   doc.setTextColor(...C.slate);
   doc.text('Date:', innerX + 113, y);
-  doc.line(innerX + 125, y + 7.5, innerX + 125 + 42, y + 7.5);
-  y += 13;
+  doc.line(innerX + 123, y + 7.5, innerX + 123 + 44, y + 7.5);
+  y += 11;
 
   // Print name
   fillLine(doc, 'Print Supervisor Name:', innerX, y, 148);
-  y += 13;
+  y += 11;
 
   // Notes line
   doc.setFont('helvetica', 'normal');
@@ -538,7 +537,7 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   doc.setDrawColor(...C.borderDark);
   doc.setLineWidth(0.4);
   doc.line(innerX + 16, y, innerX + 16 + 154, y);
-  y += 7;
+  y += 6;
   doc.line(innerX, y, innerX + 170, y);
 }
 
