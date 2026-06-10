@@ -510,13 +510,43 @@ Deno.serve(async (req) => {
       return [];
     }
 
+    // ── Subscriber lookup (tries short serial, then common prefixed variants) ───
+    const VENDOR_PREFIXES = ['CXNK', 'ZTEG', 'HWTC', 'ALCA', 'GNXS', 'SCOM', 'HUMA', 'BRCM'];
+
+    async function findSubscriber(serial) {
+      // 1. Exact match
+      let subs = await base44.asServiceRole.entities.SubscriberRecord.filter(
+        { ONTSerialNo: serial }, 'created_date', 1
+      );
+      if (subs.length > 0) return subs[0];
+
+      // 2. If already short (≤8 chars), try prepending known vendor prefixes
+      if (serial.length <= 8) {
+        for (const prefix of VENDOR_PREFIXES) {
+          const full = prefix + serial;
+          subs = await base44.asServiceRole.entities.SubscriberRecord.filter(
+            { ONTSerialNo: full }, 'created_date', 1
+          );
+          if (subs.length > 0) return subs[0];
+        }
+      }
+
+      // 3. If long (>8 chars), try stripping first 4-char vendor prefix
+      if (serial.length > 8) {
+        const stripped = serial.slice(4);
+        subs = await base44.asServiceRole.entities.SubscriberRecord.filter(
+          { ONTSerialNo: stripped }, 'created_date', 1
+        );
+        if (subs.length > 0) return subs[0];
+      }
+
+      return null;
+    }
+
     const birthData = await Promise.all(
       serials.map(async (serial) => {
-        // Fetch subscriber first (needed for fallback lookup)
-        const subs = await base44.asServiceRole.entities.SubscriberRecord.filter(
-          { ONTSerialNo: serial }, 'created_date', 1
-        );
-        const sub = subs[0] || null;
+        // Fetch subscriber with multi-format fallback
+        const sub = await findSubscriber(serial);
 
         const allRecords = await findOntRecords(base44, serial, sub);
         // Sort ascending by report_date to find the "birth" record (earliest)
