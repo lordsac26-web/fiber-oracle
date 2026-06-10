@@ -74,6 +74,8 @@ import AdvancedFiltersBar from '@/components/ponpm/AdvancedFiltersBar';
 import { readFiltersFromUrl, useFilterUrlSync } from '@/hooks/useFilterUrlSync';
 import { useNewReportToast } from '@/hooks/useNewReportToast';
 import { useIsAdmin } from '@/hooks/useIsAdmin';
+import FlagOntDialog from '@/components/alerts/FlagOntDialog';
+import { Flag, Bell, X } from 'lucide-react';
 const useLcpQuery = () => useQuery({
   queryKey: ['lcp-entries'],
   queryFn: () => base44.entities.LCPEntry.list('-created_date', 5000),
@@ -136,6 +138,41 @@ export default function PONPMAnalysis() {
   const headerFileInputRef = useRef(null);
   const [viewMode, setViewMode] = useState('hierarchy');
   const [selectedOntDetail, setSelectedOntDetail] = useState(null);
+
+  // ── ONT flagging / alerts (admin only) ──
+  // selectMode shows checkboxes in the hierarchy table; selectedOnts holds the
+  // chosen in-memory ONT objects (keyed by serial) for a bulk flag action.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedOnts, setSelectedOnts] = useState({}); // serial -> ont
+  const [flagDialogOnts, setFlagDialogOnts] = useState(null); // array when dialog open
+
+  const selectedSerials = useMemo(() => new Set(Object.keys(selectedOnts)), [selectedOnts]);
+  const selectedCount = selectedSerials.size;
+
+  const toggleSelectOnt = useCallback((ont) => {
+    if (!ont?.SerialNumber) return;
+    setSelectedOnts(prev => {
+      const next = { ...prev };
+      if (next[ont.SerialNumber]) delete next[ont.SerialNumber];
+      else next[ont.SerialNumber] = ont;
+      return next;
+    });
+  }, []);
+
+  const toggleSelectMany = useCallback((onts) => {
+    setSelectedOnts(prev => {
+      const next = { ...prev };
+      const allSelected = onts.length > 0 && onts.every(o => next[o.SerialNumber]);
+      onts.forEach(o => {
+        if (!o.SerialNumber) return;
+        if (allSelected) delete next[o.SerialNumber];
+        else next[o.SerialNumber] = o;
+      });
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedOnts({}), []);
 
 
   const {
@@ -1029,6 +1066,25 @@ export default function PONPMAnalysis() {
                       <AlertTriangle className="h-4 w-4 mr-1" />FEC Corrected
                     </Button>
                   </div>
+                  {isAdmin && (
+                    <Link to="/Alerts">
+                      <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
+                        <Bell className="h-4 w-4 mr-1" />
+                        Alerts
+                      </Button>
+                    </Link>
+                  )}
+                  {isAdmin && viewMode === 'hierarchy' && (
+                    <Button
+                      variant={selectMode ? 'default' : 'outline'}
+                      size="sm"
+                      className={selectMode ? 'bg-red-600 hover:bg-red-700' : 'text-red-600 border-red-200 hover:bg-red-50'}
+                      onClick={() => { setSelectMode(v => !v); if (selectMode) clearSelection(); }}
+                    >
+                      <Flag className="h-4 w-4 mr-1" />
+                      {selectMode ? 'Done' : 'Flag ONTs'}
+                    </Button>
+                  )}
                   {viewMode === 'hierarchy' && (
                     <>
                       <Button 
@@ -1250,6 +1306,11 @@ export default function PONPMAnalysis() {
                                         subscriberMatchCount={subscriberMatchCount}
                                         eeroRecordsLoaded={eeroRecordsLoaded}
                                         onSelectDetail={setSelectedOntDetail}
+                                        selectable={isAdmin && selectMode}
+                                        selectedSerials={selectedSerials}
+                                        onToggleSelect={toggleSelectOnt}
+                                        onToggleSelectMany={toggleSelectMany}
+                                        onFlag={isAdmin ? (ont) => setFlagDialogOnts([ont]) : undefined}
                                       />
                                                 </div>
                                                 </CollapsibleContent>
@@ -1306,6 +1367,35 @@ export default function PONPMAnalysis() {
           onClose={() => setSelectedOntDetail(null)}
           allOnts={result?.onts}
           thresholds={result?.thresholds_used || customThresholds}
+        />
+      )}
+
+      {/* Floating selection action bar — appears when ONTs are selected in flag mode */}
+      {isAdmin && selectedCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 text-white rounded-full shadow-2xl px-5 py-3">
+          <span className="text-sm font-medium">{selectedCount} ONT{selectedCount > 1 ? 's' : ''} selected</span>
+          <Button
+            size="sm"
+            className="bg-red-600 hover:bg-red-700 rounded-full"
+            onClick={() => setFlagDialogOnts(Object.values(selectedOnts))}
+          >
+            <Flag className="h-4 w-4 mr-1" />
+            Flag to Alerts
+          </Button>
+          <button onClick={clearSelection} className="text-gray-300 hover:text-white" aria-label="Clear selection">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Flag dialog — single (row flag button) or bulk (selection bar) */}
+      {isAdmin && flagDialogOnts && (
+        <FlagOntDialog
+          onts={flagDialogOnts}
+          reportId={selectedReportId}
+          open={!!flagDialogOnts}
+          onOpenChange={(o) => { if (!o) setFlagDialogOnts(null); }}
+          onFlagged={() => { setFlagDialogOnts(null); clearSelection(); setSelectMode(false); }}
         />
       )}
 

@@ -1,0 +1,135 @@
+{
+  "name": "ONTAlert",
+  "type": "object",
+  "properties": {
+    "serial_number": {
+      "type": "string",
+      "description": "ONT Serial Number (FSAN) \u2014 the identity of the flagged ONT",
+      "index": true
+    },
+    "ont_id": {
+      "type": "string",
+      "description": "ONT ID on the port (denormalized at flag time)"
+    },
+    "olt_name": {
+      "type": "string",
+      "description": "OLT name (denormalized at flag time)"
+    },
+    "port": {
+      "type": "string",
+      "description": "Shelf/Slot/Port path (denormalized at flag time)"
+    },
+    "lcp_number": {
+      "type": "string",
+      "description": "LCP number (denormalized at flag time)"
+    },
+    "splitter_number": {
+      "type": "string",
+      "description": "Splitter number (denormalized at flag time)"
+    },
+    "ont_rx_power": {
+      "type": "number",
+      "description": "ONT Rx power at flag time (dBm)"
+    },
+    "olt_rx_power": {
+      "type": "number",
+      "description": "OLT Rx power at flag time (dBm)"
+    },
+    "ont_status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "warning",
+        "critical",
+        "offline"
+      ],
+      "description": "Computed analysis status at flag time"
+    },
+    "issue_summary": {
+      "type": "string",
+      "description": "Short human-readable summary of the issue(s) that triggered the flag"
+    },
+    "subscriber_name": {
+      "type": "string",
+      "description": "Subscriber name (denormalized at flag time)"
+    },
+    "subscriber_account": {
+      "type": "string",
+      "description": "Subscriber account name/ID (denormalized at flag time)"
+    },
+    "subscriber_address": {
+      "type": "string",
+      "description": "Full subscriber address (denormalized at flag time) \u2014 used to prefill work-order location"
+    },
+    "report_id": {
+      "type": "string",
+      "description": "PONPMReport id this ONT was flagged from"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium",
+      "description": "Operator-assigned priority for triage"
+    },
+    "note": {
+      "type": "string",
+      "description": "Free-form note added by the admin when flagging"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "resolved"
+      ],
+      "default": "open",
+      "index": true,
+      "description": "Alert lifecycle status"
+    },
+    "job_report_id": {
+      "type": "string",
+      "description": "Linked JobReport id once a work order has been created for this alert"
+    },
+    "flagged_by": {
+      "type": "string",
+      "description": "Email of the admin who flagged this ONT"
+    },
+    "resolved_by": {
+      "type": "string",
+      "description": "Email of the admin who resolved the alert"
+    },
+    "resolved_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the alert was resolved"
+    }
+  },
+  "required": [
+    "serial_number"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

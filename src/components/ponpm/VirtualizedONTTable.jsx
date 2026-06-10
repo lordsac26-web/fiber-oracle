@@ -30,6 +30,11 @@ export default function VirtualizedONTTable({
   subscriberMatchCount,
   eeroRecordsLoaded,
   onSelectDetail,
+  selectable = false,
+  selectedSerials,
+  onToggleSelect,
+  onToggleSelectMany,
+  onFlag,
 }) {
   const containerRef = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -66,9 +71,24 @@ export default function VirtualizedONTTable({
   const topPad = startIdx * ROW_HEIGHT;
   const bottomPad = (totalRows - endIdx) * ROW_HEIGHT;
 
+  // Header checkbox reflects whether all currently-visible rows are selected.
+  const allVisibleSelected = selectable && visibleOnts.length > 0 &&
+    visibleOnts.every(o => selectedSerials?.has(o.SerialNumber));
+
   const tableHeaders = (
     <TableHeader>
       <TableRow>
+        {selectable && (
+          <TableHead className="px-1 py-1 w-8">
+            <input
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={() => onToggleSelectMany?.(visibleOnts)}
+              className="rounded border-gray-300 cursor-pointer"
+              aria-label="Select all visible ONTs"
+            />
+          </TableHead>
+        )}
         <TableHead className="px-1.5 py-1 text-[10px] w-8">St</TableHead>
         <TableHead className="px-1.5 py-1 text-[10px]">ID</TableHead>
         {subscriberMatchCount > 0 && <TableHead className="px-1.5 py-1 text-[10px]">Subscriber</TableHead>}
@@ -97,6 +117,7 @@ export default function VirtualizedONTTable({
   let colCount = 18; // base columns
   if (subscriberMatchCount > 0) colCount++;
   if (eeroRecordsLoaded) colCount++;
+  if (selectable) colCount++;
 
   return (
     <div
@@ -121,6 +142,10 @@ export default function VirtualizedONTTable({
               hasSubscriberData={subscriberMatchCount > 0}
               hasEeroData={eeroRecordsLoaded}
               onSelectDetail={onSelectDetail}
+              selectable={selectable}
+              isSelected={selectedSerials?.has(ont.SerialNumber)}
+              onToggleSelect={onToggleSelect}
+              onFlag={onFlag}
             />
           ))}
           {/* Bottom spacer */}

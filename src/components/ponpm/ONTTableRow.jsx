@@ -3,22 +3,35 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Activity, Wifi } from 'lucide-react';
+import { Activity, Wifi, Flag } from 'lucide-react';
 import { formatUptime } from '@/components/ponpm/formatUptime';
 
 const STATUS_COLORS = { critical: 'bg-red-500', warning: 'bg-amber-500', ok: 'bg-green-500', offline: 'bg-purple-500' };
 
-export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, onSelectDetail }) {
+export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, onSelectDetail, selectable, isSelected, onToggleSelect, onFlag }) {
   const cellCls = "px-1.5 py-1 text-[10px]";
   const monoCls = `${cellCls} font-mono`;
   const rightMono = `${monoCls} text-right`;
 
   return (
     <TableRow className={`${
+      isSelected ? 'bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-300' :
       ont._analysis.status === 'critical' ? 'bg-red-50 dark:bg-red-900/10' :
       ont._analysis.status === 'warning' ? 'bg-amber-50 dark:bg-amber-900/10' :
       ont._analysis.status === 'offline' ? 'bg-purple-50 dark:bg-purple-900/10' : ''
     }`}>
+      {selectable && (
+        <TableCell className="px-1 py-1">
+          <input
+            type="checkbox"
+            checked={!!isSelected}
+            onChange={(e) => { e.stopPropagation(); onToggleSelect?.(ont); }}
+            onClick={(e) => e.stopPropagation()}
+            className="rounded border-gray-300 cursor-pointer"
+            aria-label="Select ONT for flagging"
+          />
+        </TableCell>
+      )}
       <TableCell className="px-1 py-1"><div className={`w-2.5 h-2.5 rounded-full ${STATUS_COLORS[ont._analysis.status]}`} /></TableCell>
       <TableCell className={monoCls}>{ont.OntID || '-'}</TableCell>
       {hasSubscriberData && (
@@ -141,6 +154,13 @@ export default function ONTTableRow({ ont, hasSubscriberData, hasEeroData, onSel
                 <Activity className="h-3 w-3" />
               </Button>
             </TooltipTrigger><TooltipContent className="text-xs">Details</TooltipContent></Tooltip>
+            {onFlag && (
+              <Tooltip><TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); onFlag(ont); }} className="h-6 w-6 text-red-500 hover:text-red-600">
+                  <Flag className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger><TooltipContent className="text-xs">Flag to Alerts</TooltipContent></Tooltip>
+            )}
           </div>
         </TooltipProvider>
       </TableCell>
