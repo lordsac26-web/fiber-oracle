@@ -266,16 +266,14 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   doc.setTextColor(...C.navy);
   doc.text('CERTIFICATE OF INSTALLATION RECORD', PAGE_W / 2, y + 6, { align: 'center' });
 
-  // Gold ornamental rule with diamond center
+  // Gold ornamental rule — full line with centered circle accent
   y += 13;
   doc.setDrawColor(...C.goldMid);
   doc.setLineWidth(0.6);
-  doc.line(M + 6, y, PAGE_W / 2 - 7, y);
-  doc.line(PAGE_W / 2 + 7, y, PAGE_W - M - 6, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(...C.goldMid);
-  doc.text('\u2666', PAGE_W / 2, y + 1.8, { align: 'center' }); // diamond
+  doc.line(M + 6, y, PAGE_W - M - 6, y);
+  // Small filled circle at center
+  doc.setFillColor(...C.goldMid);
+  doc.circle(PAGE_W / 2, y, 1.8, 'F');
 
   // Document number
   y += 5;
