@@ -239,33 +239,6 @@ function errorCell(doc, label, val, x, y, w) {
   doc.text(hasV ? numVal.toLocaleString() : '\u2014', x + w / 2, y + 10, { align: 'center' });
 }
 
-// ── Weather badge ─────────────────────────────────────────────────────────────
-function drawWeatherBadge(doc, weather, y, boxX, boxW) {
-  if (!weather) return;
-  const hi = weather.high_temp_f != null ? Math.round(weather.high_temp_f) + '\u00B0F' : 'N/A';
-  const lo = weather.low_temp_f  != null ? Math.round(weather.low_temp_f)  + '\u00B0F' : 'N/A';
-
-  const badgeW = 64;
-  const badgeH = 10;
-  const bx = boxX + (boxW - badgeW) / 2;
-
-  doc.setFillColor(235, 245, 255);
-  doc.setDrawColor(147, 197, 253);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(bx, y, badgeW, badgeH, 2, 2, 'FD');
-
-  // Thermometer icon area
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(5.5);
-  doc.setTextColor(30, 80, 160);
-  doc.text('AMBIENT TEMP AT INSTALL', bx + badgeW / 2, y + 3.5, { align: 'center' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(15, 50, 120);
-  const tempStr = 'High ' + s(hi) + '   /   Low ' + s(lo);
-  doc.text(tempStr, bx + badgeW / 2, y + 8.5, { align: 'center' });
-}
 
 // ── Fill-in line ──────────────────────────────────────────────────────────────
 function fillLine(doc, label, x, y, lineW) {
@@ -315,7 +288,7 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   doc.text('Document No. ' + certNo, PAGE_W / 2, y, { align: 'center' });
   y += 4;
 
-  // ── Birth date gold box ───────────────────────────────────────────────────
+  // ── Birth date + weather combined row ────────────────────────────────────
   const birthDate = record && record.report_date
     ? new Date(record.report_date).toLocaleDateString('en-US', {
         timeZone: tz, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -323,38 +296,74 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
     : null;
 
   const hasWeather = !!(weather && (weather.high_temp_f != null || weather.low_temp_f != null));
-  const bdBoxH = 18;
-  const bdBoxX = M + 24;
-  const bdBoxW = CW - 48;
+  const bdBoxH = 20;
 
-  doc.setFillColor(...C.goldLight);
-  doc.setDrawColor(...C.goldBorder);
-  doc.setLineWidth(0.6);
-  doc.roundedRect(bdBoxX, y, bdBoxW, bdBoxH, 3, 3, 'FD');
-  // Inner hairline
-  doc.setDrawColor(...C.goldMid);
-  doc.setLineWidth(0.2);
-  doc.roundedRect(bdBoxX + 1.5, y + 1.5, bdBoxW - 3, bdBoxH - 3, 2, 2, 'S');
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6);
-  doc.setTextColor(...C.amber);
-  doc.text('FIRST OBSERVED ON NETWORK', PAGE_W / 2, y + 5.5, { align: 'center' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(birthDate ? 13 : 9);
-  doc.setTextColor(...C.navy);
-  doc.text(s(birthDate || 'Not Yet Recorded in Database'), PAGE_W / 2, y + 14, { align: 'center' });
-
-  y += bdBoxH + 3.5;
-
-  // Weather badge directly below birth box
   if (hasWeather) {
-    drawWeatherBadge(doc, weather, y, M, CW);
-    y += 13;
+    // Two side-by-side boxes: date (left 60%) | weather (right 40%)
+    const dateBoxW = Math.round(CW * 0.60);
+    const wBoxW    = CW - dateBoxW - 3;
+
+    // Date box (gold)
+    doc.setFillColor(...C.goldLight);
+    doc.setDrawColor(...C.goldBorder);
+    doc.setLineWidth(0.6);
+    doc.roundedRect(M, y, dateBoxW, bdBoxH, 3, 3, 'FD');
+    doc.setDrawColor(...C.goldMid);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(M + 1.5, y + 1.5, dateBoxW - 3, bdBoxH - 3, 2, 2, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6);
+    doc.setTextColor(...C.amber);
+    doc.text('FIRST OBSERVED ON NETWORK', M + dateBoxW / 2, y + 5.5, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(birthDate ? 11 : 8);
+    doc.setTextColor(...C.navy);
+    doc.text(s(birthDate || 'Not Yet Recorded'), M + dateBoxW / 2, y + 14.5, { align: 'center' });
+
+    // Weather box (blue)
+    const wx = M + dateBoxW + 3;
+    doc.setFillColor(235, 245, 255);
+    doc.setDrawColor(147, 197, 253);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(wx, y, wBoxW, bdBoxH, 3, 3, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.5);
+    doc.setTextColor(30, 80, 160);
+    doc.text('AMBIENT TEMP AT INSTALL', wx + wBoxW / 2, y + 5.5, { align: 'center' });
+
+    const hi = weather.high_temp_f != null ? Math.round(weather.high_temp_f) + '\u00B0F' : 'N/A';
+    const lo = weather.low_temp_f  != null ? Math.round(weather.low_temp_f)  + '\u00B0F' : 'N/A';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 50, 120);
+    doc.text('High ' + s(hi), wx + wBoxW / 2, y + 12, { align: 'center' });
+    doc.setFontSize(8);
+    doc.text('Low ' + s(lo), wx + wBoxW / 2, y + 17.5, { align: 'center' });
+
   } else {
-    y += 2;
+    // No weather — centered date box only
+    const bdBoxX = M + 20;
+    const bdBoxW = CW - 40;
+    doc.setFillColor(...C.goldLight);
+    doc.setDrawColor(...C.goldBorder);
+    doc.setLineWidth(0.6);
+    doc.roundedRect(bdBoxX, y, bdBoxW, bdBoxH, 3, 3, 'FD');
+    doc.setDrawColor(...C.goldMid);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(bdBoxX + 1.5, y + 1.5, bdBoxW - 3, bdBoxH - 3, 2, 2, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6);
+    doc.setTextColor(...C.amber);
+    doc.text('FIRST OBSERVED ON NETWORK', PAGE_W / 2, y + 5.5, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(birthDate ? 12 : 9);
+    doc.setTextColor(...C.navy);
+    doc.text(s(birthDate || 'Not Yet Recorded in Database'), PAGE_W / 2, y + 14.5, { align: 'center' });
   }
+
+  y += bdBoxH + 3;
 
   // ── Outer certificate border ──────────────────────────────────────────────
   const boxTop = y;
@@ -389,23 +398,23 @@ function drawCertificate(doc, serial, record, sub, weather, customerName, custom
   y += 9.5;
   y = divider(doc, y);
 
-  // ── DEVICE IDENTIFICATION ─────────────────────────────────────────────────
-  y = sectionHeader(doc, 'Device Identification', y);
-  labelValue(doc, 'Serial Number (FSAN)', record && record.serial_number ? record.serial_number : serial, innerX, y, hw);
-  labelValue(doc, 'ONT ID', record && record.ont_id ? record.ont_id : '', innerX + hw + 4, y, hw);
-  y += 9.5;
-  labelValue(doc, 'ONT Model', record && record.model ? record.model : (sub && sub.ONTModel ? sub.ONTModel : ''), innerX, y, hw);
-  labelValue(doc, 'Software Version', sub && sub.CurrentONTSoftwareVersion ? sub.CurrentONTSoftwareVersion : '', innerX + hw + 4, y, hw);
-  y += 9.5;
-  y = divider(doc, y);
+  // ── DEVICE IDENTIFICATION & NETWORK LOCATION (combined, 4-col) ───────────
+  y = sectionHeader(doc, 'Device Identification & Network Location', y);
+  const qw = (innerW - 6) / 4; // quarter-width for 4-column layout
+  const qg = 2;
 
-  // ── NETWORK LOCATION ──────────────────────────────────────────────────────
-  y = sectionHeader(doc, 'Network Location', y);
-  labelValue(doc, 'OLT / Chassis',           record && record.olt_name        ? record.olt_name        : '', innerX,          y, hw);
-  labelValue(doc, 'Port (Shelf / Slot / Port)',record && record.shelf_slot_port ? record.shelf_slot_port : '', innerX + hw + 4, y, hw);
+  // Row 1: Serial | ONT ID | OLT | Port
+  labelValue(doc, 'Serial Number (FSAN)', record && record.serial_number ? record.serial_number : serial,             innerX,                    y, qw);
+  labelValue(doc, 'ONT ID',              record && record.ont_id         ? record.ont_id         : '',                 innerX + (qw + qg),        y, qw);
+  labelValue(doc, 'OLT / Chassis',       record && record.olt_name       ? record.olt_name       : '',                 innerX + (qw + qg) * 2,    y, qw);
+  labelValue(doc, 'Port (Shelf/Slot/Port)', record && record.shelf_slot_port ? record.shelf_slot_port : '',            innerX + (qw + qg) * 3,    y, qw);
   y += 9.5;
-  labelValue(doc, 'LCP',      record && record.lcp_number      ? record.lcp_number      : '', innerX,          y, hw);
-  labelValue(doc, 'Splitter', record && record.splitter_number ? record.splitter_number : '', innerX + hw + 4, y, hw);
+
+  // Row 2: Model | Software Version | LCP | Splitter
+  labelValue(doc, 'ONT Model',        record && record.model ? record.model : (sub && sub.ONTModel ? sub.ONTModel : ''), innerX,                 y, qw);
+  labelValue(doc, 'Software Version', sub && sub.CurrentONTSoftwareVersion ? sub.CurrentONTSoftwareVersion : '',          innerX + (qw + qg),     y, qw);
+  labelValue(doc, 'LCP',              record && record.lcp_number      ? record.lcp_number      : '',                     innerX + (qw + qg) * 2, y, qw);
+  labelValue(doc, 'Splitter',         record && record.splitter_number ? record.splitter_number : '',                     innerX + (qw + qg) * 3, y, qw);
   y += 9.5;
   y = divider(doc, y);
 
