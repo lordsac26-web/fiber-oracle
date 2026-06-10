@@ -162,6 +162,12 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
     return Number.isFinite(num) ? num : null;
   };
 
+  // Returns the record from the report immediately preceding the one currently
+  // displayed. historicalData is ordered oldest → newest, so we walk backwards
+  // and return the first record that belongs to a different (earlier) report.
+  // This makes the Error Metrics deltas mean "change vs. the previous report"
+  // rather than "vs. the last different snapshot" — giving a clean report-to-
+  // report trend that flags ONTs actively accumulating errors.
   const getComparisonRecord = () => {
     if (historicalData.length === 0) return null;
 
@@ -169,24 +175,10 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
 
     for (let i = historicalData.length - 1; i >= 0; i -= 1) {
       const record = historicalData[i];
-      const sameReport = currentReportId && record.report_id === currentReportId;
-      const sameSnapshot =
-        toNumber(record.ont_rx_power) === toNumber(ont.OntRxOptPwr) &&
-        toNumber(record.olt_rx_power) === toNumber(ont.OLTRXOptPwr) &&
-        toNumber(record.ont_tx_power) === toNumber(ont.OntTxPwr) &&
-        toNumber(record.us_bip_errors) === toNumber(ont.UpstreamBipErrors) &&
-        toNumber(record.ds_bip_errors) === toNumber(ont.DownstreamBipErrors) &&
-        toNumber(record.us_fec_uncorrected) === toNumber(ont.UpstreamFecUncorrectedCodeWords) &&
-        toNumber(record.ds_fec_uncorrected) === toNumber(ont.DownstreamFecUncorrectedCodeWords) &&
-        toNumber(record.us_fec_corrected) === toNumber(ont.UpstreamFecCorrectedCodeWords) &&
-        toNumber(record.ds_fec_corrected) === toNumber(ont.DownstreamFecCorrectedCodeWords) &&
-        toNumber(record.us_gem_hec_errors) === toNumber(ont.UpstreamGemHecErrors) &&
-        toNumber(record.us_missed_bursts) === toNumber(ont.UpstreamMissedBursts) &&
-        record.status === ont._analysis?.status;
-
-      if (!sameReport && !sameSnapshot) {
-        return record;
-      }
+      // Skip any record from the report we're currently viewing.
+      if (currentReportId && record.report_id === currentReportId) continue;
+      // First record from an earlier report = the immediately previous report.
+      return record;
     }
 
     return null;
@@ -619,8 +611,10 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
               <CardContent>
                 {(() => {
                   const comparisonRecord = getComparisonRecord();
+                  // First appearance (no previous report) → treat as 0 change so
+                  // the badge still renders Δ0 rather than disappearing.
                   const delta = (currentVal, previousVal) => {
-                    if (comparisonRecord === null || previousVal === undefined || previousVal === null) return null;
+                    if (comparisonRecord === null) return 0;
                     return (parseInt(currentVal, 10) || 0) - (parseInt(previousVal, 10) || 0);
                   };
                   const DeltaBadge = ({ value }) => {
