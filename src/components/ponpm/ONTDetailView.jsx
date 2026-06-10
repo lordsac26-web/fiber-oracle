@@ -41,10 +41,12 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  FileText,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import moment from 'moment';
+import { downloadPdfFromFunction } from '@/lib/pdfDownload';
 import EnhancedHistoryChart from './EnhancedHistoryChart';
 import PeerComparisonChart from './PeerComparisonChart';
 
@@ -72,6 +74,7 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
   const [peerData, setPeerData] = useState({ onts: [], avgMetrics: null });
   const [peerSort, setPeerSort] = useState({ key: 'serial', direction: 'asc' });
   const [showPeerComparison, setShowPeerComparison] = useState(false);
+  const [isGeneratingCert, setIsGeneratingCert] = useState(false);
 
   // History "Data Points" table — collapsed by default so the dialog opens
   // compactly. Archived section (rows beyond the chart cap) is also collapsed
@@ -130,6 +133,23 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
     loadAll();
     return () => { cancelled = true; };
   }, [ont.SerialNumber]);
+
+  const handleGenerateCertificate = async () => {
+    setIsGeneratingCert(true);
+    try {
+      await downloadPdfFromFunction(
+        'generateOntBirthCertificate',
+        { serialNumbers: [ont.SerialNumber] },
+        `ONT-BirthCertificate-${ont.SerialNumber}.pdf`
+      );
+      toast.success('Birth certificate downloaded');
+    } catch (err) {
+      toast.error(err.message || 'Failed to generate certificate');
+      console.error(err);
+    } finally {
+      setIsGeneratingCert(false);
+    }
+  };
 
   const loadPeerData = () => {
     if (!allOnts) return;
@@ -245,6 +265,18 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
             <Badge className={STATUS_COLORS[ont._analysis.status]}>
               {ont._analysis.status.toUpperCase()}
             </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateCertificate}
+              disabled={isGeneratingCert}
+              className="ml-auto text-xs flex items-center gap-1.5"
+            >
+              {isGeneratingCert
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <FileText className="h-3.5 w-3.5" />}
+              {isGeneratingCert ? 'Generating...' : 'Birth Certificate'}
+            </Button>
           </DialogTitle>
           <DialogDescription className="sr-only">Performance details for ONT {ont.SerialNumber}</DialogDescription>
         </DialogHeader>
