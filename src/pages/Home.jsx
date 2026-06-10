@@ -29,7 +29,6 @@ const MODULES = [
   { id: 'otdr', title: 'OTDR Tier-2', description: 'Bidirectional trace characterization', icon: Activity, color: 'from-indigo-500 to-purple-600', page: 'OTDRTest', badge: 'Testing' },
   { id: 'cleaning', title: 'Cleaning & Inspection', description: 'IEC 61300-3-35 procedures', icon: Sparkles, color: 'from-cyan-500 to-blue-600', page: 'Cleaning', badge: 'Testing' },
   { id: 'jobreports', title: 'Job Reports', description: 'Submit & track fiber job reports', icon: ClipboardList, color: 'from-green-500 to-teal-600', page: 'JobReports', badge: 'Testing' },
-  { id: 'ontanalyst', title: 'ONT Analyst', description: 'AI assistant for ONT performance trends', icon: Activity, color: 'from-blue-500 to-indigo-600', page: 'ONTAnalyst', badge: 'Testing', isNew: true },
   { id: 'doctor', title: 'Fiber Doctor', description: 'Interactive troubleshooting flowchart', icon: Stethoscope, color: 'from-rose-500 to-pink-600', page: 'FiberDoctor', badge: 'Troubleshoot' },
   { id: 'otdranalysis', title: 'AI OTDR Analysis', description: 'AI-powered trace diagnostics', icon: FileSearch, color: 'from-purple-600 to-indigo-700', page: 'OTDRAnalysis', badge: 'Troubleshoot', isBeta: true },
   { id: 'impairments', title: 'Impairment Library', description: 'Visual defect reference guide', icon: ImageIcon, color: 'from-violet-500 to-purple-600', page: 'Impairments', badge: 'Troubleshoot' },
