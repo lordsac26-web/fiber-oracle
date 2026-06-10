@@ -318,6 +318,75 @@ function drawCertificate(doc, serial, record, sub, customerName, customerLogo, g
   y += 17;
   y = divider(doc, y);
 
+  // ── ERROR METRICS AT FIRST REPORT ────────────────────────────────────────
+  y = sectionHeader(doc, 'Error Metrics at First Report', y);
+
+  const errorFields = [
+    { label: 'US BIP Errors',        val: record && record.us_bip_errors },
+    { label: 'DS BIP Errors',        val: record && record.ds_bip_errors },
+    { label: 'US FEC Uncorrected',   val: record && record.us_fec_uncorrected },
+    { label: 'DS FEC Uncorrected',   val: record && record.ds_fec_uncorrected },
+    { label: 'US FEC Corrected',     val: record && record.us_fec_corrected },
+    { label: 'DS FEC Corrected',     val: record && record.ds_fec_corrected },
+    { label: 'US GEM HEC Errors',    val: record && record.us_gem_hec_errors },
+    { label: 'US Missed Bursts',     val: record && record.us_missed_bursts },
+  ];
+
+  const colW = (CW - 8) / 4;
+  const colPad = 4;
+  // 2 rows × 4 cols
+  errorFields.forEach(({ label, val }, i) => {
+    const col = i % 4;
+    const row = Math.floor(i / 4);
+    const ex = M + 4 + col * (colW + colPad);
+    const ey = y + row * 11;
+    const hasV = val !== null && val !== undefined && !isNaN(Number(val));
+    const isNonZero = hasV && Number(val) !== 0;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...C.muted);
+    doc.text(s(label), ex, ey);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    // Highlight non-zero errors in amber/red for quick visual triage
+    if (isNonZero && (label.includes('Uncorrected') || label.includes('BIP') || label.includes('HEC') || label.includes('Missed'))) {
+      doc.setTextColor(...C.amber);
+    } else {
+      doc.setTextColor(...(hasV ? C.dark : C.subText));
+    }
+    doc.text(hasV ? Number(val).toLocaleString() : '\u2014', ex, ey + 4.8, { maxWidth: colW - 2 });
+  });
+
+  y += 24; // 2 rows × 11 + 2 gap
+  y = divider(doc, y);
+
+  // ── STATUS AT FIRST REPORT ─────────────────────────────────────────────────
+  if (record && record.status) {
+    const statusColors = { ok: [22, 163, 74], warning: [217, 119, 6], critical: [220, 38, 38], offline: [100, 116, 139] };
+    const sc = statusColors[record.status] || C.muted;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...C.muted);
+    doc.text('Status at First Report:', M + 4, y);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...sc);
+    doc.text(s(record.status).toUpperCase(), M + 52, y);
+    if (record.ont_uptime) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(...C.muted);
+      doc.text('Uptime:', M + 90, y);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...C.dark);
+      doc.text(s(record.ont_uptime), M + 108, y);
+    }
+    y += 7;
+    y = divider(doc, y);
+  }
+
   // ── INSTALLATION DATES ────────────────────────────────────────────────────
   y = sectionHeader(doc, 'Installation Dates', y);
 
@@ -415,19 +484,56 @@ Deno.serve(async (req) => {
     const customerLogo = await fetchLogoAsBase64(customerLogoUrl || DEFAULT_LOGO);
 
     // ── Fetch birth records in parallel ───────────────────────────────────────
-    // Sorting ascending (no '-' prefix) by report_date and limit 1 gives the
-    // very first report record for this serial — the "birth" reading.
+    // ONTPerformanceRecord stores serial numbers in multiple formats depending
+    // on what the OLT reports. Common formats:
+    //   Full FSAN:  CXNK01B727DD   (as subscriber data stores it)
+    //   Short form: 01B727DD        (vendor prefix stripped — what the OLT often reports)
+    //
+    // Strategy: try exact match first; if empty, strip common 4-char vendor prefixes
+    // (CXNK, ZTEG, HWTC, ALCA, etc.) and retry. Also cross-reference via ont_id+olt_name
+    // from the subscriber record as a final fallback.
+
+    async function findOntRecords(base44, serial, sub) {
+      // Try exact serial
+      let records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+        { serial_number: serial }, 'report_date', 10
+      );
+      if (records.length > 0) return records;
+
+      // Try stripping a 4-char vendor prefix (CXNK, ZTEG, HWTC, ALCA, GNXS, etc.)
+      if (serial.length > 8) {
+        const stripped = serial.slice(4); // drop first 4 chars
+        records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+          { serial_number: stripped }, 'report_date', 10
+        );
+        if (records.length > 0) return records;
+      }
+
+      // Fallback: cross-reference ont_id + olt_name from subscriber record
+      if (sub && sub.OntID && sub.DeviceName) {
+        records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+          { ont_id: sub.OntID, olt_name: sub.DeviceName }, 'report_date', 10
+        );
+        if (records.length > 0) return records;
+      }
+
+      return [];
+    }
+
     const birthData = await Promise.all(
       serials.map(async (serial) => {
-        const [records, subs] = await Promise.all([
-          base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-            { serial_number: serial }, 'report_date', 1
-          ),
-          base44.asServiceRole.entities.SubscriberRecord.filter(
-            { ONTSerialNo: serial }, 'created_date', 1
-          ),
-        ]);
-        return { serial, record: records[0] || null, sub: subs[0] || null };
+        // Fetch subscriber first (needed for fallback lookup)
+        const subs = await base44.asServiceRole.entities.SubscriberRecord.filter(
+          { ONTSerialNo: serial }, 'created_date', 1
+        );
+        const sub = subs[0] || null;
+
+        const allRecords = await findOntRecords(base44, serial, sub);
+        // Sort ascending by report_date to find the "birth" record (earliest)
+        allRecords.sort((a, b) => new Date(a.report_date) - new Date(b.report_date));
+        const record = allRecords[0] || null;
+
+        return { serial, record, sub };
       })
     );
 
