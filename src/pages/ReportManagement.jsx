@@ -27,6 +27,7 @@ import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { deleteReportWithRecordsClientSide } from '@/lib/deleteReportClientSide';
 import moment from 'moment';
 
 export default function ReportManagement() {
@@ -69,31 +70,26 @@ export default function ReportManagement() {
   };
 
   const handleBatchDelete = async () => {
-    if (selectedReports.size > 10) {
-      toast.error('Please select 10 or fewer reports to delete at once');
-      return;
-    }
-
     setIsDeleting(true);
     const reportIds = Array.from(selectedReports);
     let successCount = 0;
     let failCount = 0;
 
-    toast.loading(`Deleting ${reportIds.length} report(s)...`, { id: 'batch-delete' });
-
-    for (const reportId of reportIds) {
+    for (let i = 0; i < reportIds.length; i++) {
       try {
-        const response = await base44.functions.invoke('deleteReportWithRecords', {
-          report_id: reportId
+        toast.loading(
+          `Deleting report ${i + 1} of ${reportIds.length}...`,
+          { id: 'batch-delete' }
+        );
+        await deleteReportWithRecordsClientSide(reportIds[i], (deleted) => {
+          toast.loading(
+            `Deleting report ${i + 1} of ${reportIds.length}... (${deleted.toLocaleString()} records removed)`,
+            { id: 'batch-delete' }
+          );
         });
-
-        if (response.data.success) {
-          successCount++;
-        } else {
-          failCount++;
-        }
+        successCount++;
       } catch (error) {
-        console.error(`Failed to delete report ${reportId}:`, error);
+        console.error(`Failed to delete report ${reportIds[i]}:`, error);
         failCount++;
       }
     }
@@ -161,7 +157,7 @@ export default function ReportManagement() {
               <Button 
                 variant="destructive"
                 onClick={() => setShowDeleteConfirm(true)}
-                disabled={isDeleting || selectedReports.size > 10}
+                disabled={isDeleting}
               >
                 {isDeleting ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -216,9 +212,8 @@ export default function ReportManagement() {
               <div className="text-sm text-amber-800 dark:text-amber-200">
                 <p className="font-medium mb-1">Batch Deletion Guidelines:</p>
                 <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>Select up to 10 reports for batch deletion (prevents timeouts)</li>
                   <li>Each report deletion includes all associated ONT records</li>
-                  <li>Large reports may take 10-30 seconds to delete</li>
+                  <li>Records are removed in fast batches of 50 — large reports take a few seconds</li>
                   <li>Use "Purge All Data" only if you want to delete everything</li>
                 </ul>
               </div>
