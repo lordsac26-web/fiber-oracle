@@ -16,6 +16,45 @@ const DEFAULT_THRESHOLDS = {
   DownstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
 };
 
+// ─── Trend-based stale detection ─────────────────────────────────────────────
+// Mirror of processPonPmRecords: OLT error counters are cumulative and only
+// cleared manually. If the counter has NOT grown faster than the per-day
+// "stable" rate below since the last report, the alarm is stale → downgraded.
+const STABLE_RATES_PER_DAY = {
+  UpstreamBipErrors: 1000,
+  DownstreamBipErrors: 1000,
+  UpstreamFecUncorrectedCodeWords: 3,
+  DownstreamFecUncorrectedCodeWords: 3,
+  UpstreamGemHecErrors: 40,
+};
+
+const TREND_PREV_KEYS = {
+  UpstreamBipErrors: 'us_bip_errors',
+  DownstreamBipErrors: 'ds_bip_errors',
+  UpstreamFecUncorrectedCodeWords: 'us_fec_uncorrected',
+  DownstreamFecUncorrectedCodeWords: 'ds_fec_uncorrected',
+  UpstreamGemHecErrors: 'us_gem_hec_errors',
+};
+
+function classifyTrend(field, current, trendCtx) {
+  const stableRate = STABLE_RATES_PER_DAY[field];
+  const prevKey = TREND_PREV_KEYS[field];
+  if (!stableRate || !prevKey || !trendCtx || !trendCtx.prev1) return 'unknown';
+  const p1 = trendCtx.prev1[prevKey];
+  if (p1 === null || p1 === undefined) return 'unknown';
+  const d1 = current - p1;
+  if (d1 < 0) return 'active'; // counter was cleared and errors re-accumulated
+  if (d1 / trendCtx.days1 >= stableRate) return 'active';
+  if (trendCtx.prev2) {
+    const p2 = trendCtx.prev2[prevKey];
+    if (p2 !== null && p2 !== undefined) {
+      const d2 = p1 - p2;
+      if (d2 >= 0 && d2 / trendCtx.days2 >= stableRate) return 'active';
+    }
+  }
+  return 'stale';
+}
+
 // IMPORTANT: THRESHOLDS is now built per-request inside Deno.serve to prevent
 // race conditions when concurrent requests supply different custom thresholds.
 // Previously this was module-level mutable state shared across all requests.
@@ -127,7 +166,7 @@ function normalizeSerialNumber(serial) {
   return normalized.length > 0 ? normalized : null;
 }
 
-function analyzeOnt(ont, segmentStats, THRESHOLDS) {
+function analyzeOnt(ont, segmentStats, THRESHOLDS, trendCtx = null) {
   const issues = [];
   const warnings = [];
   let isOffline = false;
@@ -174,9 +213,15 @@ function analyzeOnt(ont, segmentStats, THRESHOLDS) {
     const num = parseNumeric(value);
     if (num !== null && THRESHOLDS[fieldName]) {
       if (num >= THRESHOLDS[fieldName].critical) {
-        issues.push({ field: fieldName, severity: 'critical', value: num.toLocaleString(), threshold: `≥ ${THRESHOLDS[fieldName].critical.toLocaleString()}`, message: `High error count` });
+        const trend = classifyTrend(fieldName, num, trendCtx);
+        if (trend === 'stale') {
+          warnings.push({ field: fieldName, severity: 'warning', value: num.toLocaleString(), threshold: `≥ ${THRESHOLDS[fieldName].critical.toLocaleString()}`, message: `High error count (stable — not climbing, likely stale counter)`, stale: true });
+        } else {
+          issues.push({ field: fieldName, severity: 'critical', value: num.toLocaleString(), threshold: `≥ ${THRESHOLDS[fieldName].critical.toLocaleString()}`, message: trend === 'active' ? `High error count (actively climbing)` : `High error count` });
+        }
       } else if (num >= THRESHOLDS[fieldName].warning) {
-        warnings.push({ field: fieldName, severity: 'warning', value: num.toLocaleString(), threshold: `≥ ${THRESHOLDS[fieldName].warning.toLocaleString()}`, message: `Elevated error count` });
+        const trend = classifyTrend(fieldName, num, trendCtx);
+        warnings.push({ field: fieldName, severity: 'warning', value: num.toLocaleString(), threshold: `≥ ${THRESHOLDS[fieldName].warning.toLocaleString()}`, message: trend === 'stale' ? `Elevated error count (stable — likely stale counter)` : `Elevated error count`, stale: trend === 'stale' });
       }
     }
   };
@@ -532,11 +577,32 @@ Deno.serve(async (req) => {
       const oltName = ont.OLTName || 'Unknown OLT';
       const portKey = ont['Shelf/Slot/Port'] || 'Unknown';
       const portStats = segmentStats[oltName]?.ports[portKey];
-      const analysis = analyzeOnt(ont, portStats, THRESHOLDS);
+
+      // Build trend context from the most recent historical record so stale
+      // (non-climbing) error counters get downgraded during analysis.
+      const historical = historicalMap.get(ont.SerialNumber);
+      let trendCtx = null;
+      if (historical) {
+        const daysGap = Math.max(
+          (Date.now() - new Date(historical.report_date).getTime()) / 86400000, 0.25
+        );
+        trendCtx = {
+          prev1: {
+            us_bip_errors: historical.us_bip_errors,
+            ds_bip_errors: historical.ds_bip_errors,
+            us_fec_uncorrected: historical.us_fec_uncorrected,
+            ds_fec_uncorrected: historical.ds_fec_uncorrected,
+            us_gem_hec_errors: historical.us_gem_hec_errors,
+          },
+          prev2: null,
+          days1: daysGap,
+          days2: 1,
+        };
+      }
+      const analysis = analyzeOnt(ont, portStats, THRESHOLDS, trendCtx);
 
       // Calculate trends if historical data exists
       let trends = null;
-      const historical = historicalMap.get(ont.SerialNumber);
       if (historical) {
         const currentOntRx = parseNumeric(ont.OntRxOptPwr);
         const previousOntRx = historical.ont_rx_power;
