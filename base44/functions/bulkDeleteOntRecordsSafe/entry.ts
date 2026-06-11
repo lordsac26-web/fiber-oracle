@@ -21,44 +21,35 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'record_ids array is required' }, { status: 400 });
     }
 
-    // Hard cap per invocation — the frontend chunks larger selections into
-    // multiple calls so each invocation finishes well under the function timeout.
-    if (record_ids.length > 100) {
+    if (record_ids.length > 500) {
       return Response.json({ 
-        error: 'Too many records per call. Send chunks of 100 or fewer.' 
+        error: 'Too many records. Please delete in batches of 500 or fewer.' 
       }, { status: 400 });
     }
 
-    const CONCURRENT = 10;  // parallel deletes per micro-batch
-    const BATCH_DELAY = 50; // ms pause between micro-batches
+    // Use deleteMany with an $in query — a single API call per chunk instead of
+    // one call per record. Per-record deletes were tripping the platform rate
+    // limit ("Rate limit exceeded") once selections exceeded ~100 records.
+    const CHUNK = 100;
     let deletedCount = 0;
     const errors = [];
 
-    for (let i = 0; i < record_ids.length; i += CONCURRENT) {
-      const slice = record_ids.slice(i, i + CONCURRENT);
-
-      const results = await Promise.allSettled(
-        slice.map(id => base44.asServiceRole.entities.ONTPerformanceRecord.delete(id))
-      );
-
-      for (let j = 0; j < results.length; j++) {
-        if (results[j].status === 'fulfilled') {
-          deletedCount++;
-        } else {
-          errors.push({ id: slice[j], error: results[j].reason?.message || 'unknown' });
-        }
-      }
-
-      // Pause between micro-batches to avoid overwhelming the DB
-      if (i + CONCURRENT < record_ids.length) {
-        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+    for (let i = 0; i < record_ids.length; i += CHUNK) {
+      const slice = record_ids.slice(i, i + CHUNK);
+      try {
+        const result = await base44.asServiceRole.entities.ONTPerformanceRecord.deleteMany({
+          id: { $in: slice }
+        });
+        deletedCount += result?.deleted_count ?? result?.deletedCount ?? slice.length;
+      } catch (err) {
+        errors.push({ chunk_start: i, error: err.message || 'unknown' });
       }
     }
 
     return Response.json({ 
       success: true,
       deleted: deletedCount,
-      failed: errors.length,
+      failed: errors.length > 0 ? record_ids.length - deletedCount : 0,
       errors: errors.slice(0, 10)
     });
 
