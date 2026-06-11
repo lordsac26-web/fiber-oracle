@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 // Safe batched ONT record deletion
 // Uses small concurrent batches with delays to avoid MongoDB timeouts
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     // Use deleteMany with an $in query — a single API call per chunk instead of
     // one call per record. Per-record deletes were tripping the platform rate
     // limit ("Rate limit exceeded") once selections exceeded ~100 records.
-    const CHUNK = 100;
+    const CHUNK = 50;
     let deletedCount = 0;
     const errors = [];
 
