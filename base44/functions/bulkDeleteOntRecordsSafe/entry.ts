@@ -21,14 +21,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'record_ids array is required' }, { status: 400 });
     }
 
-    if (record_ids.length > 500) {
+    // Hard cap per invocation — the frontend chunks larger selections into
+    // multiple calls so each invocation finishes well under the function timeout.
+    if (record_ids.length > 100) {
       return Response.json({ 
-        error: 'Too many records. Please delete in batches of 500 or fewer.' 
+        error: 'Too many records per call. Send chunks of 100 or fewer.' 
       }, { status: 400 });
     }
 
-    const CONCURRENT = 5;   // parallel deletes per micro-batch (conservative)
-    const BATCH_DELAY = 150; // ms pause between micro-batches
+    const CONCURRENT = 10;  // parallel deletes per micro-batch
+    const BATCH_DELAY = 50; // ms pause between micro-batches
     let deletedCount = 0;
     const errors = [];
 

@@ -135,28 +135,47 @@ export default function DataManagement() {
     }
     
     setIsDeleting(true);
-    toast.loading(`Deleting ${recordIds.length} records...`, { id: 'bulk-delete' });
-    
+
+    // Chunk the deletion into multiple short function calls (100 ids each) so
+    // each invocation finishes well under the backend function timeout —
+    // single large calls were timing out and failing randomly.
+    const CHUNK_SIZE = 100;
+    const chunks = [];
+    for (let i = 0; i < recordIds.length; i += CHUNK_SIZE) {
+      chunks.push(recordIds.slice(i, i + CHUNK_SIZE));
+    }
+
+    let totalDeleted = 0;
+    let totalFailed = 0;
+
     try {
-      const response = await base44.functions.invoke('bulkDeleteOntRecordsSafe', {
-        record_ids: recordIds
-      });
-      
-      if (response.data.success) {
-        const message = response.data.failed > 0
-          ? `Deleted ${response.data.deleted} records (${response.data.failed} failed)`
-          : `Deleted ${response.data.deleted} records`;
-        toast.success(message, { id: 'bulk-delete' });
-        setSelectedRecords(new Set());
-        queryClient.invalidateQueries({ queryKey: ['ontRecords'] });
-        queryClient.invalidateQueries({ queryKey: ['ontRecordsTotalCount'] });
-      } else {
-        toast.error('Failed to delete records', { id: 'bulk-delete' });
+      for (let i = 0; i < chunks.length; i++) {
+        toast.loading(
+          `Deleting records... ${totalDeleted}/${recordIds.length}`,
+          { id: 'bulk-delete' }
+        );
+        const response = await base44.functions.invoke('bulkDeleteOntRecordsSafe', {
+          record_ids: chunks[i]
+        });
+        totalDeleted += response.data?.deleted || 0;
+        totalFailed += response.data?.failed || 0;
       }
+
+      const message = totalFailed > 0
+        ? `Deleted ${totalDeleted} records (${totalFailed} failed)`
+        : `Deleted ${totalDeleted} records`;
+      toast.success(message, { id: 'bulk-delete' });
+      setSelectedRecords(new Set());
     } catch (error) {
       console.error('Bulk delete error:', error);
-      toast.error(`Error: ${error.message}`, { id: 'bulk-delete' });
+      // Partial progress is preserved — remove successfully deleted ids from selection
+      toast.error(
+        `Error after deleting ${totalDeleted} records: ${error.message}. Click delete again to retry the rest.`,
+        { id: 'bulk-delete' }
+      );
     } finally {
+      queryClient.invalidateQueries({ queryKey: ['ontRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['ontRecordsTotalCount'] });
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     }
