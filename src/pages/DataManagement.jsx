@@ -136,17 +136,17 @@ export default function DataManagement() {
     
     setIsDeleting(true);
 
-    // Chunk the deletion into multiple short function calls (100 ids each) so
-    // each invocation finishes well under the backend function timeout —
-    // single large calls were timing out and failing randomly.
-    const CHUNK_SIZE = 100;
+    // Delete directly via the SDK's deleteMany with an $in query — one API call
+    // per chunk of 50 ids. Per-record deletes were tripping platform rate limits,
+    // and routing through a backend function added timeouts. Page delete actions
+    // are admin-only and entity RLS enforces admin on delete.
+    const CHUNK_SIZE = 50;
     const chunks = [];
     for (let i = 0; i < recordIds.length; i += CHUNK_SIZE) {
       chunks.push(recordIds.slice(i, i + CHUNK_SIZE));
     }
 
     let totalDeleted = 0;
-    let totalFailed = 0;
 
     try {
       for (let i = 0; i < chunks.length; i++) {
@@ -154,17 +154,11 @@ export default function DataManagement() {
           `Deleting records... ${totalDeleted}/${recordIds.length}`,
           { id: 'bulk-delete' }
         );
-        const response = await base44.functions.invoke('bulkDeleteOntRecordsSafe', {
-          record_ids: chunks[i]
-        });
-        totalDeleted += response.data?.deleted || 0;
-        totalFailed += response.data?.failed || 0;
+        await base44.entities.ONTPerformanceRecord.deleteMany({ id: { $in: chunks[i] } });
+        totalDeleted += chunks[i].length;
       }
 
-      const message = totalFailed > 0
-        ? `Deleted ${totalDeleted} records (${totalFailed} failed)`
-        : `Deleted ${totalDeleted} records`;
-      toast.success(message, { id: 'bulk-delete' });
+      toast.success(`Deleted ${totalDeleted} records`, { id: 'bulk-delete' });
       setSelectedRecords(new Set());
     } catch (error) {
       console.error('Bulk delete error:', error);
