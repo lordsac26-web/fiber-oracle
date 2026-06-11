@@ -65,9 +65,12 @@ export default function DataManagement() {
       if (statusFilter !== 'all') filters.status = statusFilter;
       if (searchTerm) filters.serial_number = { $regex: searchTerm, $options: 'i' };
       
+      // Sort by '-id' (unique, time-ordered) instead of '-report_date': many
+      // records share the same report_date, which makes skip-based pagination
+      // unstable — pages would overlap and reshuffle between queries.
       return await base44.entities.ONTPerformanceRecord.filter(
         filters,
-        '-report_date',
+        '-id',
         pageSize,
         (page - 1) * pageSize
       );
