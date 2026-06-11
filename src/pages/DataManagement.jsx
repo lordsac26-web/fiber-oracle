@@ -68,10 +68,16 @@ export default function DataManagement() {
       return await base44.entities.ONTPerformanceRecord.filter(
         filters,
         '-report_date',
-        pageSize
+        pageSize,
+        (page - 1) * pageSize
       );
     },
   });
+
+  // Reset to page 1 whenever filters change
+  React.useEffect(() => {
+    setPage(1);
+  }, [oltFilter, statusFilter, searchTerm]);
 
   // Get unique OLT names for filter
   const { data: oltNames = [] } = useQuery({
@@ -91,12 +97,19 @@ export default function DataManagement() {
     },
   });
 
+  // All records on the current page selected?
+  const allPageSelected = records.length > 0 && records.every(r => selectedRecords.has(r.id));
+
+  // Toggles ONLY the current page's records — selections from other pages are
+  // preserved so you can page through and accumulate up to 500 for deletion.
   const handleSelectAll = () => {
-    if (selectedRecords.size === records.length) {
-      setSelectedRecords(new Set());
+    const newSelected = new Set(selectedRecords);
+    if (allPageSelected) {
+      records.forEach(r => newSelected.delete(r.id));
     } else {
-      setSelectedRecords(new Set(records.map(r => r.id)));
+      records.forEach(r => newSelected.add(r.id));
     }
+    setSelectedRecords(newSelected);
   };
 
   const handleSelectRecord = (recordId) => {
@@ -366,7 +379,7 @@ export default function DataManagement() {
                   size="sm"
                   onClick={handleSelectAll}
                 >
-                  {selectedRecords.size === records.length ? 'Deselect All' : 'Select All'}
+                  {allPageSelected ? 'Deselect Page' : 'Select Page'}
                 </Button>
               )}
             </CardTitle>
@@ -389,7 +402,7 @@ export default function DataManagement() {
                     <TableRow>
                       <TableHead className="w-12">
                         <Checkbox
-                          checked={selectedRecords.size === records.length}
+                          checked={allPageSelected}
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
@@ -441,6 +454,38 @@ export default function DataManagement() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {!isLoading && (records.length > 0 || page > 1) && (
+              <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Page {page}
+                  {selectedRecords.size > 0 && (
+                    <span className="ml-3 font-medium text-blue-600 dark:text-blue-400">
+                      {selectedRecords.size} selected across all pages
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(p => p + 1)}
+                    disabled={records.length < pageSize}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
