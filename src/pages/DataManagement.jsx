@@ -36,6 +36,7 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import moment from 'moment';
+import PaginationBar from '@/components/datamanagement/PaginationBar';
 
 export default function DataManagement() {
   const queryClient = useQueryClient();
@@ -412,6 +413,15 @@ export default function DataManagement() {
                 <p className="text-gray-600 dark:text-gray-400">No records found</p>
               </div>
             ) : (
+              <>
+              <PaginationBar
+                page={page}
+                setPage={setPage}
+                recordsLength={records.length}
+                pageSize={pageSize}
+                selectedCount={selectedRecords.size}
+                className="pb-4 border-b border-gray-200 dark:border-gray-700 mb-4"
+              />
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -471,38 +481,19 @@ export default function DataManagement() {
                   </TableBody>
                 </Table>
               </div>
+              </>
             )}
 
             {/* Pagination */}
             {!isLoading && (records.length > 0 || page > 1) && (
-              <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Page {page}
-                  {selectedRecords.size > 0 && (
-                    <span className="ml-3 font-medium text-blue-600 dark:text-blue-400">
-                      {selectedRecords.size} selected across all pages
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(p => p + 1)}
-                    disabled={records.length < pageSize}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
+              <PaginationBar
+                page={page}
+                setPage={setPage}
+                recordsLength={records.length}
+                pageSize={pageSize}
+                selectedCount={selectedRecords.size}
+                className="pt-4 border-t border-gray-200 dark:border-gray-700 mt-4"
+              />
             )}
           </CardContent>
         </Card>
