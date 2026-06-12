@@ -164,6 +164,110 @@ function analyzeOnt(ont, segmentStats, thresholds = THRESHOLDS) {
   };
 }
 
+// ─── Delta-Based Status Analysis ─────────────────────────────────────────────
+// The user clears port errors manually to create a "fresh" baseline (no live-pull
+// system yet). Static absolute thresholds therefore don't reflect real health.
+// Instead we compare the NEW report against the most-recent PREVIOUS report for the
+// same ONT and compute a per-DAY rate of change for each error metric. This stays
+// accurate whether reports come daily or after a multi-day gap.
+//
+// Criteria (per day):
+//   - Uncorrected FEC rate  > 0           → CRITICAL
+//   - BIP / GEM HEC / Missed Bursts >= 5  → CRITICAL
+//   - BIP / GEM HEC / Missed Bursts > 0 and < 5 → WARNING
+//   - Corrected FEC rate    > 10,000      → WARNING
+//   - Any metric that decreased / zeroed out (manual reset) or is unchanged → OK
+const DELTA_CRITERIA = {
+  uncorFecCriticalPerDay: 0,      // any positive un-cor FEC growth is critical
+  burstErrCriticalPerDay: 5,      // bip/gem-hec/missed-bursts >= 5/day is critical
+  corFecWarningPerDay: 10000,     // corrected FEC > 10k/day is a warning
+};
+
+function dayDiff(newDateStr, oldDateStr) {
+  const newD = new Date(newDateStr).getTime();
+  const oldD = new Date(oldDateStr).getTime();
+  if (!Number.isFinite(newD) || !Number.isFinite(oldD)) return 1;
+  const days = (newD - oldD) / 86400000;
+  // Clamp to a minimum of 1 day so same-day re-uploads don't divide by ~0 and
+  // explode the rate. Reports arriving < 1 day apart are treated as "1 day".
+  return days >= 1 ? days : 1;
+}
+
+// Returns the per-day rate of growth for a metric. A negative delta means the
+// counter was reset/cleared (manual fresh-start) → returned as <= 0 so it reads OK.
+function perDayRate(currentVal, previousVal, days) {
+  const cur = Number(currentVal) || 0;
+  const prev = Number(previousVal) || 0;
+  const delta = cur - prev;
+  if (delta <= 0) return 0; // reset, zeroed, or unchanged → no growth
+  return delta / days;
+}
+
+// Computes delta-based status for one ONT given its previous record.
+// When there is NO previous record (first time this ONT is seen), we cannot
+// compute a delta — treat absolute counts as the baseline using the same rules,
+// so a brand-new ONT that already shows growth still surfaces.
+function analyzeOntDelta(current, previous) {
+  const issues = [];
+  const warnings = [];
+
+  // Offline detection mirrors the optical-power logic: if both Rx readings are
+  // zero/null the unit is down and we don't run error-delta analysis.
+  const ontRx = current.ont_rx_power;
+  const oltRx = current.olt_rx_power;
+  const isOffline = (ontRx === 0 || ontRx === null || ontRx === undefined) &&
+                    (oltRx === 0 || oltRx === null || oltRx === undefined);
+  if (isOffline) return { status: 'offline', issues, warnings };
+
+  // If no previous record exists, baseline against zero (first observation).
+  const days = previous ? dayDiff(current.report_date, previous.report_date) : 1;
+  const prev = previous || {};
+
+  // Burst-style error metrics: BIP (us+ds), GEM HEC, Missed Bursts.
+  const burstMetrics = [
+    { field: 'us_bip_errors',    label: 'Upstream BIP Errors' },
+    { field: 'ds_bip_errors',    label: 'Downstream BIP Errors' },
+    { field: 'us_gem_hec_errors',label: 'Upstream GEM HEC Errors' },
+    { field: 'us_missed_bursts', label: 'Upstream Missed Bursts' },
+  ];
+  for (const { field, label } of burstMetrics) {
+    const rate = perDayRate(current[field], prev[field], days);
+    if (rate >= DELTA_CRITERIA.burstErrCriticalPerDay) {
+      issues.push({ field, severity: 'critical', value: `${rate.toFixed(1)}/day`, threshold: `>= ${DELTA_CRITERIA.burstErrCriticalPerDay}/day`, message: `${label} growing critically` });
+    } else if (rate > 0) {
+      warnings.push({ field, severity: 'warning', value: `${rate.toFixed(1)}/day`, threshold: `< ${DELTA_CRITERIA.burstErrCriticalPerDay}/day`, message: `${label} growing` });
+    }
+  }
+
+  // Uncorrected FEC (us+ds): ANY positive growth per day is critical.
+  for (const { field, label } of [
+    { field: 'us_fec_uncorrected', label: 'Upstream Uncorrected FEC' },
+    { field: 'ds_fec_uncorrected', label: 'Downstream Uncorrected FEC' },
+  ]) {
+    const rate = perDayRate(current[field], prev[field], days);
+    if (rate > DELTA_CRITERIA.uncorFecCriticalPerDay) {
+      issues.push({ field, severity: 'critical', value: `${rate.toFixed(1)}/day`, threshold: `> ${DELTA_CRITERIA.uncorFecCriticalPerDay}/day`, message: `${label} codewords growing` });
+    }
+  }
+
+  // Corrected FEC (us+ds): > 10,000/day is a warning (correctable but elevated).
+  for (const { field, label } of [
+    { field: 'us_fec_corrected', label: 'Upstream Corrected FEC' },
+    { field: 'ds_fec_corrected', label: 'Downstream Corrected FEC' },
+  ]) {
+    const rate = perDayRate(current[field], prev[field], days);
+    if (rate > DELTA_CRITERIA.corFecWarningPerDay) {
+      warnings.push({ field, severity: 'warning', value: `${Math.round(rate).toLocaleString()}/day`, threshold: `> ${DELTA_CRITERIA.corFecWarningPerDay.toLocaleString()}/day`, message: `${label} correction rate elevated` });
+    }
+  }
+
+  return {
+    status: issues.length > 0 ? 'critical' : warnings.length > 0 ? 'warning' : 'ok',
+    issues,
+    warnings,
+  };
+}
+
 function calculatePortStats(records) {
   const stats = new Map();
 
@@ -404,6 +508,55 @@ Deno.serve(async (req) => {
       console.log(`[processPonPmRecords] LCP lookup failed (non-fatal): ${err.message}`);
     }
 
+    // ── Load PREVIOUS report records for delta-based status analysis ─────────
+    // We compare this new report against the most-recent prior report for each
+    // ONT (keyed by serial, with OLT|port|ontId fallback). Building one lookup
+    // map up front avoids a per-row DB query during the insert loop.
+    const prevBySerial = new Map();
+    const prevByComposite = new Map();
+    try {
+      // Find the most-recent prior report (strictly before this one) so we have
+      // a clean single-report baseline rather than mixing multiple generations.
+      const priorReports = await base44.asServiceRole.entities.PONPMReport.filter(
+        { processing_status: 'completed' }, '-upload_date', 25
+      );
+      const newTime = new Date(reportDate).getTime();
+      const prevReport = (priorReports || [])
+        .filter(r => r.id !== reportId && new Date(r.upload_date).getTime() < newTime)
+        .sort((a, b) => new Date(b.upload_date) - new Date(a.upload_date))[0] || null;
+
+      if (prevReport?.id) {
+        const PAGE = 5000;
+        let offset = 0;
+        let loaded = 0;
+        while (true) {
+          const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+            { report_id: prevReport.id }, 'id', PAGE, offset
+          );
+          if (!batch || batch.length === 0) break;
+          for (const rec of batch) {
+            const sn = rec.serial_number ? rec.serial_number.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') : null;
+            if (sn && !prevBySerial.has(sn)) prevBySerial.set(sn, rec);
+            const oltN = rec.olt_name ? rec.olt_name.trim().toUpperCase() : '';
+            const sspN = rec.shelf_slot_port ? rec.shelf_slot_port.trim().toUpperCase().replace(/\/XP(\d)/g, '/$1') : '';
+            const oid = rec.ont_id ? String(rec.ont_id).trim().toUpperCase().replace(/^0+/, '') || '0' : '';
+            if (sspN && oid) {
+              const ckey = `${oltN}|${sspN}|${oid}`;
+              if (!prevByComposite.has(ckey)) prevByComposite.set(ckey, rec);
+            }
+          }
+          loaded += batch.length;
+          if (batch.length < PAGE) break;
+          offset += batch.length;
+        }
+        console.log(`[processPonPmRecords] Loaded ${loaded} previous records from report ${prevReport.id} for delta analysis (${prevBySerial.size} serial, ${prevByComposite.size} composite keys)`);
+      } else {
+        console.log('[processPonPmRecords] No previous completed report found — delta analysis baselines against zero');
+      }
+    } catch (err) {
+      console.log(`[processPonPmRecords] Previous-record lookup failed (non-fatal): ${err.message}`);
+    }
+
     // ── Fetch & parse CSV ────────────────────────────────────────────────────
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -488,8 +641,33 @@ Deno.serve(async (req) => {
         const resolvedModel = subFields?.subscriber_model || model || '';
         const resolvedTechnology = detectTechType(resolvedModel) || 'unknown';
 
-        // Analyse using the same port peer-average rule as parsePonPm.
-        const analysis = analyzeOnt(ont, portStats.get(`${oltName}|${shelfSlotPort}`), reportThresholds);
+        // Build the numeric record first so we can run delta analysis against
+        // the previous report's matching ONT.
+        const currentRecord = {
+          report_date: reportDate,
+          serial_number: serial || '',
+          olt_name: oltName,
+          shelf_slot_port: shelfSlotPort,
+          ont_rx_power: parseNumeric(ont.OntRxOptPwr),
+          olt_rx_power: parseNumeric(ont.OLTRXOptPwr),
+          us_bip_errors: parseInt(ont.UpstreamBipErrors) || 0,
+          ds_bip_errors: parseInt(ont.DownstreamBipErrors) || 0,
+          us_fec_uncorrected: parseInt(ont.UpstreamFecUncorrectedCodeWords) || 0,
+          ds_fec_uncorrected: parseInt(ont.DownstreamFecUncorrectedCodeWords) || 0,
+          us_fec_corrected: parseInt(ont.UpstreamFecCorrectedCodeWords) || 0,
+          ds_fec_corrected: parseInt(ont.DownstreamFecCorrectedCodeWords) || 0,
+          us_gem_hec_errors: parseInt(ont.UpstreamGemHecErrors) || 0,
+          us_missed_bursts: parseInt(ont.UpstreamMissedBursts) || 0,
+        };
+
+        // Look up the previous-report match: serial first, composite fallback.
+        let prevRecord = serial ? prevBySerial.get(serial) : null;
+        if (!prevRecord && sspNorm && ontIdNorm) {
+          prevRecord = prevByComposite.get(`${oltNorm}|${sspNorm}|${ontIdNorm}`) || null;
+        }
+
+        // Delta-based status (manual-reset aware, per-day normalized).
+        const analysis = analyzeOntDelta(currentRecord, prevRecord);
 
         return {
           report_id: reportId,
@@ -500,17 +678,17 @@ Deno.serve(async (req) => {
           shelf_slot_port: shelfSlotPort,
           model: resolvedModel,
           technology_type: resolvedTechnology,
-          ont_rx_power: parseNumeric(ont.OntRxOptPwr),
-          olt_rx_power: parseNumeric(ont.OLTRXOptPwr),
+          ont_rx_power: currentRecord.ont_rx_power,
+          olt_rx_power: currentRecord.olt_rx_power,
           ont_tx_power: parseNumeric(ont.OntTxPwr),
-          us_bip_errors: parseInt(ont.UpstreamBipErrors) || 0,
-          ds_bip_errors: parseInt(ont.DownstreamBipErrors) || 0,
-          us_fec_uncorrected: parseInt(ont.UpstreamFecUncorrectedCodeWords) || 0,
-          ds_fec_uncorrected: parseInt(ont.DownstreamFecUncorrectedCodeWords) || 0,
-          us_fec_corrected: parseInt(ont.UpstreamFecCorrectedCodeWords) || 0,
-          ds_fec_corrected: parseInt(ont.DownstreamFecCorrectedCodeWords) || 0,
-          us_gem_hec_errors: parseInt(ont.UpstreamGemHecErrors) || 0,
-          us_missed_bursts: parseInt(ont.UpstreamMissedBursts) || 0,
+          us_bip_errors: currentRecord.us_bip_errors,
+          ds_bip_errors: currentRecord.ds_bip_errors,
+          us_fec_uncorrected: currentRecord.us_fec_uncorrected,
+          ds_fec_uncorrected: currentRecord.ds_fec_uncorrected,
+          us_fec_corrected: currentRecord.us_fec_corrected,
+          ds_fec_corrected: currentRecord.ds_fec_corrected,
+          us_gem_hec_errors: currentRecord.us_gem_hec_errors,
+          us_missed_bursts: currentRecord.us_missed_bursts,
           ont_uptime: ont.upTime || null,
           status: analysis.status,
           analysis_issues: analysis.issues,
