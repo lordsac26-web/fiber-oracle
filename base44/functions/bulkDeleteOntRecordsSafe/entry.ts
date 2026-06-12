@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
 
 // Safe batched ONT record deletion
 // Uses small concurrent batches with delays to avoid MongoDB timeouts
@@ -27,29 +27,36 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
-    // Use deleteMany with an $in query — a single API call per chunk instead of
-    // one call per record. Per-record deletes were tripping the platform rate
-    // limit ("Rate limit exceeded") once selections exceeded ~100 records.
-    const CHUNK = 50;
+    const CONCURRENT = 5;   // parallel deletes per micro-batch (conservative)
+    const BATCH_DELAY = 150; // ms pause between micro-batches
     let deletedCount = 0;
     const errors = [];
 
-    for (let i = 0; i < record_ids.length; i += CHUNK) {
-      const slice = record_ids.slice(i, i + CHUNK);
-      try {
-        const result = await base44.asServiceRole.entities.ONTPerformanceRecord.deleteMany({
-          id: { $in: slice }
-        });
-        deletedCount += result?.deleted_count ?? result?.deletedCount ?? slice.length;
-      } catch (err) {
-        errors.push({ chunk_start: i, error: err.message || 'unknown' });
+    for (let i = 0; i < record_ids.length; i += CONCURRENT) {
+      const slice = record_ids.slice(i, i + CONCURRENT);
+
+      const results = await Promise.allSettled(
+        slice.map(id => base44.asServiceRole.entities.ONTPerformanceRecord.delete(id))
+      );
+
+      for (let j = 0; j < results.length; j++) {
+        if (results[j].status === 'fulfilled') {
+          deletedCount++;
+        } else {
+          errors.push({ id: slice[j], error: results[j].reason?.message || 'unknown' });
+        }
+      }
+
+      // Pause between micro-batches to avoid overwhelming the DB
+      if (i + CONCURRENT < record_ids.length) {
+        await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
       }
     }
 
     return Response.json({ 
       success: true,
       deleted: deletedCount,
-      failed: errors.length > 0 ? record_ids.length - deletedCount : 0,
+      failed: errors.length,
       errors: errors.slice(0, 10)
     });
 

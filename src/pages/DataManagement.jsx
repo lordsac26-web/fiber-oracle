@@ -36,7 +36,6 @@ import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import moment from 'moment';
-import PaginationBar from '@/components/datamanagement/PaginationBar';
 
 export default function DataManagement() {
   const queryClient = useQueryClient();
@@ -66,22 +65,13 @@ export default function DataManagement() {
       if (statusFilter !== 'all') filters.status = statusFilter;
       if (searchTerm) filters.serial_number = { $regex: searchTerm, $options: 'i' };
       
-      // Sort by '-id' (unique, time-ordered) instead of '-report_date': many
-      // records share the same report_date, which makes skip-based pagination
-      // unstable — pages would overlap and reshuffle between queries.
       return await base44.entities.ONTPerformanceRecord.filter(
         filters,
-        '-id',
-        pageSize,
-        (page - 1) * pageSize
+        '-report_date',
+        pageSize
       );
     },
   });
-
-  // Reset to page 1 whenever filters change
-  React.useEffect(() => {
-    setPage(1);
-  }, [oltFilter, statusFilter, searchTerm]);
 
   // Get unique OLT names for filter
   const { data: oltNames = [] } = useQuery({
@@ -101,19 +91,12 @@ export default function DataManagement() {
     },
   });
 
-  // All records on the current page selected?
-  const allPageSelected = records.length > 0 && records.every(r => selectedRecords.has(r.id));
-
-  // Toggles ONLY the current page's records — selections from other pages are
-  // preserved so you can page through and accumulate up to 500 for deletion.
   const handleSelectAll = () => {
-    const newSelected = new Set(selectedRecords);
-    if (allPageSelected) {
-      records.forEach(r => newSelected.delete(r.id));
+    if (selectedRecords.size === records.length) {
+      setSelectedRecords(new Set());
     } else {
-      records.forEach(r => newSelected.add(r.id));
+      setSelectedRecords(new Set(records.map(r => r.id)));
     }
-    setSelectedRecords(newSelected);
   };
 
   const handleSelectRecord = (recordId) => {
@@ -136,41 +119,28 @@ export default function DataManagement() {
     }
     
     setIsDeleting(true);
-
-    // Delete directly via the SDK's deleteMany with an $in query — one API call
-    // per chunk of 50 ids. Per-record deletes were tripping platform rate limits,
-    // and routing through a backend function added timeouts. Page delete actions
-    // are admin-only and entity RLS enforces admin on delete.
-    const CHUNK_SIZE = 50;
-    const chunks = [];
-    for (let i = 0; i < recordIds.length; i += CHUNK_SIZE) {
-      chunks.push(recordIds.slice(i, i + CHUNK_SIZE));
-    }
-
-    let totalDeleted = 0;
-
+    toast.loading(`Deleting ${recordIds.length} records...`, { id: 'bulk-delete' });
+    
     try {
-      for (let i = 0; i < chunks.length; i++) {
-        toast.loading(
-          `Deleting records... ${totalDeleted}/${recordIds.length}`,
-          { id: 'bulk-delete' }
-        );
-        await base44.entities.ONTPerformanceRecord.deleteMany({ id: { $in: chunks[i] } });
-        totalDeleted += chunks[i].length;
+      const response = await base44.functions.invoke('bulkDeleteOntRecordsSafe', {
+        record_ids: recordIds
+      });
+      
+      if (response.data.success) {
+        const message = response.data.failed > 0
+          ? `Deleted ${response.data.deleted} records (${response.data.failed} failed)`
+          : `Deleted ${response.data.deleted} records`;
+        toast.success(message, { id: 'bulk-delete' });
+        setSelectedRecords(new Set());
+        queryClient.invalidateQueries({ queryKey: ['ontRecords'] });
+        queryClient.invalidateQueries({ queryKey: ['ontRecordsTotalCount'] });
+      } else {
+        toast.error('Failed to delete records', { id: 'bulk-delete' });
       }
-
-      toast.success(`Deleted ${totalDeleted} records`, { id: 'bulk-delete' });
-      setSelectedRecords(new Set());
     } catch (error) {
       console.error('Bulk delete error:', error);
-      // Partial progress is preserved — remove successfully deleted ids from selection
-      toast.error(
-        `Error after deleting ${totalDeleted} records: ${error.message}. Click delete again to retry the rest.`,
-        { id: 'bulk-delete' }
-      );
+      toast.error(`Error: ${error.message}`, { id: 'bulk-delete' });
     } finally {
-      queryClient.invalidateQueries({ queryKey: ['ontRecords'] });
-      queryClient.invalidateQueries({ queryKey: ['ontRecordsTotalCount'] });
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     }
@@ -396,7 +366,7 @@ export default function DataManagement() {
                   size="sm"
                   onClick={handleSelectAll}
                 >
-                  {allPageSelected ? 'Deselect Page' : 'Select Page'}
+                  {selectedRecords.size === records.length ? 'Deselect All' : 'Select All'}
                 </Button>
               )}
             </CardTitle>
@@ -413,22 +383,13 @@ export default function DataManagement() {
                 <p className="text-gray-600 dark:text-gray-400">No records found</p>
               </div>
             ) : (
-              <>
-              <PaginationBar
-                page={page}
-                setPage={setPage}
-                recordsLength={records.length}
-                pageSize={pageSize}
-                selectedCount={selectedRecords.size}
-                className="pb-4 border-b border-gray-200 dark:border-gray-700 mb-4"
-              />
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">
                         <Checkbox
-                          checked={allPageSelected}
+                          checked={selectedRecords.size === records.length}
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
@@ -481,19 +442,6 @@ export default function DataManagement() {
                   </TableBody>
                 </Table>
               </div>
-              </>
-            )}
-
-            {/* Pagination */}
-            {!isLoading && (records.length > 0 || page > 1) && (
-              <PaginationBar
-                page={page}
-                setPage={setPage}
-                recordsLength={records.length}
-                pageSize={pageSize}
-                selectedCount={selectedRecords.size}
-                className="pt-4 border-t border-gray-200 dark:border-gray-700 mt-4"
-              />
             )}
           </CardContent>
         </Card>

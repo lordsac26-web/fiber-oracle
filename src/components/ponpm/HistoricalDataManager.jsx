@@ -57,7 +57,6 @@ import {
   Eye,
 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { deleteReportWithRecordsClientSide } from '@/lib/deleteReportClientSide';
 import { toast } from 'sonner';
 import moment from 'moment';
 
@@ -121,14 +120,19 @@ export default function HistoricalDataManager({
     setDeletingReportId(reportId);
 
     try {
-      const deleted = await deleteReportWithRecordsClientSide(reportId, (count) => {
-        toast.loading(`Deleting report... (${count.toLocaleString()} records removed)`, { id: 'report-delete' });
+      const response = await base44.functions.invoke('deleteReportWithRecords', {
+        report_id: reportId,
       });
-      toast.success(`Report deleted (${deleted.toLocaleString()} ONT records removed)`, { id: 'report-delete' });
-      onReportDeleted?.();
+
+      if (response.data?.success) {
+        toast.success(response.data.message);
+        onReportDeleted?.();
+      } else {
+        toast.error(response.data?.error || 'Delete failed');
+      }
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Failed to delete report', { id: 'report-delete' });
+      toast.error('Failed to delete report');
     } finally {
       setDeletingReportId(null);
     }

@@ -31,53 +31,6 @@ const THRESHOLDS = {
   DownstreamFecUncorrectedCodeWords: { warning: 1, critical: 10 },
 };
 
-// ─── Trend-based stale detection ─────────────────────────────────────────────
-// OLT error counters are cumulative and only cleared manually, so an ONT can
-// stay "critical" forever for a long-resolved issue. Before flagging, we check
-// the previous 2 reports: if the counter has NOT grown faster than the per-day
-// "stable" rate below (absolute counts, not percentages), the alarm is treated
-// as stale and downgraded (critical → warning).
-const STABLE_RATES_PER_DAY = {
-  UpstreamBipErrors: 1000,
-  DownstreamBipErrors: 1000,
-  UpstreamFecUncorrectedCodeWords: 3,
-  DownstreamFecUncorrectedCodeWords: 3,
-  UpstreamGemHecErrors: 40,
-  // Corrected FEC stable rate is 10000/day — corrected FEC does not currently
-  // drive status, documented here for completeness.
-};
-
-const TREND_PREV_KEYS = {
-  UpstreamBipErrors: 'us_bip_errors',
-  DownstreamBipErrors: 'ds_bip_errors',
-  UpstreamFecUncorrectedCodeWords: 'us_fec_uncorrected',
-  DownstreamFecUncorrectedCodeWords: 'ds_fec_uncorrected',
-  UpstreamGemHecErrors: 'us_gem_hec_errors',
-};
-
-// Classifies an error counter as 'active' (climbing), 'stale' (flat across the
-// last 2 reports), or 'unknown' (no usable history → original behavior).
-function classifyTrend(field, current, trendCtx) {
-  const stableRate = STABLE_RATES_PER_DAY[field];
-  const prevKey = TREND_PREV_KEYS[field];
-  if (!stableRate || !prevKey || !trendCtx || !trendCtx.prev1) return 'unknown';
-  const p1 = trendCtx.prev1[prevKey];
-  if (p1 === null || p1 === undefined) return 'unknown';
-  const d1 = current - p1;
-  // Counter went DOWN → it was manually cleared and errors re-accumulated → active
-  if (d1 < 0) return 'active';
-  if (d1 / trendCtx.days1 >= stableRate) return 'active';
-  // Current interval is stable — also require the prior interval to be stable
-  if (trendCtx.prev2) {
-    const p2 = trendCtx.prev2[prevKey];
-    if (p2 !== null && p2 !== undefined) {
-      const d2 = p1 - p2;
-      if (d2 >= 0 && d2 / trendCtx.days2 >= stableRate) return 'active';
-    }
-  }
-  return 'stale';
-}
-
 const FIELDS = [
   'OLTName', 'Shelf/Slot/Port', 'OntID', 'SerialNumber', 'ONTModel', 'model',
   'OntRxOptPwr', 'OntTxPwr', 'OLTRXOptPwr',
@@ -135,7 +88,7 @@ function buildThresholds(customThresholds) {
   return thresholds;
 }
 
-function analyzeOnt(ont, segmentStats, thresholds = THRESHOLDS, trendCtx = null) {
+function analyzeOnt(ont, segmentStats, thresholds = THRESHOLDS) {
   const issues = [];
   const warnings = [];
   const ontRx = parseNumeric(ont.OntRxOptPwr);
@@ -173,17 +126,9 @@ function analyzeOnt(ont, segmentStats, thresholds = THRESHOLDS, trendCtx = null)
     const n = parseNumeric(val);
     if (n !== null && thresholds[field]) {
       if (n >= thresholds[field].critical) {
-        const trend = classifyTrend(field, n, trendCtx);
-        if (trend === 'stale') {
-          // Over the critical threshold, but the counter has been flat across
-          // the last 2 reports — stale alarm from a past issue. Downgrade.
-          warnings.push({ field, severity: 'warning', value: n.toLocaleString(), threshold: `≥ ${thresholds[field].critical.toLocaleString()}`, message: 'High error count (stable — not climbing, likely stale counter)', stale: true });
-        } else {
-          issues.push({ field, severity: 'critical', value: n.toLocaleString(), threshold: `≥ ${thresholds[field].critical.toLocaleString()}`, message: trend === 'active' ? 'High error count (actively climbing)' : 'High error count' });
-        }
+        issues.push({ field, severity: 'critical', value: n.toLocaleString(), threshold: `≥ ${thresholds[field].critical.toLocaleString()}`, message: 'High error count' });
       } else if (n >= thresholds[field].warning) {
-        const trend = classifyTrend(field, n, trendCtx);
-        warnings.push({ field, severity: 'warning', value: n.toLocaleString(), threshold: `≥ ${thresholds[field].warning.toLocaleString()}`, message: trend === 'stale' ? 'Elevated error count (stable — likely stale counter)' : 'Elevated error count', stale: trend === 'stale' });
+        warnings.push({ field, severity: 'warning', value: n.toLocaleString(), threshold: `≥ ${thresholds[field].warning.toLocaleString()}`, message: 'Elevated error count' });
       }
     }
   };
@@ -459,56 +404,6 @@ Deno.serve(async (req) => {
       console.log(`[processPonPmRecords] LCP lookup failed (non-fatal): ${err.message}`);
     }
 
-    // ── Load previous 2 reports' error counters for stale detection ──────────
-    const prevMap1 = new Map();
-    const prevMap2 = new Map();
-    let trendDays1 = 1, trendDays2 = 1;
-    try {
-      const recentReports = await base44.asServiceRole.entities.PONPMReport.filter(
-        { processing_status: 'completed' }, '-upload_date', 5
-      );
-      const prevReports = recentReports
-        .filter(r => r.id !== reportId && new Date(r.upload_date) < new Date(reportDate))
-        .slice(0, 2);
-
-      const DAY_MS = 86400000;
-      if (prevReports[0]) {
-        trendDays1 = Math.max((new Date(reportDate) - new Date(prevReports[0].upload_date)) / DAY_MS, 0.25);
-      }
-      if (prevReports[1]) {
-        trendDays2 = Math.max((new Date(prevReports[0].upload_date) - new Date(prevReports[1].upload_date)) / DAY_MS, 0.25);
-      }
-
-      const loadPrevCounters = async (prevReportId, map) => {
-        const PAGE = 5000;
-        let offset = 0;
-        while (true) {
-          const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-            { report_id: prevReportId }, 'id', PAGE, offset
-          );
-          if (!batch || batch.length === 0) break;
-          for (const r of batch) {
-            if (r.serial_number) {
-              map.set(r.serial_number, {
-                us_bip_errors: r.us_bip_errors,
-                ds_bip_errors: r.ds_bip_errors,
-                us_fec_uncorrected: r.us_fec_uncorrected,
-                ds_fec_uncorrected: r.ds_fec_uncorrected,
-                us_gem_hec_errors: r.us_gem_hec_errors,
-              });
-            }
-          }
-          if (batch.length < PAGE) break;
-          offset += batch.length;
-        }
-      };
-      if (prevReports[0]) await loadPrevCounters(prevReports[0].id, prevMap1);
-      if (prevReports[1]) await loadPrevCounters(prevReports[1].id, prevMap2);
-      console.log(`[processPonPmRecords] Trend baselines: ${prevMap1.size} ONTs from prev report, ${prevMap2.size} from report before (gaps: ${trendDays1.toFixed(1)}d / ${trendDays2.toFixed(1)}d)`);
-    } catch (err) {
-      console.log(`[processPonPmRecords] Trend baseline load failed (non-fatal): ${err.message}`);
-    }
-
     // ── Fetch & parse CSV ────────────────────────────────────────────────────
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -593,15 +488,8 @@ Deno.serve(async (req) => {
         const resolvedModel = subFields?.subscriber_model || model || '';
         const resolvedTechnology = detectTechType(resolvedModel) || 'unknown';
 
-        // Analyse using the same port peer-average rule as parsePonPm,
-        // with trend context so stale (non-climbing) counters get downgraded.
-        const trendCtx = serial ? {
-          prev1: prevMap1.get(serial) || null,
-          prev2: prevMap2.get(serial) || null,
-          days1: trendDays1,
-          days2: trendDays2,
-        } : null;
-        const analysis = analyzeOnt(ont, portStats.get(`${oltName}|${shelfSlotPort}`), reportThresholds, trendCtx);
+        // Analyse using the same port peer-average rule as parsePonPm.
+        const analysis = analyzeOnt(ont, portStats.get(`${oltName}|${shelfSlotPort}`), reportThresholds);
 
         return {
           report_id: reportId,
