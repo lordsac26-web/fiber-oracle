@@ -31,11 +31,24 @@ function alertToOnt(a) {
     OntRxOptPwr: a.ont_rx_power,
     OLTRXOptPwr: a.olt_rx_power,
     _analysis: { status: a.ont_status || 'warning', issues: [], warnings: [] },
-    _subscriber: (a.subscriber_name || a.subscriber_account || a.subscriber_address) ? {
-      name: a.subscriber_name,
-      account: a.subscriber_account,
-      address: a.subscriber_address,
-    } : undefined,
+    _subscriber: (a.subscriber_name || a.subscriber_account || a.subscriber_address) ? (() => {
+      // Extract zip from denormalized address string (e.g. "123 Main St, Catskill, NY, 12414")
+      const zipMatch = (a.subscriber_address || '').match(/(\d{5})(?:\s*$|-\d{4}$)/);
+      const zip = zipMatch ? zipMatch[1] : undefined;
+      // subscriber_name on an ONTAlert holds the account/display name.
+      // subscriber_account may hold a separate account ID. Show whichever is
+      // distinct so the Overview card shows a real name and not the same value twice.
+      const name = a.subscriber_name && a.subscriber_name !== a.subscriber_account
+        ? a.subscriber_name
+        : (a.subscriber_name || a.subscriber_account);
+      const account = a.subscriber_account || a.subscriber_name;
+      return {
+        name,
+        account,
+        address: a.subscriber_address,
+        zip,
+      };
+    })() : undefined,
     report_id: a.report_id,
   };
 }
