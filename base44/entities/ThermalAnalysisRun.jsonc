@@ -33,7 +33,7 @@
     "records_scanned": {
       "type": "number",
       "default": 0,
-      "description": "Total ONTPerformanceRecord rows scanned."
+      "description": "Total ONTPerformanceRecord rows scanned (critical + warning phases combined)."
     },
     "serials_analyzed": {
       "type": "number",
@@ -43,12 +43,22 @@
     "flagged_count": {
       "type": "number",
       "default": 0,
-      "description": "Number of ONTs flagged as possible thermal degradation."
+      "description": "Number of critical-status ONTs flagged as thermal degradation."
     },
     "alerts_created": {
       "type": "number",
       "default": 0,
-      "description": "Number of new ONTAlert records created (excludes already-open duplicates)."
+      "description": "Number of new ONTAlert records created for critical ONTs (excludes already-open duplicates)."
+    },
+    "warning_flagged_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of warning-status ONTs flagged as thermal precursors (pre-critical heat degradation)."
+    },
+    "warning_alerts_created": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of new ONTAlert records created for warning-level thermal precursors."
     },
     "weather_coverage_pct": {
       "type": "number",
@@ -63,7 +73,14 @@
       "items": {
         "type": "object"
       },
-      "description": "Compact list of flagged ONT findings (serial, drop, temp, date) for UI display."
+      "description": "Compact list of critical-phase flagged ONT findings (serial, drop, temp, date) for UI display."
+    },
+    "warning_findings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Compact list of warning-phase (pre-critical precursor) findings for UI display."
     }
   },
   "required": [
