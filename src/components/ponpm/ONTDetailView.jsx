@@ -825,8 +825,15 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                             <SortablePeerHeader sortKey="serial">Serial Number</SortablePeerHeader>
                             <SortablePeerHeader sortKey="ontRx" className="text-right">ONT Rx</SortablePeerHeader>
                             <SortablePeerHeader sortKey="oltRx" className="text-right">OLT Rx</SortablePeerHeader>
+                            <TableHead className="text-right">ONT Tx</TableHead>
                             <SortablePeerHeader sortKey="usBip" className="text-right">US BIP</SortablePeerHeader>
                             <SortablePeerHeader sortKey="dsBip" className="text-right">DS BIP</SortablePeerHeader>
+                            <TableHead className="text-right">US FEC Unc</TableHead>
+                            <TableHead className="text-right">DS FEC Unc</TableHead>
+                            <TableHead className="text-right">US FEC Corr</TableHead>
+                            <TableHead className="text-right">DS FEC Corr</TableHead>
+                            <TableHead className="text-right">MBurst</TableHead>
+                            <TableHead className="text-right">GEM HEC</TableHead>
                             <SortablePeerHeader sortKey="status">Status</SortablePeerHeader>
                           </TableRow>
                         </TableHeader>
@@ -836,8 +843,15 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                             <TableCell className="font-bold">{ont.SerialNumber} (This ONT)</TableCell>
                             <TableCell className="text-right font-mono">{ont.OntRxOptPwr}</TableCell>
                             <TableCell className="text-right font-mono">{ont.OLTRXOptPwr}</TableCell>
+                            <TableCell className="text-right font-mono">{ont.OntTxPwr ?? '-'}</TableCell>
                             <TableCell className="text-right font-mono">{ont.UpstreamBipErrors || 0}</TableCell>
                             <TableCell className="text-right font-mono">{ont.DownstreamBipErrors || 0}</TableCell>
+                            <TableCell className="text-right font-mono">{ont.UpstreamFecUncorrectedCodeWords || 0}</TableCell>
+                            <TableCell className="text-right font-mono">{ont.DownstreamFecUncorrectedCodeWords || 0}</TableCell>
+                            <TableCell className="text-right font-mono">{ont.UpstreamFecCorrectedCodeWords || 0}</TableCell>
+                            <TableCell className="text-right font-mono">{ont.DownstreamFecCorrectedCodeWords || 0}</TableCell>
+                            <TableCell className="text-right font-mono">{ont.UpstreamMissedBursts || 0}</TableCell>
+                            <TableCell className="text-right font-mono">{ont.UpstreamGemHecErrors || 0}</TableCell>
                             <TableCell>
                               <Badge className={STATUS_COLORS[ont._analysis.status]}>
                                 {ont._analysis.status}
@@ -850,8 +864,15 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                               <TableCell className="font-mono text-xs">{peer.SerialNumber}</TableCell>
                               <TableCell className="text-right font-mono text-xs">{peer.OntRxOptPwr}</TableCell>
                               <TableCell className="text-right font-mono text-xs">{peer.OLTRXOptPwr}</TableCell>
+                              <TableCell className="text-right font-mono text-xs">{peer.OntTxPwr ?? '-'}</TableCell>
                               <TableCell className="text-right font-mono text-xs">{peer.UpstreamBipErrors || 0}</TableCell>
                               <TableCell className="text-right font-mono text-xs">{peer.DownstreamBipErrors || 0}</TableCell>
+                              <TableCell className="text-right font-mono text-xs">{peer.UpstreamFecUncorrectedCodeWords || 0}</TableCell>
+                              <TableCell className="text-right font-mono text-xs">{peer.DownstreamFecUncorrectedCodeWords || 0}</TableCell>
+                              <TableCell className="text-right font-mono text-xs">{peer.UpstreamFecCorrectedCodeWords || 0}</TableCell>
+                              <TableCell className="text-right font-mono text-xs">{peer.DownstreamFecCorrectedCodeWords || 0}</TableCell>
+                              <TableCell className="text-right font-mono text-xs">{peer.UpstreamMissedBursts || 0}</TableCell>
+                              <TableCell className="text-right font-mono text-xs">{peer.UpstreamGemHecErrors || 0}</TableCell>
                               <TableCell>
                                 <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[peer._analysis.status]}`}>
                                   {peer._analysis.status}
