@@ -66,6 +66,7 @@ import { useEeroData } from '@/components/ponpm/useEeroData';
 import { useEeroOntEnrichmentHandler } from '@/components/ponpm/useEeroOntEnrichment';
 import VirtualizedONTTable from '@/components/ponpm/VirtualizedONTTable';
 import OltHierarchyView from '@/components/ponpm/OltHierarchyView';
+import { subscribePonPmReport } from '@/components/ponpm/ponPmReportBus';
 import UnifiedExportMenu from '@/components/ponpm/UnifiedExportMenu';
 import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
 import SummaryCardsRow from '@/components/ponpm/SummaryCardsRow';
@@ -248,7 +249,7 @@ export default function PONPMAnalysis() {
     base44.entities.PONPMReport.filter({ id: processingReportId }, null, 1)
       .then(r => r?.[0] && applyStatus(r[0].processing_status, r[0].processing_progress, r[0].processing_saved_count))
       .catch(() => {});
-    const unsubscribe = base44.entities.PONPMReport.subscribe((event) => {
+    const unsubscribe = subscribePonPmReport((event) => {
       if (event.id !== processingReportId || !event.data) return;
       const { processing_status, processing_progress, processing_saved_count } = event.data;
       applyStatus(processing_status, processing_progress, processing_saved_count);

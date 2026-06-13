@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
+import { subscribePonPmReport } from '@/components/ponpm/ponPmReportBus';
 
 /**
  * Detects PONPMReport records that are still being indexed in the background
@@ -44,12 +45,13 @@ export function useProcessingReports() {
     staleTime: 5000,
   });
 
-  // Subscribe to entity updates so the banner reacts in real time without polling.
+  // Subscribe to entity updates (via the shared PONPMReport socket) so the banner
+  // reacts in real time without polling.
   useEffect(() => {
-    const unsubscribe = base44.entities.PONPMReport.subscribe(() => {
+    const unsubscribe = subscribePonPmReport(() => {
       queryClient.invalidateQueries({ queryKey: ['processingPonPmReports'] });
     });
-    return () => unsubscribe();
+    return unsubscribe;
   }, [queryClient]);
 
   const activeReport = useMemo(() => {

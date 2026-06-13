@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { toast } from 'sonner';
+import { subscribePonPmReport } from '@/components/ponpm/ponPmReportBus';
 
 /**
  * Real-time subscription on PONPMReport entity.
@@ -24,7 +25,7 @@ export function useNewReportToast(onReportAvailable) {
       })
       .catch(() => { initializedRef.current = true; });
 
-    const unsubscribe = base44.entities.PONPMReport.subscribe((event) => {
+    const unsubscribe = subscribePonPmReport((event) => {
       if (!initializedRef.current) return;
 
       if (event.type === 'create' && event.data && !knownIdsRef.current.has(event.id)) {
