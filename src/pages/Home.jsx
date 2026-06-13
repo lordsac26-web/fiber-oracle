@@ -418,7 +418,7 @@ export default function Home() {
 
         {/* Footer */}
          <div className="text-center py-4">
-           <p className={`text-xs ${darkMode ? 'text-slate-600' : 'text-slate-400'}`}>Ver 2.1.0 - Updated 2026</p>
+           <p className={`text-xs ${darkMode ? 'text-slate-600' : 'text-slate-400'}`}>Ver 2.2.0 - Updated 2026</p>
          </div>
       </main>
 
