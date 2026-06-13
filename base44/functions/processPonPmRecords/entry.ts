@@ -54,22 +54,67 @@ function normalizeSerial(serial) {
   return n.length > 0 ? n : null;
 }
 
-function detectTechType(model) {
+// ─── Data-driven technology classification ───────────────────────────────────
+// Tech type is now resolved from the `TechnologyStandards` entity (registry)
+// rather than hardcoded lists, so new hardware (e.g. Calix 50G-PON triple-combo
+// E7 cards) is added as a data row — no code change required. The hardcoded
+// list below is kept ONLY as a fallback if the registry is empty/unreachable,
+// preserving behaviour on a fresh DB.
+const FALLBACK_STANDARDS = [
+  { pattern: 'DZS', tech: 'XGS-PON', priority: 200 },
+  { pattern: 'GP1101X', tech: 'XGS-PON', priority: 50 },
+  { pattern: 'GP4201XH', tech: 'XGS-PON', priority: 50 },
+  { pattern: 'GP4201X', tech: 'XGS-PON', priority: 60 },
+  { pattern: '5222XG', tech: 'XGS-PON', priority: 50 },
+  { pattern: '5228XG', tech: 'XGS-PON', priority: 50 },
+  { pattern: '711GE', tech: 'GPON', priority: 50 },
+  { pattern: '717GE', tech: 'GPON', priority: 50 },
+  { pattern: '725GE', tech: 'GPON', priority: 50 },
+  { pattern: '725G', tech: 'GPON', priority: 60 },
+  { pattern: '725', tech: 'GPON', priority: 80 },
+  { pattern: '812G-1', tech: 'GPON', priority: 50 },
+  { pattern: '844GE-1', tech: 'GPON', priority: 50 },
+  { pattern: '844G-1', tech: 'GPON', priority: 60 },
+  { pattern: '803G', tech: 'GPON', priority: 50 },
+];
+
+// Sort standards into deterministic evaluation order: lower priority first,
+// then longer pattern first (more specific substring wins ties).
+function sortStandards(list) {
+  return [...list].sort((a, b) => (a.priority - b.priority) || (b.pattern.length - a.pattern.length));
+}
+
+// Load active standards from the registry, falling back to the built-in list.
+async function loadTechStandards(base44) {
+  try {
+    const rows = await base44.asServiceRole.entities.TechnologyStandards.filter(
+      { is_active: true }, '-created_date', 1000
+    );
+    const mapped = (rows || [])
+      .map((r) => ({
+        pattern: (r.model_pattern || '').toUpperCase().trim().replace(/\s/g, ''),
+        tech: r.technology_type,
+        priority: typeof r.match_priority === 'number' ? r.match_priority : 100,
+      }))
+      .filter((r) => r.pattern && r.tech);
+    if (mapped.length > 0) {
+      console.log(`[processPonPmRecords] Loaded ${mapped.length} tech standards from registry`);
+      return sortStandards(mapped);
+    }
+    console.log('[processPonPmRecords] Registry empty — using fallback tech standards');
+  } catch (err) {
+    console.log(`[processPonPmRecords] Tech standards load failed (using fallback): ${err.message}`);
+  }
+  return sortStandards(FALLBACK_STANDARDS);
+}
+
+// Classify a model against the ordered standards list (substring match).
+function detectTechType(model, standards) {
   if (!model) return null;
   const m = model.toUpperCase().trim().replace(/\s/g, '');
-  // Authoritative lists — must stay in sync with parsePonPm.js & loadSavedReport.js
-  // Any model containing "DZS" is XGS-PON (all DZS ONTs are XGS)
-  if (m.includes('DZS')) return 'XGS-PON';
-  const xgsModels = [
-    'GP1101X', 'GP4201X', 'GP4201XH',
-    '5222XG', '5228XG'
-  ];
-  const gponModels = [
-    '711GE', '717GE', '725G', '725GE', '725',
-    '812G-1', '844G-1', '844GE-1', '803G'
-  ];
-  for (const x of xgsModels) if (m.includes(x)) return 'XGS-PON';
-  for (const g of gponModels) if (m.includes(g)) return 'GPON';
+  for (const s of standards) {
+    if (m.includes(s.pattern)) return s.tech;
+  }
   return null;
 }
 
@@ -494,6 +539,9 @@ Deno.serve(async (req) => {
       console.log(`[processPonPmRecords] Subscriber lookup failed (non-fatal): ${err.message}`);
     }
 
+    // ── Load technology standards registry (data-driven classification) ──────
+    const techStandards = await loadTechStandards(base44);
+
     // ── Load LCP lookup (robust Map-based version) ───────────────────────────
     let lcpMap = new Map();
     try {
@@ -639,7 +687,7 @@ Deno.serve(async (req) => {
         // it over the OLT-reported model. This is the same precedence used in
         // the frontend enrichOntsWithSubscriber() — keeps DB rows consistent.
         const resolvedModel = subFields?.subscriber_model || model || '';
-        const resolvedTechnology = detectTechType(resolvedModel) || 'unknown';
+        const resolvedTechnology = detectTechType(resolvedModel, techStandards) || 'unknown';
 
         // Build the numeric record first so we can run delta analysis against
         // the previous report's matching ONT.

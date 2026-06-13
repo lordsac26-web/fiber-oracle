@@ -1,0 +1,64 @@
+{
+  "name": "TechnologyStandards",
+  "type": "object",
+  "properties": {
+    "model_pattern": {
+      "type": "string",
+      "description": "ONT model substring to match (uppercased, whitespace-stripped). E.g. '5222XG', 'DZS', 'GP4201X'. Matching is substring-based against the normalized model string."
+    },
+    "technology_type": {
+      "type": "string",
+      "enum": [
+        "GPON",
+        "XGS-PON",
+        "50G-PON",
+        "unknown"
+      ],
+      "description": "Normalized PON technology classification this model pattern maps to."
+    },
+    "vendor": {
+      "type": "string",
+      "description": "Hardware vendor (e.g. Calix, DZS/Zhone, Nokia)."
+    },
+    "match_priority": {
+      "type": "number",
+      "default": 100,
+      "description": "Lower numbers are evaluated first. Use a low priority for broad vendor catch-alls (e.g. 'DZS') and a higher priority for specific model matches so specific rules win. Within the same priority, longer patterns win."
+    },
+    "platform": {
+      "type": "string",
+      "description": "Optional platform/linecard context (e.g. 'E7', 'E9') for documentation and audit reporting."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes about the standard, revision, or source reference."
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether this mapping is currently in force. Inactive rows are ignored at ingest time but retained for history."
+    }
+  },
+  "required": [
+    "model_pattern",
+    "technology_type"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
