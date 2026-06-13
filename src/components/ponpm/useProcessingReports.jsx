@@ -30,8 +30,17 @@ export function useProcessingReports() {
         (r) => r.processing_status === 'pending' || r.processing_status === 'saving'
       );
     },
-    // Light background refresh as a safety net in case a subscription event is missed.
-    refetchInterval: 15000,
+    // Light background refresh ONLY while a report is actually being indexed.
+    // The real-time subscribe() below is the primary signal; this poll is just a
+    // safety net for missed events. Returning false when idle (the common case)
+    // eliminates ~480 needless list calls/hour across 8 concurrent users.
+    refetchInterval: (query) => {
+      const data = query.state.data || [];
+      const anyProcessing = data.some(
+        (r) => r.processing_status === 'pending' || r.processing_status === 'saving'
+      );
+      return anyProcessing ? 15000 : false;
+    },
     staleTime: 5000,
   });
 

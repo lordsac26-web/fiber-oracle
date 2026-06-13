@@ -108,6 +108,13 @@ export default function PONPMAnalysis() {
   const initialFilters = useRef(readFiltersFromUrl());
 
   const [searchTerm, setSearchTerm] = useState(initialFilters.current.searchTerm || '');
+  // Debounced copy of searchTerm — feeds the heavy filteredOnts memo so typing
+  // stays smooth on 7k+ ONT reports (the input itself stays fully responsive).
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearchTerm(searchTerm), 200);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
   const [statusFilter, setStatusFilter] = useState(initialFilters.current.statusFilter || 'all');
   const [oltFilter, setOltFilter] = useState(initialFilters.current.oltFilter || 'all');
   const [portFilter, setPortFilter] = useState(initialFilters.current.portFilter || 'all');
@@ -540,8 +547,8 @@ export default function PONPMAnalysis() {
     const modelSet    = globalModels.length    ? new Set(globalModels)    : null;
 
     let filtered = result?.onts?.filter(ont => {
-      const term = searchTerm.toLowerCase();
-      const matchesSearch = !searchTerm || 
+      const term = debouncedSearchTerm.toLowerCase();
+      const matchesSearch = !debouncedSearchTerm || 
         ont.SerialNumber?.toLowerCase().includes(term) ||
         ont.OntID?.toString().includes(searchTerm) ||
         ont['Shelf/Slot/Port']?.toLowerCase().includes(term) ||
@@ -615,7 +622,7 @@ export default function PONPMAnalysis() {
     }
     
     return filtered;
-  }, [result?.onts, searchTerm, statusFilter, oltFilter, portFilter, powerRangeFilter, sortBy,
+  }, [result?.onts, debouncedSearchTerm, statusFilter, oltFilter, portFilter, powerRangeFilter, sortBy,
       globalSplitters, globalOltPorts, globalModels]);
 
   const saveThresholds = useCallback(() => {
