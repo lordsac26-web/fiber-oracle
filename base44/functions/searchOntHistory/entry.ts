@@ -79,12 +79,28 @@ Deno.serve(async (req) => {
           shelf_slot_port: record.shelf_slot_port,
           model: record.model,
           lcp_number: record.lcp_number,
+          splitter_number: record.splitter_number,
+          optic_model: record.optic_model,
+          subscriber_account_name: record.subscriber_account_name,
+          subscriber_address: record.subscriber_address,
           // Map database fields to frontend format for consistency
           _lcpNumber: record.lcp_number,
+          _splitterNumber: record.splitter_number,
           _oltName: record.olt_name,
           _port: record.shelf_slot_port,
           history: []
         };
+      }
+      // Update subscriber/LCP fields if a later record has them populated (denormalized enrichment may have happened after earlier records)
+      if (record.subscriber_account_name && !bySerial[key].subscriber_account_name) {
+        bySerial[key].subscriber_account_name = record.subscriber_account_name;
+      }
+      if (record.subscriber_address && !bySerial[key].subscriber_address) {
+        bySerial[key].subscriber_address = record.subscriber_address;
+      }
+      if (record.splitter_number && !bySerial[key].splitter_number) {
+        bySerial[key].splitter_number = record.splitter_number;
+        bySerial[key]._splitterNumber = record.splitter_number;
       }
       bySerial[key].history.push({
         date: record.report_date,
@@ -122,7 +138,56 @@ Deno.serve(async (req) => {
           data_points: ont.history.length
         };
       }
+
+      // Build _subscriber shape from denormalized fields so ONTDetailView
+      // displays customer name + address without needing an extra lookup
+      if (ont.subscriber_account_name || ont.subscriber_address) {
+        const zipMatch = (ont.subscriber_address || '').match(/(\d{5})(?:\s*$|-\d{4}$)/);
+        ont._subscriber = {
+          name:    ont.subscriber_account_name || null,
+          account: ont.subscriber_account_name || null,
+          address: ont.subscriber_address || null,
+          zip:     zipMatch ? zipMatch[1] : null,
+        };
+      }
     });
+
+    // Fetch LCP location details for any ONTs that have an lcp_number
+    const lcpNumbers = [...new Set(
+      Object.values(bySerial).map(o => o.lcp_number).filter(Boolean)
+    )];
+
+    if (lcpNumbers.length > 0) {
+      const lcpEntries = await base44.entities.LCPEntry.filter(
+        { lcp_number: { $in: lcpNumbers } },
+        'lcp_number',
+        500,
+      );
+      // Build a quick lookup: lcp_number+splitter_number → entry
+      const lcpMap = {};
+      for (const entry of lcpEntries) {
+        const key = `${entry.lcp_number}|${entry.splitter_number}`;
+        lcpMap[key] = entry;
+        // Also store by lcp_number alone as fallback
+        if (!lcpMap[entry.lcp_number]) lcpMap[entry.lcp_number] = entry;
+      }
+
+      for (const ont of Object.values(bySerial)) {
+        if (!ont.lcp_number) continue;
+        const key = ont.splitter_number
+          ? `${ont.lcp_number}|${ont.splitter_number}`
+          : ont.lcp_number;
+        const entry = lcpMap[key] || lcpMap[ont.lcp_number];
+        if (entry) {
+          ont._lcpLocation   = entry.location  || null;
+          ont._lcpAddress    = entry.address    || null;
+          ont._lcpGpsLat     = entry.gps_lat    ?? null;
+          ont._lcpGpsLng     = entry.gps_lng    ?? null;
+          ont._opticModel    = entry.optic_model || ont.optic_model || null;
+          ont._splitterRatio = entry.splitter_ratio || null;
+        }
+      }
+    }
 
     return Response.json({ 
       success: true, 

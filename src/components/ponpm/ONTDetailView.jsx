@@ -99,7 +99,28 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
           search_value: ont.SerialNumber
         });
         if (!cancelled && response.data?.results?.length > 0) {
-          setHistoricalData(response.data.results[0].history || []);
+          const result = response.data.results[0];
+          setHistoricalData(result.history || []);
+          // Back-fill subscriber + LCP location onto the ont prop if the live
+          // report enrichment didn't populate them (e.g. when opened from Alerts
+          // or when subscriber data wasn't loaded at analysis time).
+          if (!ont._subscriber && result._subscriber) {
+            ont._subscriber = result._subscriber;
+          }
+          if (!ont._lcpNumber && result._lcpNumber) {
+            ont._lcpNumber = result._lcpNumber;
+            ont._splitterNumber = result._splitterNumber;
+          }
+          if (!ont._lcpLocation && result._lcpLocation) {
+            ont._lcpLocation   = result._lcpLocation;
+            ont._lcpAddress    = result._lcpAddress;
+            ont._lcpGpsLat     = result._lcpGpsLat;
+            ont._lcpGpsLng     = result._lcpGpsLng;
+            ont._splitterRatio = result._splitterRatio;
+          }
+          if (!ont._opticModel && result._opticModel) {
+            ont._opticModel = result._opticModel;
+          }
         }
       } catch (error) {
         console.error('Failed to load historical data:', error);
@@ -111,7 +132,9 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
       if (!cancelled) loadPeerData();
 
       // Weather history for this ONT's zip (for temperature correlation).
-      const zip = (ont._subscriber?.zip || '').toString().trim().slice(0, 5);
+      // ont._subscriber?.zip may have been back-filled above from the history result.
+      const zipRaw = (ont._subscriber?.zip || '').toString().trim().slice(0, 5);
+      const zip = zipRaw;
       if (/^\d{5}$/.test(zip)) {
         try {
           const rows = await base44.entities.WeatherHistory.filter({ zip_code: zip }, '-weather_date', 500);
