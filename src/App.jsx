@@ -15,6 +15,7 @@ import CertificationDashboard from './pages/CertificationDashboard';
 import JobReports from './pages/JobReports';
 import Alerts from './pages/Alerts';
 import CriticalWatchlist from './pages/CriticalWatchlist';
+import ThermalAnalysis from './pages/ThermalAnalysis';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -71,6 +72,7 @@ const AuthenticatedApp = () => {
       <Route path="/JobReports" element={<LayoutWrapper currentPageName="JobReports"><JobReports /></LayoutWrapper>} />
       <Route path="/Alerts" element={<LayoutWrapper currentPageName="Alerts"><Alerts /></LayoutWrapper>} />
       <Route path="/CriticalWatchlist" element={<LayoutWrapper currentPageName="CriticalWatchlist"><CriticalWatchlist /></LayoutWrapper>} />
+      <Route path="/ThermalAnalysis" element={<LayoutWrapper currentPageName="ThermalAnalysis"><ThermalAnalysis /></LayoutWrapper>} />
 
       <Route path="*" element={<PageNotFound />} />
     </Routes>
