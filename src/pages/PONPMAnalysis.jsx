@@ -65,6 +65,7 @@ import EeroDataBadge from '@/components/ponpm/EeroDataBadge';
 import { useEeroData } from '@/components/ponpm/useEeroData';
 import { useEeroOntEnrichmentHandler } from '@/components/ponpm/useEeroOntEnrichment';
 import VirtualizedONTTable from '@/components/ponpm/VirtualizedONTTable';
+import OltHierarchyView from '@/components/ponpm/OltHierarchyView';
 import UnifiedExportMenu from '@/components/ponpm/UnifiedExportMenu';
 import GlobalFilterBar from '@/components/ponpm/GlobalFilterBar';
 import SummaryCardsRow from '@/components/ponpm/SummaryCardsRow';
@@ -1147,199 +1148,30 @@ export default function PONPMAnalysis() {
                 />
               )}
               
-              {/* Hierarchy View */}
-              {viewMode === 'hierarchy' && Object.entries(result.olts).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([oltName, oltStats]) => {
-                const oltOnts = filteredOnts.filter(o => o._oltName === oltName);
-                if (oltOnts.length === 0) return null; // Hide OLT if no matching ONTs
-                const oltCritical = oltOnts.filter(o => o._analysis.status === 'critical').length;
-                const oltWarning = oltOnts.filter(o => o._analysis.status === 'warning').length;
-                const isOltExpanded = expandedOlts.includes(oltName);
-
-                return (
-                  <Collapsible key={oltName} open={isOltExpanded} onOpenChange={() => toggleOlt(oltName)}>
-                    <Card className={`border-0 shadow-lg ${oltCritical > 0 ? 'ring-2 ring-red-300' : oltWarning > 0 ? 'ring-2 ring-amber-300' : ''}`}>
-                      <CollapsibleTrigger className="w-full">
-                        <CardContent className="p-4 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-gray-800 dark:to-gray-700">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {isOltExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                              <Router className="h-5 w-5 text-blue-600" />
-                              <div className="text-left">
-                                <div className="font-bold text-lg">{oltName}</div>
-                                <div className="text-xs text-gray-500">{oltStats.portCount} ports • {oltStats.totalOnts} ONTs</div>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-4">
-                              <div className="hidden md:block text-center">
-                                <div className="text-gray-500 text-xs">Avg ONT Rx</div>
-                                <div className="font-mono font-medium">
-                                  {oltStats.avgOntRxOptPwr?.toFixed(1) || 'N/A'} dBm
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {oltCritical > 0 && (
-                                  <Badge 
-                                    className="bg-red-100 text-red-800 border-red-300 cursor-pointer hover:bg-red-200"
-                                    onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'critical', oltName }); }}
-                                  >
-                                    <AlertCircle className="h-3 w-3 mr-1" />
-                                    {oltCritical}
-                                  </Badge>
-                                )}
-                                {oltWarning > 0 && (
-                                  <Badge 
-                                    className="bg-amber-100 text-amber-800 border-amber-300 cursor-pointer hover:bg-amber-200"
-                                    onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'warning', oltName }); }}
-                                  >
-                                    <AlertTriangle className="h-3 w-3 mr-1" />
-                                    {oltWarning}
-                                  </Badge>
-                                )}
-                                {oltCritical === 0 && oltWarning === 0 && (
-                                  <Badge className="bg-green-100 text-green-800 border-green-300">
-                                    <CheckCircle2 className="h-3 w-3 mr-1" />
-                                    OK
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </CollapsibleTrigger>
-                      
-                      <CollapsibleContent>
-                        <div className="p-3 space-y-2 bg-gray-50 dark:bg-gray-800/50">
-                          {Object.entries(oltStats.ports).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).map(([portKey, portStats]) => {
-                            const portOnts = oltOnts.filter(o => o._port === portKey);
-                            if (portOnts.length === 0) return null; // Hide port if no matching ONTs
-                            const portCritical = portOnts.filter(o => o._analysis.status === 'critical').length;
-                            const portWarning = portOnts.filter(o => o._analysis.status === 'warning').length;
-                            const portId = `${oltName}|${portKey}`;
-                            const isPortExpanded = expandedPorts.includes(portId);
-
-                            return (
-                              <Collapsible key={portKey} open={isPortExpanded} onOpenChange={() => togglePort(portId)}>
-                              <Card className={`border shadow-sm ${portCritical > 0 ? 'border-red-300' : portWarning > 0 ? 'border-amber-300' : 'border-gray-200'}`}>
-                                <CollapsibleTrigger className="w-full">
-                                  <CardContent className="p-3">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-3">
-                                        {isPortExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                                        <PortHeaderLabel portKey={portKey} portStats={portStats} portOnts={portOnts} />
-                                      </div>
-                                        
-                                        <div className="flex items-center gap-4">
-                                          <div className="hidden md:flex items-center gap-4 text-sm">
-                                            <div className="text-center">
-                                              <div className="text-gray-500 text-[10px]">Avg ONT Rx</div>
-                                              <div className="font-mono text-xs font-medium">
-                                                {portStats.avgOntRxOptPwr?.toFixed(1) || 'N/A'} dBm
-                                              </div>
-                                            </div>
-                                            <div className="text-center">
-                                              <div className="text-gray-500 text-[10px]">Range</div>
-                                              <div className="font-mono text-[10px] font-medium">
-                                                {portStats.minOntRxOptPwr?.toFixed(1) || 'N/A'} to {portStats.maxOntRxOptPwr?.toFixed(1) || 'N/A'}
-                                              </div>
-                                            </div>
-                                          </div>
-
-                                          <div className="flex items-center gap-1">
-                                            {portCritical > 0 && (
-                                              <Badge 
-                                                className="bg-red-100 text-red-800 border-red-300 text-xs px-1.5 cursor-pointer hover:bg-red-200"
-                                                onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'critical', oltName, portKey }); }}
-                                              >
-                                                {portCritical}
-                                              </Badge>
-                                            )}
-                                            {portWarning > 0 && (
-                                              <Badge 
-                                                className="bg-amber-100 text-amber-800 border-amber-300 text-xs px-1.5 cursor-pointer hover:bg-amber-200"
-                                                onClick={(e) => { e.stopPropagation(); setIssueDetailView({ type: 'warning', oltName, portKey }); }}
-                                              >
-                                                {portWarning}
-                                              </Badge>
-                                            )}
-                                            {portCritical === 0 && portWarning === 0 && (
-                                              <Badge className="bg-green-100 text-green-800 border-green-300 text-xs px-1.5">
-                                                OK
-                                              </Badge>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </CardContent>
-                                  </CollapsibleTrigger>
-                                  
-                                  <CollapsibleContent>
-                                    <div className="border-t">
-                                      {/* ONT Status Filter */}
-                                      <div className="p-2 bg-gray-100 dark:bg-gray-800 border-b flex items-center gap-3 flex-wrap">
-                                        <span className="text-xs text-gray-500 font-medium">Show:</span>
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={!hideOntStatus.critical}
-                                            onChange={() => setHideOntStatus(prev => ({ ...prev, critical: !prev.critical }))}
-                                            className="rounded border-gray-300"
-                                          />
-                                          <Badge className="bg-red-100 text-red-800 border-red-300 text-xs">Critical</Badge>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={!hideOntStatus.warning}
-                                            onChange={() => setHideOntStatus(prev => ({ ...prev, warning: !prev.warning }))}
-                                            className="rounded border-gray-300"
-                                          />
-                                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">Warning</Badge>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={!hideOntStatus.offline}
-                                            onChange={() => setHideOntStatus(prev => ({ ...prev, offline: !prev.offline }))}
-                                            className="rounded border-gray-300"
-                                          />
-                                          <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">Offline</Badge>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            checked={!hideOntStatus.ok}
-                                            onChange={() => setHideOntStatus(prev => ({ ...prev, ok: !prev.ok }))}
-                                            className="rounded border-gray-300"
-                                          />
-                                          <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">OK</Badge>
-                                        </label>
-                                      </div>
-                                      <VirtualizedONTTable
-                                        portOnts={portOnts}
-                                        hideOntStatus={hideOntStatus}
-                                        subscriberMatchCount={subscriberMatchCount}
-                                        eeroRecordsLoaded={eeroRecordsLoaded}
-                                        onSelectDetail={setSelectedOntDetail}
-                                        selectable={isAdmin && selectMode}
-                                        selectedSerials={selectedSerials}
-                                        onToggleSelect={toggleSelectOnt}
-                                        onToggleSelectMany={toggleSelectMany}
-                                        onFlag={isAdmin ? (ont) => setFlagDialogOnts([ont]) : undefined}
-                                      />
-                                                </div>
-                                                </CollapsibleContent>
-                                                </Card>
-                                                </Collapsible>
-                                                );
-                                                })}
-                                                </div>
-                                                </CollapsibleContent>
-                                                </Card>
-                                                </Collapsible>
-                                                );
-                                                })}
-                                                </div>
+              {/* Hierarchy View — extracted into a memoized component (components/ponpm/OltHierarchyView) */}
+              {viewMode === 'hierarchy' && (
+                <OltHierarchyView
+                  result={result}
+                  filteredOnts={filteredOnts}
+                  expandedOlts={expandedOlts}
+                  expandedPorts={expandedPorts}
+                  toggleOlt={toggleOlt}
+                  togglePort={togglePort}
+                  hideOntStatus={hideOntStatus}
+                  setHideOntStatus={setHideOntStatus}
+                  setIssueDetailView={setIssueDetailView}
+                  subscriberMatchCount={subscriberMatchCount}
+                  eeroRecordsLoaded={eeroRecordsLoaded}
+                  setSelectedOntDetail={setSelectedOntDetail}
+                  isAdmin={isAdmin}
+                  selectMode={selectMode}
+                  selectedSerials={selectedSerials}
+                  toggleSelectOnt={toggleSelectOnt}
+                  toggleSelectMany={toggleSelectMany}
+                  setFlagDialogOnts={setFlagDialogOnts}
+                />
+              )}
+            </div>
 
             {/* New Analysis Button — admin only */}
             {isAdmin && (
