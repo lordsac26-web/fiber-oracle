@@ -1,0 +1,95 @@
+{
+  "name": "ThermalAnalysisRun",
+  "type": "object",
+  "properties": {
+    "window_start": {
+      "type": "string",
+      "description": "Analysis window start date (YYYY-MM-DD)"
+    },
+    "window_end": {
+      "type": "string",
+      "description": "Analysis window end date (YYYY-MM-DD)"
+    },
+    "drop_threshold_db": {
+      "type": "number",
+      "default": 2.5,
+      "description": "Minimum Rx drop (in dB, absolute) versus the trailing baseline required to flag an ONT."
+    },
+    "baseline_days": {
+      "type": "number",
+      "default": 7,
+      "description": "Number of trailing days used to compute the rolling baseline (Rx and temperature)."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "running",
+        "completed",
+        "failed"
+      ],
+      "default": "running",
+      "description": "Lifecycle status of the analysis run."
+    },
+    "records_scanned": {
+      "type": "number",
+      "default": 0,
+      "description": "Total ONTPerformanceRecord rows scanned."
+    },
+    "serials_analyzed": {
+      "type": "number",
+      "default": 0,
+      "description": "Distinct ONT serial numbers with enough history to analyze."
+    },
+    "flagged_count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of ONTs flagged as possible thermal degradation."
+    },
+    "alerts_created": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of new ONTAlert records created (excludes already-open duplicates)."
+    },
+    "weather_coverage_pct": {
+      "type": "number",
+      "description": "Percentage of analyzed serials that had matching weather data for correlation."
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error detail if status is failed."
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Compact list of flagged ONT findings (serial, drop, temp, date) for UI display."
+    }
+  },
+  "required": [
+    "window_start",
+    "window_end"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
