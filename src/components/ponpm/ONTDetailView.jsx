@@ -209,8 +209,15 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
       case 'serial': return row.SerialNumber || '';
       case 'ontRx': return toNumber(row.OntRxOptPwr);
       case 'oltRx': return toNumber(row.OLTRXOptPwr);
+      case 'ontTx': return toNumber(row.OntTxPwr);
       case 'usBip': return parseInt(row.UpstreamBipErrors, 10) || 0;
       case 'dsBip': return parseInt(row.DownstreamBipErrors, 10) || 0;
+      case 'usFecUnc': return parseInt(row.UpstreamFecUncorrectedCodeWords, 10) || 0;
+      case 'dsFecUnc': return parseInt(row.DownstreamFecUncorrectedCodeWords, 10) || 0;
+      case 'usFecCorr': return parseInt(row.UpstreamFecCorrectedCodeWords, 10) || 0;
+      case 'dsFecCorr': return parseInt(row.DownstreamFecCorrectedCodeWords, 10) || 0;
+      case 'mBurst': return parseInt(row.UpstreamMissedBursts, 10) || 0;
+      case 'gemHec': return parseInt(row.UpstreamGemHecErrors, 10) || 0;
       case 'status': return row._analysis?.status || '';
       default: return '';
     }
@@ -825,15 +832,15 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                             <SortablePeerHeader sortKey="serial">Serial Number</SortablePeerHeader>
                             <SortablePeerHeader sortKey="ontRx" className="text-right">ONT Rx</SortablePeerHeader>
                             <SortablePeerHeader sortKey="oltRx" className="text-right">OLT Rx</SortablePeerHeader>
-                            <TableHead className="text-right">ONT Tx</TableHead>
+                            <SortablePeerHeader sortKey="ontTx" className="text-right">ONT Tx</SortablePeerHeader>
                             <SortablePeerHeader sortKey="usBip" className="text-right">US BIP</SortablePeerHeader>
                             <SortablePeerHeader sortKey="dsBip" className="text-right">DS BIP</SortablePeerHeader>
-                            <TableHead className="text-right">US FEC Unc</TableHead>
-                            <TableHead className="text-right">DS FEC Unc</TableHead>
-                            <TableHead className="text-right">US FEC Corr</TableHead>
-                            <TableHead className="text-right">DS FEC Corr</TableHead>
-                            <TableHead className="text-right">MBurst</TableHead>
-                            <TableHead className="text-right">GEM HEC</TableHead>
+                            <SortablePeerHeader sortKey="usFecUnc" className="text-right">US FEC Unc</SortablePeerHeader>
+                            <SortablePeerHeader sortKey="dsFecUnc" className="text-right">DS FEC Unc</SortablePeerHeader>
+                            <SortablePeerHeader sortKey="usFecCorr" className="text-right">US FEC Corr</SortablePeerHeader>
+                            <SortablePeerHeader sortKey="dsFecCorr" className="text-right">DS FEC Corr</SortablePeerHeader>
+                            <SortablePeerHeader sortKey="mBurst" className="text-right">MBurst</SortablePeerHeader>
+                            <SortablePeerHeader sortKey="gemHec" className="text-right">GEM HEC</SortablePeerHeader>
                             <SortablePeerHeader sortKey="status">Status</SortablePeerHeader>
                           </TableRow>
                         </TableHeader>
