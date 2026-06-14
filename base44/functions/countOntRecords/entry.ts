@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 Deno.serve(async (req) => {
   try {
@@ -13,23 +13,23 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
-    // Use service role to count all records efficiently
+    // Count all records using service role — records are written by service role,
+    // not by user email, so no created_by filter here.
     let totalCount = 0;
-    let hasMore = true;
     const batchSize = 1000;
-    
-    while (hasMore) {
+
+    while (true) {
       const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-        { created_by: user.email },
-        '-created_date',
-        batchSize
+        {},
+        'id',
+        batchSize,
+        totalCount
       );
-      
+
       totalCount += batch.length;
-      hasMore = batch.length === batchSize;
-      
-      // Safety limit to prevent infinite loops
-      if (totalCount > 1000000) break;
+
+      if (batch.length < batchSize) break;
+      if (totalCount > 1_000_000) break; // safety cap
     }
 
     return Response.json({ count: totalCount });
