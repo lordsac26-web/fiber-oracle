@@ -83,35 +83,29 @@ export default function ReportManagement() {
       const reportLabel = report?.report_name || reportId;
 
       try {
-        // Step 1: Fetch all ONT record IDs for this report (paginated)
-        setDeleteProgress({ current: ri + 1, total: reportIds.length, label: `Loading records for "${reportLabel}"...` });
+        // Fetch a page of IDs, delete them, repeat until none remain.
+        // We always fetch from offset 0 because deletions shrink the set each round.
         const PAGE = 500;
-        let allIds = [];
-        let skip = 0;
-        while (true) {
-          const page = await base44.entities.ONTPerformanceRecord.filter(
-            { report_id: reportId }, null, PAGE, skip
-          );
-          if (!page || page.length === 0) break;
-          allIds = allIds.concat(page.map(r => r.id));
-          if (page.length < PAGE) break;
-          skip += PAGE;
-        }
-
-        // Step 2: Delete in 500-record chunks via bulkDeleteOntRecordsSafe
-        const CHUNK = 500;
         let deleted = 0;
-        for (let i = 0; i < allIds.length; i += CHUNK) {
-          const chunk = allIds.slice(i, i + CHUNK);
+        let round = 0;
+        while (true) {
           setDeleteProgress({
             current: ri + 1, total: reportIds.length,
-            label: `Deleting "${reportLabel}": ${Math.min(i + CHUNK, allIds.length)} / ${allIds.length} records...`
+            label: `Deleting "${reportLabel}": ${deleted} records removed...`
           });
-          await base44.functions.invoke('bulkDeleteOntRecordsSafe', { record_ids: chunk });
-          deleted += chunk.length;
+          const page = await base44.entities.ONTPerformanceRecord.filter(
+            { report_id: reportId }, null, PAGE
+          );
+          if (!page || page.length === 0) break;
+          const ids = page.map(r => r.id);
+          await base44.functions.invoke('bulkDeleteOntRecordsSafe', { record_ids: ids });
+          deleted += ids.length;
+          round++;
+          // Safety: bail after 200 rounds (~100k records) to prevent runaway loops
+          if (round > 200) break;
         }
 
-        // Step 3: Delete the report entity itself
+        // Delete the report entity itself
         setDeleteProgress({ current: ri + 1, total: reportIds.length, label: `Removing report "${reportLabel}"...` });
         await base44.entities.PONPMReport.delete(reportId);
         successCount++;
