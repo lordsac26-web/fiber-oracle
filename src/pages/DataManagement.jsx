@@ -75,7 +75,7 @@ export default function DataManagement() {
       
       return await base44.entities.ONTPerformanceRecord.filter(
         filters,
-        '-report_date',
+        '-report_date,id',
         pageSize,
         (page - 1) * pageSize
       );
