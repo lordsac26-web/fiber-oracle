@@ -356,9 +356,9 @@ export default function DataManagement() {
                   <div className="text-xs text-gray-600 dark:text-gray-400">On this page</div>
                 </div>
               </div>
-              {selectedRecords.size > 0 && (
+              {(selectedRecords.size > 0 || selectAllPages) && (
                 <Badge variant="outline" className="text-sm">
-                  {selectedRecords.size} selected
+                  {selectAllPages ? `${totalCount.toLocaleString()} selected (all)` : `${selectedRecords.size} selected`}
                 </Badge>
               )}
             </div>
@@ -422,9 +422,9 @@ export default function DataManagement() {
           </CardHeader>
           <CardContent>
             {/* Select-all-pages banner */}
-            {allOnPageSelected && !selectAllPages && totalCount > pageSize && (
+            {allOnPageSelected && !selectAllPages && totalCount > selectedRecords.size && (
               <div className="mb-3 flex items-center justify-between rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 px-4 py-2 text-sm text-blue-800 dark:text-blue-200">
-                <span>All {records.length} records on this page are selected.</span>
+                <span>{selectedRecords.size} record{selectedRecords.size !== 1 ? 's' : ''} selected across all visited pages.</span>
                 <Button
                   variant="link"
                   size="sm"
@@ -465,7 +465,8 @@ export default function DataManagement() {
                     <TableRow>
                       <TableHead className="w-12">
                         <Checkbox
-                          checked={selectedRecords.size === records.length}
+                          checked={allOnPageSelected}
+                          data-state={records.some(r => selectedRecords.has(r.id)) && !allOnPageSelected ? 'indeterminate' : undefined}
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
@@ -529,7 +530,7 @@ export default function DataManagement() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => { setPage(p => Math.max(1, p - 1)); setSelectedRecords(new Set()); setSelectAllPages(false); }}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
                     disabled={page === 1 || isLoading}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -538,7 +539,7 @@ export default function DataManagement() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => { setPage(p => p + 1); setSelectedRecords(new Set()); setSelectAllPages(false); }}
+                    onClick={() => setPage(p => p + 1)}
                     disabled={records.length < pageSize || isLoading}
                   >
                     Next
