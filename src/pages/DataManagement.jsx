@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Database, Trash2, Search, Loader2, AlertTriangle, Download, Upload as UploadIcon, FileJson } from 'lucide-react';
+import { ArrowLeft, Database, Trash2, Search, Loader2, AlertTriangle, Download, Upload as UploadIcon, FileJson, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { base44 } from '@/api/base44Client';
@@ -48,6 +48,7 @@ export default function DataManagement() {
   const [page, setPage] = useState(1);
   const pageSize = 50;
   const [currentUser, setCurrentUser] = useState(null);
+  const [selectAllPages, setSelectAllPages] = useState(false);
 
   // Get current user
   React.useEffect(() => {
@@ -55,6 +56,13 @@ export default function DataManagement() {
   }, []);
 
   const isAdmin = currentUser?.role === 'admin';
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setPage(1);
+    setSelectedRecords(new Set());
+    setSelectAllPages(false);
+  }, [oltFilter, statusFilter, searchTerm]);
 
   // Fetch ONT records
   const { data: records = [], isLoading } = useQuery({
@@ -68,7 +76,8 @@ export default function DataManagement() {
       return await base44.entities.ONTPerformanceRecord.filter(
         filters,
         '-report_date',
-        pageSize
+        pageSize,
+        (page - 1) * pageSize
       );
     },
   });
@@ -91,15 +100,19 @@ export default function DataManagement() {
     },
   });
 
+  const allOnPageSelected = records.length > 0 && records.every(r => selectedRecords.has(r.id));
+
   const handleSelectAll = () => {
-    if (selectedRecords.size === records.length) {
+    if (allOnPageSelected) {
       setSelectedRecords(new Set());
+      setSelectAllPages(false);
     } else {
       setSelectedRecords(new Set(records.map(r => r.id)));
     }
   };
 
   const handleSelectRecord = (recordId) => {
+    setSelectAllPages(false);
     const newSelected = new Set(selectedRecords);
     if (newSelected.has(recordId)) {
       newSelected.delete(recordId);
@@ -110,35 +123,68 @@ export default function DataManagement() {
   };
 
   const handleBulkDelete = async () => {
-    const recordIds = Array.from(selectedRecords);
-    
-    // Limit to 500 records at a time
-    if (recordIds.length > 500) {
-      toast.error('Please select 500 or fewer records at a time');
-      return;
-    }
-    
     setIsDeleting(true);
-    toast.loading(`Deleting ${recordIds.length} records...`, { id: 'bulk-delete' });
-    
-    try {
-      const response = await base44.functions.invoke('bulkDeleteOntRecordsSafe', {
-        record_ids: recordIds
-      });
-      
-      if (response.data.success) {
-        const message = response.data.failed > 0
-          ? `Deleted ${response.data.deleted} records (${response.data.failed} failed)`
-          : `Deleted ${response.data.deleted} records`;
+
+    if (selectAllPages) {
+      // Delete all records matching current filters in batches
+      const filters = {};
+      if (oltFilter !== 'all') filters.olt_name = oltFilter;
+      if (statusFilter !== 'all') filters.status = statusFilter;
+      if (searchTerm) filters.serial_number = { $regex: searchTerm, $options: 'i' };
+
+      toast.loading(`Deleting all matching records...`, { id: 'bulk-delete' });
+      let totalDeleted = 0;
+      let totalFailed = 0;
+
+      try {
+        // Fetch + delete in chunks of 200 until none remain
+        while (true) {
+          const batch = await base44.entities.ONTPerformanceRecord.filter(filters, '-report_date', 200);
+          if (!batch || batch.length === 0) break;
+          const ids = batch.map(r => r.id);
+          const response = await base44.functions.invoke('bulkDeleteOntRecordsSafe', { record_ids: ids });
+          totalDeleted += response.data?.deleted || 0;
+          totalFailed += response.data?.failed || 0;
+          if (batch.length < 200) break;
+        }
+        const message = totalFailed > 0
+          ? `Deleted ${totalDeleted} records (${totalFailed} failed)`
+          : `Deleted ${totalDeleted} records`;
         toast.success(message, { id: 'bulk-delete' });
+      } catch (error) {
+        toast.error(`Error: ${error.message}`, { id: 'bulk-delete' });
+      } finally {
         setSelectedRecords(new Set());
+        setSelectAllPages(false);
+        setIsDeleting(false);
+        setShowDeleteConfirm(false);
         queryClient.invalidateQueries({ queryKey: ['ontRecords'] });
         queryClient.invalidateQueries({ queryKey: ['ontRecordsTotalCount'] });
-      } else {
-        toast.error('Failed to delete records', { id: 'bulk-delete' });
       }
+      return;
+    }
+
+    // Selected records on current page(s) only
+    const recordIds = Array.from(selectedRecords);
+    toast.loading(`Deleting ${recordIds.length} records...`, { id: 'bulk-delete' });
+    try {
+      // Process in chunks of 500
+      let totalDeleted = 0;
+      let totalFailed = 0;
+      for (let i = 0; i < recordIds.length; i += 500) {
+        const chunk = recordIds.slice(i, i + 500);
+        const response = await base44.functions.invoke('bulkDeleteOntRecordsSafe', { record_ids: chunk });
+        totalDeleted += response.data?.deleted || 0;
+        totalFailed += response.data?.failed || 0;
+      }
+      const message = totalFailed > 0
+        ? `Deleted ${totalDeleted} records (${totalFailed} failed)`
+        : `Deleted ${totalDeleted} records`;
+      toast.success(message, { id: 'bulk-delete' });
+      setSelectedRecords(new Set());
+      queryClient.invalidateQueries({ queryKey: ['ontRecords'] });
+      queryClient.invalidateQueries({ queryKey: ['ontRecordsTotalCount'] });
     } catch (error) {
-      console.error('Bulk delete error:', error);
       toast.error(`Error: ${error.message}`, { id: 'bulk-delete' });
     } finally {
       setIsDeleting(false);
@@ -268,7 +314,7 @@ export default function DataManagement() {
                   </label>
                 </>
               )}
-                {selectedRecords.size > 0 && (
+                {(selectedRecords.size > 0 || selectAllPages) && (
                 <Button 
                   variant="destructive"
                   onClick={() => setShowDeleteConfirm(true)}
@@ -279,7 +325,10 @@ export default function DataManagement() {
                   ) : (
                     <Trash2 className="h-4 w-4 mr-2" />
                   )}
-                  Delete Selected ({selectedRecords.size})
+                  {selectAllPages
+                    ? `Delete All (${totalCount.toLocaleString()})`
+                    : `Delete Selected (${selectedRecords.size})`
+                  }
                 </Button>
               )}
             </div>
@@ -366,12 +415,39 @@ export default function DataManagement() {
                   size="sm"
                   onClick={handleSelectAll}
                 >
-                  {selectedRecords.size === records.length ? 'Deselect All' : 'Select All'}
+                  {allOnPageSelected ? 'Deselect Page' : 'Select Page'}
                 </Button>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Select-all-pages banner */}
+            {allOnPageSelected && !selectAllPages && totalCount > pageSize && (
+              <div className="mb-3 flex items-center justify-between rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 px-4 py-2 text-sm text-blue-800 dark:text-blue-200">
+                <span>All {records.length} records on this page are selected.</span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-blue-700 dark:text-blue-300 p-0 h-auto"
+                  onClick={() => setSelectAllPages(true)}
+                >
+                  Select all {totalCount.toLocaleString()} matching records
+                </Button>
+              </div>
+            )}
+            {selectAllPages && (
+              <div className="mb-3 flex items-center justify-between rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
+                <span>All {totalCount.toLocaleString()} matching records are selected.</span>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="text-amber-700 dark:text-amber-300 p-0 h-auto"
+                  onClick={() => { setSelectAllPages(false); setSelectedRecords(new Set()); }}
+                >
+                  Clear selection
+                </Button>
+              </div>
+            )}
             {isLoading ? (
               <div className="py-12 text-center">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500 mx-auto mb-3" />
@@ -443,6 +519,34 @@ export default function DataManagement() {
                 </Table>
               </div>
             )}
+            {/* Pagination Controls */}
+            {records.length > 0 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <span className="text-sm text-gray-500">
+                  Page {page} &mdash; showing {(page - 1) * pageSize + 1}–{(page - 1) * pageSize + records.length} of {totalCount.toLocaleString()}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setPage(p => Math.max(1, p - 1)); setSelectedRecords(new Set()); setSelectAllPages(false); }}
+                    disabled={page === 1 || isLoading}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Prev
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setPage(p => p + 1); setSelectedRecords(new Set()); setSelectAllPages(false); }}
+                    disabled={records.length < pageSize || isLoading}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -471,14 +575,19 @@ export default function DataManagement() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {selectedRecords.size} selected record{selectedRecords.size !== 1 ? 's' : ''}? 
-              This action cannot be undone.
+              {selectAllPages
+                ? `Are you sure you want to delete all ${totalCount.toLocaleString()} matching records? This action cannot be undone.`
+                : `Are you sure you want to delete ${selectedRecords.size} selected record${selectedRecords.size !== 1 ? 's' : ''}? This action cannot be undone.`
+              }
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleBulkDelete} className="bg-red-600 hover:bg-red-700">
-              Delete {selectedRecords.size} Record{selectedRecords.size !== 1 ? 's' : ''}
+              {selectAllPages
+                ? `Delete All ${totalCount.toLocaleString()} Records`
+                : `Delete ${selectedRecords.size} Record${selectedRecords.size !== 1 ? 's' : ''}`
+              }
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
