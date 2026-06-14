@@ -132,9 +132,10 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
       if (!cancelled) loadPeerData();
 
       // Weather history for this ONT's zip (for temperature correlation).
-      // ont._subscriber?.zip may have been back-filled above from the history result.
-      const zipRaw = (ont._subscriber?.zip || '').toString().trim().slice(0, 5);
-      const zip = zipRaw;
+      // Use the back-filled subscriber zip (set above from history result) or
+      // the zip already present on the ont prop from the live report enrichment.
+      const subscriberZip = ont._subscriber?.zip || '';
+      const zip = subscriberZip.toString().trim().slice(0, 5);
       if (/^\d{5}$/.test(zip)) {
         try {
           const rows = await base44.entities.WeatherHistory.filter({ zip_code: zip }, '-weather_date', 500);
@@ -555,7 +556,7 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-                    {ont._subscriber.name && (
+                    {ont._subscriber.name && ont._subscriber.name !== ont._subscriber.account && (
                       <div className="flex justify-between"><span className="text-gray-500">Name:</span><span className="font-medium">{ont._subscriber.name}</span></div>
                     )}
                     {ont._subscriber.account && (

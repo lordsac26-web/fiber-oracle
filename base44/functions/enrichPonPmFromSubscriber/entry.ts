@@ -68,11 +68,18 @@ Deno.serve(async (req) => {
           const normModel = (sub.ONTModel || '').trim();
 
           // Only update if subscriber provides values
-          if (normSerialNo || normModel) {
+          const subscriberName = (sub.SubscriberName || '').trim();
+          const accountName = (sub.AccountName || '').trim();
+          const address = (sub.Address || '').trim();
+
+          if (normSerialNo || normModel || subscriberName || accountName || address) {
             updates.push(
               base44.asServiceRole.entities.ONTPerformanceRecord.update(record.id, {
                 ...(normSerialNo && { serial_number: normSerialNo }),
-                ...(normModel && { model: normModel })
+                ...(normModel && { model: normModel }),
+                ...(subscriberName && { subscriber_name: subscriberName }),
+                ...(accountName && { subscriber_account_name: accountName }),
+                ...(address && { subscriber_address: address }),
               })
             );
           }

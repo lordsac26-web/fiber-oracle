@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
           lcp_number: record.lcp_number,
           splitter_number: record.splitter_number,
           optic_model: record.optic_model,
+          subscriber_name: record.subscriber_name,
           subscriber_account_name: record.subscriber_account_name,
           subscriber_address: record.subscriber_address,
           // Map database fields to frontend format for consistency
@@ -92,6 +93,9 @@ Deno.serve(async (req) => {
         };
       }
       // Update subscriber/LCP fields if a later record has them populated (denormalized enrichment may have happened after earlier records)
+      if (record.subscriber_name && !bySerial[key].subscriber_name) {
+        bySerial[key].subscriber_name = record.subscriber_name;
+      }
       if (record.subscriber_account_name && !bySerial[key].subscriber_account_name) {
         bySerial[key].subscriber_account_name = record.subscriber_account_name;
       }
@@ -141,10 +145,10 @@ Deno.serve(async (req) => {
 
       // Build _subscriber shape from denormalized fields so ONTDetailView
       // displays customer name + address without needing an extra lookup
-      if (ont.subscriber_account_name || ont.subscriber_address) {
+      if (ont.subscriber_name || ont.subscriber_account_name || ont.subscriber_address) {
         const zipMatch = (ont.subscriber_address || '').match(/(\d{5})(?:\s*$|-\d{4}$)/);
         ont._subscriber = {
-          name:    ont.subscriber_account_name || null,
+          name:    ont.subscriber_name || null,
           account: ont.subscriber_account_name || null,
           address: ont.subscriber_address || null,
           zip:     zipMatch ? zipMatch[1] : null,

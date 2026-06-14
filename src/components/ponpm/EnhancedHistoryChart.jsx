@@ -249,14 +249,14 @@ export default function EnhancedHistoryChart({ historicalData, title, serialNumb
                   label={{ value: 'Errors', angle: 90, position: 'insideRight', fontSize: 10 }} 
                 />
               )}
-              {hasWeather && showTemperature && (
+              {hasWeather && (
                 <YAxis
                   yAxisId="temp"
                   orientation="right"
                   domain={['auto', 'auto']}
-                  tick={{ fontSize: 10, fill: '#94a3b8' }}
-                  width={36}
-                  label={{ value: '°F', angle: 90, position: 'insideRight', fontSize: 10, fill: '#94a3b8' }}
+                  tick={{ fontSize: 10, fill: showTemperature ? '#94a3b8' : 'transparent' }}
+                  width={showTemperature ? 36 : 0}
+                  label={showTemperature ? { value: '°F', angle: 90, position: 'insideRight', fontSize: 10, fill: '#94a3b8' } : undefined}
                 />
               )}
               <Tooltip 
