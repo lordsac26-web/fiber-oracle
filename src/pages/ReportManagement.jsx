@@ -68,65 +68,50 @@ export default function ReportManagement() {
     setSelectedReports(newSelected);
   };
 
-  const [deleteProgress, setDeleteProgress] = useState({ current: 0, total: 0, label: '' });
-
   const handleBatchDelete = async () => {
+    if (selectedReports.size > 10) {
+      toast.error('Please select 10 or fewer reports to delete at once');
+      return;
+    }
+
     setIsDeleting(true);
-    setShowDeleteConfirm(false);
     const reportIds = Array.from(selectedReports);
     let successCount = 0;
     let failCount = 0;
 
-    for (let ri = 0; ri < reportIds.length; ri++) {
-      const reportId = reportIds[ri];
-      const report = reports.find(r => r.id === reportId);
-      const reportLabel = report?.report_name || reportId;
+    toast.loading(`Deleting ${reportIds.length} report(s)...`, { id: 'batch-delete' });
 
+    for (const reportId of reportIds) {
       try {
-        // Fetch a page of IDs, delete them, repeat until none remain.
-        // We always fetch from offset 0 because deletions shrink the set each round.
-        const PAGE = 500;
-        let deleted = 0;
-        let round = 0;
-        while (true) {
-          setDeleteProgress({
-            current: ri + 1, total: reportIds.length,
-            label: `Deleting "${reportLabel}": ${deleted} records removed...`
-          });
-          const page = await base44.entities.ONTPerformanceRecord.filter(
-            { report_id: reportId }, null, PAGE
-          );
-          if (!page || page.length === 0) break;
-          const ids = page.map(r => r.id);
-          await base44.functions.invoke('bulkDeleteOntRecordsSafe', { record_ids: ids });
-          deleted += ids.length;
-          round++;
-          // Safety: bail after 200 rounds (~100k records) to prevent runaway loops
-          if (round > 200) break;
-        }
+        const response = await base44.functions.invoke('deleteReportWithRecords', {
+          report_id: reportId
+        });
 
-        // Delete the report entity itself
-        setDeleteProgress({ current: ri + 1, total: reportIds.length, label: `Removing report "${reportLabel}"...` });
-        await base44.entities.PONPMReport.delete(reportId);
-        successCount++;
+        if (response.data.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
       } catch (error) {
         console.error(`Failed to delete report ${reportId}:`, error);
         failCount++;
       }
     }
 
-    setDeleteProgress({ current: 0, total: 0, label: '' });
-
     if (successCount > 0) {
-      toast.success(`Deleted ${successCount} report(s)${failCount > 0 ? `, ${failCount} failed` : ''}`);
+      toast.success(
+        `Successfully deleted ${successCount} report(s)${failCount > 0 ? `, ${failCount} failed` : ''}`,
+        { id: 'batch-delete' }
+      );
       setSelectedReports(new Set());
       queryClient.invalidateQueries({ queryKey: ['ponpmReports'] });
       queryClient.invalidateQueries({ queryKey: ['ontRecordsTotalCount'] });
     } else {
-      toast.error('Failed to delete reports');
+      toast.error('Failed to delete reports', { id: 'batch-delete' });
     }
 
     setIsDeleting(false);
+    setShowDeleteConfirm(false);
   };
 
   const handlePurgeAll = async () => {
@@ -172,18 +157,17 @@ export default function ReportManagement() {
                 <p className="text-xs text-gray-500">Manage PON PM Reports</p>
               </div>
             </div>
-            {isDeleting && deleteProgress.label ? (
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 bg-white/80 dark:bg-gray-800/80 px-3 py-1.5 rounded-lg border">
-                <Loader2 className="h-4 w-4 animate-spin text-red-500 shrink-0" />
-                <span className="truncate max-w-xs">{deleteProgress.label}</span>
-              </div>
-            ) : selectedReports.size > 0 && (
+            {selectedReports.size > 0 && (
               <Button 
                 variant="destructive"
                 onClick={() => setShowDeleteConfirm(true)}
-                disabled={isDeleting}
+                disabled={isDeleting || selectedReports.size > 10}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                {isDeleting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
                 Delete Selected ({selectedReports.size})
               </Button>
             )}
@@ -232,9 +216,10 @@ export default function ReportManagement() {
               <div className="text-sm text-amber-800 dark:text-amber-200">
                 <p className="font-medium mb-1">Batch Deletion Guidelines:</p>
                 <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>Each report deletion removes all associated ONT records in chunks</li>
-                  <li>Large reports (thousands of ONTs) may take a minute or more — progress is shown</li>
-                  <li>Use "Purge All Data" only if you want to delete everything at once</li>
+                  <li>Select up to 10 reports for batch deletion (prevents timeouts)</li>
+                  <li>Each report deletion includes all associated ONT records</li>
+                  <li>Large reports may take 10-30 seconds to delete</li>
+                  <li>Use "Purge All Data" only if you want to delete everything</li>
                 </ul>
               </div>
             </div>

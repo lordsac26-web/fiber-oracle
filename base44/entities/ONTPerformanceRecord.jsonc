@@ -126,15 +126,11 @@
     },
     "optic_model": {
       "type": "string",
-      "description": "Optic model number from LCP"
-    },
-    "subscriber_name": {
-      "type": "string",
-      "description": "Customer/subscriber human-readable name (SubscriberName from CSV) \u2014 denormalized for display"
+      "description": "Optic model number from LCP (e.g., 100-05730=XGS-ONLY, 100-05674=XGS-COMBO, 100-05929=XGS-COMBO-EXT)"
     },
     "subscriber_account_name": {
       "type": "string",
-      "description": "Account name/ID from subscriber data (AccountName from CSV) \u2014 denormalized for display without join"
+      "description": "Account name from subscriber data \u2014 denormalized for display without join"
     },
     "subscriber_address": {
       "type": "string",
