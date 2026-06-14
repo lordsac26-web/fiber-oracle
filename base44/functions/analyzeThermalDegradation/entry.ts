@@ -95,7 +95,10 @@ function runAnalysisPhase(candidateRecs, rxDateMap, weatherMap, zipBySerial, alr
       highTemp = weatherMap[zip][eventDate];
       isHotDay = highTemp >= tempThresholdF;
     }
-    if (!isHotDay) continue;
+    // Weather correlation is informational — do not gate on it.
+    // Flag any ONT with a significant Rx drop regardless of weather coverage.
+    // If weather IS available and it's NOT a hot day, skip (heat NOT the cause).
+    if (highTemp != null && !isHotDay) continue;
 
     flaggedSerials.add(serial);
     findings.push({
