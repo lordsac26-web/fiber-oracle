@@ -104,10 +104,16 @@ export default function DataManagement() {
 
   const handleSelectAll = () => {
     if (allOnPageSelected) {
-      setSelectedRecords(new Set());
+      // Remove only the current page's records from the selection
+      const newSelected = new Set(selectedRecords);
+      records.forEach(r => newSelected.delete(r.id));
+      setSelectedRecords(newSelected);
       setSelectAllPages(false);
     } else {
-      setSelectedRecords(new Set(records.map(r => r.id)));
+      // Merge current page into existing selection
+      const newSelected = new Set(selectedRecords);
+      records.forEach(r => newSelected.add(r.id));
+      setSelectedRecords(newSelected);
     }
   };
 
