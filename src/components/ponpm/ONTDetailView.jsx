@@ -371,11 +371,14 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
 
                 {/* Trends Summary */}
                 {ont._trends && (
-                  <div className="pt-3 border-t">
-                    <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
-                      <TrendingDown className="h-3 w-3" />
-                      Changes since {moment(ont._trends.previous_date).format('MMM D, YYYY')} ({ont._trends.days_since_last} days ago)
-                    </div>
+                <div className="pt-3 border-t">
+                  <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                    <TrendingDown className="h-3 w-3" />
+                    Changes since {moment(ont._trends.previous_date).format('MMM D, YYYY')} ({ont._trends.days_since_last} days ago)
+                    {ont._trends.days_since_last <= 2 && (
+                      <span className="ml-1 text-amber-600 font-medium">(short window — may reflect transient poll)</span>
+                    )}
+                  </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {ont._trends.ont_rx_change !== null && ont._trends.ont_rx_change !== undefined && (
                         <div className={`p-2 rounded text-xs ${

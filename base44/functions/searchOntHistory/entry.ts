@@ -53,8 +53,8 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch matching records
-    const records = await base44.entities.ONTPerformanceRecord.filter(query, '-report_date', 500);
+    // Fetch matching records — use service role for reliable admin access to all records
+    const records = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(query, '-report_date', 1000);
 
     // Filter by date range if provided
     let filteredRecords = records;

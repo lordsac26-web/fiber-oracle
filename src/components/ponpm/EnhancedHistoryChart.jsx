@@ -66,23 +66,49 @@ export default function EnhancedHistoryChart({ historicalData, title, serialNumb
       const dayKey = moment(d.date).format('YYYY-MM-DD');
       const w = weatherByDate[dayKey];
       return {
-      date: moment(d.date).format('MM/DD'),
-      fullDate: moment(d.date).format('YYYY-MM-DD HH:mm'),
-      'High Temp': w && w.high != null ? w.high : null,
-      'Low Temp': w && w.low != null ? w.low : null,
-      'ONT Rx': d.ont_rx_power,
-      'OLT Rx': d.olt_rx_power,
-      'ONT Tx': d.ont_tx_power,
-      'US BIP': d.us_bip_errors || 0,
-      'DS BIP': d.ds_bip_errors || 0,
-      'US FEC Unc': d.us_fec_uncorrected || 0,
-      'DS FEC Unc': d.ds_fec_uncorrected || 0,
-      'US FEC Cor': d.us_fec_corrected || 0,
-      'DS FEC Cor': d.ds_fec_corrected || 0,
-      'GEM HEC': d.us_gem_hec_errors || 0,
-    };
+        date: moment(d.date).format('MM/DD'),
+        fullDate: moment(d.date).format('YYYY-MM-DD HH:mm'),
+        'High Temp': w && w.high != null ? w.high : null,
+        'Low Temp': w && w.low != null ? w.low : null,
+        'ONT Rx': d.ont_rx_power,
+        'OLT Rx': d.olt_rx_power,
+        'ONT Tx': d.ont_tx_power,
+        'US BIP': d.us_bip_errors || 0,
+        'DS BIP': d.ds_bip_errors || 0,
+        'US FEC Unc': d.us_fec_uncorrected || 0,
+        'DS FEC Unc': d.ds_fec_uncorrected || 0,
+        'US FEC Cor': d.us_fec_corrected || 0,
+        'DS FEC Cor': d.ds_fec_corrected || 0,
+        'GEM HEC': d.us_gem_hec_errors || 0,
+      };
     }).sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
   }, [historicalData, dateRange, weatherByDate]);
+
+  // Compute a robust power Y-axis domain using the IQR so a single transient
+  // outlier poll (e.g. a momentary drop that immediately recovered) cannot
+  // compress the entire chart scale and create a false visual alarm.
+  const powerYDomain = useMemo(() => {
+    const powerMetrics = ['ONT Rx', 'OLT Rx', 'ONT Tx'];
+    const activePowerMetrics = selectedMetrics.filter(m => powerMetrics.includes(m));
+    if (activePowerMetrics.length === 0) return ['auto', 'auto'];
+
+    const values = [];
+    for (const d of chartData) {
+      for (const m of activePowerMetrics) {
+        if (d[m] != null) values.push(d[m]);
+      }
+    }
+    if (values.length < 4) return ['auto', 'auto'];
+
+    values.sort((a, b) => a - b);
+    const q1 = values[Math.floor(values.length * 0.25)];
+    const q3 = values[Math.floor(values.length * 0.75)];
+    const iqr = q3 - q1;
+    // Allow 2× IQR beyond Q1/Q3 as the visible range, padded by 2 dB.
+    const lower = Math.floor(q1 - iqr * 2 - 2);
+    const upper = Math.ceil(q3 + iqr * 2 + 2);
+    return [lower, upper];
+  }, [chartData, selectedMetrics]);
 
   // Calculate averages
   const averages = useMemo(() => {
@@ -236,7 +262,7 @@ export default function EnhancedHistoryChart({ historicalData, title, serialNumb
               {selectedMetrics.some(m => METRIC_CONFIGS[m]?.yAxisId === 'power') && (
                 <YAxis 
                   yAxisId="power" 
-                  domain={['auto', 'auto']} 
+                  domain={powerYDomain}
                   tick={{ fontSize: 10 }} 
                   label={{ value: 'Power (dBm)', angle: -90, position: 'insideLeft', fontSize: 10 }} 
                 />
