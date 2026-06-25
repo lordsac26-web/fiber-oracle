@@ -84,11 +84,22 @@
           }
         },
         {
-          "created_by": "{{user.email}}"
+          "created_by_id": "{{user.id}}"
         }
       ]
     },
-    "read": {},
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by_id": "{{user.id}}"
+        }
+      ]
+    },
     "update": {
       "$or": [
         {
@@ -97,7 +108,7 @@
           }
         },
         {
-          "created_by": "{{user.email}}"
+          "created_by_id": "{{user.id}}"
         }
       ]
     },
