@@ -129,7 +129,7 @@ const SPLITTER_COLORS = [
   { bg: 'bg-fuchsia-50', border: 'border-fuchsia-300', text: 'text-fuchsia-700', dot: 'bg-fuchsia-500', bar: 'bg-fuchsia-200' },
 ];
 
-export default function LCPSummarySection({ result, onPortClick }) {
+export default function LCPSummarySection({ onts, onPortClick }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLCP, setSelectedLCP] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -151,7 +151,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
 
   // Aggregate LCP data from ONTs, using real-time Map lookup for ONTs missing lcp_number
   const lcpData = useMemo(() => {
-    if (!result?.onts || !lcpEntries.length) return [];
+    if (!onts || !lcpEntries.length) return [];
 
     const lcpMap = {};
 
@@ -187,13 +187,23 @@ export default function LCPSummarySection({ result, onPortClick }) {
       }
     });
 
-    // Then, aggregate ONT data — use shared utility for fallback lookup
-    result.onts.forEach(ont => {
+    // Then, aggregate ONT data — use shared utility for fallback lookup.
+    // Cache resolveLcpForOnt results per "olt|port" key so ONTs sharing a
+    // PON port (typically 32-64 per port) reuse the same resolution instead
+    // of re-running 3 Map lookups + a regex parse per ONT.
+    const lcpResolveCache = new Map();
+
+    onts.forEach(ont => {
       let lcpNumber = ont._lcpNumber || ont.lcp_number;
       let splitterNumber = ont._splitterNumber || ont.splitter_number || 'Unknown';
 
       if (!lcpNumber) {
-        const resolved = resolveLcpForOnt(lcpLookupMap, ont);
+        const cacheKey = `${ont._oltName || ont.OLTName || ''}|${ont._port || ont['Shelf/Slot/Port'] || ''}`;
+        let resolved = lcpResolveCache.get(cacheKey);
+        if (resolved === undefined) {
+          resolved = resolveLcpForOnt(lcpLookupMap, ont);
+          lcpResolveCache.set(cacheKey, resolved || null);
+        }
         if (resolved) {
           lcpNumber = resolved.lcp_number;
           splitterNumber = resolved.splitter_number || 'Unknown';
@@ -269,7 +279,7 @@ export default function LCPSummarySection({ result, onPortClick }) {
         hasGPS: !!(lcp.gps_lat && lcp.gps_lng),
       }))
       .sort((a, b) => b.issueRate - a.issueRate);
-  }, [result, lcpEntries]);
+  }, [onts, lcpEntries]);
 
   const getTileStatus = (lcp) => {
     if (lcp.critical > 0) return 'critical';

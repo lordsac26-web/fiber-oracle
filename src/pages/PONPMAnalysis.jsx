@@ -1069,7 +1069,7 @@ export default function PONPMAnalysis() {
             {/* LCP Summary — shown once above OLT/Port section */}
             {filteredOnts.length > 0 && (
               <LCPSummarySection
-                result={{ ...result, onts: filteredOnts }}
+                onts={filteredOnts}
                 onPortClick={(oltName, portKey) => {
                   setViewMode('hierarchy');
                   setOltFilter(oltName);

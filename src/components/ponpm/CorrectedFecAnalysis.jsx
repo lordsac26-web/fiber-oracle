@@ -57,15 +57,21 @@ export default function CorrectedFecAnalysis({ onts, onSelectOnt }) {
       .filter(Boolean);
   }, [onts]);
 
-  // Summary stats
+  // Summary stats — single-pass accumulator to avoid 8 separate filter() iterations
   const stats = useMemo(() => {
-    const high = fecOnts.filter(o => o._severity === 'high').length;
-    const moderate = fecOnts.filter(o => o._severity === 'moderate').length;
-    const low = fecOnts.filter(o => o._severity === 'low').length;
-    const usOnly = fecOnts.filter(o => o._hasUs && !o._hasDs).length;
-    const dsOnly = fecOnts.filter(o => !o._hasUs && o._hasDs).length;
-    const both = fecOnts.filter(o => o._hasUs && o._hasDs).length;
-    const hiddenIssues = fecOnts.filter(o => o._analysis?.status === 'ok').length;
+    let high = 0, moderate = 0, low = 0;
+    let usOnly = 0, dsOnly = 0, both = 0, hiddenIssues = 0;
+    for (const o of fecOnts) {
+      if (o._severity === 'high') high++;
+      else if (o._severity === 'moderate') moderate++;
+      else if (o._severity === 'low') low++;
+
+      if (o._hasUs && o._hasDs) both++;
+      else if (o._hasUs) usOnly++;
+      else if (o._hasDs) dsOnly++;
+
+      if (o._analysis?.status === 'ok') hiddenIssues++;
+    }
     return { total: fecOnts.length, high, moderate, low, usOnly, dsOnly, both, hiddenIssues };
   }, [fecOnts]);
 

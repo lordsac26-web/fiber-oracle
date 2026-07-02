@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, AlertTriangle } from 'lucide-react';
@@ -8,16 +8,19 @@ import { AlertCircle, AlertTriangle } from 'lucide-react';
  * Respects active global/local filters so displayed issues match what the user sees.
  */
 export default function IssueDetailPanel({ issueDetailView, filteredOnts, onClose }) {
-  if (!issueDetailView) return null;
+  const matchingOnts = useMemo(() => {
+    if (!issueDetailView) return [];
+    return filteredOnts.filter(ont => {
+      const matchesType = issueDetailView.type === 'critical'
+        ? ont._analysis.issues.length > 0
+        : ont._analysis.warnings.length > 0;
+      const matchesOlt = !issueDetailView.oltName || ont._oltName === issueDetailView.oltName;
+      const matchesPort = !issueDetailView.portKey || ont._port === issueDetailView.portKey;
+      return matchesType && matchesOlt && matchesPort;
+    });
+  }, [filteredOnts, issueDetailView]);
 
-  const matchingOnts = filteredOnts.filter(ont => {
-    const matchesType = issueDetailView.type === 'critical'
-      ? ont._analysis.issues.length > 0
-      : ont._analysis.warnings.length > 0;
-    const matchesOlt = !issueDetailView.oltName || ont._oltName === issueDetailView.oltName;
-    const matchesPort = !issueDetailView.portKey || ont._port === issueDetailView.portKey;
-    return matchesType && matchesOlt && matchesPort;
-  });
+  if (!issueDetailView) return null;
 
   return (
     <Card className={`border-2 ${issueDetailView.type === 'critical' ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/20'}`}>

@@ -31,7 +31,7 @@ export default function PeerComparisonChart({ currentOnt, peers }) {
     const term = search.toLowerCase();
     return peers.filter(p =>
       p.SerialNumber?.toLowerCase().includes(term) ||
-      p.OntID?.toString().includes(search) ||
+      p.OntID?.toString().includes(term) ||
       p._subscriber?.name?.toLowerCase().includes(term) ||
       p._subscriber?.address?.toLowerCase().includes(term)
     );

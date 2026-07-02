@@ -71,7 +71,6 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
   // Weather correlation: map of 'YYYY-MM-DD' -> { high, low } for this ONT's zip.
   const [weatherByDate, setWeatherByDate] = useState({});
 
-  const [peerData, setPeerData] = useState({ onts: [], avgMetrics: null });
   const [peerSort, setPeerSort] = useState({ key: 'serial', direction: 'asc' });
   const [showPeerComparison, setShowPeerComparison] = useState(false);
   const [isGeneratingCert, setIsGeneratingCert] = useState(false);
@@ -106,9 +105,6 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
       } finally {
         if (!cancelled) setIsLoadingHistory(false);
       }
-
-      // Peer data (sync — no API call)
-      if (!cancelled) loadPeerData();
 
       // Weather history for this ONT's zip (for temperature correlation).
       const zip = (ont._subscriber?.zip || '').toString().trim().slice(0, 5);
@@ -151,28 +147,33 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
     }
   };
 
-  const loadPeerData = () => {
-    if (!allOnts) return;
-    
-    // Find peers on same OLT/Port
-    const peers = allOnts.filter(o => 
+  // Memoize peer data so it only re-computes when the ONT or allOnts changes,
+  // not on every render (e.g. tab switches, peer sort changes).
+  // Single-pass accumulation for all 4 averages instead of 4 separate reduce() calls.
+  const peerDataMemo = useMemo(() => {
+    if (!allOnts) return { onts: [], avgMetrics: null };
+
+    const peers = allOnts.filter(o =>
       o.SerialNumber !== ont.SerialNumber &&
       o._oltName === ont._oltName &&
       o._port === ont._port
     );
 
-    if (peers.length > 0) {
-      const avgRx = peers.reduce((sum, p) => sum + (parseFloat(p.OntRxOptPwr) || 0), 0) / peers.length;
-      const avgOltRx = peers.reduce((sum, p) => sum + (parseFloat(p.OLTRXOptPwr) || 0), 0) / peers.length;
-      const avgUsBip = peers.reduce((sum, p) => sum + (parseInt(p.UpstreamBipErrors) || 0), 0) / peers.length;
-      const avgDsBip = peers.reduce((sum, p) => sum + (parseInt(p.DownstreamBipErrors) || 0), 0) / peers.length;
-      
-      setPeerData({
-        onts: peers,
-        avgMetrics: { avgRx, avgOltRx, avgUsBip, avgDsBip }
-      });
+    if (peers.length === 0) return { onts: [], avgMetrics: null };
+
+    let sumRx = 0, sumOltRx = 0, sumUsBip = 0, sumDsBip = 0;
+    for (const p of peers) {
+      sumRx += parseFloat(p.OntRxOptPwr) || 0;
+      sumOltRx += parseFloat(p.OLTRXOptPwr) || 0;
+      sumUsBip += parseInt(p.UpstreamBipErrors) || 0;
+      sumDsBip += parseInt(p.DownstreamBipErrors) || 0;
     }
-  };
+    const n = peers.length;
+    return {
+      onts: peers,
+      avgMetrics: { avgRx: sumRx / n, avgOltRx: sumOltRx / n, avgUsBip: sumUsBip / n, avgDsBip: sumDsBip / n },
+    };
+  }, [allOnts, ont.SerialNumber, ont._oltName, ont._port]);
 
   // loadHistoricalData and loadJobReports are now inlined in the useEffect above
   // with cancellation support to prevent stale writes on rapid ONT switching.
@@ -225,7 +226,7 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
 
   const sortedPeerOnts = useMemo(() => {
     const direction = peerSort.direction === 'asc' ? 1 : -1;
-    return [...peerData.onts].sort((a, b) => {
+    return [...peerDataMemo.onts].sort((a, b) => {
       const aVal = getPeerSortValue(a, peerSort.key);
       const bVal = getPeerSortValue(b, peerSort.key);
 
@@ -235,7 +236,7 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
       if (typeof aVal === 'number' && typeof bVal === 'number') return (aVal - bVal) * direction;
       return String(aVal).localeCompare(String(bVal), undefined, { numeric: true, sensitivity: 'base' }) * direction;
     });
-  }, [peerData.onts, peerSort]);
+  }, [peerDataMemo.onts, peerSort]);
 
   const handlePeerSort = (key) => {
     setPeerSort(current => ({
@@ -299,8 +300,8 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
             </TabsTrigger>
             <TabsTrigger value="peers">
               Peers
-              {peerData.onts.length > 0 && (
-                <Badge variant="outline" className="ml-1 text-xs">{peerData.onts.length}</Badge>
+              {peerDataMemo.onts.length > 0 && (
+                <Badge variant="outline" className="ml-1 text-xs">{peerDataMemo.onts.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="compare">
@@ -330,12 +331,12 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                     }`}>
                       {ont.OntRxOptPwr || 'N/A'} dBm
                     </div>
-                    {peerData.avgMetrics && (() => {
-                      const delta = parseFloat(ont.OntRxOptPwr) - peerData.avgMetrics.avgRx;
+                    {peerDataMemo.avgMetrics && (() => {
+                      const delta = parseFloat(ont.OntRxOptPwr) - peerDataMemo.avgMetrics.avgRx;
                       if (isNaN(delta)) return null;
                       return (
                         <div className={`text-xs font-mono mt-0.5 ${delta < -2 ? 'text-red-600' : delta < 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                          {delta > 0 ? '+' : ''}{delta.toFixed(1)} dB vs port avg ({peerData.avgMetrics.avgRx.toFixed(1)})
+                          {delta > 0 ? '+' : ''}{delta.toFixed(1)} dB vs port avg ({peerDataMemo.avgMetrics.avgRx.toFixed(1)})
                         </div>
                       );
                     })()}
@@ -345,12 +346,12 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                     <div className="text-lg font-bold font-mono">
                       {ont.OLTRXOptPwr || 'N/A'} dBm
                     </div>
-                    {peerData.avgMetrics && (() => {
-                      const delta = parseFloat(ont.OLTRXOptPwr) - peerData.avgMetrics.avgOltRx;
+                    {peerDataMemo.avgMetrics && (() => {
+                      const delta = parseFloat(ont.OLTRXOptPwr) - peerDataMemo.avgMetrics.avgOltRx;
                       if (isNaN(delta)) return null;
                       return (
                         <div className={`text-xs font-mono mt-0.5 ${delta < -2 ? 'text-red-600' : delta < 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                          {delta > 0 ? '+' : ''}{delta.toFixed(1)} dB vs port avg ({peerData.avgMetrics.avgOltRx.toFixed(1)})
+                          {delta > 0 ? '+' : ''}{delta.toFixed(1)} dB vs port avg ({peerDataMemo.avgMetrics.avgOltRx.toFixed(1)})
                         </div>
                       );
                     })()}
@@ -458,10 +459,10 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                     <span className="text-gray-500">Model:</span>
                     <span className="font-medium">{ont.model || 'Unknown'}</span>
                   </div>
-                  {peerData.onts.length > 0 && (
+                  {peerDataMemo.onts.length > 0 && (
                     <div className="pt-2 border-t">
                       <div className="text-xs text-gray-500">
-                        {peerData.onts.length} peer ONT{peerData.onts.length > 1 ? 's' : ''} on this port
+                        {peerDataMemo.onts.length} peer ONT{peerDataMemo.onts.length > 1 ? 's' : ''} on this port
                       </div>
                     </div>
                   )}
@@ -732,7 +733,7 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
 
           {/* Peer Comparison Tab */}
           <TabsContent value="peers" className="space-y-4">
-            {peerData.onts.length === 0 ? (
+            {peerDataMemo.onts.length === 0 ? (
               <Card className="border-2 border-gray-200 bg-gray-50">
                 <CardContent className="p-8 text-center">
                   <Wifi className="h-12 w-12 text-gray-400 mx-auto mb-3" />
@@ -755,21 +756,21 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                         <div className="text-xs text-gray-500 mb-1">ONT Rx Power</div>
                         <div className="flex items-baseline gap-2">
                           <div className={`text-lg font-bold font-mono ${
-                            parseFloat(ont.OntRxOptPwr) < peerData.avgMetrics.avgRx - 2 ? 'text-red-600' :
-                            parseFloat(ont.OntRxOptPwr) < peerData.avgMetrics.avgRx ? 'text-amber-600' :
+                            parseFloat(ont.OntRxOptPwr) < peerDataMemo.avgMetrics.avgRx - 2 ? 'text-red-600' :
+                            parseFloat(ont.OntRxOptPwr) < peerDataMemo.avgMetrics.avgRx ? 'text-amber-600' :
                             'text-green-600'
                           }`}>
                             {ont.OntRxOptPwr}
                           </div>
                           <div className="text-xs text-gray-500">
-                            vs {peerData.avgMetrics.avgRx.toFixed(1)} avg
+                            vs {peerDataMemo.avgMetrics.avgRx.toFixed(1)} avg
                           </div>
                         </div>
                         <div className={`text-xs mt-1 ${
-                          parseFloat(ont.OntRxOptPwr) < peerData.avgMetrics.avgRx ? 'text-red-600' : 'text-green-600'
+                          parseFloat(ont.OntRxOptPwr) < peerDataMemo.avgMetrics.avgRx ? 'text-red-600' : 'text-green-600'
                         }`}>
-                          {parseFloat(ont.OntRxOptPwr) > peerData.avgMetrics.avgRx ? '+' : ''}
-                          {(parseFloat(ont.OntRxOptPwr) - peerData.avgMetrics.avgRx).toFixed(1)} dB
+                          {parseFloat(ont.OntRxOptPwr) > peerDataMemo.avgMetrics.avgRx ? '+' : ''}
+                          {(parseFloat(ont.OntRxOptPwr) - peerDataMemo.avgMetrics.avgRx).toFixed(1)} dB
                         </div>
                       </div>
                       
@@ -780,14 +781,14 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                             {ont.OLTRXOptPwr}
                           </div>
                           <div className="text-xs text-gray-500">
-                            vs {peerData.avgMetrics.avgOltRx.toFixed(1)} avg
+                            vs {peerDataMemo.avgMetrics.avgOltRx.toFixed(1)} avg
                           </div>
                         </div>
                         <div className={`text-xs mt-1 ${
-                          parseFloat(ont.OLTRXOptPwr) < peerData.avgMetrics.avgOltRx ? 'text-red-600' : 'text-green-600'
+                          parseFloat(ont.OLTRXOptPwr) < peerDataMemo.avgMetrics.avgOltRx ? 'text-red-600' : 'text-green-600'
                         }`}>
-                          {parseFloat(ont.OLTRXOptPwr) > peerData.avgMetrics.avgOltRx ? '+' : ''}
-                          {(parseFloat(ont.OLTRXOptPwr) - peerData.avgMetrics.avgOltRx).toFixed(1)} dB
+                          {parseFloat(ont.OLTRXOptPwr) > peerDataMemo.avgMetrics.avgOltRx ? '+' : ''}
+                          {(parseFloat(ont.OLTRXOptPwr) - peerDataMemo.avgMetrics.avgOltRx).toFixed(1)} dB
                         </div>
                       </div>
 
@@ -795,12 +796,12 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                         <div className="text-xs text-gray-500 mb-1">US BIP Errors</div>
                         <div className="flex items-baseline gap-2">
                           <div className={`text-lg font-bold font-mono ${
-                            parseInt(ont.UpstreamBipErrors) > peerData.avgMetrics.avgUsBip * 2 ? 'text-red-600' : 'text-gray-900'
+                            parseInt(ont.UpstreamBipErrors) > peerDataMemo.avgMetrics.avgUsBip * 2 ? 'text-red-600' : 'text-gray-900'
                           }`}>
                             {ont.UpstreamBipErrors || 0}
                           </div>
                           <div className="text-xs text-gray-500">
-                            vs {peerData.avgMetrics.avgUsBip.toFixed(0)} avg
+                            vs {peerDataMemo.avgMetrics.avgUsBip.toFixed(0)} avg
                           </div>
                         </div>
                       </div>
@@ -809,12 +810,12 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                         <div className="text-xs text-gray-500 mb-1">DS BIP Errors</div>
                         <div className="flex items-baseline gap-2">
                           <div className={`text-lg font-bold font-mono ${
-                            parseInt(ont.DownstreamBipErrors) > peerData.avgMetrics.avgDsBip * 2 ? 'text-red-600' : 'text-gray-900'
+                            parseInt(ont.DownstreamBipErrors) > peerDataMemo.avgMetrics.avgDsBip * 2 ? 'text-red-600' : 'text-gray-900'
                           }`}>
                             {ont.DownstreamBipErrors || 0}
                           </div>
                           <div className="text-xs text-gray-500">
-                            vs {peerData.avgMetrics.avgDsBip.toFixed(0)} avg
+                            vs {peerDataMemo.avgMetrics.avgDsBip.toFixed(0)} avg
                           </div>
                         </div>
                       </div>
@@ -825,7 +826,7 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
                 {/* Peer List */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm">All ONTs on This Port ({peerData.onts.length + 1} total)</CardTitle>
+                    <CardTitle className="text-sm">All ONTs on This Port ({peerDataMemo.onts.length + 1} total)</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="max-h-96 overflow-y-auto">
@@ -1049,7 +1050,7 @@ export default function ONTDetailView({ ont, onClose, allOnts, thresholds = DEFA
 
           {/* Interactive Comparison Tab */}
           <TabsContent value="compare" className="space-y-4">
-            <PeerComparisonChart currentOnt={ont} peers={peerData.onts} />
+            <PeerComparisonChart currentOnt={ont} peers={peerDataMemo.onts} />
           </TabsContent>
 
           {/* Raw Data Tab */}

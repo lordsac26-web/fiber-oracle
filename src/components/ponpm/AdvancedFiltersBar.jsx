@@ -50,6 +50,17 @@ export default function AdvancedFiltersBar({
     return Object.values(portsByOlt).reduce((s, arr) => s + arr.length, 0);
   }, [portsByOlt]);
 
+  // Pre-compute flat port list for the <=20 ports case — avoids building a
+  // Set from the full ONT array inside JSX on every render.
+  const flatPortList = useMemo(() => {
+    if (!portsByOlt || totalPortCount > 20) return [];
+    const allPorts = new Set();
+    for (const arr of Object.values(portsByOlt)) {
+      for (const p of arr) allPorts.add(p);
+    }
+    return [...allPorts].sort();
+  }, [portsByOlt, totalPortCount]);
+
   return (
     <Card className="border-0 shadow">
       <CardContent className="p-4">
@@ -112,7 +123,7 @@ export default function AdvancedFiltersBar({
                 }
                 {/* All OLTs — flat list when <= 20 ports */}
                 {oltFilter === 'all' && totalPortCount <= 20 &&
-                  [...new Set(onts.map(o => o._port))].sort().map(port => (
+                  flatPortList.map(port => (
                     <SelectItem key={port} value={port}>{port}</SelectItem>
                   ))
                 }

@@ -16,6 +16,12 @@ export function useNewReportToast(onReportAvailable) {
   const knownIdsRef = useRef(new Set());
   const initializedRef = useRef(false);
 
+  // Hold the latest callback in a ref so the WebSocket subscription effect
+  // doesn't tear down and re-establish whenever the parent's callback identity
+  // changes (e.g. when it captures state like `result`).
+  const callbackRef = useRef(onReportAvailable);
+  callbackRef.current = onReportAvailable;
+
   useEffect(() => {
     // Seed known IDs from the first list load to avoid false positives on mount
     base44.entities.PONPMReport.list('-upload_date', 50)
@@ -38,7 +44,7 @@ export function useNewReportToast(onReportAvailable) {
             duration: 15000,
             action: {
               label: 'Load',
-              onClick: () => onReportAvailable?.(event.data),
+              onClick: () => callbackRef.current?.(event.data),
             },
           }
         );
@@ -53,5 +59,5 @@ export function useNewReportToast(onReportAvailable) {
     });
 
     return unsubscribe;
-  }, [onReportAvailable]);
+  }, []);
 }
