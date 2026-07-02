@@ -13,23 +13,32 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
-    // Count all records using service role — records are written by service role,
-    // not by user email, so no created_by filter here.
+    // Instead of paginating through potentially hundreds of thousands of
+    // ONTPerformanceRecord rows (which causes timeouts), sum the denormalized
+    // `ont_count` field stored on each PONPMReport. There are typically only a
+    // few dozen reports, so this completes in 1–2 API calls.
     let totalCount = 0;
-    const batchSize = 1000;
+    let skip = 0;
+    const batchSize = 500;
 
     while (true) {
-      const batch = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+      const reports = await base44.asServiceRole.entities.PONPMReport.filter(
         {},
-        'id',
+        '-created_date',
         batchSize,
-        totalCount
+        skip
       );
 
-      totalCount += batch.length;
+      for (const report of reports) {
+        // Only count ONTs from fully-processed reports — pending/failed
+        // reports may have incomplete ont_count values.
+        if (report.processing_status === 'completed') {
+          totalCount += report.ont_count || 0;
+        }
+      }
 
-      if (batch.length < batchSize) break;
-      if (totalCount > 1_000_000) break; // safety cap
+      if (reports.length < batchSize) break;
+      skip += batchSize;
     }
 
     return Response.json({ count: totalCount });
