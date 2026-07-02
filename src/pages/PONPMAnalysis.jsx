@@ -211,8 +211,17 @@ export default function PONPMAnalysis() {
     loadNow: loadEeroRecordsNow,
   } = useEeroData();
   const [customThresholds, setCustomThresholds] = useState(() => {
-    const saved = localStorage.getItem('ponPmThresholds');
-    return saved ? JSON.parse(saved) : { ...DEFAULT_THRESHOLDS };
+    try {
+      const saved = localStorage.getItem('ponPmThresholds');
+      if (!saved) return { ...DEFAULT_THRESHOLDS };
+      const parsed = JSON.parse(saved);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        return { ...DEFAULT_THRESHOLDS };
+      }
+      return { ...DEFAULT_THRESHOLDS, ...parsed };
+    } catch {
+      return { ...DEFAULT_THRESHOLDS };
+    }
   });
 
   // Track the report currently being processed in the background
@@ -552,7 +561,7 @@ export default function PONPMAnalysis() {
       const term = debouncedSearchTerm.toLowerCase();
       const matchesSearch = !debouncedSearchTerm || 
         ont.SerialNumber?.toLowerCase().includes(term) ||
-        ont.OntID?.toString().includes(searchTerm) ||
+        ont.OntID?.toString().toLowerCase().includes(term) ||
         ont['Shelf/Slot/Port']?.toLowerCase().includes(term) ||
         ont.OLTName?.toLowerCase().includes(term) ||
         ont._subscriber?.name?.toLowerCase().includes(term) ||
@@ -626,6 +635,34 @@ export default function PONPMAnalysis() {
     return filtered;
   }, [result?.onts, debouncedSearchTerm, statusFilter, oltFilter, portFilter, powerRangeFilter, sortBy,
       globalSplitters, globalOltPorts, globalModels]);
+
+  // Pre-group filtered ONTs into OLT → Port → ONTs in a single pass.
+  // Eliminates O(N × OLTs × Ports) repeated filtering in OltHierarchyView
+  // and OLTPortSummary (~800k iterations → ~7k on a typical 7k-ONT report).
+  const groupedByOltPort = useMemo(() => {
+    const map = new Map();
+    if (!filteredOnts || filteredOnts.length === 0) return map;
+    for (const ont of filteredOnts) {
+      const oltKey = ont._oltName || 'Unknown';
+      if (!map.has(oltKey)) map.set(oltKey, { onts: [], ports: new Map() });
+      const oltGroup = map.get(oltKey);
+      oltGroup.onts.push(ont);
+      const portKey = ont._port || 'Unknown';
+      if (!oltGroup.ports.has(portKey)) oltGroup.ports.set(portKey, []);
+      oltGroup.ports.get(portKey).push(ont);
+    }
+    return map;
+  }, [filteredOnts]);
+
+  // Previous report deltas — memoized so KPIStatistics doesn't re-render
+  // on every parent state tick from a new inline object reference.
+  const previousReportData = useMemo(() => {
+    if (!savedReports || savedReports.length < 2) return null;
+    const ci = selectedReportId ? savedReports.findIndex(r => r.id === selectedReportId) : 0;
+    const prev = savedReports[ci >= 0 ? ci + 1 : 1];
+    if (!prev || (prev.gpon_count == null && prev.xgs_count == null)) return null;
+    return { gponCount: prev.gpon_count ?? 0, xgsCount: prev.xgs_count ?? 0 };
+  }, [savedReports, selectedReportId]);
 
   const saveThresholds = useCallback(() => {
     localStorage.setItem('ponPmThresholds', JSON.stringify(customThresholds));
@@ -1019,13 +1056,7 @@ export default function PONPMAnalysis() {
             />
 
             {/* KPI Statistics */}
-            <KPIStatistics result={result} filteredOnts={filteredOnts} subscriberRecords={subscriberRecords} previousReport={(() => {
-              if (!savedReports || savedReports.length < 2) return null;
-              const ci = selectedReportId ? savedReports.findIndex(r => r.id === selectedReportId) : 0;
-              const prev = savedReports[ci >= 0 ? ci + 1 : 1];
-              if (!prev || (prev.gpon_count == null && prev.xgs_count == null)) return null;
-              return { gponCount: prev.gpon_count ?? 0, xgsCount: prev.xgs_count ?? 0 };
-            })()} />
+            <KPIStatistics result={result} filteredOnts={filteredOnts} subscriberRecords={subscriberRecords} previousReport={previousReportData} />
 
             {/* Power Distribution Charts */}
             {filteredOnts.length > 0 && (
@@ -1154,6 +1185,7 @@ export default function PONPMAnalysis() {
                 <OltHierarchyView
                   result={result}
                   filteredOnts={filteredOnts}
+                  groupedByOltPort={groupedByOltPort}
                   expandedOlts={expandedOlts}
                   expandedPorts={expandedPorts}
                   toggleOlt={toggleOlt}

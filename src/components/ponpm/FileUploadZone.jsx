@@ -10,6 +10,8 @@ import { validateCsvFile, downloadCsvTemplate, PONPM_CSV_SPEC } from '@/lib/csvV
  * Calls onChange(file) with the File object directly (not a synthetic event).
  * The parent (PONPMAnalysis) must accept a File, not an event.
  */
+const MAX_CSV_SIZE = 100 * 1024 * 1024; // 100MB — prevents accidental memory exhaustion on oversized files
+
 export default function FileUploadZone({ onChange, isLoading, disabled = false, disabledMessage = null }) {
   const [validating, setValidating] = useState(false);
 
@@ -18,6 +20,11 @@ export default function FileUploadZone({ onChange, isLoading, disabled = false, 
     if (!file) return;
     // Reset input immediately so the same file can be re-selected
     e.target.value = '';
+
+    if (file.size > MAX_CSV_SIZE) {
+      toast.error(`File is ${(file.size / 1024 / 1024).toFixed(0)}MB — maximum is 100MB`, { duration: 7000 });
+      return;
+    }
 
     setValidating(true);
     const validation = await validateCsvFile(file, PONPM_CSV_SPEC);

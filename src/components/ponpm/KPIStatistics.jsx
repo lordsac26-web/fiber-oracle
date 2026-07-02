@@ -42,44 +42,60 @@ function matchesTech(ont, tech) {
   return resolveTech(ont) === tech;
 }
 
+// Single-pass accumulator — replaces 14+ separate filter/map/reduce calls.
+// On a 7k-ONT report this cuts ~98k iterations down to ~7k.
 function calcStats(onts) {
   if (!onts || onts.length === 0) return null;
 
-  const ontRxValues = onts.map(o => parseFloat(o.OntRxOptPwr)).filter(v => !isNaN(v) && v !== 0);
-  const oltRxValues = onts.map(o => parseFloat(o.OLTRXOptPwr)).filter(v => !isNaN(v) && v !== 0);
+  let ontRxSum = 0, ontRxCount = 0, ontRxMin = Infinity, ontRxMax = -Infinity;
+  let oltRxSum = 0, oltRxCount = 0;
+  let totalUsBip = 0, totalDsBip = 0;
+  let totalUsFec = 0, totalDsFec = 0;
+  let totalUsFecCor = 0, totalDsFecCor = 0;
+  let totalUsHec = 0;
+  let ontsWithErrors = 0;
+  let lowPower = 0, optimalPower = 0, criticalPower = 0;
 
-  const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+  for (const o of onts) {
+    const rx = parseFloat(o.OntRxOptPwr);
+    if (!isNaN(rx) && rx !== 0) {
+      ontRxSum += rx; ontRxCount++;
+      if (rx < ontRxMin) ontRxMin = rx;
+      if (rx > ontRxMax) ontRxMax = rx;
+      if (rx < -25) lowPower++;
+      if (rx >= -25 && rx <= -15) optimalPower++;
+      if (rx < -27) criticalPower++;
+    }
+    const oltRx = parseFloat(o.OLTRXOptPwr);
+    if (!isNaN(oltRx) && oltRx !== 0) { oltRxSum += oltRx; oltRxCount++; }
 
-  const ontsWithErrors = onts.filter(o =>
-    (parseInt(o.UpstreamBipErrors) || 0) > 0 ||
-    (parseInt(o.DownstreamBipErrors) || 0) > 0 ||
-    (parseInt(o.UpstreamFecUncorrectedCodeWords) || 0) > 0 ||
-    (parseInt(o.DownstreamFecUncorrectedCodeWords) || 0) > 0 ||
-    (parseInt(o.UpstreamGemHecErrors) || 0) > 0
-  ).length;
+    const usBip = parseInt(o.UpstreamBipErrors) || 0;
+    const dsBip = parseInt(o.DownstreamBipErrors) || 0;
+    const usFec = parseInt(o.UpstreamFecUncorrectedCodeWords) || 0;
+    const dsFec = parseInt(o.DownstreamFecUncorrectedCodeWords) || 0;
+    const usFecCor = parseInt(o.UpstreamFecCorrectedCodeWords) || 0;
+    const dsFecCor = parseInt(o.DownstreamFecCorrectedCodeWords) || 0;
+    const usHec = parseInt(o.UpstreamGemHecErrors) || 0;
 
-  const lowPower = onts.filter(o => { const rx = parseFloat(o.OntRxOptPwr); return !isNaN(rx) && rx < -25; }).length;
-  const optimalPower = onts.filter(o => { const rx = parseFloat(o.OntRxOptPwr); return !isNaN(rx) && rx >= -25 && rx <= -15; }).length;
-  const criticalPower = onts.filter(o => { const rx = parseFloat(o.OntRxOptPwr); return !isNaN(rx) && rx < -27; }).length;
+    totalUsBip += usBip; totalDsBip += dsBip;
+    totalUsFec += usFec; totalDsFec += dsFec;
+    totalUsFecCor += usFecCor; totalDsFecCor += dsFecCor;
+    totalUsHec += usHec;
+
+    if (usBip > 0 || dsBip > 0 || usFec > 0 || dsFec > 0 || usHec > 0) ontsWithErrors++;
+  }
 
   return {
     count: onts.length,
-    avgOntRx: avg(ontRxValues),
-    minOntRx: ontRxValues.length ? Math.min(...ontRxValues) : null,
-    maxOntRx: ontRxValues.length ? Math.max(...ontRxValues) : null,
-    avgOltRx: avg(oltRxValues),
-    totalUsBip: onts.reduce((s, o) => s + (parseInt(o.UpstreamBipErrors) || 0), 0),
-    totalDsBip: onts.reduce((s, o) => s + (parseInt(o.DownstreamBipErrors) || 0), 0),
-    totalUsFec: onts.reduce((s, o) => s + (parseInt(o.UpstreamFecUncorrectedCodeWords) || 0), 0),
-    totalDsFec: onts.reduce((s, o) => s + (parseInt(o.DownstreamFecUncorrectedCodeWords) || 0), 0),
-    totalUsFecCor: onts.reduce((s, o) => s + (parseInt(o.UpstreamFecCorrectedCodeWords) || 0), 0),
-    totalDsFecCor: onts.reduce((s, o) => s + (parseInt(o.DownstreamFecCorrectedCodeWords) || 0), 0),
-    totalUsHec: onts.reduce((s, o) => s + (parseInt(o.UpstreamGemHecErrors) || 0), 0),
+    avgOntRx: ontRxCount > 0 ? ontRxSum / ontRxCount : null,
+    minOntRx: ontRxCount > 0 ? ontRxMin : null,
+    maxOntRx: ontRxCount > 0 ? ontRxMax : null,
+    avgOltRx: oltRxCount > 0 ? oltRxSum / oltRxCount : null,
+    totalUsBip, totalDsBip, totalUsFec, totalDsFec,
+    totalUsFecCor, totalDsFecCor, totalUsHec,
     ontsWithErrors,
     errorRate: onts.length > 0 ? (ontsWithErrors / onts.length * 100) : 0,
-    lowPower,
-    optimalPower,
-    criticalPower,
+    lowPower, optimalPower, criticalPower,
   };
 }
 

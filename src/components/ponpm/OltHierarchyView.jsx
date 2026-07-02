@@ -18,10 +18,16 @@ import VirtualizedONTTable from './VirtualizedONTTable';
  *
  * This is a pure presentational component — all business logic (filtering, status
  * computation upstream, selection state) is owned by the parent and passed in.
+ *
+ * Performance: receives `groupedByOltPort` (a pre-computed Map of OLT → { onts,
+ * ports: Map }) instead of filtering `filteredOnts` on every render. This
+ * eliminates O(N × OLTs × Ports) repeated filtering (~800k iterations → ~7k
+ * on a typical 7k-ONT report).
  */
 function OltHierarchyView({
   result,
   filteredOnts,
+  groupedByOltPort,
   expandedOlts,
   expandedPorts,
   toggleOlt,
@@ -39,17 +45,22 @@ function OltHierarchyView({
   toggleSelectMany,
   setFlagDialogOnts,
 }) {
-  if (!result?.olts) return null;
+  if (!result?.olts || !groupedByOltPort || groupedByOltPort.size === 0) return null;
 
   return (
     <>
-      {Object.entries(result.olts)
+      {[...groupedByOltPort.entries()]
         .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-        .map(([oltName, oltStats]) => {
-          const oltOnts = filteredOnts.filter((o) => o._oltName === oltName);
-          if (oltOnts.length === 0) return null; // Hide OLT if no matching ONTs
-          const oltCritical = oltOnts.filter((o) => o._analysis.status === 'critical').length;
-          const oltWarning = oltOnts.filter((o) => o._analysis.status === 'warning').length;
+        .map(([oltName, oltGroup]) => {
+          const oltStats = result.olts[oltName];
+          if (!oltStats) return null;
+          const oltOnts = oltGroup.onts;
+          // Single-pass status count (replaces 2 separate filter calls)
+          let oltCritical = 0, oltWarning = 0;
+          for (const o of oltOnts) {
+            if (o._analysis.status === 'critical') oltCritical++;
+            else if (o._analysis.status === 'warning') oltWarning++;
+          }
           const isOltExpanded = expandedOlts.includes(oltName);
 
           return (
@@ -107,13 +118,17 @@ function OltHierarchyView({
 
                 <CollapsibleContent>
                   <div className="p-3 space-y-2 bg-gray-50 dark:bg-gray-800/50">
-                    {Object.entries(oltStats.ports)
+                    {[...oltGroup.ports.entries()]
                       .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-                      .map(([portKey, portStats]) => {
-                        const portOnts = oltOnts.filter((o) => o._port === portKey);
-                        if (portOnts.length === 0) return null; // Hide port if no matching ONTs
-                        const portCritical = portOnts.filter((o) => o._analysis.status === 'critical').length;
-                        const portWarning = portOnts.filter((o) => o._analysis.status === 'warning').length;
+                      .map(([portKey, portOnts]) => {
+                        const portStats = oltStats.ports?.[portKey];
+                        if (!portStats) return null;
+                        // Single-pass status count (replaces 2 separate filter calls)
+                        let portCritical = 0, portWarning = 0;
+                        for (const o of portOnts) {
+                          if (o._analysis.status === 'critical') portCritical++;
+                          else if (o._analysis.status === 'warning') portWarning++;
+                        }
                         const portId = `${oltName}|${portKey}`;
                         const isPortExpanded = expandedPorts.includes(portId);
 

@@ -133,25 +133,59 @@ export default function OLTPortSummary({ result, onDrillDown }) {
   const summaryData = useMemo(() => {
     if (!result?.olts || !result?.onts) return { olts: [], ports: [] };
 
+    // Single-pass groupBy: OLT → ONTs (avoids N×OLT repeated filtering)
+    const oltOntMap = new Map();
+    for (const ont of result.onts) {
+      const oltName = ont._oltName || 'Unknown';
+      if (!oltOntMap.has(oltName)) oltOntMap.set(oltName, []);
+      oltOntMap.get(oltName).push(ont);
+    }
+
     const oltSummaries = [];
     const portSummaries = [];
 
     Object.entries(result.olts).forEach(([oltName, oltStats]) => {
-      const oltOnts = result.onts.filter(o => o._oltName === oltName);
-      const criticalCount = oltOnts.filter(o => o._analysis.status === 'critical').length;
-      const warningCount = oltOnts.filter(o => o._analysis.status === 'warning').length;
-      const okCount = oltOnts.filter(o => o._analysis.status === 'ok').length;
-      const offlineCount = oltOnts.filter(o => o._analysis.status === 'offline').length;
+      const oltOnts = oltOntMap.get(oltName) || [];
+      if (oltOnts.length === 0) return;
 
-      // Calculate averages
-      const rxValues = oltOnts.map(o => parseFloat(o.OntRxOptPwr)).filter(v => !isNaN(v));
-      const txValues = oltOnts.map(o => parseFloat(o.OntTxPwr)).filter(v => !isNaN(v));
-      const oltRxValues = oltOnts.map(o => parseFloat(o.OLTRXOptPwr)).filter(v => !isNaN(v));
+      // Single-pass OLT stats (replaces 14+ separate filter/map/reduce calls)
+      let criticalCount = 0, warningCount = 0, okCount = 0, offlineCount = 0;
+      let rxSum = 0, rxCount = 0, rxMin = Infinity, rxMax = -Infinity;
+      let txSum = 0, txCount = 0;
+      let oltRxSum = 0, oltRxCount = 0;
+      let degradingCount = 0;
+      let usBip = 0, dsBip = 0, usFecUn = 0, dsFecUn = 0, usFecCor = 0, dsFecCor = 0, usHec = 0, usMissed = 0;
 
-      // Detect degrading ONTs (those below -25 dBm)
-      const degradingCount = rxValues.filter(v => v < -25).length;
+      // Port sub-grouping within this OLT (single pass)
+      const portMap = new Map();
+      for (const o of oltOnts) {
+        const status = o._analysis.status;
+        if (status === 'critical') criticalCount++;
+        else if (status === 'warning') warningCount++;
+        else if (status === 'ok') okCount++;
+        else if (status === 'offline') offlineCount++;
 
-      // Check for correlated issues (multiple ONTs with issues)
+        const rx = parseFloat(o.OntRxOptPwr);
+        if (!isNaN(rx)) { rxSum += rx; rxCount++; if (rx < rxMin) rxMin = rx; if (rx > rxMax) rxMax = rx; if (rx < -25) degradingCount++; }
+        const tx = parseFloat(o.OntTxPwr);
+        if (!isNaN(tx)) { txSum += tx; txCount++; }
+        const oltRx = parseFloat(o.OLTRXOptPwr);
+        if (!isNaN(oltRx)) { oltRxSum += oltRx; oltRxCount++; }
+
+        usBip += parseInt(o.UpstreamBipErrors) || 0;
+        dsBip += parseInt(o.DownstreamBipErrors) || 0;
+        usFecUn += parseInt(o.UpstreamFecUncorrectedCodeWords) || 0;
+        dsFecUn += parseInt(o.DownstreamFecUncorrectedCodeWords) || 0;
+        usFecCor += parseInt(o.UpstreamFecCorrectedCodeWords) || 0;
+        dsFecCor += parseInt(o.DownstreamFecCorrectedCodeWords) || 0;
+        usHec += parseInt(o.UpstreamGemHecErrors) || 0;
+        usMissed += parseInt(o.UpstreamMissedBursts) || 0;
+
+        const portKey = o._port || 'Unknown';
+        if (!portMap.has(portKey)) portMap.set(portKey, []);
+        portMap.get(portKey).push(o);
+      }
+
       const issueRate = (criticalCount + warningCount) / oltOnts.length;
       const hasCorrelatedIssue = issueRate > 0.3 && (criticalCount + warningCount) >= 3;
 
@@ -159,38 +193,55 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         name: oltName,
         portCount: oltStats.portCount,
         ontCount: oltStats.totalOnts,
-        criticalCount,
-        warningCount,
-        okCount,
-        offlineCount,
-        avgOntRx: rxValues.length > 0 ? rxValues.reduce((a, b) => a + b, 0) / rxValues.length : null,
-        avgOntTx: txValues.length > 0 ? txValues.reduce((a, b) => a + b, 0) / txValues.length : null,
-        avgOltRx: oltRxValues.length > 0 ? oltRxValues.reduce((a, b) => a + b, 0) / oltRxValues.length : null,
-        minOntRx: rxValues.length > 0 ? Math.min(...rxValues) : null,
-        maxOntRx: rxValues.length > 0 ? Math.max(...rxValues) : null,
-        degradingCount,
-        hasCorrelatedIssue,
-        issueRate,
-        errors: computeErrorTotals(oltOnts),
+        criticalCount, warningCount, okCount, offlineCount,
+        avgOntRx: rxCount > 0 ? rxSum / rxCount : null,
+        avgOntTx: txCount > 0 ? txSum / txCount : null,
+        avgOltRx: oltRxCount > 0 ? oltRxSum / oltRxCount : null,
+        minOntRx: rxCount > 0 ? rxMin : null,
+        maxOntRx: rxCount > 0 ? rxMax : null,
+        degradingCount, hasCorrelatedIssue, issueRate,
+        errors: { usBip, dsBip, usFecUn, dsFecUn, usFecCor, dsFecCor, usHec, usMissed, total: usBip + dsBip + usFecUn + dsFecUn + usFecCor + dsFecCor + usHec + usMissed },
       });
 
-      // Process each port
+      // Process ports using pre-grouped portMap (no repeated filtering)
       Object.entries(oltStats.ports).forEach(([portKey, portStats]) => {
-        const portOnts = oltOnts.filter(o => o._port === portKey);
-        const portCritical = portOnts.filter(o => o._analysis.status === 'critical').length;
-        const portWarning = portOnts.filter(o => o._analysis.status === 'warning').length;
-        const portOk = portOnts.filter(o => o._analysis.status === 'ok').length;
-        const portOffline = portOnts.filter(o => o._analysis.status === 'offline').length;
+        const portOnts = portMap.get(portKey) || [];
+        if (portOnts.length === 0) return;
 
-        const portRxValues = portOnts.map(o => parseFloat(o.OntRxOptPwr)).filter(v => !isNaN(v));
-        const portTxValues = portOnts.map(o => parseFloat(o.OntTxPwr)).filter(v => !isNaN(v));
-        const portOltRxValues = portOnts.map(o => parseFloat(o.OLTRXOptPwr)).filter(v => !isNaN(v));
+        let portCritical = 0, portWarning = 0, portOk = 0, portOffline = 0;
+        let pRxSum = 0, pRxCount = 0, pRxMin = Infinity, pRxMax = -Infinity;
+        let pTxSum = 0, pTxCount = 0;
+        let pOltRxSum = 0, pOltRxCount = 0;
+        let pDegradingCount = 0;
+        let pUsBip = 0, pDsBip = 0, pUsFecUn = 0, pDsFecUn = 0, pUsFecCor = 0, pDsFecCor = 0, pUsHec = 0, pUsMissed = 0;
 
-        const portDegradingCount = portRxValues.filter(v => v < -25).length;
+        for (const o of portOnts) {
+          const status = o._analysis.status;
+          if (status === 'critical') portCritical++;
+          else if (status === 'warning') portWarning++;
+          else if (status === 'ok') portOk++;
+          else if (status === 'offline') portOffline++;
+
+          const rx = parseFloat(o.OntRxOptPwr);
+          if (!isNaN(rx)) { pRxSum += rx; pRxCount++; if (rx < pRxMin) pRxMin = rx; if (rx > pRxMax) pRxMax = rx; if (rx < -25) pDegradingCount++; }
+          const tx = parseFloat(o.OntTxPwr);
+          if (!isNaN(tx)) { pTxSum += tx; pTxCount++; }
+          const oltRx = parseFloat(o.OLTRXOptPwr);
+          if (!isNaN(oltRx)) { pOltRxSum += oltRx; pOltRxCount++; }
+
+          pUsBip += parseInt(o.UpstreamBipErrors) || 0;
+          pDsBip += parseInt(o.DownstreamBipErrors) || 0;
+          pUsFecUn += parseInt(o.UpstreamFecUncorrectedCodeWords) || 0;
+          pDsFecUn += parseInt(o.DownstreamFecUncorrectedCodeWords) || 0;
+          pUsFecCor += parseInt(o.UpstreamFecCorrectedCodeWords) || 0;
+          pDsFecCor += parseInt(o.DownstreamFecCorrectedCodeWords) || 0;
+          pUsHec += parseInt(o.UpstreamGemHecErrors) || 0;
+          pUsMissed += parseInt(o.UpstreamMissedBursts) || 0;
+        }
+
         const portIssueRate = (portCritical + portWarning) / portOnts.length;
         const portHasCorrelatedIssue = portIssueRate > 0.4 && (portCritical + portWarning) >= 2;
 
-        // Get LCP info: first try pre-populated, then real-time lookup
         let lcpInfo = portOnts.find(o => o._lcpNumber);
         let resolvedLcp = null;
         if (!lcpInfo && lcpMap.size > 0 && portOnts.length > 0) {
@@ -198,20 +249,16 @@ export default function OLTPortSummary({ result, onDrillDown }) {
         }
 
         portSummaries.push({
-          oltName,
-          portKey,
+          oltName, portKey,
           fullPath: `${oltName} / ${portKey}`,
           ontCount: portStats.count,
-          criticalCount: portCritical,
-          warningCount: portWarning,
-          okCount: portOk,
-          offlineCount: portOffline,
-          avgOntRx: portRxValues.length > 0 ? portRxValues.reduce((a, b) => a + b, 0) / portRxValues.length : null,
-          avgOntTx: portTxValues.length > 0 ? portTxValues.reduce((a, b) => a + b, 0) / portTxValues.length : null,
-          avgOltRx: portOltRxValues.length > 0 ? portOltRxValues.reduce((a, b) => a + b, 0) / portOltRxValues.length : null,
-          minOntRx: portRxValues.length > 0 ? Math.min(...portRxValues) : null,
-          maxOntRx: portRxValues.length > 0 ? Math.max(...portRxValues) : null,
-          degradingCount: portDegradingCount,
+          criticalCount: portCritical, warningCount: portWarning, okCount: portOk, offlineCount: portOffline,
+          avgOntRx: pRxCount > 0 ? pRxSum / pRxCount : null,
+          avgOntTx: pTxCount > 0 ? pTxSum / pTxCount : null,
+          avgOltRx: pOltRxCount > 0 ? pOltRxSum / pOltRxCount : null,
+          minOntRx: pRxCount > 0 ? pRxMin : null,
+          maxOntRx: pRxCount > 0 ? pRxMax : null,
+          degradingCount: pDegradingCount,
           hasCorrelatedIssue: portHasCorrelatedIssue,
           issueRate: portIssueRate,
           lcpNumber: lcpInfo?._lcpNumber || resolvedLcp?.lcp_number || '',
@@ -219,7 +266,7 @@ export default function OLTPortSummary({ result, onDrillDown }) {
           lcpLocation: lcpInfo?._lcpLocation || resolvedLcp?.location || '',
           lcpAddress: lcpInfo?._lcpAddress || resolvedLcp?.address || '',
           onts: portOnts,
-          errors: computeErrorTotals(portOnts),
+          errors: { usBip: pUsBip, dsBip: pDsBip, usFecUn: pUsFecUn, dsFecUn: pDsFecUn, usFecCor: pUsFecCor, dsFecCor: pDsFecCor, usHec: pUsHec, usMissed: pUsMissed, total: pUsBip + pDsBip + pUsFecUn + pDsFecUn + pUsFecCor + pDsFecCor + pUsHec + pUsMissed },
         });
       });
     });

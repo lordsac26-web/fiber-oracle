@@ -59,9 +59,16 @@ export default function VirtualizedONTTable({
   }, [skipVirtualization]);
 
   useEffect(() => {
-    if (containerRef.current) {
-      setContainerHeight(containerRef.current.clientHeight || 400);
-    }
+    if (!containerRef.current) return;
+    // Initial synchronous measurement so the first render has a real height,
+    // then track resize so the virtualization window stays accurate on
+    // layout changes / window resize.
+    setContainerHeight(containerRef.current.clientHeight || 400);
+    const ro = new ResizeObserver(entries => {
+      setContainerHeight(entries[0].contentRect.height || 400);
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
   }, []);
 
   // Compute visible window
