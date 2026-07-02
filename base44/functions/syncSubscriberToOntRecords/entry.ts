@@ -11,7 +11,7 @@
  * - Optionally auto-continues in slices to avoid long single invocations.
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 
 const VENDOR_PREFIXES = ['CXNK', 'ZNTS'];
 const XGS_MODELS = ['GP1101X', 'GP4201X', 'GP4201XH', '5222XG', '5228XG'];

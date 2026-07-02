@@ -14,7 +14,7 @@
  *        e. Per-ONT detailed cards
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
 // ─── Text Sanitizer (Latin-1 only — jsPDF's default fonts don't ship Unicode) ─

@@ -15,7 +15,7 @@
  * frontend already has subscriber + eero lookups loaded.
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
 // ─── Sanitize text for jsPDF helvetica (Latin-1 only) ─────────────────────

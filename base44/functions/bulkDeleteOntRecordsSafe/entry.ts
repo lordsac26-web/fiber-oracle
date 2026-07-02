@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.6';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 
 // Safe batched ONT record deletion
 // Uses small concurrent batches with delays to avoid MongoDB timeouts

@@ -13,7 +13,7 @@
  * because a slow background cleanup is much better than a failed upload.
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 
 Deno.serve(async (req) => {
   try {

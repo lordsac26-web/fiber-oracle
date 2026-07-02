@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 
 const BATCH_SIZE = 50;
 const BATCH_DELAY_MS = 500; // Small delay between batches to prevent timeout

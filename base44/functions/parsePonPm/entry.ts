@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 import { parse } from 'npm:csv-parse@5.5.2/sync';
 
 // Default thresholds — can be overridden per-request via body.thresholds

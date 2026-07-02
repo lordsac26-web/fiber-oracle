@@ -24,7 +24,7 @@
  *     source of truth for "what tech is this model?" going forward.
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.32';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 
 // Normalize a raw model string the same way across the whole app:
 // uppercase + strip all whitespace. Matching is then substring-based.

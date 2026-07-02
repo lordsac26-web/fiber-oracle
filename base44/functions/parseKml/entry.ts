@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.4';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 import JSZip from 'npm:jszip@3.10.1';
 
 // Validation helpers

@@ -25,7 +25,7 @@
  * Footer: "Presented with FiberOracle  •  <date>" on every page.
  */
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 import { jsPDF } from 'npm:jspdf@2.5.1';
 
 // ─── Text sanitizer (Latin-1 / jsPDF helvetica safe) ──────────────────────────
@@ -693,7 +693,13 @@ Deno.serve(async (req) => {
     const tz = timezone || 'America/New_York';
 
     // ── Paginated fetch helper ─────────────────────────────────────────────
-    const PAGE = 5000;
+    // PAGE raised to 10000 and the inter-page delay removed: on large reports
+    // (7k+ ONTs across current + 7-day + 30-day historical) the previous
+    // 5000-row pages with a 150ms sleep between each page pushed total
+    // wall-clock time past the function execution limit, causing the timeouts
+    // the user reported. Fewer, larger pages with no artificial delay keeps
+    // the same data with a fraction of the round-trips.
+    const PAGE = 10000;
     async function fetchAllFiltered(entityName, filterObj, sort) {
       let all = [];
       let offset = 0;
@@ -705,7 +711,6 @@ Deno.serve(async (req) => {
         all = all.concat(batch);
         if (batch.length < PAGE) break;
         offset += batch.length;
-        await new Promise(r => setTimeout(r, 150));
       }
       return all;
     }
