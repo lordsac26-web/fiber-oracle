@@ -693,13 +693,16 @@ Deno.serve(async (req) => {
     const tz = timezone || 'America/New_York';
 
     // ── Paginated fetch helper ─────────────────────────────────────────────
-    // PAGE raised to 10000 and the inter-page delay removed: on large reports
-    // (7k+ ONTs across current + 7-day + 30-day historical) the previous
-    // 5000-row pages with a 150ms sleep between each page pushed total
-    // wall-clock time past the function execution limit, causing the timeouts
-    // the user reported. Fewer, larger pages with no artificial delay keeps
-    // the same data with a fraction of the round-trips.
-    const PAGE = 10000;
+    // The SDK silently caps the `limit` parameter (empirically at ~5000).
+    // Requesting 10000 returns only 5000, and the loop's `batch.length < PAGE`
+    // check then evaluates true (5000 < 10000), breaking after the first page
+    // and capping the total at 5000. Using a page size of 1000 (the same value
+    // loadSavedReport uses successfully) ensures every page is fully returned
+    // and pagination continues until the true end of the result set.
+    // The inter-page sleep was already removed, so the extra round-trips for
+    // large reports (7 pages for 7k ONTs) are still well within the execution
+    // limit.
+    const PAGE = 1000;
     async function fetchAllFiltered(entityName, filterObj, sort) {
       let all = [];
       let offset = 0;
