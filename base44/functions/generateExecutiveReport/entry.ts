@@ -821,102 +821,42 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Build subscriber lookup (mirrors UI) ────────────────────────────────
-    // Lookups now store { account, model } so we can also resolve the
-    // authoritative ONT model the same way the live UI's global filter does.
-    // (The frontend overwrites ont.model with sub.ONTModel during enrichment;
-    // mirroring that here makes the ONT Model Summary match the global filter.)
-    const subByComposite = new Map();
-    const subBySerial    = new Map();
-    const subByAccount   = new Map();
-    // Tech counts driven directly off the subscriber CSV (ONTModel column) —
-    // this is the authoritative inventory list per product decision (2026-05).
-    let subGponCount = 0;
-    let subXgsCount  = 0;
+    // ── Subscriber enrichment is PRE-INGEST (Step 2) ────────────────────────
+    // subscriber_account_name / subscriber_address / subscriber_model are
+    // denormalized onto ONTPerformanceRecord at ingest (processPonPmRecords)
+    // and re-synced whenever a new subscriber CSV is activated
+    // (saveSubscriberData → syncSubscriberToOntRecords). Reading them off the
+    // record removes the full SubscriberRecord table load + runtime join that
+    // dominated this function's execution time and memory footprint.
+    //
+    // The subscriber-CSV GPON/XGS-PON KPI counts are precomputed at upload
+    // time and stored on the active SubscriberUploadMeta (gpon_count /
+    // xgs_count). If an older meta lacks them, we keep the per-record
+    // classification totals computed in the aggregation pass below.
+    let subGponCount = null;
+    let subXgsCount = null;
     try {
       const activeSubUploads = await base44.asServiceRole.entities.SubscriberUploadMeta
         .filter({ status: 'active' }, '-created_date', 1);
-      const subUploadId = activeSubUploads[0]?.id;
-      const subFilter = subUploadId ? { upload_id: subUploadId } : {};
-      const subs = await fetchAllFiltered('SubscriberRecord', subFilter, 'id');
-
-      for (const sub of subs) {
-        // Tech tally — only count RANGED ONTs (ONTRanged === true). Un-ranged
-        // rows represent provisioned-but-not-yet-active service and should not
-        // appear in the deployed inventory totals. Mirrors the spreadsheet
-        // filter the ops team uses as ground truth.
-        const rangedRaw = String(sub.ONTRanged ?? '').trim().toLowerCase();
-        const isRanged = rangedRaw === 'true' || rangedRaw === 'yes' || rangedRaw === '1';
-        if (isRanged) {
-          const t = detectTechType(sub.ONTModel);
-          if (t === 'XGS-PON') subXgsCount++;
-          else if (t === 'GPON') subGponCount++;
-        }
-
-        const account = (sub.AccountName || '').trim();
-        const model   = (sub.ONTModel || '').trim();
-        const payload = { account, model };
-        if (sub.DeviceName && sub.LinkedPon && sub.OntID) {
-          const oltName = sub.DeviceName.trim().toUpperCase();
-          const port    = normalizePortPath(sub.LinkedPon);
-          const ontId   = String(sub.OntID).trim().toUpperCase();
-          // Composite keys store account+model; either may be empty.
-          subByComposite.set(`${oltName}|${port}|${ontId}`, payload);
-          subByComposite.set(`|${port}|${ontId}`, payload);
-        }
-        const ns = normalizeSerial(sub.ONTSerialNo);
-        if (ns && !subBySerial.has(ns)) subBySerial.set(ns, payload);
-
-        const acctKey = normalizeHomeId(account) || account;
-        if (acctKey && !subByAccount.has(acctKey)) {
-          subByAccount.set(acctKey, {
-            city: (sub.City || '').trim() || 'Unknown',
-          });
-        }
+      const activeSubMeta = activeSubUploads[0];
+      if (activeSubMeta && Number.isFinite(activeSubMeta.gpon_count) && Number.isFinite(activeSubMeta.xgs_count)) {
+        subGponCount = activeSubMeta.gpon_count;
+        subXgsCount = activeSubMeta.xgs_count;
       }
-      console.log(`[generateExecutiveReport] Subscriber lookup — rows=${subs.length}`);
     } catch (err) {
-      console.log(`[generateExecutiveReport] SubscriberRecord lookup failed (non-fatal): ${err.message}`);
+      console.log(`[generateExecutiveReport] SubscriberUploadMeta lookup failed (non-fatal): ${err.message}`);
     }
 
-    // Resolve {account, model} for a record, mirroring the frontend's
-    // enrichment priority (composite OLT|port|ontId → composite |port|ontId
-    // → serial → fallback to whatever was denormalized at ingest).
+    // Denormalized-field resolvers — same shape as the former runtime join so
+    // downstream call sites (aggregateRecords, single-pass loop) are unchanged.
     function resolveLiveSub(rec) {
-      const oltName = (rec.olt_name || '').trim().toUpperCase();
-      const port    = normalizePortPath(rec.shelf_slot_port || '');
-      const ontId   = String(rec.ont_id || '').trim().toUpperCase();
-      if (oltName && port && ontId) {
-        const v = subByComposite.get(`${oltName}|${port}|${ontId}`);
-        if (v) return v;
-      }
-      if (port && ontId) {
-        const v = subByComposite.get(`|${port}|${ontId}`);
-        if (v) return v;
-      }
-      const ns = normalizeSerial(rec.serial_number);
-      if (ns) {
-        const v = subBySerial.get(ns);
-        if (v) return v;
-      }
       return {
         account: rec.subscriber_account_name || null,
-        model:   rec.subscriber_model || null,
+        model: rec.subscriber_model || null,
       };
     }
-
-    // Back-compat shim — most call sites only want the account string.
     function resolveLiveAccount(rec) {
-      return resolveLiveSub(rec).account || null;
-    }
-
-    // Resolve the authoritative ONT model for a record. Subscriber-side wins
-    // (matches what the live UI displays); falls back to OLT-reported model.
-    function resolveLiveModel(rec) {
-      const sub = resolveLiveSub(rec);
-      const m = (sub.model || '').trim();
-      if (m) return m;
-      return (rec.model || '').trim() || 'Unknown';
+      return rec.subscriber_account_name || null;
     }
 
     // ── SINGLE-PASS aggregation over current records ────────────────────────
@@ -965,9 +905,8 @@ Deno.serve(async (req) => {
       if (r.status) o[r.status] = (o[r.status] || 0) + 1;
       if (r.ont_rx_power != null && !isNaN(r.ont_rx_power)) { o.rxSum += r.ont_rx_power; o.rxCount++; }
 
-      // 3. City saturation (subscriber city wins, address parse as fallback)
-      const subInfo = acctKey ? subByAccount.get(acctKey) : null;
-      const city = subInfo ? subInfo.city : parseAddress(r.subscriber_address).city;
+      // 3. City saturation (city parsed from the denormalized subscriber address)
+      const city = parseAddress(r.subscriber_address).city;
       let cty = cityMap.get(city);
       if (!cty) { cty = { total: 0, critical: 0, warning: 0 }; cityMap.set(city, cty); }
       cty.total++;
@@ -1036,9 +975,13 @@ Deno.serve(async (req) => {
     // report on the most recent PON PM run. Historical aggregates
     // (week1/month1) keep the per-record tech classification because we
     // can't time-travel the subscriber CSV; only current totals are swapped.
-    currentAgg.gpon = subGponCount;
-    currentAgg.xgs  = subXgsCount;
-    console.log(`[generateExecutiveReport] Subscriber-CSV tech counts — GPON=${subGponCount}, XGS-PON=${subXgsCount}`);
+    // Only override when the active upload meta carries precomputed counts;
+    // otherwise the per-record classification from the aggregation pass stands.
+    if (subGponCount !== null && subXgsCount !== null) {
+      currentAgg.gpon = subGponCount;
+      currentAgg.xgs  = subXgsCount;
+    }
+    console.log(`[generateExecutiveReport] Subscriber-CSV tech counts — GPON=${currentAgg.gpon}, XGS-PON=${currentAgg.xgs}`);
 
     const healthPct = currentAgg.total > 0
       ? ((currentAgg.ok / currentAgg.total) * 100).toFixed(1)

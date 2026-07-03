@@ -29,6 +29,34 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.35';
 
+// ─── Tech classification (mirrors generateExecutiveReport / syncSubscriberToOntRecords) ───
+const XGS_MODELS = ['GP1101X', 'GP4201X', 'GP4201XH', '5222XG', '5228XG'];
+const GPON_MODELS = ['711GE', '717GE', '725G', '725GE', '725', '812G-1', '844G-1', '844GE-1', '803G'];
+function detectTechType(model) {
+  if (!model) return null;
+  const m = String(model).toUpperCase().trim().replace(/\s/g, '');
+  if (m.includes('DZS')) return 'XGS-PON';
+  for (const x of XGS_MODELS) if (m.includes(x)) return 'XGS-PON';
+  for (const g of GPON_MODELS) if (m.includes(g)) return 'GPON';
+  return null;
+}
+
+// Precompute the RANGED GPON/XGS-PON inventory counts once per upload so
+// downstream consumers (generateExecutiveReport) can read them off the meta
+// instead of re-scanning the entire subscriber table at report time.
+function computeRangedTechCounts(records) {
+  let gpon = 0, xgs = 0;
+  for (const sub of records) {
+    const rangedRaw = String(sub.ONTRanged ?? '').trim().toLowerCase();
+    const isRanged = rangedRaw === 'true' || rangedRaw === 'yes' || rangedRaw === '1';
+    if (!isRanged) continue;
+    const t = detectTechType(sub.ONTModel);
+    if (t === 'XGS-PON') xgs++;
+    else if (t === 'GPON') gpon++;
+  }
+  return { gpon, xgs };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -94,6 +122,15 @@ Deno.serve(async (req) => {
         offset += pageSize;
       }
 
+      // Stamp precomputed tech counts onto the newly-active meta (Step 2:
+      // pre-ingest enrichment — report generation reads these directly).
+      const techCounts = computeRangedTechCounts(allSubscriberRecords);
+      await base44.asServiceRole.entities.SubscriberUploadMeta.update(meta_id, {
+        gpon_count: techCounts.gpon,
+        xgs_count: techCounts.xgs,
+      });
+      console.log(`[saveSubscriberData] Precomputed tech counts — GPON=${techCounts.gpon}, XGS-PON=${techCounts.xgs}`);
+
       // Fire-and-forget canonical subscriber → ONT sync.
       // This replaces the older competing enrichPonPmFromSubscriber path so all
       // persisted ONT model/technology counts use one normalization strategy.
@@ -155,6 +192,13 @@ Deno.serve(async (req) => {
       if (batch.length < pageSize) break;
       offset += pageSize;
     }
+
+    // Stamp precomputed tech counts (legacy path parity with activate mode).
+    const legacyTechCounts = computeRangedTechCounts(allSubscriberRecords);
+    await base44.asServiceRole.entities.SubscriberUploadMeta.update(meta.id, {
+      gpon_count: legacyTechCounts.gpon,
+      xgs_count: legacyTechCounts.xgs,
+    });
 
     base44.functions.invoke('syncSubscriberToOntRecords', {}).catch((err) => {
       console.error('[saveSubscriberData] Background sync failed to start:', err.message);

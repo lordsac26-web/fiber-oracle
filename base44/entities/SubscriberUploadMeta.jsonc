@@ -23,6 +23,14 @@
       ],
       "default": "active",
       "description": "Whether this is the current active dataset"
+    },
+    "gpon_count": {
+      "type": "number",
+      "description": "Precomputed count of RANGED GPON ONTs in this upload (from ONTModel column). Computed once at activation so report generation does not need to re-scan the subscriber table."
+    },
+    "xgs_count": {
+      "type": "number",
+      "description": "Precomputed count of RANGED XGS-PON ONTs in this upload (from ONTModel column). Computed once at activation so report generation does not need to re-scan the subscriber table."
     }
   },
   "required": [
