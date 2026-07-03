@@ -919,12 +919,113 @@ Deno.serve(async (req) => {
       return (rec.model || '').trim() || 'Unknown';
     }
 
-    // ── Aggregate current + historical ──────────────────────────────────────
+    // ── SINGLE-PASS aggregation over current records ────────────────────────
+    // Previously the function iterated `currentRecs` NINE separate times
+    // (KPIs, per-OLT, city, ONT models, eero models, critical list, port
+    // issues, port FEC, PON-port counts, LCP utilization), and several of
+    // those loops each re-ran the resolveLiveSub() lookup chain per record.
+    // Consolidating into one pass resolves the subscriber exactly once per
+    // record and touches each record once — the dominant CPU win for 8k+
+    // ONT reports.
+    const currentAgg = {
+      total: 0, critical: 0, warning: 0, ok: 0, offline: 0,
+      gpon: 0, xgs: 0, eeroCount: 0,
+    };
+    const oltMap = new Map();
+    const cityMap = new Map();
+    const ontModelCounts = new Map();
+    const criticalRecs = [];
+    const portIssueMap = new Map();
+    const portFec = new Map();
+    const ontByPonPort = new Map();
+    const lcpUtilMap = new Map();
+
+    for (const r of currentRecs) {
+      // Resolve the live subscriber ONCE per record (was re-run per loop).
+      const sub = resolveLiveSub(r);
+      const liveModel = (sub.model || '').trim();
+      const acctKey = normalizeHomeId(sub.account);
+
+      // 1. Network-wide status / tech / eero KPIs (mirrors aggregateRecords)
+      currentAgg.total++;
+      if (r.status === 'critical') { currentAgg.critical++; criticalRecs.push(r); }
+      else if (r.status === 'warning') currentAgg.warning++;
+      else if (r.status === 'offline') currentAgg.offline++;
+      else currentAgg.ok++;
+      const tech = classifyTech(r, liveModel || null);
+      if (tech === 'XGS-PON') currentAgg.xgs++;
+      else if (tech === 'GPON') currentAgg.gpon++;
+      if (acctKey && eeroHomeKeys.has(acctKey)) currentAgg.eeroCount++;
+
+      // 2. Per-OLT breakdown
+      const olt = r.olt_name || 'Unknown';
+      let o = oltMap.get(olt);
+      if (!o) { o = { total: 0, critical: 0, warning: 0, ok: 0, offline: 0, rxSum: 0, rxCount: 0 }; oltMap.set(olt, o); }
+      o.total++;
+      if (r.status) o[r.status] = (o[r.status] || 0) + 1;
+      if (r.ont_rx_power != null && !isNaN(r.ont_rx_power)) { o.rxSum += r.ont_rx_power; o.rxCount++; }
+
+      // 3. City saturation (subscriber city wins, address parse as fallback)
+      const subInfo = acctKey ? subByAccount.get(acctKey) : null;
+      const city = subInfo ? subInfo.city : parseAddress(r.subscriber_address).city;
+      let cty = cityMap.get(city);
+      if (!cty) { cty = { total: 0, critical: 0, warning: 0 }; cityMap.set(city, cty); }
+      cty.total++;
+      if (r.status === 'critical') cty.critical++;
+      if (r.status === 'warning') cty.warning++;
+
+      // 4. ONT model summary (subscriber-provided model wins — mirrors resolveLiveModel)
+      const modelName = liveModel || (r.model || '').trim() || 'Unknown';
+      ontModelCounts.set(modelName, (ontModelCounts.get(modelName) || 0) + 1);
+
+      // 5. Eero model summary (only eeros matched to current ONTs)
+      if (acctKey) {
+        const eero = eeroByAccount.get(acctKey);
+        if (eero) {
+          const eModel = (eero.model || 'Unknown').trim() || 'Unknown';
+          eeroModelCounts.set(eModel, (eeroModelCounts.get(eModel) || 0) + 1);
+        }
+      }
+
+      // 6. Port issue counts
+      const portKey = `${olt}|${r.shelf_slot_port || 'Unknown'}`;
+      let pi = portIssueMap.get(portKey);
+      if (!pi) { pi = { olt, port: r.shelf_slot_port || 'Unknown', critical: 0, warning: 0, offline: 0, totalIssues: 0, ontCount: 0 }; portIssueMap.set(portKey, pi); }
+      pi.ontCount++;
+      if (r.status === 'critical' || r.status === 'warning' || r.status === 'offline') {
+        pi[r.status]++;
+        pi.totalIssues++;
+      }
+
+      // 7. Port corrected-FEC totals
+      let pf = portFec.get(portKey);
+      if (!pf) { pf = { olt, port: r.shelf_slot_port || 'Unknown', total: 0, ontCount: 0 }; portFec.set(portKey, pf); }
+      pf.total += (r.us_fec_corrected || 0) + (r.ds_fec_corrected || 0);
+      pf.ontCount++;
+
+      // 8. PON-port ONT counts (for the GPON-swap section)
+      const oltUpper = String(r.olt_name || '').trim().toUpperCase();
+      const path = normalizePortPath(r.shelf_slot_port || '');
+      if (oltUpper && path) {
+        const pk = `${oltUpper}|${path}`;
+        ontByPonPort.set(pk, (ontByPonPort.get(pk) || 0) + 1);
+      }
+
+      // 9. LCP / splitter utilization
+      const lcp = (r.lcp_number || '').trim().toUpperCase();
+      if (lcp) {
+        const splitter = (r.splitter_number || '').trim().toUpperCase() || 'UNKNOWN';
+        let li = lcpUtilMap.get(lcp);
+        if (!li) { li = { lcp, splitters: new Map(), location: '', oltName: '' }; lcpUtilMap.set(lcp, li); }
+        li.splitters.set(splitter, (li.splitters.get(splitter) || 0) + 1);
+        if (!li.oltName && r.olt_name) li.oltName = r.olt_name;
+      }
+    }
+
+    // Historical aggregates (much smaller scope — only KPI deltas needed).
     // Pass resolveLiveSub so classifyTech can pull the FRESH subscriber-side
-    // model for every record. Without it the function falls back to whatever
-    // was denormalized onto the record at ingest time, which routinely misses
-    // ~1000 XGS-PON records whenever a new subscriber CSV is uploaded.
-    const currentAgg = aggregateRecords(currentRecs,   eeroHomeKeys, resolveLiveAccount, resolveLiveSub);
+    // model for every record; without it we miss ~1000 XGS-PON records
+    // whenever a new subscriber CSV is uploaded.
     const week1Agg   = aggregateRecords(week1RecsRaw,  eeroHomeKeys, resolveLiveAccount, resolveLiveSub);
     const month1Agg  = aggregateRecords(month1RecsRaw, eeroHomeKeys, resolveLiveAccount, resolveLiveSub);
 
@@ -943,16 +1044,7 @@ Deno.serve(async (req) => {
       ? ((currentAgg.ok / currentAgg.total) * 100).toFixed(1)
       : '0.0';
 
-    // ── Per-OLT breakdown ───────────────────────────────────────────────────
-    const oltMap = new Map();
-    for (const r of currentRecs) {
-      const olt = r.olt_name || 'Unknown';
-      if (!oltMap.has(olt)) oltMap.set(olt, { total: 0, critical: 0, warning: 0, ok: 0, offline: 0, rxSum: 0, rxCount: 0 });
-      const o = oltMap.get(olt);
-      o.total++;
-      if (r.status) o[r.status] = (o[r.status] || 0) + 1;
-      if (r.ont_rx_power != null && !isNaN(r.ont_rx_power)) { o.rxSum += r.ont_rx_power; o.rxCount++; }
-    }
+    // ── Per-OLT breakdown (populated in the single pass above) ─────────────
     const oltRows = [...oltMap.entries()]
       .map(([olt, v]) => ({
         olt, ...v,
@@ -961,57 +1053,24 @@ Deno.serve(async (req) => {
       }))
       .sort((a, b) => b.critical - a.critical);
 
-    // ── City saturation ─────────────────────────────────────────────────────
-    // Zip saturation removed — city-level reporting is sufficient.
-    const cityMap = new Map();
-    for (const r of currentRecs) {
-      let city = 'Unknown';
-      const liveAccount = resolveLiveAccount(r);
-      const acctKey = normalizeHomeId(liveAccount);
-      const subInfo = acctKey ? subByAccount.get(acctKey) : null;
-      if (subInfo) {
-        city = subInfo.city;
-      } else {
-        city = parseAddress(r.subscriber_address).city;
-      }
-      if (!cityMap.has(city)) cityMap.set(city, { total: 0, critical: 0, warning: 0 });
-      const c = cityMap.get(city); c.total++;
-      if (r.status === 'critical') c.critical++;
-      if (r.status === 'warning')  c.warning++;
-    }
+    // ── City saturation (populated in the single pass above) ───────────────
     const cityRows = [...cityMap.entries()]
       .map(([city, v]) => ({ city, ...v }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 20);
 
-    // ── ONT Model Summary ───────────────────────────────────────────────────
-    // Use resolveLiveModel so the count matches the GlobalFilterBar in the UI
-    // (subscriber-provided model wins over OLT-reported model).
-    const ontModelCounts = new Map();
-    for (const r of currentRecs) {
-      const m = resolveLiveModel(r) || 'Unknown';
-      ontModelCounts.set(m, (ontModelCounts.get(m) || 0) + 1);
-    }
+    // ── ONT Model Summary (populated in the single pass above) ─────────────
     const ontModelRows = [...ontModelCounts.entries()]
       .map(([model, count]) => ({ model, count }))
       .sort((a, b) => b.count - a.count);
 
-    // ── Eero Model Summary (only eeros matched to current ONTs) ─────────────
-    for (const r of currentRecs) {
-      const acct = normalizeHomeId(resolveLiveAccount(r));
-      if (!acct) continue;
-      const eero = eeroByAccount.get(acct);
-      if (!eero) continue;
-      const model = (eero.model || 'Unknown').trim() || 'Unknown';
-      eeroModelCounts.set(model, (eeroModelCounts.get(model) || 0) + 1);
-    }
+    // ── Eero Model Summary (populated in the single pass above) ────────────
     const eeroModelRows = [...eeroModelCounts.entries()]
       .map(([model, count]) => ({ model, count }))
       .sort((a, b) => b.count - a.count);
 
-    // ── Top 30 Critical ONTs ────────────────────────────────────────────────
-    const topCritical = currentRecs
-      .filter(r => r.status === 'critical')
+    // ── Top 30 Critical ONTs (criticalRecs collected in the single pass) ────
+    const topCritical = criticalRecs
       .map(r => ({ ...r, criticalTriggers: getCriticalTriggers(r) }))
       // Worst-first: most triggered critical fields, lowest Rx, then highest US BIP
       .sort((a, b) => {
@@ -1023,28 +1082,7 @@ Deno.serve(async (req) => {
       })
       .slice(0, 30);
 
-    // ── Top 10 ports with operational issues ────────────────────────────────
-    const portIssueMap = new Map();
-    for (const r of currentRecs) {
-      const key = `${r.olt_name || 'Unknown'}|${r.shelf_slot_port || 'Unknown'}`;
-      if (!portIssueMap.has(key)) {
-        portIssueMap.set(key, {
-          olt: r.olt_name || 'Unknown',
-          port: r.shelf_slot_port || 'Unknown',
-          critical: 0,
-          warning: 0,
-          offline: 0,
-          totalIssues: 0,
-          ontCount: 0,
-        });
-      }
-      const p = portIssueMap.get(key);
-      p.ontCount++;
-      if (r.status === 'critical' || r.status === 'warning' || r.status === 'offline') {
-        p[r.status]++;
-        p.totalIssues++;
-      }
-    }
+    // ── Top 10 ports with operational issues (single-pass data) ────────────
     const topIssuePorts = [...portIssueMap.values()]
       .filter(p => p.totalIssues > 0)
       .sort((a, b) =>
@@ -1056,17 +1094,7 @@ Deno.serve(async (req) => {
       )
       .slice(0, 10);
 
-    // ── Top 20 OLT Ports by Corrected FEC (us + ds) ─────────────────────────
-    const portFec = new Map();
-    for (const r of currentRecs) {
-      const key = `${r.olt_name || 'Unknown'}|${r.shelf_slot_port || 'Unknown'}`;
-      if (!portFec.has(key)) {
-        portFec.set(key, { olt: r.olt_name || 'Unknown', port: r.shelf_slot_port || 'Unknown', total: 0, ontCount: 0 });
-      }
-      const p = portFec.get(key);
-      p.total += (r.us_fec_corrected || 0) + (r.ds_fec_corrected || 0);
-      p.ontCount++;
-    }
+    // ── Top 20 OLT Ports by Corrected FEC (single-pass data) ───────────────
     const topFecPorts = [...portFec.values()]
       .filter(p => p.total > 0)
       .sort((a, b) => b.total - a.total)
@@ -1074,13 +1102,7 @@ Deno.serve(async (req) => {
 
     // ── Remaining GPON swaps: GPON side of combo optics only ────────────────
     const GPON_SWAP_TYPES = ['XGS-COMBO', 'XGS-COMBO-EXT'];
-    const ontByPonPort = new Map();
-    for (const r of currentRecs) {
-      const olt = String(r.olt_name || '').trim().toUpperCase();
-      const path = normalizePortPath(r.shelf_slot_port || '');
-      if (olt && path) ontByPonPort.set(`${olt}|${path}`, (ontByPonPort.get(`${olt}|${path}`) || 0) + 1);
-    }
-
+    // ontByPonPort populated in the single pass above.
     const lcpEntries = await fetchAllFiltered('LCPEntry', {}, 'id');
     const opticPortMap = new Map();
     for (const entry of lcpEntries) {
@@ -1151,18 +1173,7 @@ Deno.serve(async (req) => {
       if (remaining <= 10) return 'warning';
       return 'available';
     };
-    const lcpUtilMap = new Map();
-    for (const r of currentRecs) {
-      const lcp = (r.lcp_number || '').trim().toUpperCase();
-      if (!lcp) continue;
-      const splitter = (r.splitter_number || '').trim().toUpperCase() || 'UNKNOWN';
-      if (!lcpUtilMap.has(lcp)) {
-        lcpUtilMap.set(lcp, { lcp, splitters: new Map(), location: '', oltName: '' });
-      }
-      const item = lcpUtilMap.get(lcp);
-      item.splitters.set(splitter, (item.splitters.get(splitter) || 0) + 1);
-      if (!item.oltName && r.olt_name) item.oltName = r.olt_name;
-    }
+    // lcpUtilMap populated in the single pass above.
     const topLcpUtilization = [...lcpUtilMap.values()]
       .map(item => {
         const splitterRows = [...item.splitters.entries()].map(([splitter, count]) => {
