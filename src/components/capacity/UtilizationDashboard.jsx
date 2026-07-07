@@ -17,7 +17,14 @@ import {
 } from 'lucide-react';
 
 
-const SPLITTER_CAP = 32;
+const SPLITTER_CAP = 32; // fallback when no splitter_ratio is on file
+
+// Derive capacity from the LCP entry's splitter_ratio (e.g. "1:64" → 64).
+function splitterCapacity(ratio) {
+  const m = String(ratio || '').match(/1\s*[:x/]\s*(\d+)/i);
+  const cap = m ? parseInt(m[1], 10) : NaN;
+  return Number.isFinite(cap) && cap > 0 ? cap : SPLITTER_CAP;
+}
 
 function getStatus(remaining) {
   if (remaining <= 0) return 'full';
@@ -30,7 +37,7 @@ const STATUS_CONFIG = {
   full:      { label: 'Full (0)',        color: 'bg-red-600 text-white',           icon: XCircle,       rowBg: 'bg-red-50 dark:bg-red-900/10' },
   critical:  { label: '1-4 Remaining',   color: 'bg-orange-500 text-white',        icon: AlertCircle,   rowBg: 'bg-orange-50 dark:bg-orange-900/10' },
   warning:   { label: '5-10 Remaining',  color: 'bg-amber-400 text-amber-900',     icon: AlertTriangle, rowBg: 'bg-amber-50 dark:bg-amber-900/10' },
-  available: { label: '11-32 Remaining', color: 'bg-green-100 text-green-800',     icon: CheckCircle2,  rowBg: '' },
+  available: { label: '11+ Remaining',   color: 'bg-green-100 text-green-800',     icon: CheckCircle2,  rowBg: '' },
 };
 
 export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
@@ -56,9 +63,10 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
       if (seen.has(key)) continue;
       seen.add(key);
       const count = ontCountsByKey[key] || 0;
-      const remaining = Math.max(0, SPLITTER_CAP - count);
+      const cap = splitterCapacity(entry.splitter_ratio);
+      const remaining = Math.max(0, cap - count);
       rows.push({
-        key, lcp, splitter: spl, count, remaining,
+        key, lcp, splitter: spl, count, cap, remaining,
         status: getStatus(remaining),
         location: entry.location || '',
         address: entry.address || '',
@@ -76,7 +84,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
       seen.add(key);
       const remaining = Math.max(0, SPLITTER_CAP - count);
       rows.push({
-        key, lcp, splitter: spl || '', count, remaining,
+        key, lcp, splitter: spl || '', count, cap: SPLITTER_CAP, remaining,
         status: getStatus(remaining),
         location: '', address: '', oltName: '', oltPort: '-/-/-', hasGps: false,
       });
@@ -97,7 +105,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
     for (const g of Object.values(groups)) {
       g.totalSplitters = g.splitters.length;
       g.totalOnts = g.splitters.reduce((s, r) => s + r.count, 0);
-      g.totalCapacity = g.totalSplitters * SPLITTER_CAP;
+      g.totalCapacity = g.splitters.reduce((s, r) => s + r.cap, 0);
       g.totalRemaining = g.totalCapacity - g.totalOnts;
       g.utilizationPct = g.totalCapacity > 0 ? (g.totalOnts / g.totalCapacity) * 100 : 0;
       g.fullCount = g.splitters.filter(r => r.status === 'full').length;
@@ -215,7 +223,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
           active={statusFilter === 'warning'}
         />
         <SummaryCard
-          label="Available (11-32)" value={stats.available}
+          label="Available (11+)" value={stats.available}
           className="border-0 shadow bg-green-50 dark:bg-green-900/20"
           valueColor="text-green-600"
           onClick={() => setStatusFilter(statusFilter === 'available' ? 'all' : 'available')}
@@ -373,7 +381,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
                       <TableBody>
                         {sortedSplitters.map(row => {
                           const cfg = STATUS_CONFIG[row.status];
-                          const splPct = Math.round((row.count / SPLITTER_CAP) * 100);
+                          const splPct = Math.round((row.count / row.cap) * 100);
                           return (
                             <TableRow key={row.key} className={cfg.rowBg}>
                               <TableCell>
@@ -381,6 +389,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
                               </TableCell>
                               <TableCell className="font-mono text-sm">
                                 {row.splitter || '-'}
+                                <span className="text-[10px] text-gray-400 ml-1">1:{row.cap}</span>
                                 {row.hasGps && <MapPin className="h-3 w-3 inline ml-1 text-gray-400" />}
                               </TableCell>
                               <TableCell className="text-sm">

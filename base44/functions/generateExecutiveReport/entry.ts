@@ -1109,7 +1109,18 @@ Deno.serve(async (req) => {
       );
 
     // ── Top 20 utilized LCP / CLCP locations ────────────────────────────────
+    // Capacity is per-splitter, driven by LCPEntry.splitter_ratio (e.g. a
+    // 1:32 → 1:64 conversion doubles capacity). SPLITTER_CAP is only the
+    // fallback when no ratio is on file for that LCP/splitter.
     const SPLITTER_CAP = 32;
+    const splitterCapMap = new Map();
+    for (const entry of lcpEntries) {
+      const capKey = lcpSplitterKey(entry.lcp_number, entry.splitter_number);
+      if (!capKey) continue;
+      const ratioMatch = String(entry.splitter_ratio || '').match(/1\s*[:x/]\s*(\d+)/i);
+      const cap = ratioMatch ? parseInt(ratioMatch[1], 10) : NaN;
+      if (Number.isFinite(cap) && cap > 0) splitterCapMap.set(capKey, cap);
+    }
     const getSplitterStatus = (remaining) => {
       if (remaining <= 0) return 'full';
       if (remaining <= 4) return 'critical';
@@ -1120,18 +1131,20 @@ Deno.serve(async (req) => {
     const topLcpUtilization = [...lcpUtilMap.values()]
       .map(item => {
         const splitterRows = [...item.splitters.entries()].map(([splitter, count]) => {
-          const remaining = Math.max(0, SPLITTER_CAP - count);
+          const cap = splitterCapMap.get(lcpSplitterKey(item.lcp, splitter)) || SPLITTER_CAP;
+          const remaining = Math.max(0, cap - count);
           return {
             splitter,
             count,
+            cap,
             remaining,
-            utilizationPct: Math.min(100, (count / SPLITTER_CAP) * 100),
+            utilizationPct: Math.min(100, (count / cap) * 100),
             status: getSplitterStatus(remaining),
           };
         }).sort((a, b) => a.remaining - b.remaining || b.count - a.count);
         const totalSplitters = splitterRows.length || 1;
         const totalOnts = splitterRows.reduce((sum, row) => sum + row.count, 0);
-        const totalCapacity = totalSplitters * SPLITTER_CAP;
+        const totalCapacity = splitterRows.reduce((sum, row) => sum + row.cap, 0) || SPLITTER_CAP;
         const totalRemaining = Math.max(0, totalCapacity - totalOnts);
         const utilizationPct = totalCapacity > 0 ? (totalOnts / totalCapacity) * 100 : 0;
         return {
