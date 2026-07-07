@@ -1,11 +1,33 @@
 import { toast } from 'sonner';
+import { base44 } from '@/api/base44Client';
 
-const SPLITTER_CAP = 32;
+const DEFAULT_SPLITTER_CAP = 32; // fallback when no splitter_ratio is on file
 
-export function exportLcpPortUtilization(onts) {
+/** Parse a splitter_ratio string like "1:32" or "1:64" → 32 or 64. */
+function parseSplitterCapacity(ratioStr) {
+  const m = String(ratioStr || '').match(/1\s*[:x/]\s*(\d+)/i);
+  const cap = m ? parseInt(m[1], 10) : NaN;
+  return Number.isFinite(cap) && cap > 0 ? cap : null;
+}
+
+export async function exportLcpPortUtilization(onts) {
   if (!onts || onts.length === 0) {
     toast.error('No ONT data available');
     return;
+  }
+
+  // Capacity per LCP|Splitter from the LCP database's splitter_ratio —
+  // a 1:64 conversion doubles the capacity vs the 1:32 default.
+  const capByKey = new Map();
+  try {
+    const lcpEntries = await base44.entities.LCPEntry.list('-created_date', 5000);
+    for (const e of lcpEntries) {
+      const key = `${(e.lcp_number || '').trim().toUpperCase()}|${(e.splitter_number || '').trim().toUpperCase()}`;
+      const cap = parseSplitterCapacity(e.splitter_ratio);
+      if (cap) capByKey.set(key, cap);
+    }
+  } catch {
+    // Non-fatal — export proceeds with the default capacity.
   }
 
   // Group ONTs by LCP + Splitter
@@ -34,10 +56,13 @@ export function exportLcpPortUtilization(onts) {
     return;
   }
 
-  const headers = ['LCP/CLCP', 'Splitter #', 'Total ONTs', 'OK', 'Warning', 'Critical', 'Offline', 'Remaining Ports (of 32)'];
-  const csvRows = rows.map(r => [
-    r.lcp, r.splitter, r.total, r.ok, r.warning, r.critical, r.offline, Math.max(0, SPLITTER_CAP - r.total)
-  ]);
+  const headers = ['LCP/CLCP', 'Splitter #', 'Splitter Ratio', 'Total ONTs', 'OK', 'Warning', 'Critical', 'Offline', 'Capacity', 'Remaining Ports'];
+  const csvRows = rows.map(r => {
+    const cap = capByKey.get(`${r.lcp.trim().toUpperCase()}|${r.splitter.trim().toUpperCase()}`) || DEFAULT_SPLITTER_CAP;
+    return [
+      r.lcp, r.splitter, `1:${cap}`, r.total, r.ok, r.warning, r.critical, r.offline, cap, Math.max(0, cap - r.total)
+    ];
+  });
 
   const csv = [headers, ...csvRows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
