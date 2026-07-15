@@ -5,68 +5,35 @@ import { buildEeroLookup, enrichOntsWithEero } from './EeroUpload';
 
 /**
  * Shared hook for eero data — mirrors useSubscriberData architecture.
- * Reads metadata from EeroUploadMeta (status='active') on mount; records
- * are loaded on-demand (loadNow) to avoid concurrent rate-limited fetches.
+ * Reads the active dataset from the service-role backend function
+ * `getEnrichmentDatasets` (shared query with useSubscriberData) so non-admin
+ * viewers see enrichment data. Writes still go through saveEeroData (admin-gated).
  */
 export function useEeroData() {
   const queryClient = useQueryClient();
   const [eeroMatchCount, setEeroMatchCount] = useState(0);
   const eeroLookupRef = useRef(null);
 
-  const { data: metaList = [], isLoading: metaLoading } = useQuery({
-    queryKey: ['eero-upload-meta'],
-    queryFn: () => base44.entities.EeroUploadMeta.filter({ status: 'active' }, '-created_date', 1),
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: true,
-  });
-
-  const eeroMeta = metaList.length > 0 ? metaList[0] : null;
-
-  // Auto-enable record loading when eero data has been uploaded at least once.
-  // Staggered after subscriber data (2.5s) to avoid rate-limit contention.
-  const [recordsEnabled, setRecordsEnabled] = useState(false);
-
-  useEffect(() => {
-    if (eeroMeta && !recordsEnabled) {
-      const timer = setTimeout(() => setRecordsEnabled(true), 2500);
-      return () => clearTimeout(timer);
-    }
-  }, [eeroMeta, recordsEnabled]);
-  const { data: eeroRecords = [], isLoading: recordsLoading } = useQuery({
-    queryKey: ['eero-records', eeroMeta?.id],
+  // Shared query — React Query dedupes the identical key with useSubscriberData.
+  const { data: enrichmentData, isLoading: isLoading } = useQuery({
+    queryKey: ['enrichment-datasets'],
     queryFn: async () => {
-      const all = [];
-      const PAGE = 5000; // platform list/filter cap
-      const MAX_PAGES = 20;
-      const filter = eeroMeta?.id ? { upload_id: eeroMeta.id } : {};
-      // CRITICAL: sort by `id` (unique) for stable pagination. Bulk-inserted
-      // eero records share near-identical created_date timestamps, so sorting
-      // by `-created_date` produces non-deterministic page boundaries — pages
-      // overlap or skip rows, which previously capped the lookup map at ~3492
-      // unique home_identifiers even though 7071 ONTs could match.
-      for (let i = 0; i < MAX_PAGES; i++) {
-        const page = await base44.entities.EeroRecord.filter(
-          filter, 'id', PAGE, i * PAGE
-        );
-        all.push(...page);
-        if (page.length < PAGE) break;
-        await new Promise(r => setTimeout(r, 200));
-      }
-      return all;
+      const res = await base44.functions.invoke('getEnrichmentDatasets', {});
+      return res.data;
     },
     staleTime: 5 * 60 * 1000,
     gcTime: Infinity, // Keep cached data for the entire session — critical for 8-user concurrent access
-    enabled: !!eeroMeta && recordsEnabled,
+    refetchOnWindowFocus: true,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
-  const loadNow = useCallback(async () => {
-    setRecordsEnabled(true);
-    await queryClient.invalidateQueries({ queryKey: ['eero-records'] });
-  }, [queryClient]);
+  const eeroMeta = enrichmentData?.eeroMeta || null;
+  const eeroRecords = enrichmentData?.eeroRecords || [];
 
-  const isLoading = metaLoading || recordsLoading;
+  const loadNow = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['enrichment-datasets'] });
+  }, [queryClient]);
 
   // Build lookup whenever records change
   useEffect(() => {
@@ -86,7 +53,6 @@ export function useEeroData() {
 
   /**
    * Persist a freshly-uploaded CSV.
-   * Mirrors useSubscriberData.handleSubscriberDataLoaded:
    *   1. reserve a pending meta
    *   2. bulk-create records stamped with upload_id
    *   3. activate the meta (atomic swap)
@@ -94,20 +60,8 @@ export function useEeroData() {
    */
   const handleEeroDataLoaded = useCallback(async (records, fileName) => {
     eeroLookupRef.current = buildEeroLookup(records);
-    setRecordsEnabled(true);
 
     const uploadDate = new Date().toISOString();
-
-    // Optimistic meta update so the UI reflects the upload immediately
-    const optimisticMeta = {
-      id: '__optimistic__',
-      file_name: fileName || 'eero_data.csv',
-      record_count: records.length,
-      upload_date: uploadDate,
-      status: 'active',
-      created_date: uploadDate,
-    };
-    queryClient.setQueryData(['eero-upload-meta'], [optimisticMeta]);
 
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     const withRateLimitRetry = async (fn, label, maxAttempts = 5) => {
@@ -174,18 +128,11 @@ export function useEeroData() {
         throw new Error(activateRes.data?.error || 'Failed to activate new upload');
       }
 
-      queryClient.setQueryData(['eero-upload-meta'], [{
-        ...optimisticMeta,
-        id:           newMetaId,
-        upload_date:  activateRes.data.upload_date || uploadDate,
-        record_count: createdCount,
-      }]);
-
-      await queryClient.refetchQueries({ queryKey: ['eero-upload-meta'], exact: true });
-      queryClient.invalidateQueries({ queryKey: ['eero-records'] });
+      // Refresh the shared enrichment query so the new dataset is visible.
+      await queryClient.invalidateQueries({ queryKey: ['enrichment-datasets'] });
     } catch (error) {
       console.error('Failed to persist eero data:', error);
-      await queryClient.refetchQueries({ queryKey: ['eero-upload-meta'], exact: true });
+      await queryClient.invalidateQueries({ queryKey: ['enrichment-datasets'] });
       throw error;
     }
 
@@ -197,7 +144,7 @@ export function useEeroData() {
     eeroLookup: eeroLookupRef.current,
     eeroMeta,
     isLoading,
-    recordsLoaded: recordsEnabled && (eeroRecords.length > 0 || !!eeroLookupRef.current),
+    recordsLoaded: eeroRecords.length > 0 || !!eeroLookupRef.current,
     eeroMatchCount,
     setEeroMatchCount,
     handleEeroDataLoaded,

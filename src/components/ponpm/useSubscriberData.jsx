@@ -4,9 +4,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { buildSubscriberLookup, enrichOntsWithSubscriber } from './SubscriberUpload';
 
 /**
- * Shared hook for subscriber data — loads from DB on mount, 
- * provides methods to upload new data and enrich ONTs.
- * 
+ * Shared hook for subscriber data — loads the active dataset (metadata +
+ * records) from the service-role backend function `getEnrichmentDatasets` so
+ * any authenticated team member can view enrichment data. Writes (upload)
+ * still go through saveSubscriberData, which remains admin-gated.
+ *
  * Returns:
  *  - subscriberRecords: raw records array
  *  - subscriberLookup: lookup maps (byComposite, bySerial)
@@ -21,81 +23,23 @@ export function useSubscriberData() {
   const [subscriberMatchCount, setSubscriberMatchCount] = useState(0);
   const subscriberLookupRef = useRef(null);
 
-  // Load the single currently-active upload metadata.
-  // Subscriber data is system-wide shared reference data — only one record
-  // should ever have status='active'. We sort by -created_date as a safety
-  // guard in case a transient overlap exists during an upload swap.
-  const { data: metaList = [], isLoading: metaLoading } = useQuery({
-    queryKey: ['subscriber-upload-meta'],
-    queryFn: () => base44.entities.SubscriberUploadMeta.filter({ status: 'active' }, '-created_date', 1),
-    // Short stale time so a fresh upload by ANOTHER admin/tab is picked up quickly.
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: true,
-  });
-
-  const subscriberMeta = metaList.length > 0 ? metaList[0] : null;
-
-  // Auto-enable record loading when subscriber data has been uploaded at least
-  // once. For an 8-person concurrent team, every user should see enriched ONT
-  // data immediately without a manual "Reload" click. The initial load is
-  // staggered (200ms between pages) to stay within rate limits. If no meta
-  // exists yet, records stay disabled until the first upload.
-  const [recordsEnabled, setRecordsEnabled] = useState(false);
-
-  // Auto-enable once we know subscriber data exists — delayed slightly to let
-  // the report auto-load query finish first and avoid rate-limit contention.
-  useEffect(() => {
-    if (subscriberMeta && !recordsEnabled) {
-      const timer = setTimeout(() => setRecordsEnabled(true), 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [subscriberMeta, recordsEnabled]);
-  const { data: subscriberRecords = [], isLoading: recordsLoading } = useQuery({
-    // Key includes the active meta id so a fresh upload (new id) refetches
-    // automatically and we never serve stale records from a previous upload.
-    queryKey: ['subscriber-records', subscriberMeta?.id],
+  // Single shared query (deduped with useEeroData) — service-role read
+  // bypasses entity RLS so non-admin viewers see the admin-uploaded dataset.
+  const { data: enrichmentData, isLoading: isLoading } = useQuery({
+    queryKey: ['enrichment-datasets'],
     queryFn: async () => {
-      const all = [];
-      // Platform caps list/filter responses at 5000 rows regardless of the
-      // requested page size. Requesting 10000 and treating a short page as
-      // "done" silently truncated 8044-record datasets to 5000 rows. Pin
-      // PAGE to the platform cap and loop until a true short page returns.
-      const PAGE = 5000;
-      const MAX_PAGES = 20; // 100k safety cap
-      // Scope the read to the currently active upload generation. Filtering
-      // server-side avoids pulling orphaned legacy rows that the background
-      // purge hasn't deleted yet.
-      const filter = subscriberMeta?.id ? { upload_id: subscriberMeta.id } : {};
-      // CRITICAL: sort by `id` (unique) for stable pagination. Bulk-inserted
-      // subscriber records share near-identical created_date timestamps, so
-      // sorting by `-created_date` produces non-deterministic page boundaries
-      // — pages overlap or skip rows, causing the lookup map to be missing
-      // entries and undercounting the ONT match (e.g. 7071 instead of the
-      // true ~7400+ matches for an 8084-row dataset).
-      for (let i = 0; i < MAX_PAGES; i++) {
-        const page = await base44.entities.SubscriberRecord.filter(
-          filter, 'id', PAGE, i * PAGE
-        );
-        all.push(...page);
-        if (page.length < PAGE) break; // last page
-        await new Promise(r => setTimeout(r, 200)); // breathe between pages
-      }
-      return all;
+      const res = await base44.functions.invoke('getEnrichmentDatasets', {});
+      return res.data;
     },
     staleTime: 5 * 60 * 1000,
     gcTime: Infinity, // Keep cached data for the entire session — critical for 8-user concurrent access
-    enabled: !!subscriberMeta && recordsEnabled,
+    refetchOnWindowFocus: true,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
 
-  // Trigger a (re)load of subscriber records on demand.
-  const loadNow = useCallback(async () => {
-    setRecordsEnabled(true);
-    await queryClient.invalidateQueries({ queryKey: ['subscriber-records'] });
-  }, [queryClient]);
-
-  const isLoading = metaLoading || recordsLoading;
+  const subscriberMeta = enrichmentData?.subscriberMeta || null;
+  const subscriberRecords = enrichmentData?.subscriberRecords || [];
 
   // Build lookup whenever records change
   useEffect(() => {
@@ -114,6 +58,11 @@ export function useSubscriberData() {
     return matched;
   }, []);
 
+  // Trigger a (re)load of enrichment datasets on demand.
+  const loadNow = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['enrichment-datasets'] });
+  }, [queryClient]);
+
   // Callback when new CSV data is uploaded — saves to DB and refreshes queries.
   //
   // Architecture: records are bulk-created DIRECTLY via the SDK (not sent through
@@ -122,25 +71,10 @@ export function useSubscriberData() {
   const handleSubscriberDataLoaded = useCallback(async (records, fileName) => {
     // Build lookup immediately for in-session use
     subscriberLookupRef.current = buildSubscriberLookup(records);
-    setRecordsEnabled(true);
 
     const uploadDate = new Date().toISOString();
 
-    // Optimistically update the meta cache so the UI reflects the new upload immediately
-    const optimisticMeta = {
-      id: '__optimistic__',
-      file_name: fileName || 'subscriber_data.csv',
-      record_count: records.length,
-      upload_date: uploadDate,
-      status: 'active',
-      created_date: uploadDate,
-    };
-    queryClient.setQueryData(['subscriber-upload-meta'], [optimisticMeta]);
-
     // Throttling helper — keeps API requests under the platform rate limit.
-    // The SDK's per-request limit was being tripped by 50-wide Promise.all bursts
-    // on large datasets (7k+ records) which left the DB in a half-broken state
-    // (records partially deleted, meta updated to a stale state).
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
     // Retry helper — exponential backoff on 429 (rate limit) errors so
@@ -217,21 +151,11 @@ export function useSubscriberData() {
         throw new Error(activateRes.data?.error || 'Failed to activate new upload');
       }
 
-      queryClient.setQueryData(['subscriber-upload-meta'], [{
-        ...optimisticMeta,
-        id:           newMetaId,
-        upload_date:  activateRes.data.upload_date || uploadDate,
-        record_count: createdCount,
-      }]);
-
-      // Force a server round-trip so the UI reflects the canonical 'active'
-      // record after the backend swap.
-      await queryClient.refetchQueries({ queryKey: ['subscriber-upload-meta'], exact: true });
-      queryClient.invalidateQueries({ queryKey: ['subscriber-records'] });
+      // Refresh the shared enrichment query so the new dataset is visible.
+      await queryClient.invalidateQueries({ queryKey: ['enrichment-datasets'] });
     } catch (error) {
       console.error('Failed to persist subscriber data:', error);
-      // Roll back optimistic cache so the UI doesn't lie about a save that failed.
-      await queryClient.refetchQueries({ queryKey: ['subscriber-upload-meta'], exact: true });
+      await queryClient.invalidateQueries({ queryKey: ['enrichment-datasets'] });
       throw error;
     }
 
@@ -243,7 +167,7 @@ export function useSubscriberData() {
     subscriberLookup: subscriberLookupRef.current,
     subscriberMeta,
     isLoading,
-    recordsLoaded: recordsEnabled && (subscriberRecords.length > 0 || !!subscriberLookupRef.current),
+    recordsLoaded: subscriberRecords.length > 0 || !!subscriberLookupRef.current,
     subscriberMatchCount,
     setSubscriberMatchCount,
     handleSubscriberDataLoaded,
