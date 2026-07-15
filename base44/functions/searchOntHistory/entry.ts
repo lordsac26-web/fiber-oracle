@@ -20,11 +20,9 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     
+    // Read-only history search — available to any authenticated team member.
     if (!user) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    if (user.role !== 'admin') {
-      return Response.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
     const { search_type, search_value, date_from, date_to } = await req.json();
