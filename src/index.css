@@ -177,3 +177,231 @@ button:focus-visible {
   background: transparent !important;
   border: none !important;
 }
+
+/* ───────────────────────────────────────────────────────────────────────
+   Dark-mode color normalization (app-wide)
+   The codebase uses many hardcoded Tailwind palette classes (text-gray-500,
+   bg-white/70, bg-blue-50, text-blue-700, border-gray-200, …) that don't
+   adapt to the dark theme. On a dark page these break in two ways:
+     1. Muted gray label text (text-gray-400/500/600/700) sitting directly on
+        the dark theme/card background becomes near-invisible.
+     2. Light surfaces (bg-white, bg-gray-50, bg-*-50) render as bright chips
+        whose dark text then needs to flip too.
+   Rather than chase every instance across 100+ components, we flip BOTH sides
+   together here — light surfaces darken, dark text lightens — so contrast is
+   preserved everywhere. Specificity (.dark .text-gray-500 = 0,2,0) outranks
+   the base utility (0,1,0), so these win in dark mode only.
+   ─────────────────────────────────────────────────────────────────────── */
+
+/* Neutral text */
+.dark .text-gray-300 { color: hsl(0 0% 80%); }
+.dark .text-gray-400 { color: hsl(0 0% 65%); }
+.dark .text-gray-500 { color: hsl(0 0% 60%); }
+.dark .text-gray-600 { color: hsl(0 0% 68%); }
+.dark .text-gray-700 { color: hsl(0 0% 76%); }
+.dark .text-gray-800 { color: hsl(0 0% 82%); }
+.dark .text-gray-900 { color: hsl(0 0% 90%); }
+.dark .text-slate-400 { color: hsl(215 16% 65%); }
+.dark .text-slate-500 { color: hsl(215 16% 60%); }
+.dark .text-slate-600 { color: hsl(215 16% 68%); }
+.dark .text-slate-700 { color: hsl(215 16% 76%); }
+.dark .text-slate-800 { color: hsl(215 16% 82%); }
+
+/* Neutral light surfaces → dark (keeps any gray text inside them readable) */
+.dark .bg-white { background-color: hsl(0 0% 10%); }
+.dark .bg-white\/40 { background-color: hsl(0 0% 12% / 0.4); }
+.dark .bg-white\/50 { background-color: hsl(0 0% 12% / 0.5); }
+.dark .bg-white\/60 { background-color: hsl(0 0% 12% / 0.6); }
+.dark .bg-white\/70 { background-color: hsl(0 0% 12% / 0.7); }
+.dark .bg-white\/80 { background-color: hsl(0 0% 12% / 0.8); }
+.dark .bg-gray-50 { background-color: hsl(0 0% 13%); }
+.dark .bg-gray-100 { background-color: hsl(0 0% 16%); }
+.dark .bg-gray-200 { background-color: hsl(0 0% 20%); }
+.dark .bg-slate-50 { background-color: hsl(215 16% 13%); }
+.dark .bg-slate-100 { background-color: hsl(215 16% 16%); }
+.dark .bg-slate-200 { background-color: hsl(215 16% 20%); }
+.dark .bg-slate-300 { background-color: hsl(215 16% 24%); }
+
+/* Neutral borders */
+.dark .border-gray-100 { border-color: hsl(0 0% 18%); }
+.dark .border-gray-200 { border-color: hsl(0 0% 22%); }
+.dark .border-gray-300 { border-color: hsl(0 0% 28%); }
+.dark .border-white\/60 { border-color: hsl(0 0% 22% / 0.6); }
+.dark .border-slate-200 { border-color: hsl(215 16% 22%); }
+.dark .border-slate-300 { border-color: hsl(215 16% 28%); }
+
+/* Colored surfaces + text — hue(H) pairs. -50/-100/-200 backgrounds darken;
+   -500/-600/-700/-800 text lightens; -200/-300 borders darken. */
+.dark .bg-blue-50 { background-color: hsl(217 33% 15%); }
+.dark .bg-blue-100 { background-color: hsl(217 33% 18%); }
+.dark .bg-blue-200 { background-color: hsl(217 33% 22%); }
+.dark .text-blue-500 { color: hsl(217 65% 65%); }
+.dark .text-blue-600 { color: hsl(217 70% 68%); }
+.dark .text-blue-700 { color: hsl(217 75% 72%); }
+.dark .text-blue-800 { color: hsl(217 80% 78%); }
+.dark .border-blue-200 { border-color: hsl(217 33% 25%); }
+.dark .border-blue-300 { border-color: hsl(217 38% 30%); }
+
+.dark .bg-green-50 { background-color: hsl(142 50% 15%); }
+.dark .bg-green-100 { background-color: hsl(142 50% 18%); }
+.dark .bg-green-200 { background-color: hsl(142 50% 22%); }
+.dark .text-green-500 { color: hsl(142 55% 60%); }
+.dark .text-green-600 { color: hsl(142 60% 63%); }
+.dark .text-green-700 { color: hsl(142 65% 68%); }
+.dark .text-green-800 { color: hsl(142 70% 74%); }
+.dark .border-green-200 { border-color: hsl(142 50% 25%); }
+.dark .border-green-300 { border-color: hsl(142 55% 30%); }
+
+.dark .bg-emerald-50 { background-color: hsl(160 50% 15%); }
+.dark .bg-emerald-100 { background-color: hsl(160 50% 18%); }
+.dark .bg-emerald-200 { background-color: hsl(160 50% 22%); }
+.dark .text-emerald-500 { color: hsl(160 55% 60%); }
+.dark .text-emerald-600 { color: hsl(160 60% 63%); }
+.dark .text-emerald-700 { color: hsl(160 65% 68%); }
+.dark .text-emerald-800 { color: hsl(160 70% 74%); }
+.dark .border-emerald-200 { border-color: hsl(160 50% 25%); }
+.dark .border-emerald-300 { border-color: hsl(160 55% 30%); }
+
+.dark .bg-red-50 { background-color: hsl(0 50% 15%); }
+.dark .bg-red-100 { background-color: hsl(0 50% 18%); }
+.dark .bg-red-200 { background-color: hsl(0 50% 22%); }
+.dark .text-red-500 { color: hsl(0 65% 65%); }
+.dark .text-red-600 { color: hsl(0 70% 68%); }
+.dark .text-red-700 { color: hsl(0 75% 72%); }
+.dark .text-red-800 { color: hsl(0 80% 78%); }
+.dark .border-red-200 { border-color: hsl(0 50% 25%); }
+.dark .border-red-300 { border-color: hsl(0 55% 30%); }
+
+.dark .bg-amber-50 { background-color: hsl(38 60% 15%); }
+.dark .bg-amber-100 { background-color: hsl(38 60% 18%); }
+.dark .bg-amber-200 { background-color: hsl(38 60% 22%); }
+.dark .text-amber-500 { color: hsl(38 70% 60%); }
+.dark .text-amber-600 { color: hsl(38 75% 63%); }
+.dark .text-amber-700 { color: hsl(38 80% 68%); }
+.dark .text-amber-800 { color: hsl(38 85% 74%); }
+.dark .border-amber-200 { border-color: hsl(38 60% 25%); }
+.dark .border-amber-300 { border-color: hsl(38 65% 30%); }
+
+.dark .bg-orange-50 { background-color: hsl(25 60% 15%); }
+.dark .bg-orange-100 { background-color: hsl(25 60% 18%); }
+.dark .bg-orange-200 { background-color: hsl(25 60% 22%); }
+.dark .text-orange-500 { color: hsl(25 70% 62%); }
+.dark .text-orange-600 { color: hsl(25 75% 65%); }
+.dark .text-orange-700 { color: hsl(25 80% 70%); }
+.dark .text-orange-800 { color: hsl(25 85% 76%); }
+.dark .border-orange-200 { border-color: hsl(25 60% 25%); }
+.dark .border-orange-300 { border-color: hsl(25 65% 30%); }
+
+.dark .bg-indigo-50 { background-color: hsl(224 33% 15%); }
+.dark .bg-indigo-100 { background-color: hsl(224 33% 18%); }
+.dark .bg-indigo-200 { background-color: hsl(224 33% 22%); }
+.dark .text-indigo-500 { color: hsl(224 65% 65%); }
+.dark .text-indigo-600 { color: hsl(224 70% 68%); }
+.dark .text-indigo-700 { color: hsl(224 75% 72%); }
+.dark .text-indigo-800 { color: hsl(224 80% 78%); }
+.dark .border-indigo-200 { border-color: hsl(224 33% 25%); }
+.dark .border-indigo-300 { border-color: hsl(224 38% 30%); }
+
+.dark .bg-violet-50 { background-color: hsl(258 40% 16%); }
+.dark .bg-violet-100 { background-color: hsl(258 40% 19%); }
+.dark .bg-violet-200 { background-color: hsl(258 40% 23%); }
+.dark .text-violet-500 { color: hsl(258 60% 68%); }
+.dark .text-violet-600 { color: hsl(258 65% 70%); }
+.dark .text-violet-700 { color: hsl(258 70% 74%); }
+.dark .text-violet-800 { color: hsl(258 75% 80%); }
+.dark .border-violet-200 { border-color: hsl(258 40% 26%); }
+.dark .border-violet-300 { border-color: hsl(258 45% 32%); }
+
+.dark .bg-rose-50 { background-color: hsl(350 50% 16%); }
+.dark .bg-rose-100 { background-color: hsl(350 50% 19%); }
+.dark .bg-rose-200 { background-color: hsl(350 50% 23%); }
+.dark .text-rose-500 { color: hsl(350 65% 68%); }
+.dark .text-rose-600 { color: hsl(350 70% 70%); }
+.dark .text-rose-700 { color: hsl(350 75% 74%); }
+.dark .text-rose-800 { color: hsl(350 80% 80%); }
+.dark .border-rose-200 { border-color: hsl(350 50% 26%); }
+.dark .border-rose-300 { border-color: hsl(350 55% 32%); }
+
+.dark .bg-cyan-50 { background-color: hsl(187 45% 15%); }
+.dark .bg-cyan-100 { background-color: hsl(187 45% 18%); }
+.dark .bg-cyan-200 { background-color: hsl(187 45% 22%); }
+.dark .text-cyan-500 { color: hsl(187 60% 60%); }
+.dark .text-cyan-600 { color: hsl(187 65% 63%); }
+.dark .text-cyan-700 { color: hsl(187 70% 68%); }
+.dark .text-cyan-800 { color: hsl(187 75% 74%); }
+.dark .border-cyan-200 { border-color: hsl(187 45% 25%); }
+.dark .border-cyan-300 { border-color: hsl(187 50% 30%); }
+
+.dark .bg-pink-50 { background-color: hsl(330 50% 16%); }
+.dark .bg-pink-100 { background-color: hsl(330 50% 19%); }
+.dark .bg-pink-200 { background-color: hsl(330 50% 23%); }
+.dark .text-pink-500 { color: hsl(330 65% 68%); }
+.dark .text-pink-600 { color: hsl(330 70% 70%); }
+.dark .text-pink-700 { color: hsl(330 75% 74%); }
+.dark .text-pink-800 { color: hsl(330 80% 80%); }
+.dark .border-pink-200 { border-color: hsl(330 50% 26%); }
+.dark .border-pink-300 { border-color: hsl(330 55% 32%); }
+
+.dark .bg-teal-50 { background-color: hsl(172 45% 15%); }
+.dark .bg-teal-100 { background-color: hsl(172 45% 18%); }
+.dark .bg-teal-200 { background-color: hsl(172 45% 22%); }
+.dark .text-teal-500 { color: hsl(172 55% 60%); }
+.dark .text-teal-600 { color: hsl(172 60% 63%); }
+.dark .text-teal-700 { color: hsl(172 65% 68%); }
+.dark .text-teal-800 { color: hsl(172 70% 74%); }
+.dark .border-teal-200 { border-color: hsl(172 45% 25%); }
+.dark .border-teal-300 { border-color: hsl(172 50% 30%); }
+
+.dark .bg-lime-50 { background-color: hsl(83 45% 15%); }
+.dark .bg-lime-100 { background-color: hsl(83 45% 18%); }
+.dark .bg-lime-200 { background-color: hsl(83 45% 22%); }
+.dark .text-lime-500 { color: hsl(83 55% 55%); }
+.dark .text-lime-600 { color: hsl(83 60% 58%); }
+.dark .text-lime-700 { color: hsl(83 65% 63%); }
+.dark .text-lime-800 { color: hsl(83 70% 70%); }
+.dark .border-lime-200 { border-color: hsl(83 45% 25%); }
+.dark .border-lime-300 { border-color: hsl(83 50% 30%); }
+
+.dark .bg-fuchsia-50 { background-color: hsl(292 45% 16%); }
+.dark .bg-fuchsia-100 { background-color: hsl(292 45% 19%); }
+.dark .bg-fuchsia-200 { background-color: hsl(292 45% 23%); }
+.dark .text-fuchsia-500 { color: hsl(292 65% 70%); }
+.dark .text-fuchsia-600 { color: hsl(292 70% 72%); }
+.dark .text-fuchsia-700 { color: hsl(292 75% 76%); }
+.dark .text-fuchsia-800 { color: hsl(292 80% 82%); }
+.dark .border-fuchsia-200 { border-color: hsl(292 45% 26%); }
+.dark .border-fuchsia-300 { border-color: hsl(292 50% 32%); }
+
+.dark .bg-purple-50 { background-color: hsl(265 40% 16%); }
+.dark .bg-purple-100 { background-color: hsl(265 40% 19%); }
+.dark .text-purple-600 { color: hsl(265 60% 70%); }
+.dark .text-purple-700 { color: hsl(265 65% 74%); }
+.dark .text-purple-800 { color: hsl(265 70% 80%); }
+
+.dark .bg-yellow-50 { background-color: hsl(48 60% 15%); }
+.dark .bg-yellow-100 { background-color: hsl(48 60% 18%); }
+.dark .text-yellow-600 { color: hsl(48 70% 58%); }
+.dark .text-yellow-700 { color: hsl(48 75% 63%); }
+.dark .text-yellow-800 { color: hsl(48 80% 70%); }
+
+/* Leaflet map chrome — popups + zoom controls default to white; darken them
+   so map views (LCP health map, ONT drilldown) match the dark theme. */
+.dark .leaflet-container { background-color: hsl(0 0% 10%); }
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background-color: hsl(0 0% 12%);
+  color: hsl(0 0% 90%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+.dark .leaflet-popup-content { color: hsl(0 0% 90%); }
+.dark .leaflet-bar a {
+  background-color: hsl(0 0% 16%);
+  color: hsl(0 0% 90%);
+  border-color: hsl(0 0% 22%);
+}
+.dark .leaflet-bar a:hover { background-color: hsl(0 0% 22%); }
+.dark .leaflet-control-attribution {
+  background-color: hsl(0 0% 10% / 0.8);
+  color: hsl(0 0% 55%);
+}
+.dark .leaflet-control-attribution a { color: hsl(0 0% 70%); }
