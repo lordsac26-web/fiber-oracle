@@ -57,6 +57,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import moment from 'moment';
 import { useUserPreferences } from '@/components/UserPreferencesContext';
+import { useIsAdmin } from '@/hooks/useIsAdmin';
 
 const STATUS_CONFIG = {
   in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-800', icon: Clock },
@@ -82,6 +83,7 @@ const EMPTY_REPORT = {
 export default function JobReports() {
   const queryClient = useQueryClient();
   const { preferences } = useUserPreferences();
+  const { isAdmin } = useIsAdmin();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState(preferences.defaultSortBy || 'created_date');
@@ -243,6 +245,7 @@ export default function JobReports() {
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
               </Button>
+              {isAdmin && (
               <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
                 <DialogTrigger asChild>
                   <Button size="sm">
@@ -264,6 +267,7 @@ export default function JobReports() {
                           />
                         </DialogContent>
               </Dialog>
+              )}
             </div>
           </div>
         </div>
@@ -334,7 +338,7 @@ export default function JobReports() {
                   ? 'Try adjusting your filters' 
                   : 'Create your first job report to get started'}
               </p>
-              {!searchTerm && statusFilter === 'all' && (
+              {!searchTerm && statusFilter === 'all' && isAdmin && (
                 <Button className="mt-4" onClick={() => setShowCreateDialog(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create Report
@@ -405,14 +409,17 @@ export default function JobReports() {
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
+                          {isAdmin && (
                           <DropdownMenuItem onClick={() => openEditDialog(report)}>
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => setPdfPreview({ report })}>
                             <FileDown className="h-4 w-4 mr-2" />
                             Preview / Export PDF
                           </DropdownMenuItem>
+                          {isAdmin && (
                           <DropdownMenuItem 
                             className="text-red-600"
                             onClick={() => {
@@ -424,6 +431,7 @@ export default function JobReports() {
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete
                           </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -594,6 +602,7 @@ export default function JobReports() {
                   <FileDown className="h-4 w-4 mr-2" />
                   Preview PDF
                 </Button>
+                {isAdmin && (
                 <Button onClick={() => {
                   setViewingReport(null);
                   openEditDialog(viewingReport);
@@ -601,6 +610,7 @@ export default function JobReports() {
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Report
                 </Button>
+                )}
               </div>
             </div>
           )}
