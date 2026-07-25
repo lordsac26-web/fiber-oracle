@@ -589,7 +589,7 @@ export default function LCPSummarySection({ onts, onPortClick }) {
                         <div className="flex items-center gap-2">
                           <span className={`w-2.5 h-2.5 rounded-full ${color.dot}`} />
                           <span className={`font-medium ${color.text}`}>Splitter {splitter.splitterNumber}</span>
-                          <span className="text-[10px] text-gray-400 font-mono">({ratio})</span>
+                          <span className="text-[10px] text-gray-500 font-mono">({ratio})</span>
                         </div>
                         <div className="flex items-center gap-3 font-mono text-xs text-gray-600">
                           <span>{splitter.ontCount} ONTs</span>
@@ -668,7 +668,7 @@ export default function LCPSummarySection({ onts, onPortClick }) {
                               <div className="flex items-center gap-2 mb-1.5">
                                 <span className={`w-2.5 h-2.5 rounded-full ${color.dot}`} />
                                 <span className={`text-xs font-semibold ${color.text}`}>Splitter {splKey}</span>
-                                <span className="text-[10px] text-gray-400">({onts.length})</span>
+                                <span className="text-[10px] text-gray-500">({onts.length})</span>
                               </div>
                               <div className="space-y-1 ml-4">
                                 {onts.map((ont, idx) => (
@@ -702,7 +702,7 @@ export default function LCPSummarySection({ onts, onPortClick }) {
                                           </TooltipContent>
                                         </Tooltip>
                                       </TooltipProvider>
-                                      <span className="font-mono text-gray-400">ONT {ont.OntID}</span>
+                                      <span className="font-mono text-gray-500">ONT {ont.OntID}</span>
                                     </div>
                                   </div>
                                 ))}

@@ -389,7 +389,7 @@ export default function UtilizationDashboard({ lcpEntries, ontCountsByKey }) {
                               </TableCell>
                               <TableCell className="font-mono text-sm">
                                 {row.splitter || '-'}
-                                <span className="text-[10px] text-gray-400 ml-1">1:{row.cap}</span>
+                                <span className="text-[10px] text-gray-500 ml-1">1:{row.cap}</span>
                                 {row.hasGps && <MapPin className="h-3 w-3 inline ml-1 text-gray-400" />}
                               </TableCell>
                               <TableCell className="text-sm">
@@ -457,7 +457,7 @@ function SummaryCard({ label, value, sub, className = '', valueColor = 'text-gra
       <CardContent className="p-4 text-center">
         <div className={`text-2xl font-bold ${valueColor}`}>{value}</div>
         <div className="text-xs text-gray-500">{label}</div>
-        {sub && <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>}
+        {sub && <div className="text-[10px] text-gray-500 mt-0.5">{sub}</div>}
       </CardContent>
     </Card>
   );
