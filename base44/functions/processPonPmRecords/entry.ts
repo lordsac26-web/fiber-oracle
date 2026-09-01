@@ -411,6 +411,39 @@ function lookupLcp(lcpMap, oltName, shelfSlotPort) {
   return null;
 }
 
+// ── Completion aggregation ───────────────────────────────────────────────────
+// Read every ONTPerformanceRecord saved for a report and tally the authoritative
+// status / technology counts straight from the persisted rows. Used at
+// completion so the final counts are correct whether the report was saved in a
+// single run or resumed across several — the per-ONT status is already stored
+// on each record, so no re-analysis is needed.
+async function aggregateReportCounts(base44, reportId) {
+  let total = 0, critical = 0, warning = 0, ok = 0, offline = 0, gpon = 0, xgs = 0;
+  let skip = 0;
+  while (true) {
+    const page = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
+      { report_id: reportId }, 'id', 5000, skip
+    );
+    if (!page || page.length === 0) break;
+    for (const r of page) {
+      total++;
+      if (r.status === 'critical') critical++;
+      else if (r.status === 'warning') warning++;
+      else if (r.status === 'offline') offline++;
+      else ok++;
+      if (r.technology_type === 'GPON') gpon++;
+      else if (r.technology_type === 'XGS-PON') xgs++;
+    }
+    if (page.length < 5000) break;
+    skip += page.length;
+  }
+  return { total, critical, warning, ok, offline, gpon, xgs };
+}
+
+// Stop inserting before the 5-minute per-request wall-clock limit so the
+// saved_count boundary is always exact (a scheduled resumer continues later).
+const TIME_BUDGET_MS = 240000;
+
 // ─── Main Handler ─────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   try {
@@ -422,8 +455,7 @@ Deno.serve(async (req) => {
     // We accept both — just require the report_id in the body.
     const body = await req.json();
     const reportThresholds = buildThresholds(body.thresholds || body.data?.thresholds_used);
-    const isAutomation = !!body.event;
-    const user = !isAutomation ? await base44.auth.me().catch(() => null) : null;
+    const startTime = Date.now();
 
     // Support two call shapes:
     //   { report_id, file_url }  — direct call or automation payload
@@ -431,6 +463,31 @@ Deno.serve(async (req) => {
     let reportId = body.report_id;
     let fileUrl = body.file_url;
     let reportDate = body.report_date || new Date().toISOString();
+    let isAutomation = !!body.event;
+
+    // resume_stalled: invoked by the scheduled "PON PM Processing Resumer"
+    // automation. Finds the oldest report stuck in 'saving' (saved < total, no
+    // progress for > 2 min) and continues it — no user session required.
+    if (body.resume_stalled) {
+      isAutomation = true;
+      const stalled = await base44.asServiceRole.entities.PONPMReport.filter(
+        { processing_status: 'saving' }, 'upload_date', 50, 0
+      );
+      const nowTs = Date.now();
+      const candidate = (stalled || []).find((r) =>
+        r.ont_count > 0 &&
+        (r.processing_saved_count || 0) < r.ont_count &&
+        r.file_url &&
+        (nowTs - new Date(r.updated_date || r.created_date).getTime()) > 120000
+      );
+      if (!candidate) {
+        return Response.json({ success: true, nothing_to_resume: true });
+      }
+      reportId = candidate.id;
+      fileUrl = candidate.file_url;
+      reportDate = candidate.upload_date || reportDate;
+      console.log(`[processPonPmRecords] Resume-stalled picked report ${reportId} (${candidate.processing_saved_count || 0}/${candidate.ont_count})`);
+    }
 
     // Entity automation shape
     if (!reportId && body.data) {
@@ -443,6 +500,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing report_id or file_url' }, { status: 400 });
     }
 
+    const user = !isAutomation ? await base44.auth.me().catch(() => null) : null;
     if (!isAutomation) {
       if (!user) {
         return Response.json({ error: 'Unauthorized' }, { status: 401 });
@@ -454,25 +512,52 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Guard against double-processing: if records already exist for this report, abort early.
-    const existingCheck = await base44.asServiceRole.entities.ONTPerformanceRecord.filter(
-      { report_id: reportId }, 'id', 1
-    );
-    if (existingCheck && existingCheck.length > 0) {
-      console.log(`[processPonPmRecords] Records already exist for report ${reportId} — skipping to avoid duplicates.`);
-      await base44.asServiceRole.entities.PONPMReport.update(reportId, {
-        processing_status: 'completed',
-        processing_progress: 100,
-      });
-      return Response.json({ success: true, skipped: true, reason: 'already_processed' });
+    // ── Resume / fresh-start detection ───────────────────────────────────────
+    // A single Deno Deploy request is capped at 5 minutes; a 9000+ ONT report
+    // can exceed that. Processing is therefore RESUMABLE: every batch persists
+    // processing_saved_count and a clean time-budget stop (see the insert loop)
+    // leaves an exact boundary, so a re-invocation skips the rows already saved
+    // and continues. A scheduled resumer (resume_stalled mode) drives this.
+    const existingReport = await base44.asServiceRole.entities.PONPMReport.get(reportId);
+
+    // Already fully processed — never duplicate.
+    if (existingReport?.processing_status === 'completed') {
+      console.log(`[processPonPmRecords] Report ${reportId} already completed — skipping.`);
+      return Response.json({ success: true, skipped: true, reason: 'already_completed' });
     }
 
-    // Mark report as saving so the UI can show a spinner
-    await base44.asServiceRole.entities.PONPMReport.update(reportId, {
-      processing_status: 'saving',
-      processing_progress: 0,
-      processing_saved_count: 0,
-    });
+    let startIndex = 0;
+
+    if (existingReport?.processing_saved_count > 0 && existingReport.processing_status === 'saving') {
+      // Resume: skip the rows already inserted.
+      startIndex = existingReport.processing_saved_count;
+      console.log(`[processPonPmRecords] Resuming report ${reportId} from row ${startIndex}`);
+
+      // All rows already saved but never marked completed (a prior run finished
+      // the inserts but was killed before the completion write) — finalize now.
+      if (existingReport.ont_count > 0 && startIndex >= existingReport.ont_count) {
+        const counts = await aggregateReportCounts(base44, reportId);
+        await base44.asServiceRole.entities.PONPMReport.update(reportId, {
+          processing_status: 'completed',
+          processing_progress: 100,
+          processing_saved_count: startIndex,
+          ont_count:      counts.total,
+          critical_count: counts.critical,
+          warning_count:  counts.warning,
+          ok_count:       counts.ok,
+          gpon_count:     counts.gpon,
+          xgs_count:      counts.xgs,
+        });
+        return Response.json({ success: true, skipped: true, reason: 'already_complete', savedCount: startIndex });
+      }
+    } else {
+      // Fresh start: mark saving and zero the progress counters.
+      await base44.asServiceRole.entities.PONPMReport.update(reportId, {
+        processing_status: 'saving',
+        processing_progress: 0,
+        processing_saved_count: 0,
+      });
+    }
 
     // ── Load Subscriber lookup for enrichment at ingest time ─────────────────
     // Build two maps: composite (OLT|PORT|ONTID) and serial fallback
@@ -630,14 +715,17 @@ Deno.serve(async (req) => {
 
     // ── Batch insert ─────────────────────────────────────────────────────────
     const BATCH_SIZE = 500;
-    let savedCount = 0;
+    // savedCount starts at the resume offset so progress reflects the whole report.
+    let savedCount = startIndex;
 
-    // Accumulate authoritative status/tech tallies during the insert loop itself.
-    // This avoids a second full-table DB scan after all inserts complete — the
-    // analysis status and technology type are already computed per record below.
-    let finalCritical = 0, finalWarning = 0, finalOk = 0, finalOffline = 0, finalGpon = 0, finalXgs = 0;
+    for (let i = startIndex; i < total; i += BATCH_SIZE) {
+      // Stop before the per-request wall-clock limit so saved_count stays exact.
+      // The scheduled resumer (resume_stalled) continues from savedCount later.
+      if (Date.now() - startTime > TIME_BUDGET_MS) {
+        console.log(`[processPonPmRecords] Time budget reached at row ${i}/${total} — will resume later.`);
+        break;
+      }
 
-    for (let i = 0; i < total; i += BATCH_SIZE) {
       const chunk = rawRecords.slice(i, i + BATCH_SIZE);
 
       const records = chunk.map((row) => {
@@ -754,45 +842,42 @@ Deno.serve(async (req) => {
       await base44.asServiceRole.entities.ONTPerformanceRecord.bulkCreate(records);
       savedCount += chunk.length;
 
-      // Tally status/tech counts from this batch's already-analysed records.
-      for (const r of records) {
-        if (r.status === 'critical') finalCritical++;
-        else if (r.status === 'warning') finalWarning++;
-        else if (r.status === 'offline') finalOffline++;
-        else finalOk++;
-        if (r.technology_type === 'GPON') finalGpon++;
-        else if (r.technology_type === 'XGS-PON') finalXgs++;
-      }
-
       const progress = Math.round((savedCount / total) * 100);
       console.log(`[processPonPmRecords] ${savedCount}/${total} (${progress}%)`);
 
-      // Update progress on the report record after every batch
+      // Persist progress so a resumed run knows exactly where to continue from.
       await base44.asServiceRole.entities.PONPMReport.update(reportId, {
         processing_progress: progress,
         processing_saved_count: savedCount,
       });
     }
 
-    // Counts were accumulated during the insert loop above (no extra DB scan).
-    console.log(`[processPonPmRecords] Final counts — critical: ${finalCritical}, warning: ${finalWarning}, ok: ${finalOk}, offline: ${finalOffline}, GPON: ${finalGpon}, XGS-PON: ${finalXgs}`);
+    // ── Completion ───────────────────────────────────────────────────────────
+    if (savedCount >= total) {
+      // All rows inserted — aggregate the authoritative delta-based counts
+      // straight from the saved records. Correct whether this was a single run
+      // or a resume from a partial save, because the per-ONT status is persisted
+      // on each record.
+      const counts = await aggregateReportCounts(base44, reportId);
+      await base44.asServiceRole.entities.PONPMReport.update(reportId, {
+        processing_status: 'completed',
+        processing_progress: 100,
+        processing_saved_count: savedCount,
+        ont_count:      counts.total,
+        critical_count: counts.critical,
+        warning_count:  counts.warning,
+        ok_count:       counts.ok,
+        gpon_count:     counts.gpon,
+        xgs_count:      counts.xgs,
+      });
+      console.log(`[processPonPmRecords] Done — saved ${savedCount} records (LCP matched: ${lcpMatched}, unmatched: ${lcpUnmatched}). Counts: crit=${counts.critical}, warn=${counts.warning}, ok=${counts.ok}, GPON=${counts.gpon}, XGS=${counts.xgs}`);
+      return Response.json({ success: true, savedCount, lcpMatched, lcpUnmatched });
+    }
 
-    // Mark completed and write accurate summary counts back to the report record
-    await base44.asServiceRole.entities.PONPMReport.update(reportId, {
-      processing_status: 'completed',
-      processing_progress: 100,
-      processing_saved_count: savedCount,
-      // Overwrite the preliminary counts that parsePonPm wrote — these are now accurate
-      ont_count:      savedCount,
-      critical_count: finalCritical,
-      warning_count:  finalWarning,
-      ok_count:       finalOk,
-      gpon_count:     finalGpon,
-      xgs_count:      finalXgs,
-    });
-
-    console.log(`[processPonPmRecords] Done — saved ${savedCount} records (LCP matched: ${lcpMatched}, unmatched: ${lcpUnmatched})`);
-    return Response.json({ success: true, savedCount, lcpMatched, lcpUnmatched });
+    // Partial: time budget exhausted before all rows were saved. Leave the
+    // report in 'saving' so the scheduled resumer picks it up on the next tick.
+    console.log(`[processPonPmRecords] Partial save — ${savedCount}/${total}. Report left in 'saving' for scheduled resumer.`);
+    return Response.json({ success: true, partial: true, savedCount, total, lcpMatched, lcpUnmatched });
 
   } catch (error) {
     console.error('[processPonPmRecords] Error:', error);
