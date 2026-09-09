@@ -1,0 +1,46 @@
+{
+  "name": "PON PM Processing Resumer",
+  "description": "Continues PONPMReports stuck in 'saving' (saved < ont_count, no progress > 2min). The function's resume_stalled mode finds the oldest stalled report and continues saving from where it left off, so reports that exceed the 5-minute per-request limit still complete across multiple ticks.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "interval",
+      "cron_expression": null,
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": 5,
+      "interval_unit": "minutes",
+      "interval_anchor": "2026-09-01T17:06:35.020000",
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "pon_pm_processing_resumer",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "processPonPmRecords",
+            "args": {
+              "resume_stalled": true
+            }
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "processPonPmRecords"
+  }
+}

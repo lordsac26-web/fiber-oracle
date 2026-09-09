@@ -1,0 +1,46 @@
+{
+  "name": "Monthly Standards & Compliance Audit",
+  "description": "Runs on the 1st of every month at 02:00 ET (06:00 UTC). Cross-references field ONT models against the TechnologyStandards registry and emails an admin variance report so the app stays current with new tech (e.g. 50G-PON).",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 6 1 * *",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "monthly_standards_compliance_audit",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "runComplianceAudit",
+            "args": {
+              "scheduled": true
+            }
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "runComplianceAudit"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "Daily Weather Sync",
+  "description": "Daily forward-only weather collection for all 61 service-area zip codes. Runs unattended via service role so weather stays current even when no PON PM reports are uploaded (the existing entity-triggered sync only fires on report updates, which left a gap after 8/14). 14-day rolling lookback makes it idempotent and covers Open-Meteo archive lag.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 10 * * *",
+      "one_time_date": null,
+      "timezone": "UTC",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_weather_sync",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "autoSyncWeatherOnReport",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  },
+  "x-base44-migrated-from-automation": {
+    "legacy_payload_function": "autoSyncWeatherOnReport"
+  }
+}
