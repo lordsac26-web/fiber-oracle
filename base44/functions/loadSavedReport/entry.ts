@@ -210,7 +210,17 @@ Deno.serve(async (req) => {
     const report = reports[0];
     if (!report) return Response.json({ error: 'Report not found' }, { status: 404 });
 
-    // 2. Stream all ONT records in pages of 1000 to avoid memory spikes
+    // Belt-and-suspenders: never serve a partially-indexed report as if it
+    // were finished.
+    if (report.processing_status && report.processing_status !== 'completed') {
+      return Response.json({
+        error: 'NOT_READY',
+        message: `Report is still ${report.processing_status} (${report.processing_saved_count || 0}/${report.ont_count || '?'} ONTs indexed so far). Try again in a few minutes.`,
+        processing_status: report.processing_status,
+        processing_saved_count: report.processing_saved_count || 0,
+        ont_count: report.ont_count || 0,
+      }, { status: 202 });
+    }    // 2. Stream all ONT records in pages of 1000 to avoid memory spikes
     const PAGE_SIZE = 1000;
     let allRecords = [];
     let page = 0;
