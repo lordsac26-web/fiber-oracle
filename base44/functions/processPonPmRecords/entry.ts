@@ -690,22 +690,66 @@ Deno.serve(async (req) => {
       console.log(`[processPonPmRecords] Previous-record lookup failed (non-fatal): ${err.message}`);
     }
 
-    // ── Fetch & parse CSV ────────────────────────────────────────────────────
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-    const fileResp = await fetch(fileUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (!fileResp.ok) throw new Error(`Failed to fetch file: HTTP ${fileResp.status}`);
-    const csvContent = await fileResp.text();
+        // ── Fetch & parse CSV (retrying, verified) ────────────────────────────────
+    // A freshly-uploaded file can be served short for a moment if the storage
+    // backend hasn't fully propagated the object yet. csv-parse won't error on
+    // a truncated-but-well-formed CSV — it just silently returns fewer rows —
+    // so an un-retried fetch here can cause a report to "complete" with a wrong,
+    // smaller total instead of failing loudly. Guard against that two ways:
+    // (1) compare the downloaded byte length to Content-Length when present,
+    // (2) compare the parsed row count to the ont_count already captured
+    // client-side at upload time. Either mismatch triggers a retry; running out
+    // of attempts fails the report instead of silently under-saving it.
+    const expectedCount = existingReport?.ont_count > 0 ? existingReport.ont_count : null;
+    const MAX_FETCH_ATTEMPTS = 3;
+    let rawRecords = null;
+    let lastFetchError = null;
 
-    const rawRecords = parse(csvContent, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-      relax_column_count: true,
-    });
+    for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        const fileResp = await fetch(fileUrl, { signal: controller.signal, cache: 'no-store' });
+        clearTimeout(timeoutId);
+        if (!fileResp.ok) throw new Error(`Failed to fetch file: HTTP ${fileResp.status}`);
 
-    if (!rawRecords || rawRecords.length === 0) throw new Error('CSV is empty or unreadable');
+        const csvContent = await fileResp.text();
+
+        const expectedBytes = parseInt(fileResp.headers.get('content-length') || '', 10);
+        const actualBytes = new TextEncoder().encode(csvContent).length;
+        if (Number.isFinite(expectedBytes) && expectedBytes > 0 && actualBytes < expectedBytes) {
+          throw new Error(`Truncated download: got ${actualBytes}/${expectedBytes} bytes`);
+        }
+
+        const parsed = parse(csvContent, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true,
+          relax_column_count: true,
+        });
+
+        if (!parsed || parsed.length === 0) throw new Error('CSV is empty or unreadable');
+
+        // Tolerate a small (2%) drift — e.g. a trailing-blank-line difference —
+        // but treat a larger shortfall as a truncated fetch, not a smaller file.
+        if (expectedCount && parsed.length < expectedCount * 0.98) {
+          throw new Error(`Parsed ${parsed.length} rows but report expects ~${expectedCount} — likely truncated fetch`);
+        }
+
+        rawRecords = parsed;
+        break;
+      } catch (err) {
+        lastFetchError = err;
+        console.log(`[processPonPmRecords] CSV fetch/parse attempt ${attempt}/${MAX_FETCH_ATTEMPTS} failed: ${err.message}`);
+        if (attempt < MAX_FETCH_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, attempt * 3000)); // 3s, then 6s
+        }
+      }
+    }
+
+    if (!rawRecords) {
+      throw new Error(`Unable to fetch a complete CSV after ${MAX_FETCH_ATTEMPTS} attempts: ${lastFetchError?.message || 'unknown error'}`);
+    }
 
     const total = rawRecords.length;
     const portStats = calculatePortStats(rawRecords);
