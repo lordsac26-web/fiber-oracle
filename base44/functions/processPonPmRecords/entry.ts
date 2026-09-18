@@ -690,7 +690,7 @@ Deno.serve(async (req) => {
       console.log(`[processPonPmRecords] Previous-record lookup failed (non-fatal): ${err.message}`);
     }
 
-        // ── Fetch & parse CSV (retrying, verified) ────────────────────────────────
+    // ── Fetch & parse CSV (retrying, verified) ────────────────────────────────
     // A freshly-uploaded file can be served short for a moment if the storage
     // backend hasn't fully propagated the object yet. csv-parse won't error on
     // a truncated-but-well-formed CSV — it just silently returns fewer rows —
@@ -746,11 +746,9 @@ Deno.serve(async (req) => {
         }
       }
     }
-
     if (!rawRecords) {
       throw new Error(`Unable to fetch a complete CSV after ${MAX_FETCH_ATTEMPTS} attempts: ${lastFetchError?.message || 'unknown error'}`);
     }
-
     const total = rawRecords.length;
     const portStats = calculatePortStats(rawRecords);
     let lcpMatched = 0;
