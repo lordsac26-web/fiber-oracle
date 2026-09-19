@@ -211,7 +211,11 @@ Deno.serve(async (req) => {
     if (!report) return Response.json({ error: 'Report not found' }, { status: 404 });
 
     // Belt-and-suspenders: never serve a partially-indexed report as if it
-    // were finished.
+    // were finished. The frontend's cross-session banner (useProcessingReports)
+    // is the primary signal for this, but that only helps while the status is
+    // actually 'saving'/'pending' — this stops the *data* itself from silently
+    // presenting a truncated ONT count as the final report under any status
+    // other than 'completed'.
     if (report.processing_status && report.processing_status !== 'completed') {
       return Response.json({
         error: 'NOT_READY',
@@ -220,7 +224,9 @@ Deno.serve(async (req) => {
         processing_saved_count: report.processing_saved_count || 0,
         ont_count: report.ont_count || 0,
       }, { status: 202 });
-    }    // 2. Stream all ONT records in pages of 1000 to avoid memory spikes
+    }
+
+    // 2. Stream all ONT records in pages of 1000 to avoid memory spikes
     const PAGE_SIZE = 1000;
     let allRecords = [];
     let page = 0;
