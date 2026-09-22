@@ -7,15 +7,15 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 import ShelfHealthPanel from './ShelfHealthPanel';
-
+ 
 const TECH_OPTIONS = ['All', 'GPON', 'XGS-PON'];
-
+ 
 // Keep XGS_MODELS / GPON_MODELS in lock-step with detectTechTypeFromModel in
 // components/ponpm/SubscriberUpload.jsx and the backend (parsePonPm /
 // loadSavedReport). When adding a new model, update all three places.
 const XGS_MODELS  = ['GP1101X', 'GP4201X', 'GP4201XH', '5222XG', '5228XG'];
 const GPON_MODELS = ['711GE', '717GE', '725G', '725GE', '725', '812G-1', '844G-1', '844GE-1', '803G'];
-
+ 
 // Resolve the authoritative tech-type for an ONT using the SAME model source
 // that the GlobalFilterBar uses for its model counts. This guarantees the
 // "GPON / XGS-PON" chips are always in lock-step with the model filter — if
@@ -36,17 +36,17 @@ function resolveTech(ont) {
   if (ont._techType?.includes('GPON')) return 'GPON';
   return null;
 }
-
+ 
 function matchesTech(ont, tech) {
   if (tech === 'All') return true;
   return resolveTech(ont) === tech;
 }
-
+ 
 // Single-pass accumulator — replaces 14+ separate filter/map/reduce calls.
 // On a 7k-ONT report this cuts ~98k iterations down to ~7k.
 function calcStats(onts) {
   if (!onts || onts.length === 0) return null;
-
+ 
   let ontRxSum = 0, ontRxCount = 0, ontRxMin = Infinity, ontRxMax = -Infinity;
   let oltRxSum = 0, oltRxCount = 0;
   let totalUsBip = 0, totalDsBip = 0;
@@ -55,7 +55,7 @@ function calcStats(onts) {
   let totalUsHec = 0;
   let ontsWithErrors = 0;
   let lowPower = 0, optimalPower = 0, criticalPower = 0;
-
+ 
   for (const o of onts) {
     const rx = parseFloat(o.OntRxOptPwr);
     if (!isNaN(rx) && rx !== 0) {
@@ -68,7 +68,7 @@ function calcStats(onts) {
     }
     const oltRx = parseFloat(o.OLTRXOptPwr);
     if (!isNaN(oltRx) && oltRx !== 0) { oltRxSum += oltRx; oltRxCount++; }
-
+ 
     const usBip = parseInt(o.UpstreamBipErrors) || 0;
     const dsBip = parseInt(o.DownstreamBipErrors) || 0;
     const usFec = parseInt(o.UpstreamFecUncorrectedCodeWords) || 0;
@@ -76,15 +76,15 @@ function calcStats(onts) {
     const usFecCor = parseInt(o.UpstreamFecCorrectedCodeWords) || 0;
     const dsFecCor = parseInt(o.DownstreamFecCorrectedCodeWords) || 0;
     const usHec = parseInt(o.UpstreamGemHecErrors) || 0;
-
+ 
     totalUsBip += usBip; totalDsBip += dsBip;
     totalUsFec += usFec; totalDsFec += dsFec;
     totalUsFecCor += usFecCor; totalDsFecCor += dsFecCor;
     totalUsHec += usHec;
-
+ 
     if (usBip > 0 || dsBip > 0 || usFec > 0 || dsFec > 0 || usHec > 0) ontsWithErrors++;
   }
-
+ 
   return {
     count: onts.length,
     avgOntRx: ontRxCount > 0 ? ontRxSum / ontRxCount : null,
@@ -98,7 +98,7 @@ function calcStats(onts) {
     lowPower, optimalPower, criticalPower,
   };
 }
-
+ 
 // Custom tooltip for the error bar chart
 const ErrorBarTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -111,7 +111,7 @@ const ErrorBarTooltip = ({ active, payload, label }) => {
     </div>
   );
 };
-
+ 
 // Gauge-style Rx power bar
 function RxPowerBar({ value, min = -35, max = -5, label }) {
   if (value === null) return null;
@@ -147,51 +147,43 @@ function RxPowerBar({ value, min = -35, max = -5, label }) {
     </div>
   );
 }
-
+ 
 export default function KPIStatistics({ result, filteredOnts, previousReport, subscriberRecords = [] }) {
   const [techFilter, setTechFilter] = useState('All');
-
-  // Displayed technology inventory counts come from the active subscriber CSV,
-  // which is the authoritative source for GPON/XGS-PON totals. If subscriber
-  // records are not loaded yet, fall back to the currently loaded PON PM rows.
+ 
+  // Tech-type totals: always computed from filteredOnts — the actual ONT
+  // records belonging to the currently loaded report — using the identical
+  // model field precedence and model→tech tables as GlobalFilterBar's (known
+  // to be correct) per-model counts. This used to prefer a separate,
+  // independently-uploaded subscriber inventory dataset (filtered down to
+  // ONTRanged rows) whenever one happened to be loaded — but that dataset
+  // isn't tied to any particular PON PM report, so it can silently disagree
+  // with (and override) the report actually on screen. That's what caused the
+  // GPON/XGS-PON chips to diverge from the model filter's totals.
   const techCounts = useMemo(() => {
-    let gpon = 0, xgs = 0;
-
-    if (subscriberRecords?.length > 0) {
-      for (const sub of subscriberRecords) {
-        const rangedRaw = String(sub.ONTRanged ?? '').trim().toLowerCase();
-        const isRanged = rangedRaw === 'true' || rangedRaw === 'yes' || rangedRaw === '1';
-        if (!isRanged) continue;
-
-        const t = resolveTech({ model: sub.ONTModel });
-        if (t === 'GPON') gpon++;
-        else if (t === 'XGS-PON') xgs++;
-      }
-      return { GPON: gpon, 'XGS-PON': xgs, unknown: 0 };
-    }
-
     if (!filteredOnts) return { GPON: 0, 'XGS-PON': 0, unknown: 0 };
+    let gpon = 0, xgs = 0;
     for (const o of filteredOnts) {
       const t = resolveTech(o);
       if (t === 'GPON') gpon++;
       else if (t === 'XGS-PON') xgs++;
     }
     return { GPON: gpon, 'XGS-PON': xgs, unknown: filteredOnts.length - gpon - xgs };
-  }, [filteredOnts, subscriberRecords]);
-
+  }, [filteredOnts]);
+ 
   // Stats for selected tech
   const stats = useMemo(() => {
     if (!filteredOnts) return null;
     const subset = filteredOnts.filter(o => matchesTech(o, techFilter));
     return calcStats(subset);
   }, [filteredOnts, techFilter]);
-
+ 
   // Previous report deltas (GPON/XGS count change)
   const gponDelta = previousReport ? techCounts.GPON - (previousReport.gponCount ?? null) : null;
   const xgsDelta  = previousReport ? techCounts['XGS-PON'] - (previousReport.xgsCount ?? null) : null;
-
+ 
   if (!stats) return null;
-
+ 
   // Chart 1: Critical error counters (small values — share a common scale)
   const criticalErrorData = [
     { name: 'US BIP',   value: stats.totalUsBip,  fill: '#ef4444' },
@@ -200,13 +192,13 @@ export default function KPIStatistics({ result, filteredOnts, previousReport, su
     { name: 'DS FEC U', value: stats.totalDsFec,  fill: '#ea580c' },
     { name: 'HEC',      value: stats.totalUsHec,  fill: '#8b5cf6' },
   ];
-
+ 
   // Chart 2: FEC Corrected (often orders of magnitude larger — needs its own scale)
   const fecCorrectedData = [
     { name: 'US FEC C', value: stats.totalUsFecCor, fill: '#3b82f6' },
     { name: 'DS FEC C', value: stats.totalDsFecCor, fill: '#6366f1' },
   ];
-
+ 
   // Power distribution for radar
   const radarData = [
     { subject: 'Optimal', value: stats.optimalPower, fullMark: stats.count },
@@ -215,14 +207,14 @@ export default function KPIStatistics({ result, filteredOnts, previousReport, su
     { subject: 'Errors', value: stats.ontsWithErrors, fullMark: stats.count },
     { subject: 'Online', value: stats.count - (filteredOnts?.filter(o => matchesTech(o, techFilter) && o._analysis?.status === 'offline').length || 0), fullMark: stats.count },
   ];
-
+ 
   const techColor = techFilter === 'GPON' ? 'blue' : techFilter === 'XGS-PON' ? 'purple' : 'indigo';
   const techColorClasses = {
     blue:   { bg: 'bg-blue-600',   ring: 'ring-blue-400',   light: 'bg-blue-50 dark:bg-blue-900/20',   text: 'text-blue-700 dark:text-blue-300',   stroke: '#3b82f6' },
     purple: { bg: 'bg-purple-600', ring: 'ring-purple-400', light: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-700 dark:text-purple-300', stroke: '#7c3aed' },
     indigo: { bg: 'bg-indigo-600', ring: 'ring-indigo-400', light: 'bg-indigo-50 dark:bg-indigo-900/20', text: 'text-indigo-700 dark:text-indigo-300', stroke: '#4f46e5' },
   }[techColor];
-
+ 
   return (
     <div className="space-y-4">
       {/* Tech Filter Toggle */}
@@ -271,7 +263,7 @@ export default function KPIStatistics({ result, filteredOnts, previousReport, su
           </span>
         )}
       </div>
-
+ 
       {/* KPI Cards Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border-0 shadow">
@@ -292,7 +284,7 @@ export default function KPIStatistics({ result, filteredOnts, previousReport, su
             </div>
           </CardContent>
         </Card>
-
+ 
         <Card className="border-0 shadow">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
@@ -308,7 +300,7 @@ export default function KPIStatistics({ result, filteredOnts, previousReport, su
             )}
           </CardContent>
         </Card>
-
+ 
         <Card className="border-0 shadow">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
@@ -329,7 +321,7 @@ export default function KPIStatistics({ result, filteredOnts, previousReport, su
             </div>
           </CardContent>
         </Card>
-
+ 
         <Card className="border-0 shadow">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
@@ -353,7 +345,7 @@ export default function KPIStatistics({ result, filteredOnts, previousReport, su
           </CardContent>
         </Card>
       </div>
-
+ 
       {/* Charts Row — 3 columns: critical errors | FEC corrected | radar */}
       <div className="grid md:grid-cols-3 gap-4">
         {/* Chart 1: Critical Errors (BIP, FEC Uncorrected, HEC) */}
@@ -389,7 +381,7 @@ export default function KPIStatistics({ result, filteredOnts, previousReport, su
             </div>
           </CardContent>
         </Card>
-
+ 
         {/* Chart 2: FEC Corrected (separate scale — often much larger) */}
         <Card className="border-0 shadow">
           <CardHeader className="pb-1 pt-4 px-4">
@@ -429,7 +421,7 @@ export default function KPIStatistics({ result, filteredOnts, previousReport, su
             </div>
           </CardContent>
         </Card>
-
+ 
         {/* Per-shelf health breakdown */}
         <ShelfHealthPanel filteredOnts={filteredOnts} techFilter={techFilter} />
       </div>
